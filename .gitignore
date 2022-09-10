@@ -1,0 +1,24 @@
+# CMake and build folders.
+bin/*
+build/*
+lib/*
+out/*
+CMakeSettings.json
+vcpkg_installed/*
+cmake-build-*/
+
+# IDE specific folders
+.idea/*
+.vscode/*
+.vs/*
+
+# Binary files
+*.exe
+*.dll
+*.lib
+*.a
+*.dylib
+**/.DS_Store
+
+# Dependencies
+simdjson/
