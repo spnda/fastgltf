@@ -18,6 +18,14 @@ namespace fastgltf {
     };
 }
 
+fg::Parser::Parser() noexcept {
+    jsonParser = new simdjson::ondemand::parser();
+}
+
+fg::Parser::~Parser() {
+    delete static_cast<simdjson::ondemand::parser*>(jsonParser);
+}
+
 std::tuple<bool, size_t, fg::Error> iterateOverArray(simdjson::ondemand::object parentObject, std::string_view arrayName,
                                                      const std::function<bool(simdjson::simdjson_result<simdjson::ondemand::value>&)>& callback) {
     using namespace simdjson;
@@ -100,14 +108,15 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
     // readFile already adds SIMDJSON_PADDING to the size.
     std::vector<uint8_t> fileBytes;
-    if (!readFile(path, fileBytes)) {
+    if (!readJsonFile(path, fileBytes)) {
         return false;
     }
 
     // Use an ondemand::parser to parse the JSON.
     auto data = std::make_unique<ParserData>();
-    ondemand::parser jsonParser;
-    if (jsonParser.iterate(fileBytes.data(), fileBytes.size() - simdjson::SIMDJSON_PADDING, fileBytes.size()).get(data->doc) != SUCCESS) {
+    if (static_cast<ondemand::parser*>(jsonParser)->iterate(
+            fileBytes.data(), fileBytes.size() - simdjson::SIMDJSON_PADDING,
+            fileBytes.size()).get(data->doc) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return false;
     }
@@ -136,7 +145,7 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
     // Parse buffers array
     {
-        auto [foundBuffers, bufferCount, bufferError] = iterateOverArray(data->root, "buffers", [this](auto& value) mutable -> bool {
+        auto [foundBuffers, bufferCount, bufferError] = iterateOverArray(data->root, "buffers", [this, &path](auto& value) mutable -> bool {
             // Required fields: "byteLength"
             Buffer buffer = {};
             ondemand::object bufferObject;
@@ -150,6 +159,12 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
             // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
             // file. Otherwise, data must be specified in the "uri" field.
+            std::string_view uri;
+            if (bufferObject["uri"].get_string().get(uri) == SUCCESS) {
+                buffer.path = path.parent_path() / uri;
+            } else {
+                buffer.path.clear();
+            }
 
             // name is optional.
             std::string_view name;
@@ -266,17 +281,85 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
         }
     }
 
+    {
+        auto [foundImages, imageCount, imageError] = iterateOverArray(data->root, "images", [this](auto& value) mutable -> bool {
+            Image image;
+            ondemand::object imageObject;
+            if (value.get_object().get(imageObject) != SUCCESS) {
+                return false;
+            }
+
+            std::string_view uri;
+            if (imageObject["uri"].get_string().get(uri) != SUCCESS) {
+
+            } else {
+                if (imageObject["bufferView"].error() == SUCCESS) {
+                    // If uri is declared, bufferView cannot be declared.
+                    return false;
+                }
+            }
+
+            // name is optional.
+            std::string_view name;
+            imageObject["name"].get_string().get(name);
+            image.name = std::string { name };
+
+            parsedAsset->images.emplace_back(std::move(image));
+            return true;
+        });
+
+        if (!foundImages && imageError != fg::Error::None) {
+            errorCode = imageError;
+            return false;
+        }
+    }
+
+    {
+        auto [foundTextures, textureCount, textureError] = iterateOverArray(data->root, "textures", [this](auto& value) mutable -> bool {
+            Texture texture;
+            ondemand::object textureObject;
+            if (value.get_object().get(textureObject) != SUCCESS) {
+                return false;
+            }
+
+            // The index of the image used by this texture. When undefined, an extension or other
+            // mechanism SHOULD supply an alternate texture source, otherwise behavior is undefined.
+            if (textureObject["source"].get_uint64().get(texture.imageIndex) != SUCCESS) {
+                return false;
+            }
+
+            // The index of the sampler used by this texture. When undefined, a sampler with
+            // repeat wrapping and auto filtering SHOULD be used.
+            if (textureObject["sampler"].get_uint64().get(texture.imageIndex) != SUCCESS) {
+                texture.samplerIndex = std::numeric_limits<size_t>::max();
+            }
+
+            // name is optional.
+            std::string_view name;
+            textureObject["name"].get_string().get(name);
+            texture.name = std::string { name };
+
+            parsedAsset->textures.emplace_back(std::move(texture));
+            return true;
+        });
+
+        if (!foundTextures && textureError != fg::Error::None) {
+            errorCode = textureError;
+            return false;
+        }
+    }
+
     // Parse meshes array
     {
         auto [foundMeshes, meshCount, meshError] = iterateOverArray(data->root, "meshes", [this](auto& value) mutable -> bool {
             // Required fields: "primitives"
+            Mesh mesh;
             ondemand::object meshObject;
             if (value.get_object().get(meshObject) != SUCCESS) {
                 return false;
             }
 
-            std::vector<Primitive> primitives;
-            auto [foundPrimitives, primitiveCount, primitiveError] = iterateOverArray(meshObject, "primitives", [&primitives](auto& value) mutable -> bool {
+            auto [foundPrimitives, primitiveCount, primitiveError] = iterateOverArray(meshObject, "primitives", [&primitives = mesh.primitives](auto& value) mutable -> bool {
                 // Required fields: "attributes"
                 Primitive primitive = {};
                 ondemand::object primitiveObject;
@@ -334,11 +417,9 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
             // name is optional.
             std::string_view name;
             meshObject["name"].get_string().get(name);
+            mesh.name = std::string { name };
 
-            parsedAsset->meshes.emplace_back(Mesh {
-                std::string { name },
-                std::move(primitives),
-            });
+            parsedAsset->meshes.emplace_back(std::move(mesh));
             return true;
         });
 
@@ -359,11 +440,11 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
             if (nodeObject["mesh"].get_uint64().get(node.meshIndex) != SUCCESS) {
                 node.meshIndex = std::numeric_limits<size_t>::max();
-            }
-
-            // Verify that the index is valid.
-            if (node.meshIndex >= parsedAsset->meshes.size()) {
-                return false;
+            } else {
+                // Verify that the index is valid.
+                if (node.meshIndex >= parsedAsset->meshes.size()) {
+                    return false;
+                }
             }
 
             ondemand::array matrix;
@@ -464,7 +545,7 @@ bool fg::Parser::loadBinaryGlTF(fs::path path, Options options) {
     return true;
 }
 
-bool fg::Parser::readFile(std::filesystem::path& path, std::vector<uint8_t>& bytes) {
+bool fg::Parser::readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes) {
     if (!fs::exists(path)) {
         errorCode = Error::NonExistentPath;
         return false;

@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <unordered_map>
 
+#include "fastgltf_util.hpp"
+
 namespace fastgltf {
 #pragma region Enums
     // clang-format off
@@ -70,6 +72,7 @@ namespace fastgltf {
     // clang-format on
 #pragma endregion
 
+#pragma region ConversionFunctions
     constexpr uint32_t getNumComponents(AccessorType type) noexcept {
         return (static_cast<uint16_t>(type) >> 8) & 0xFF;
     }
@@ -121,7 +124,9 @@ namespace fastgltf {
         }
         return AccessorType::Invalid;
     }
+#pragma endregion
 
+#pragma region Structs
     struct Scene {
         std::string name;
         std::vector<size_t> nodeIndices;
@@ -147,6 +152,21 @@ namespace fastgltf {
         std::vector<Primitive> primitives;
     };
 
+    struct Texture {
+        size_t imageIndex;
+        // if numeric_limits<size_t>::max, use a default sampler with repeat wrap and auto filter
+        size_t samplerIndex;
+        std::string name;
+    };
+
+    struct Image {
+        std::string name;
+        std::filesystem::path path;
+
+        size_t bufferViewIndex;
+        std::string mimeType;
+    };
+
     struct Accessor {
         size_t bufferViewIndex;
         size_t byteOffset;
@@ -162,27 +182,31 @@ namespace fastgltf {
         size_t bufferIndex;
         size_t byteOffset;
         size_t byteLength;
-        BufferTarget target;
+        BufferTarget target = BufferTarget::ArrayBuffer;
         std::string name;
     };
 
     struct Buffer {
         size_t byteLength;
+        std::filesystem::path path;
         std::string name;
     };
 
     struct Asset {
         // A value of std::numeric_limits<size_t>::max() indicates no default scene.
-        size_t defaultScene;
+        size_t defaultScene = std::numeric_limits<size_t>::max();
         std::vector<Scene> scenes;
         std::vector<Node> nodes;
         std::vector<Mesh> meshes;
         std::vector<Accessor> accessors;
         std::vector<BufferView> bufferViews;
         std::vector<Buffer> buffers;
+        std::vector<Texture> textures;
+        std::vector<Image> images;
 
         explicit Asset() = default;
         explicit Asset(const Asset& scene) = delete;
         Asset& operator=(const Asset& scene) = delete;
     };
+#pragma endregion
 }

@@ -3,6 +3,7 @@ project(fastgltf)
 set(CMAKE_CXX_STANDARD 17)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
+include(FetchContent)
 
 set(SIMDJSON_TARGET_VERSION "2.2.2")
 set(SIMDJSON_HEADER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h")
@@ -27,13 +28,18 @@ else()
     download_simdjson()
 endif()
 
+# Note that simdjson automatically figures out which SIMD intrinsics to use at runtime based on
+# cpuid, meaning no architecture flags or other compile flags need to be passed.
+# See https://github.com/simdjson/simdjson/blob/master/doc/implementation-selection.md.
+string(APPEND CMAKE_CXX_FLAGS_RELEASE " /Ob2 /O2")
+
 add_library(fastgltf_simdjson ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h)
 target_compile_features(fastgltf_simdjson PUBLIC cxx_std_17)
 target_include_directories(fastgltf_simdjson PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/)
 
 add_library(fastgltf src/fastgltf.cpp src/fastgltf_parser.hpp src/fastgltf_types.hpp)
 target_include_directories(fastgltf PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_compile_features(fastgltf_simdjson PUBLIC cxx_std_17)
+target_compile_features(fastgltf PUBLIC cxx_std_17)
 target_link_libraries(fastgltf PRIVATE fastgltf_simdjson)
 
 add_subdirectory(tests)

@@ -22,3 +22,6 @@ cmake-build-*/
 
 # Dependencies
 simdjson/
+
+# Test files
+tests/gltf/intel_sponza/

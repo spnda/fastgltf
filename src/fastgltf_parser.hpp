@@ -39,12 +39,16 @@ namespace fastgltf {
     }
 
     /**
-     * A parser for one or more glTF files.
+     * A parser for one or more glTF files. It uses a SIMD based JSON parser to maximize efficiency
+     * and performance at runtime.
      *
-     * @note This is not thread-safe and only one glTF can be parsed at a time.
+     * @note This class is not thread-safe.
      */
     class Parser {
         std::unique_ptr<Asset> parsedAsset;
+        // The simdjson parser object. We want to share it between runs so it does not need to
+        // reallocate over and over again.
+        void* jsonParser;
 
         Error errorCode = Error::None;
 
@@ -53,10 +57,14 @@ namespace fastgltf {
          * Checks if the path has an extension, whether it matches the given extension string.
          */
         bool checkFileExtension(std::filesystem::path& path, std::string_view extension);
-        bool readFile(std::filesystem::path& path, std::vector<uint8_t>& bytes);
+        bool readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes);
 
     public:
-        explicit Parser() noexcept = default;
+        explicit Parser() noexcept;
+        ~Parser();
+
+        explicit Parser(const Parser& scene) = delete;
+        Parser& operator=(const Parser& scene) = delete;
 
         /**
          * Returns the error that made the parsing fail.

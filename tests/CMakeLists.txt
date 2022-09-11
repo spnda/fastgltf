@@ -1,5 +1,3 @@
-# We'll simply use FetchContent for Catch2
-include(FetchContent)
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
