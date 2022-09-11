@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "fastgltf_util.hpp"
@@ -13,6 +14,7 @@ namespace fastgltf {
     enum class AccessorType : uint16_t;
     enum class ComponentType : uint32_t;
     enum class DataLocation : uint8_t;
+    enum class MimeType : uint8_t;
 
     enum class Error : uint32_t {
         None = 0,
@@ -60,12 +62,14 @@ namespace fastgltf {
 
         Error errorCode = Error::None;
 
+        static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
+
         bool checkAssetField(ParserData* data);
         /**
          * Checks if the path has an extension, whether it matches the given extension string.
          */
         bool checkFileExtension(std::filesystem::path& path, std::string_view extension);
-        std::tuple<Error, DataSource, DataLocation> decodeUri(std::string_view uri);
+        [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
         bool readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes);
 
     public:

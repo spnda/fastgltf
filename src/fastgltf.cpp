@@ -83,7 +83,7 @@ bool fg::Parser::checkFileExtension(fs::path& path, std::string_view extension) 
     return true;
 }
 
-std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::Parser::decodeUri(std::string_view uri) {
+std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::Parser::decodeUri(std::string_view uri) const {
     if (uri.substr(0, 4) == "data") {
         // This is a data URI.
         auto index =  uri.find(';');
@@ -107,7 +107,7 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::Parser::decodeUri(st
         }
 
         fg::DataSource source = {};
-        source.mimeType = std::string { uri.substr(5, index - 5) };
+        source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
         source.bytes = std::move(data);
         return std::make_tuple(Error::None, source, fg::DataLocation::VectorWithMime);
     } else {
@@ -127,6 +127,31 @@ std::unique_ptr<fg::Asset> fg::Parser::getParsedAsset() {
         return nullptr;
     }
     return std::move(parsedAsset);
+}
+
+constexpr std::string_view mimeTypeJpeg = "image/jpeg";
+constexpr std::string_view mimeTypePng = "image/png";
+constexpr std::string_view mimeTypeKtx = "image/ktx2";
+constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
+constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
+constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+
+fastgltf::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
+    if (mime == mimeTypeJpeg) {
+        return MimeType::JPEG;
+    } else if (mime == mimeTypePng) {
+        return MimeType::PNG;
+    } else if (mime == mimeTypeKtx) {
+        return MimeType::KTX2;
+    } else if (mime == mimeTypeDds) {
+        return MimeType::DDS;
+    } else if (mime == mimeTypeGltfBuffer) {
+        return MimeType::GltfBuffer;
+    } else if (mime == mimeTypeOctetStream) {
+        return MimeType::OctetStream;
+    } else {
+        return MimeType::None;
+    }
 }
 
 bool fg::Parser::loadGlTF(fs::path path, Options options) {
@@ -357,6 +382,11 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
                 image.data = source;
                 image.location = location;
+
+                std::string_view mimeType;
+                if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) {
+                    image.data.mimeType = getMimeTypeFromString(mimeType);
+                }
             }
 
             size_t bufferViewIndex;
@@ -368,7 +398,7 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
                 }
 
                 image.data.bufferViewIndex = bufferViewIndex;
-                image.data.mimeType = std::string { mimeType };
+                image.data.mimeType = getMimeTypeFromString(mimeType);
             }
 
             if (image.location == DataLocation::None) {
@@ -399,15 +429,65 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
                 return false;
             }
 
+            bool hasExtensions = false;
+            ondemand::object extensionsObject;
+            if (textureObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
+                hasExtensions = true;
+            }
+
+            auto getImageIndexForExtension = [](ondemand::object& object, bool& fail) -> size_t {
+                // Both KHR_texture_basisu and MSFT_texture_dds allow specifying an alternative
+                // image source index.
+                ondemand::object sourceExtensionObject;
+                if (object["KHR_texture_basisu"].get_object().get(sourceExtensionObject) != SUCCESS) {
+                    if (object["MSFT_texture_dds"].get_object().get(sourceExtensionObject) != SUCCESS) {
+                        fail = true;
+                        return 0;
+                    }
+                }
+
+                // Check if the extension object provides a source index.
+                size_t imageIndex;
+                if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
+                    fail = true;
+                    return 0;
+                }
+
+                fail = false;
+                return imageIndex;
+            };
+
             // The index of the image used by this texture. When undefined, an extension or other
             // mechanism SHOULD supply an alternate texture source, otherwise behavior is undefined.
             if (textureObject["source"].get_uint64().get(texture.imageIndex) != SUCCESS) {
-                return false;
+                if (!hasExtensions) {
+                    return false;
+                }
+
+                bool fail = false;
+                size_t imageIndex = getImageIndexForExtension(extensionsObject, fail);
+                if (fail) {
+                    return false;
+                }
+
+                // There is no fallback, as none was provided.
+                texture.fallbackImageIndex = std::numeric_limits<size_t>::max();
+                texture.imageIndex = imageIndex;
+            } else if (hasExtensions) {
+                bool fail;
+                size_t imageIndex = getImageIndexForExtension(extensionsObject, fail);
+                if (!fail) {
+                    // The texture object has a source index. However, an extension has overriden it.
+                    texture.fallbackImageIndex = texture.imageIndex;
+                    texture.imageIndex = imageIndex;
+                } else {
+                    texture.fallbackImageIndex = std::numeric_limits<size_t>::max();
+                }
             }
 
             // The index of the sampler used by this texture. When undefined, a sampler with
             // repeat wrapping and auto filtering SHOULD be used.
-            if (textureObject["sampler"].get_uint64().get(texture.imageIndex) != SUCCESS) {
+            if (textureObject["sampler"].get_uint64().get(texture.samplerIndex) != SUCCESS) {
                 texture.samplerIndex = std::numeric_limits<size_t>::max();
             }
 

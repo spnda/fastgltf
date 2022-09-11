@@ -1,12 +1,10 @@
-#include <iostream>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
 
-TEST_CASE("Component type tests") {
+TEST_CASE("Component type tests", "[gltf-loader]") {
     using namespace fastgltf;
 
     // clang-format off
@@ -36,9 +34,9 @@ TEST_CASE("Component type tests") {
     REQUIRE(fastgltf::getComponentType(5130) == ComponentType::Double);
     REQUIRE(fastgltf::getComponentType(5131) == ComponentType::Invalid);
     // clang-format on
-}
+};
 
-TEST_CASE("Loading some basic glTF") {
+TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
     // We need to use the __FILE__ macro so that we have access to test glTF files in this
     // directory. As Clang does not yet fully support std::source_location, we cannot use that.
     auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
@@ -75,8 +73,13 @@ TEST_CASE("Loading some basic glTF") {
         REQUIRE(cube->bufferViews.size() == 5);
         REQUIRE(cube->buffers.size() == 1);
     }
+};
 
+TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
+    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
     auto intel = path / "intel_sponza" / "NewSponza_Main_glTF_002.gltf";
+
+    fastgltf::Parser parser;
 
     BENCHMARK("Load newsponza with SIMD") {
         return parser.loadGlTF(intel, fastgltf::Options::None);
@@ -86,3 +89,25 @@ TEST_CASE("Loading some basic glTF") {
         return parser.loadGlTF(intel, fastgltf::Options::DontUseSIMD);
     };
 }
+
+TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
+    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
+    auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU" / "StainedGlassLamp.gltf";
+
+    fastgltf::Parser parser;
+    REQUIRE(parser.loadGlTF(stainedLamp, fastgltf::Options::None));
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+
+    auto asset = parser.getParsedAsset();
+    REQUIRE(asset->textures.size() == 19);
+    REQUIRE(!asset->images.empty());
+
+    auto& texture = asset->textures[1];
+    REQUIRE(texture.imageIndex == 1);
+    REQUIRE(texture.samplerIndex == 0);
+    REQUIRE(texture.fallbackImageIndex == std::numeric_limits<size_t>::max());
+
+    auto& image = asset->images.front();
+    REQUIRE(image.location == fastgltf::DataLocation::FilePathWithByteRange);
+    REQUIRE(image.data.mimeType == fastgltf::MimeType::KTX2);
+};

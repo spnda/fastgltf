@@ -70,6 +70,16 @@ namespace fastgltf {
         ArrayBuffer = 34962,
         ElementArrayBuffer = 34963,
     };
+
+    enum class MimeType : uint8_t {
+        None = 0,
+        JPEG = 1,
+        PNG = 2,
+        KTX2 = 3,
+        DDS = 4,
+        GltfBuffer = 5,
+        OctetStream = 6,
+    };
     // clang-format on
 #pragma endregion
 
@@ -147,7 +157,7 @@ namespace fastgltf {
         std::vector<uint8_t> bytes;
 
         // Defined if DataLocation::BufferViewWithMime or VectorWithMime
-        std::string mimeType;
+        MimeType mimeType;
     };
 
     struct Scene {
@@ -177,6 +187,11 @@ namespace fastgltf {
 
     struct Texture {
         size_t imageIndex;
+
+        // If the imageIndex is specified by the KTX2 or DDS glTF extensions, this is supposed to
+        // be used as a fallback.
+        size_t fallbackImageIndex;
+
         // if numeric_limits<size_t>::max, use a default sampler with repeat wrap and auto filter
         size_t samplerIndex;
         std::string name;
