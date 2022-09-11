@@ -2,14 +2,17 @@
 
 #include <filesystem>
 #include <memory>
+#include <utility>
 
 #include "fastgltf_util.hpp"
 
 namespace fastgltf {
-    class Asset;
+    struct Asset;
     struct ParserData;
+    struct DataSource;
     enum class AccessorType : uint16_t;
     enum class ComponentType : uint32_t;
+    enum class DataLocation : uint8_t;
 
     enum class Error : uint32_t {
         None = 0,
@@ -46,8 +49,11 @@ namespace fastgltf {
      */
     class Parser {
         std::unique_ptr<Asset> parsedAsset;
-        // The simdjson parser object. We want to share it between runs so it does not need to
-        // reallocate over and over again.
+
+        std::filesystem::path currentDirectory;
+
+        // The simdjson parser object. We want to share it between runs, so it does not need to
+        // reallocate over and over again. We're hiding it here to not leak the simdjson header.
         void* jsonParser;
 
         Error errorCode = Error::None;
@@ -57,6 +63,7 @@ namespace fastgltf {
          * Checks if the path has an extension, whether it matches the given extension string.
          */
         bool checkFileExtension(std::filesystem::path& path, std::string_view extension);
+        std::tuple<Error, DataSource, DataLocation> decodeUri(std::string_view uri);
         bool readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes);
 
     public:

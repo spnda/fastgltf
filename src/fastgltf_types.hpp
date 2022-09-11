@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <unordered_map>
 
 #include "fastgltf_util.hpp"
@@ -127,6 +128,28 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Structs
+    enum class DataLocation : uint8_t {
+        // This should never occur.
+        None = 0,
+        VectorWithMime,
+        BufferViewWithMime,
+        FilePathWithByteRange,
+    };
+
+    struct DataSource {
+        // Corresponds to DataLocation::BufferViewWithMime
+        size_t bufferViewIndex;
+
+        // Corresponds to DataLocation::FilePathWithByteRange
+        std::filesystem::path path;
+
+        // Corresponds to DataLocation::VectorWithMime
+        std::vector<uint8_t> bytes;
+
+        // Defined if DataLocation::BufferViewWithMime or VectorWithMime
+        std::string mimeType;
+    };
+
     struct Scene {
         std::string name;
         std::vector<size_t> nodeIndices;
@@ -161,10 +184,9 @@ namespace fastgltf {
 
     struct Image {
         std::string name;
-        std::filesystem::path path;
 
-        size_t bufferViewIndex;
-        std::string mimeType;
+        DataLocation location;
+        DataSource data;
     };
 
     struct Accessor {
@@ -188,8 +210,10 @@ namespace fastgltf {
 
     struct Buffer {
         size_t byteLength;
-        std::filesystem::path path;
         std::string name;
+
+        DataLocation location;
+        DataSource data;
     };
 
     struct Asset {

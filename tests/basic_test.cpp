@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include "fastgltf_parser.hpp"
@@ -71,5 +73,27 @@ TEST_CASE("Loading some basic glTF") {
 
         REQUIRE(cube->bufferViews.size() == 5);
         REQUIRE(cube->buffers.size() == 1);
+    }
+
+    auto intel = path / "intel_sponza" / "NewSponza_Main_glTF_002.gltf";
+
+    SECTION("Test load newsponza", "[newsponza_bench]") {
+        constexpr auto sampleCount = 10U;
+        std::array<std::chrono::duration<float, std::milli>, sampleCount> durations;
+        for (auto i = 0U; i < sampleCount; ++i) {
+            auto start = std::chrono::high_resolution_clock::now();
+
+            parser.loadGlTF(intel, fastgltf::Options::None);
+
+            auto end = std::chrono::high_resolution_clock::now();
+            durations[i] = end - start;
+        }
+
+        float average = durations[0].count();
+        for (auto i = 1U; i < sampleCount; ++i)
+            average += durations[i].count();
+        average /= sampleCount;
+
+        std::cout << "fastgltf avg parsing: " << average << "ms." << std::endl;
     }
 }
