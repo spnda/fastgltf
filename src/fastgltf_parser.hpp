@@ -30,6 +30,7 @@ namespace fastgltf {
         AllowDouble                     = 1 << 0,
         DontRequireValidAssetMember     = 1 << 1,
         IgnoreFileExtension             = 1 << 2,
+        DontUseSIMD                     = 1 << 3, // This is just for benchmarking
     };
     // clang-format on
 
@@ -51,6 +52,7 @@ namespace fastgltf {
         std::unique_ptr<Asset> parsedAsset;
 
         std::filesystem::path currentDirectory;
+        Options currentOptions;
 
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.

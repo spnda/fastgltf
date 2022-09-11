@@ -99,7 +99,12 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::Parser::decodeUri(st
 
         // Decode the base64 data.
         auto encodedData = uri.substr(encodingEnd);
-        auto data = base64::decode(encodedData);
+        std::vector<uint8_t> data;
+        if (hasBit(currentOptions, Options::DontUseSIMD)) {
+            data = base64::fallback_decode(encodedData);
+        } else {
+            data = base64::decode(encodedData);
+        }
 
         fg::DataSource source = {};
         source.mimeType = std::string { uri.substr(5, index - 5) };
@@ -132,8 +137,9 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
     }
 
     errorCode = Error::None;
+    currentOptions = options;
 
-    if (!hasBit(options, Options::IgnoreFileExtension) && !checkFileExtension(path, ".gltf")) {
+    if (!hasBit(currentOptions, Options::IgnoreFileExtension) && !checkFileExtension(path, ".gltf")) {
         return false;
     }
 
@@ -148,6 +154,11 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
     // Use an ondemand::parser to parse the JSON.
     auto data = std::make_unique<ParserData>();
     auto* parser = static_cast<ondemand::parser*>(jsonParser);
+
+    if (hasBit(currentOptions, Options::DontUseSIMD)) {
+        simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
+    }
+
     if (parser->iterate(
             fileBytes.data(), fileBytes.size() - simdjson::SIMDJSON_PADDING,
             fileBytes.size()).get(data->doc) != SUCCESS) {
@@ -163,7 +174,7 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
     parsedAsset = std::make_unique<Asset>();
 
-    if (!hasBit(options, Options::DontRequireValidAssetMember)) {
+    if (!hasBit(currentOptions, Options::DontRequireValidAssetMember)) {
         if (!checkAssetField(data.get())) {
             return false;
         }
@@ -281,6 +292,9 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
                 return false;
             } else {
                 accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
+                if (accessor.componentType == ComponentType::Double && !hasBit(currentOptions, Options::AllowDouble)) {
+                    return false;
+                }
             }
 
             std::string_view accessorType;
