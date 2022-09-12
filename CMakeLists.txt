@@ -27,6 +27,10 @@ if (EXISTS ${SIMDJSON_HEADER_FILE})
 else()
     message(STATUS "fastgltf: Did not find simdjson, downloading...")
     download_simdjson()
+
+    if (NOT EXISTS "${SIMDJSON_HEADER_FILE}")
+        message(FATAL_ERROR "Failed to download simdjson.")
+    endif()
 endif()
 
 add_library(fastgltf_simdjson ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h)

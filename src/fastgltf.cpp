@@ -625,6 +625,7 @@ bool fg::Parser::parseJson(fastgltf::ParserData* data) {
             }
 
             auto [foundPrimitives, primitiveError] = iterateOverArray(meshObject, "primitives", [&primitives = mesh.primitives](auto& value) mutable -> bool {
+                using namespace simdjson; // Why MSVC?
                 // Required fields: "attributes"
                 Primitive primitive = {};
                 ondemand::object primitiveObject;
