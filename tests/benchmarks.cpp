@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -27,13 +29,21 @@ TEST_CASE("Benchmark AVX vs fallback base64 decoding", "[base64-benchmark]") {
     std::string bufferData;
 
     auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded" / "2CylinderEngine.gltf";
+    auto parent = cylinderEngine.parent_path().string();
 
-    BENCHMARK("Large buffer decode with AVX") {
-        return parser.loadGLTF(cylinderEngine, fastgltf::Options::None);
+    std::ifstream file(cylinderEngine, std::ios::ate | std::ios::binary);
+    auto fileSize = file.tellg();
+
+    std::vector<uint8_t> bytes(static_cast<size_t>(fileSize));
+    file.seekg(0, std::ifstream::beg);
+    file.read(reinterpret_cast<char*>(bytes.data()), fileSize);
+
+    BENCHMARK("2CylinderEngine decode with AVX") {
+        return parser.loadGLTF(bytes.data(), bytes.size(), cylinderEngine.parent_path(), fastgltf::Options::None);
     };
 
-    BENCHMARK("Large buffer decode without SIMD") {
-        return parser.loadGLTF(cylinderEngine, fastgltf::Options::DontUseSIMD);
+    BENCHMARK("2CylinderEngine decode without SIMD") {
+        return parser.loadGLTF(bytes.data(), bytes.size(), cylinderEngine.parent_path(), fastgltf::Options::DontUseSIMD);
     };
 };
 

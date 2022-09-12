@@ -100,6 +100,8 @@ namespace fastgltf {
          */
         bool checkFileExtension(std::filesystem::path& path, std::string_view extension);
         [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
+        // This parses the full glTF data stored in the JSON document.
+        bool parseJson(ParserData* data);
         bool readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes);
 
     public:
@@ -126,6 +128,13 @@ namespace fastgltf {
         bool loadGLTF(std::filesystem::path path, Options options = Options::None);
 
         bool loadGLTF(std::string_view path, Options options = Options::None);
+
+        /**
+         * Loads a glTF file from pre-loaded bytes representing a JSON file.
+         */
+        bool loadGLTF(uint8_t* bytes, size_t byteCount, std::filesystem::path directory, Options options = Options::None);
+
+        bool loadGLTF(uint8_t* bytes, size_t byteCount, std::string_view directory, Options options = Options::None);
 
         /**
          * Loads a glTF file stored in a GLB container ending with the .glb extension.

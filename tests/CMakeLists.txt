@@ -10,5 +10,6 @@ add_executable(tests EXCLUDE_FROM_ALL)
 target_compile_features(tests PRIVATE cxx_std_20)
 target_link_libraries(tests PRIVATE fastgltf)
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
+compiler_flags(TARGET tests)
 
 add_source_directory(TARGET tests FOLDER ".")

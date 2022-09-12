@@ -29,7 +29,7 @@ fg::Parser::~Parser() {
 }
 
 std::tuple<bool, fg::Error> iterateOverArray(simdjson::ondemand::object parentObject, std::string_view arrayName,
-                                                     const std::function<bool(simdjson::simdjson_result<simdjson::ondemand::value>&)>& callback) {
+                                             const std::function<bool(simdjson::simdjson_result<simdjson::ondemand::value>&)>& callback) {
     using namespace simdjson;
 
     ondemand::array array;
@@ -234,8 +234,8 @@ bool fg::Parser::loadGLTF(fs::path path, Options options) {
     }
 
     if (parser->iterate(
-            fileBytes.data(), fileBytes.size() - simdjson::SIMDJSON_PADDING,
-            fileBytes.size()).get(data->doc) != SUCCESS) {
+        fileBytes.data(), fileBytes.size() - simdjson::SIMDJSON_PADDING,
+        fileBytes.size()).get(data->doc) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return false;
     }
@@ -254,6 +254,95 @@ bool fg::Parser::loadGLTF(fs::path path, Options options) {
         }
     }
 
+    if (!parseJson(data.get())) {
+        return false;
+    }
+    return true;
+}
+
+bool fg::Parser::loadGLTF(std::string_view path, fastgltf::Options options) {
+    fs::path parsed = { path };
+    if (parsed.empty() || !fs::exists(parsed)) {
+        errorCode = Error::InvalidPath;
+        return false;
+    }
+    return loadGLTF(parsed, options);
+}
+
+bool fg::Parser::loadGLTF(uint8_t* bytes, size_t byteCount, fs::path directory, Options options) {
+    using namespace simdjson;
+
+    if (parsedAsset != nullptr) {
+        parsedAsset.reset();
+    }
+
+    if (!fs::is_directory(directory)) {
+        errorCode = Error::InvalidPath;
+        return false;
+    }
+
+    errorCode = Error::None;
+    currentOptions = options;
+    currentDirectory = std::move(directory);
+
+    auto data = std::make_unique<ParserData>();
+    auto* parser = static_cast<ondemand::parser*>(jsonParser);
+
+    if (hasBit(currentOptions, Options::DontUseSIMD)) {
+        simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
+    }
+
+    // simdjson expects a small bit of padding. We sadly have to reallocate.
+    std::vector<uint8_t> paddedBytes(byteCount + SIMDJSON_PADDING);
+    std::memcpy(paddedBytes.data(), bytes, byteCount);
+
+    if (parser->iterate(paddedBytes.data(), byteCount, paddedBytes.size()).get(data->doc) != SUCCESS) {
+        errorCode = Error::InvalidJson;
+        return false;
+    }
+
+    // Get the root object
+    if (data->doc.get_object().get(data->root) != SUCCESS) {
+        errorCode = Error::InvalidJson;
+        return false;
+    }
+
+    parsedAsset = std::make_unique<Asset>();
+
+    if (!hasBit(currentOptions, Options::DontRequireValidAssetMember)) {
+        if (!checkAssetField(data.get())) {
+            return false;
+        }
+    }
+
+    if (!parseJson(data.get())) {
+        return false;
+    }
+    return true;
+}
+
+bool fg::Parser::loadGLTF(uint8_t* bytes, size_t byteCount, std::string_view directory, Options options) {
+    fs::path parsed = { directory };
+    if (parsed.empty() || !fs::is_directory(parsed)) {
+        errorCode = Error::InvalidPath;
+        return false;
+    }
+    return loadGLTF(bytes, byteCount, parsed, options);
+}
+
+bool fg::Parser::loadBinaryGLTF(fs::path path, Options options) {
+    errorCode = Error::None;
+
+    if (!checkFileExtension(path, ".glb")) {
+        return false;
+    }
+
+    return true;
+}
+
+bool fg::Parser::parseJson(fastgltf::ParserData* data) {
+    using namespace simdjson;
+
     // Get the default scene index
     {
         uint64_t sceneIndex = std::numeric_limits<size_t>::max();
@@ -264,7 +353,7 @@ bool fg::Parser::loadGLTF(fs::path path, Options options) {
 
     // Parse buffers array
     {
-        auto [foundBuffers, bufferError] = iterateOverArray(data->root, "buffers", [this, &path](auto& value) mutable -> bool {
+        auto [foundBuffers, bufferError] = iterateOverArray(data->root, "buffers", [this](auto& value) mutable -> bool {
             // Required fields: "byteLength"
             Buffer buffer = {};
             ondemand::object bufferObject;
@@ -294,8 +383,9 @@ bool fg::Parser::loadGLTF(fs::path path, Options options) {
 
             // name is optional.
             std::string_view name;
-            bufferObject["name"].get_string().get(name);
-            buffer.name = std::string { name };
+            if (bufferObject["name"].get_string().get(name) == SUCCESS) {
+                buffer.name = std::string { name };
+            }
 
             parsedAsset->buffers.emplace_back(std::move(buffer));
             return true;
@@ -412,7 +502,7 @@ bool fg::Parser::loadGLTF(fs::path path, Options options) {
 
     // Parse images array
     {
-        auto [foundImages, imageError] = iterateOverArray(data->root, "images", [this, &path](auto& value) mutable -> bool {
+        auto [foundImages, imageError] = iterateOverArray(data->root, "images", [this](auto& value) mutable -> bool {
             Image image;
             ondemand::object imageObject;
             if (value.get_object().get(imageObject) != SUCCESS) {
@@ -705,25 +795,6 @@ bool fg::Parser::loadGLTF(fs::path path, Options options) {
                 return false;
             }
         }
-    }
-
-    return true;
-}
-
-bool fg::Parser::loadGLTF(std::string_view path, fastgltf::Options options) {
-    fs::path parsed = { path };
-    if (parsed.empty() || !fs::exists(parsed)) {
-        errorCode = Error::InvalidPath;
-        return false;
-    }
-    return loadGLTF(parsed, options);
-}
-
-bool fg::Parser::loadBinaryGLTF(fs::path path, Options options) {
-    errorCode = Error::None;
-
-    if (!checkFileExtension(path, ".glb")) {
-        return false;
     }
 
     return true;

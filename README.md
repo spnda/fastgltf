@@ -5,6 +5,8 @@ glTF parsers, it does not automatically load textures and load GLB binaries to a
 optimise to their liking. It does, however, load embedded data and also decodes base64 encoded
 buffers.
 
+By utilising simdjson, this library can take advantage of SSE4, AVX2, AVX512, and ARM Neon.
+
 ## Usage
 
 The project uses a fairly simple CMake 3.10 script, which you can simply add as a subdirectory.
@@ -19,7 +21,7 @@ void load(std::filesystem::path path) {
     fastgltf::Parser parser;
     
     // This loads the glTF file.
-    parser.loadGlTF(path, fastgltf::Options::None);
+    parser.loadGLTF(path, fastgltf::Options::None);
     
     // You obtain the asset with this call. This can only be done once.
     std::unique_ptr<fastgltf::Asset> asset = parser.getParsedAsset();
@@ -29,6 +31,16 @@ void load(std::filesystem::path path) {
 All the nodes, meshes, buffers, textures, ... can now be accessed through the `fastgltf::Asset`
 type. References in between objects are done with a single `size_t`, which is used to index into
 the various vectors in the asset.
+
+## Performance
+
+The following shows a graph comparing the parse and load times of the embedded version of the
+[2CylinderEngine asset](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/2CylinderEngine).
+The times are measured using the Catch2 frameworks' benchmark tools. This is a good example, as the
+model uses a very big base64 encoded data buffer for which fastgltf provides an AVX2 decoder.
+fastgltf turns out to be over **5.4x faster** than tinygltf, and **1.46x faster** than cgltf.
+
+![](https://cdn.discordapp.com/attachments/442748131898032138/1018975326384160838/Mean_time_parsing_2CylinderEngine_ms_1.png)
 
 ## Acknowledgments
 
