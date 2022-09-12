@@ -27,12 +27,42 @@ namespace fastgltf {
     };
 
     // clang-format off
-    enum class Options : uint32_t {
+    enum class Options : uint64_t {
         None                            = 0,
+        /**
+         * This allows 5130 as an accessor component type, a 64-bit double precision float.
+         */
         AllowDouble                     = 1 << 0,
+
+        /**
+         * This skips validating the asset field, as it is usually there and not used anyway.
+         */
         DontRequireValidAssetMember     = 1 << 1,
+
+        /**
+         * By default, fastgltf checks for the file extension and checks if it is .gltf or.glb.
+         */
         IgnoreFileExtension             = 1 << 2,
-        DontUseSIMD                     = 1 << 3, // This is just for benchmarking
+
+        /**
+         * This should only be used for benchmarking
+         */
+        DontUseSIMD                     = 1 << 3,
+
+        /**
+         * Enables loading of KHR_texture_basisu. Images where both KHR_texture_basisu and
+         * MSFT_texture_dds are specified only the basisu extension is loaded.
+         * @note This only enables loading textures that report as being DDS, it doesn't load
+         * the actual images.
+         */
+        LoadKTXExtension                = 1 << 4,
+
+        /**
+         * Enables loading of MSFT_texture_dds
+         * @note This only enables loading textures that report as being DDS, it doesn't load
+         * the actual images.
+         */
+        LoadDDSExtension                = 1 << 5,
     };
     // clang-format on
 
@@ -93,11 +123,13 @@ namespace fastgltf {
         /**
          * Loads a glTF file stored in a .glTF file.
          */
-        bool loadGlTF(std::filesystem::path path, Options options = Options::None);
+        bool loadGLTF(std::filesystem::path path, Options options = Options::None);
+
+        bool loadGLTF(std::string_view path, Options options = Options::None);
 
         /**
          * Loads a glTF file stored in a GLB container ending with the .glb extension.
          */
-        bool loadBinaryGlTF(std::filesystem::path path, Options options = Options::None);
+        bool loadBinaryGLTF(std::filesystem::path path, Options options = Options::None);
     };
 }

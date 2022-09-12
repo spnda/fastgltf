@@ -43,16 +43,16 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
     fastgltf::Parser parser;
     SECTION("Loading basic invalid glTF files") {
-        REQUIRE(!parser.loadGlTF(path / "empty_json.gltf"));
+        REQUIRE(!parser.loadGLTF(path / "empty_json.gltf"));
         REQUIRE(parser.getError() == fastgltf::Error::InvalidOrMissingAssetField);
     }
 
     SECTION("Loading basic glTF files") {
         // basic_gltf is a glTF file including only the absolute minimum a glTF file needs.
-        REQUIRE(parser.loadGlTF(path / "basic_gltf.gltf"));
+        REQUIRE(parser.loadGLTF(path / "basic_gltf.gltf"));
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
-        REQUIRE(parser.loadGlTF(path / "cube" / "Cube.gltf"));
+        REQUIRE(parser.loadGLTF(path / "cube" / "Cube.gltf"));
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
         auto cube = parser.getParsedAsset();
@@ -82,11 +82,11 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
     fastgltf::Parser parser;
 
     BENCHMARK("Load newsponza with SIMD") {
-        return parser.loadGlTF(intel, fastgltf::Options::None);
+        return parser.loadGLTF(intel, fastgltf::Options::None);
     };
 
     BENCHMARK("Load newsponza without SIMD") {
-        return parser.loadGlTF(intel, fastgltf::Options::DontUseSIMD);
+        return parser.loadGLTF(intel, fastgltf::Options::DontUseSIMD);
     };
 }
 
@@ -95,7 +95,7 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU" / "StainedGlassLamp.gltf";
 
     fastgltf::Parser parser;
-    REQUIRE(parser.loadGlTF(stainedLamp, fastgltf::Options::None));
+    REQUIRE(parser.loadGLTF(stainedLamp, fastgltf::Options::LoadKTXExtension));
     REQUIRE(parser.getError() == fastgltf::Error::None);
 
     auto asset = parser.getParsedAsset();

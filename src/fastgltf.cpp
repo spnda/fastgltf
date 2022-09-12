@@ -121,6 +121,55 @@ fg::Error fg::Parser::getError() const {
     return errorCode;
 }
 
+namespace fastgltf {
+    std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::ondemand::object& object, std::string_view extension) {
+        using namespace simdjson;
+
+        // Both KHR_texture_basisu and MSFT_texture_dds allow specifying an alternative
+        // image source index.
+        ondemand::object sourceExtensionObject;
+        if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) {
+            return std::make_tuple(false, true, 0);
+        }
+
+        // Check if the extension object provides a source index.
+        size_t imageIndex;
+        if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
+            return std::make_tuple(true, false, 0);
+        }
+
+        return std::make_tuple(false, false, imageIndex);
+    };
+
+    bool parseTextureExtensions(fastgltf::Texture& texture, simdjson::ondemand::object& extensions, fastgltf::Options options) {
+        if (hasBit(options, fastgltf::Options::LoadKTXExtension)) {
+            auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "KHR_texture_basisu");
+            if (invalidGltf) {
+                return false;
+            }
+
+            if (!extensionNotPresent) {
+                texture.imageIndex = imageIndex;
+                return true;
+            }
+        }
+
+        if (hasBit(options, fastgltf::Options::LoadDDSExtension)) {
+            auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "MSFT_texture_dds");
+            if (invalidGltf) {
+                return false;
+            }
+
+            if (!extensionNotPresent) {
+                texture.imageIndex = imageIndex;
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 std::unique_ptr<fg::Asset> fg::Parser::getParsedAsset() {
     // If there has been any errors we don't want the caller to get the partially parsed asset.
     if (errorCode != fg::Error::None) {
@@ -154,7 +203,7 @@ fastgltf::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
     }
 }
 
-bool fg::Parser::loadGlTF(fs::path path, Options options) {
+bool fg::Parser::loadGLTF(fs::path path, Options options) {
     using namespace simdjson;
 
     if (parsedAsset != nullptr) {
@@ -435,53 +484,21 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
                 hasExtensions = true;
             }
 
-            auto getImageIndexForExtension = [](ondemand::object& object, bool& fail) -> size_t {
-                // Both KHR_texture_basisu and MSFT_texture_dds allow specifying an alternative
-                // image source index.
-                ondemand::object sourceExtensionObject;
-                if (object["KHR_texture_basisu"].get_object().get(sourceExtensionObject) != SUCCESS) {
-                    if (object["MSFT_texture_dds"].get_object().get(sourceExtensionObject) != SUCCESS) {
-                        fail = true;
-                        return 0;
-                    }
-                }
+            texture.imageIndex = std::numeric_limits<size_t>::max();
+            if (textureObject["source"].get_uint64().get(texture.imageIndex) != SUCCESS && !hasExtensions) {
+                // "The index of the image used by this texture. When undefined, an extension or other
+                // mechanism SHOULD supply an alternate texture source, otherwise behavior is undefined."
+                // => We'll have it be invalid.
+                return false;
+            }
 
-                // Check if the extension object provides a source index.
-                size_t imageIndex;
-                if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
-                    fail = true;
-                    return 0;
-                }
-
-                fail = false;
-                return imageIndex;
-            };
-
-            // The index of the image used by this texture. When undefined, an extension or other
-            // mechanism SHOULD supply an alternate texture source, otherwise behavior is undefined.
-            if (textureObject["source"].get_uint64().get(texture.imageIndex) != SUCCESS) {
-                if (!hasExtensions) {
+            // If we have extensions, we'll use the normal "source" as the fallback and then parse
+            // the extensions for any "source" field.
+            if (hasExtensions) {
+                // If the source was specified we'll use that as a fallback.
+                texture.fallbackImageIndex = texture.imageIndex;
+                if (!parseTextureExtensions(texture, extensionsObject, currentOptions)) {
                     return false;
-                }
-
-                bool fail = false;
-                size_t imageIndex = getImageIndexForExtension(extensionsObject, fail);
-                if (fail) {
-                    return false;
-                }
-
-                // There is no fallback, as none was provided.
-                texture.fallbackImageIndex = std::numeric_limits<size_t>::max();
-                texture.imageIndex = imageIndex;
-            } else if (hasExtensions) {
-                bool fail;
-                size_t imageIndex = getImageIndexForExtension(extensionsObject, fail);
-                if (!fail) {
-                    // The texture object has a source index. However, an extension has overriden it.
-                    texture.fallbackImageIndex = texture.imageIndex;
-                    texture.imageIndex = imageIndex;
-                } else {
-                    texture.fallbackImageIndex = std::numeric_limits<size_t>::max();
                 }
             }
 
@@ -493,8 +510,9 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
             // name is optional.
             std::string_view name;
-            textureObject["name"].get_string().get(name);
-            texture.name = std::string { name };
+            if (textureObject["name"].get_string().get(name) == SUCCESS) {
+                texture.name = std::string { name };
+            }
 
             parsedAsset->textures.emplace_back(std::move(texture));
             return true;
@@ -573,8 +591,9 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
             // name is optional.
             std::string_view name;
-            meshObject["name"].get_string().get(name);
-            mesh.name = std::string { name };
+            if (meshObject["name"].get_string().get(name) == SUCCESS) {
+                mesh.name = std::string { name };
+            }
 
             parsedAsset->meshes.emplace_back(std::move(mesh));
             return true;
@@ -622,7 +641,7 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
             {
                 std::string_view name;
                 if (nodeObject["name"].get_string().get(name) == SUCCESS) {
-                    node.name = std::string{name};
+                    node.name = std::string { name };
                 }
             }
 
@@ -640,6 +659,7 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
     {
         auto [foundScenes, sceneError] = iterateOverArray(data->root, "scenes", [this](auto& value) -> bool {
             // The scene object can be completely empty
+            Scene scene = {};
             ondemand::object sceneObject;
             if (value.get_object().get(sceneObject) !=
                 SUCCESS) {
@@ -648,11 +668,12 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
 
             // name is optional.
             std::string_view name;
-            sceneObject["name"].get_string().get(name);
+            if (sceneObject["name"].get_string().get(name) == SUCCESS) {
+                scene.name = std::string { name };
+            }
 
             // Parse the array of nodes.
-            std::vector<uint64_t> nodeIndices;
-            auto [foundNodes, nodeError] = iterateOverArray(sceneObject, "nodes", [this, &nodeIndices](auto& value) mutable -> bool {
+            auto [foundNodes, nodeError] = iterateOverArray(sceneObject, "nodes", [this, &indices = scene.nodeIndices](auto& value) mutable -> bool {
                 size_t index;
                 if (value.get_uint64().get(index) != SUCCESS) {
                     return false;
@@ -663,7 +684,7 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
                     return false;
                 }
 
-                nodeIndices.push_back(index);
+                indices.push_back(index);
                 return true;
             });
 
@@ -672,10 +693,7 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
                 return false;
             }
 
-            parsedAsset->scenes.emplace_back(Scene{
-                std::string { name },
-                nodeIndices,
-            });
+            parsedAsset->scenes.emplace_back(std::move(scene));
             return true;
         });
 
@@ -692,7 +710,16 @@ bool fg::Parser::loadGlTF(fs::path path, Options options) {
     return true;
 }
 
-bool fg::Parser::loadBinaryGlTF(fs::path path, Options options) {
+bool fg::Parser::loadGLTF(std::string_view path, fastgltf::Options options) {
+    fs::path parsed = { path };
+    if (parsed.empty() || !fs::exists(parsed)) {
+        errorCode = Error::InvalidPath;
+        return false;
+    }
+    return loadGLTF(parsed, options);
+}
+
+bool fg::Parser::loadBinaryGLTF(fs::path path, Options options) {
     errorCode = Error::None;
 
     if (!checkFileExtension(path, ".glb")) {

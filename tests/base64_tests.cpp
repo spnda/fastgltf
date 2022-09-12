@@ -28,7 +28,7 @@ TEST_CASE("Benchmark AVX vs fallback base64 decoding", "[base64]") {
     auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded" / "2CylinderEngine.gltf";
 
     SECTION("Validate large buffer load from glTF") {
-        parser.loadGlTF(cylinderEngine);
+        parser.loadGLTF(cylinderEngine);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
         auto asset = parser.getParsedAsset();
@@ -53,10 +53,10 @@ TEST_CASE("Benchmark AVX vs fallback base64 decoding", "[base64-benchmark]") {
     auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded" / "2CylinderEngine.gltf";
 
     BENCHMARK("Large buffer decode with AVX") {
-        return parser.loadGlTF(cylinderEngine, fastgltf::Options::None);
+        return parser.loadGLTF(cylinderEngine, fastgltf::Options::None);
     };
 
     BENCHMARK("Large buffer decode without SIMD") {
-        return parser.loadGlTF(cylinderEngine, fastgltf::Options::DontUseSIMD);
+        return parser.loadGLTF(cylinderEngine, fastgltf::Options::DontUseSIMD);
     };
 };
