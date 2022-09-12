@@ -6,3 +6,35 @@ target_compile_features(fastgltf_tests PRIVATE cxx_std_17)
 target_link_libraries(fastgltf_tests PRIVATE fastgltf fastgltf_simdjson)
 target_link_libraries(fastgltf_tests PRIVATE glm::glm Catch2::Catch2WithMain)
 compiler_flags(fastgltf_tests)
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/catch2")
+    add_subdirectory(deps/catch2)
+    target_link_libraries(fastgltf_tests PRIVATE Catch2::Catch2)
+endif()
+
+# We only use tinygltf to compare against.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/tinygltf/tiny_gltf.h")
+    message(STATUS "fastgltf: Found tinygltf")
+    set(TINYGLTF_INSTALL OFF CACHE BOOL "")
+    set(TINYGLTF_BUILD_LOADER_EXAMPLE OFF CACHE BOOL "")
+    set(TINYGLTF_HEADER_ONLY ON CACHE BOOL "")
+
+    add_subdirectory(gltf_loaders/tinygltf)
+    target_link_libraries(fastgltf_tests PRIVATE tinygltf)
+    target_compile_definitions(fastgltf_tests PRIVATE HAS_TINYGLTF=1)
+
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/RapidJSON")
+        # RapidJSON's CMake is weird
+        message(STATUS "Found RapidJSON")
+        target_include_directories(fastgltf_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/RapidJSON/include")
+        target_compile_definitions(fastgltf_tests PRIVATE HAS_RAPIDJSON=1 TINYGLTF_USE_RAPIDJSON=1 TINYGLTF_NO_INCLUDE_RAPIDJSON)
+    endif()
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/cgltf/cgltf.h")
+    message(STATUS "fastgltf: Found cgltf")
+    target_include_directories(fastgltf_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/cgltf")
+    target_compile_definitions(fastgltf_tests PRIVATE HAS_CGLTF=1)
+endif()
+
+add_source_directory(TARGET fastgltf_tests FOLDER ".")
