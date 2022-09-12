@@ -52,7 +52,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(parser.loadGLTF(path / "basic_gltf.gltf"));
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
-        REQUIRE(parser.loadGLTF(path / "cube" / "Cube.gltf"));
+        REQUIRE(parser.loadGLTF(path / "sample-models" / "2.0" / "Cube" / "glTF" / "Cube.gltf"));
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
         auto cube = parser.getParsedAsset();
@@ -74,21 +74,6 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(cube->buffers.size() == 1);
     }
 };
-
-TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
-    auto intel = path / "intel_sponza" / "NewSponza_Main_glTF_002.gltf";
-
-    fastgltf::Parser parser;
-
-    BENCHMARK("Load newsponza with SIMD") {
-        return parser.loadGLTF(intel, fastgltf::Options::None);
-    };
-
-    BENCHMARK("Load newsponza without SIMD") {
-        return parser.loadGLTF(intel, fastgltf::Options::DontUseSIMD);
-    };
-}
 
 TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";

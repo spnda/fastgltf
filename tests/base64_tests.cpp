@@ -42,21 +42,3 @@ TEST_CASE("Benchmark AVX vs fallback base64 decoding", "[base64]") {
         REQUIRE(!buffer.data.bytes.empty());
     }
 };
-
-TEST_CASE("Benchmark AVX vs fallback base64 decoding", "[base64-benchmark]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
-
-    fastgltf::Parser parser;
-    fastgltf::Image texture;
-    std::string bufferData;
-
-    auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded" / "2CylinderEngine.gltf";
-
-    BENCHMARK("Large buffer decode with AVX") {
-        return parser.loadGLTF(cylinderEngine, fastgltf::Options::None);
-    };
-
-    BENCHMARK("Large buffer decode without SIMD") {
-        return parser.loadGLTF(cylinderEngine, fastgltf::Options::DontUseSIMD);
-    };
-};
