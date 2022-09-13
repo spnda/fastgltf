@@ -43,19 +43,28 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
     fastgltf::Parser parser;
     SECTION("Loading basic invalid glTF files") {
-        REQUIRE(!parser.loadGLTF(path / "empty_json.gltf"));
+        auto emptyGltf = parser.loadGLTF(path / "empty_json.gltf");
+        REQUIRE(emptyGltf == nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::InvalidOrMissingAssetField);
     }
 
     SECTION("Loading basic glTF files") {
         // basic_gltf is a glTF file including only the absolute minimum a glTF file needs.
-        REQUIRE(parser.loadGLTF(path / "basic_gltf.gltf"));
+        auto basicGltf = parser.loadGLTF(path / "basic_gltf.gltf");
+        REQUIRE(basicGltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
-        REQUIRE(parser.loadGLTF(path / "sample-models" / "2.0" / "Cube" / "glTF" / "Cube.gltf"));
+        auto cubeGltf = parser.loadGLTF(path / "sample-models" / "2.0" / "Cube" / "glTF" / "Cube.gltf");
+        REQUIRE(cubeGltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
-        auto cube = parser.getParsedAsset();
+        REQUIRE(cubeGltf->parseScenes() == fastgltf::Error::None);
+        REQUIRE(cubeGltf->parseNodes() == fastgltf::Error::None);
+        REQUIRE(cubeGltf->parseAccessors() == fastgltf::Error::None);
+        REQUIRE(cubeGltf->parseBufferViews() == fastgltf::Error::None);
+        REQUIRE(cubeGltf->parseBuffers() == fastgltf::Error::None);
+
+        auto cube = cubeGltf->getParsedAsset();
         REQUIRE(cube->scenes.size() == 1);
         REQUIRE(cube->scenes.front().nodeIndices.size() == 1);
         REQUIRE(cube->scenes.front().nodeIndices.front() == 0);
@@ -80,10 +89,14 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU" / "StainedGlassLamp.gltf";
 
     fastgltf::Parser parser;
-    REQUIRE(parser.loadGLTF(stainedLamp, fastgltf::Options::LoadKTXExtension));
+    auto stainedGlassLamp = parser.loadGLTF(stainedLamp, fastgltf::Options::LoadKTXExtension);
+    REQUIRE(stainedGlassLamp != nullptr);
     REQUIRE(parser.getError() == fastgltf::Error::None);
 
-    auto asset = parser.getParsedAsset();
+    REQUIRE(stainedGlassLamp->parseImages() == fastgltf::Error::None);
+    REQUIRE(stainedGlassLamp->parseTextures() == fastgltf::Error::None);
+
+    auto asset = stainedGlassLamp->getParsedAsset();
     REQUIRE(asset->textures.size() == 19);
     REQUIRE(!asset->images.empty());
 

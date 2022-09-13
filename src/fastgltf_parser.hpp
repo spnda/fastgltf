@@ -9,10 +9,8 @@
 
 namespace fastgltf {
     struct Asset;
-    struct ParserData;
     struct DataSource;
-    enum class AccessorType : uint16_t;
-    enum class ComponentType : uint32_t;
+    struct ParserData;
     enum class DataLocation : uint8_t;
     enum class MimeType : uint8_t;
 
@@ -74,6 +72,45 @@ namespace fastgltf {
         return static_cast<Options>(to_underlying(a) | to_underlying(b));
     }
 
+    class glTF {
+        friend class Parser;
+
+        std::unique_ptr<fastgltf::ParserData> data;
+        std::unique_ptr<Asset> parsedAsset;
+        std::filesystem::path directory;
+        Options options;
+        Error errorCode = Error::None;
+
+        explicit glTF(std::unique_ptr<fastgltf::ParserData> data, std::filesystem::path directory, Options options);
+
+        static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
+
+        [[nodiscard]] bool checkAssetField();
+        [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
+
+    public:
+        explicit glTF(const glTF& scene) = delete;
+        glTF& operator=(const glTF& scene) = delete;
+
+        ~glTF();
+
+        [[nodiscard]] std::unique_ptr<Asset> getParsedAsset();
+        [[nodiscard]] Asset* getParsedAssetPointer();
+
+        /**
+         * This parses all buffers
+         * @return
+         */
+        Error parseBuffers();
+        Error parseBufferViews();
+        Error parseAccessors();
+        Error parseImages();
+        Error parseTextures();
+        Error parseMeshes();
+        Error parseNodes();
+        Error parseScenes();
+    };
+
     /**
      * A parser for one or more glTF files. It uses a SIMD based JSON parser to maximize efficiency
      * and performance at runtime.
@@ -81,35 +118,22 @@ namespace fastgltf {
      * @note This class is not thread-safe.
      */
     class Parser {
-        std::unique_ptr<Asset> parsedAsset;
-
-        std::filesystem::path currentDirectory;
-        Options currentOptions;
-
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
         void* jsonParser;
 
         Error errorCode = Error::None;
 
-        static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
-
-        bool checkAssetField(ParserData* data);
-        /**
-         * Checks if the path has an extension, whether it matches the given extension string.
-         */
+        // Checks if the path has an extension, whether it matches the given extension string.
         bool checkFileExtension(std::filesystem::path& path, std::string_view extension);
-        [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
-        // This parses the full glTF data stored in the JSON document.
-        bool parseJson(ParserData* data);
         bool readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes);
 
     public:
         explicit Parser() noexcept;
-        ~Parser();
-
         explicit Parser(const Parser& scene) = delete;
         Parser& operator=(const Parser& scene) = delete;
+
+        ~Parser();
 
         /**
          * Returns the error that made the parsing fail.
@@ -117,28 +141,19 @@ namespace fastgltf {
         [[nodiscard]] Error getError() const;
 
         /**
-         * This returns a unique pointer to the parsed asset. This can be only called **once**
-         * after parsing a file.
-         */
-        [[nodiscard]] std::unique_ptr<Asset> getParsedAsset();
-
-        /**
          * Loads a glTF file stored in a .glTF file.
+         * @return A glTF instance or nullptr if an error occurred.
          */
-        bool loadGLTF(std::filesystem::path path, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(std::filesystem::path path, Options options = Options::None);
 
-        bool loadGLTF(std::string_view path, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(std::string_view path, Options options = Options::None);
 
         /**
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
+         * @return A glTF instance or nullptr if an error occurred.
          */
-        bool loadGLTF(uint8_t* bytes, size_t byteCount, std::filesystem::path directory, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(uint8_t* bytes, size_t byteCount, std::filesystem::path directory, Options options = Options::None);
 
-        bool loadGLTF(uint8_t* bytes, size_t byteCount, std::string_view directory, Options options = Options::None);
-
-        /**
-         * Loads a glTF file stored in a GLB container ending with the .glb extension.
-         */
-        bool loadBinaryGLTF(std::filesystem::path path, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(uint8_t* bytes, size_t byteCount, std::string_view directory, Options options = Options::None);
     };
 }

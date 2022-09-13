@@ -18,7 +18,7 @@ TEST_CASE("Check both base64 decoders", "[base64]") {
     REQUIRE(fastgltf::base64::fallback_decode(test) == fastgltf::base64::avx2_decode(test));
 };
 
-TEST_CASE("Benchmark AVX vs fallback base64 decoding", "[base64]") {
+TEST_CASE("Test base64 buffer decoding", "[base64]") {
     auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
 
     fastgltf::Parser parser;
@@ -28,10 +28,14 @@ TEST_CASE("Benchmark AVX vs fallback base64 decoding", "[base64]") {
     auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded" / "2CylinderEngine.gltf";
 
     SECTION("Validate large buffer load from glTF") {
-        parser.loadGLTF(cylinderEngine);
+        auto gltf = parser.loadGLTF(cylinderEngine);
+        REQUIRE(gltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
-        auto asset = parser.getParsedAsset();
+        REQUIRE(gltf->parseBuffers() == fastgltf::Error::None);
+
+        auto* asset = gltf->getParsedAssetPointer();
+        REQUIRE(asset != nullptr);
         REQUIRE(asset->buffers.size() == 1);
 
         // Load the buffer from the parsed glTF file.
