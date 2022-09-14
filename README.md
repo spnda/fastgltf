@@ -19,12 +19,25 @@ void load(std::filesystem::path path) {
     // Creates a Parser instance. Optimally, you should reuse
     // this across loads, but don't use it across threads.
     fastgltf::Parser parser;
-    
-    // This loads the glTF file.
-    parser.loadGLTF(path, fastgltf::Options::None);
-    
+
+    // The JsonData class is designed for re-usability of the same JSON string. It contains
+    // utility functions to load data from a std::filesystem::path or copy from an existing buffer.
+    // Note that it has to outlive the process of every parsing function you call.
+    auto data = std::make_unique<fastgltf::JsonData>(path);
+
+    // This loads the glTF file into the gltf object and parses the JSON.
+    auto gltf = parser.loadGLTF(data.get(), fastgltf::Options::None);
+
+    // With this call to parseBuffers you parse all buffer objects in the JSON data. loadGLTF does
+    // not fully serialise the JSON data, which allows you to selectively load based on your needs.
+    // Note that there is a parse* function for every datatype stored in a glTF file, e.g.
+    // buffers, bufferViews, accessors, meshes, cameras, ...
+    if (gltf->parseBuffers() != fastgltf::Error::None) {
+        // error
+    }
+
     // You obtain the asset with this call. This can only be done once.
-    std::unique_ptr<fastgltf::Asset> asset = parser.getParsedAsset();
+    std::unique_ptr<fastgltf::Asset> asset = gltf->getParsedAsset();
 }
 ```
 

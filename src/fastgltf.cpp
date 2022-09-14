@@ -635,6 +635,27 @@ fg::Error fg::glTF::parseScenes() {
 }
 #pragma endregion
 
+#pragma region JsonData
+fg::JsonData::JsonData(uint8_t* bytes, size_t byteCount) noexcept {
+    using namespace simdjson;
+    data = std::make_unique<padded_string>(reinterpret_cast<char*>(bytes), byteCount);
+}
+
+fg::JsonData::JsonData(std::filesystem::path path) noexcept {
+    using namespace simdjson;
+    data = std::make_unique<padded_string>();
+    if (padded_string::load(path.string()).get(*data) != SUCCESS) {
+        // Not sure?
+    }
+}
+
+fg::JsonData::~JsonData() = default;
+
+const uint8_t* fg::JsonData::getData() const {
+    return data->u8data();
+}
+#pragma endregion
+
 #pragma region Parser
 fg::Parser::Parser() noexcept {
     jsonParser = new simdjson::ondemand::parser();
@@ -662,60 +683,7 @@ fg::Error fg::Parser::getError() const {
     return errorCode;
 }
 
-std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(fs::path path, Options options) {
-    using namespace simdjson;
-
-    errorCode = Error::None;
-
-    if (!hasBit(options, Options::IgnoreFileExtension) && !checkFileExtension(path, ".gltf")) {
-        errorCode = Error::InvalidPath;
-        return nullptr;
-    }
-
-    // readFile already adds SIMDJSON_PADDING to the size.
-    auto data = std::make_unique<ParserData>();
-    if (!readJsonFile(path, data->bytes)) {
-        return nullptr;
-    }
-
-    // Use an ondemand::parser to parse the JSON.
-    auto* parser = static_cast<ondemand::parser*>(jsonParser);
-
-    if (hasBit(options, Options::DontUseSIMD)) {
-        simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
-    }
-
-    if (parser->iterate(
-        data->bytes.data(), data->bytes.size() - simdjson::SIMDJSON_PADDING,
-        data->bytes.size()).get(data->doc) != SUCCESS) {
-        errorCode = Error::InvalidJson;
-        return nullptr;
-    }
-
-    // Get the root object
-    if (data->doc.get_object().get(data->root) != SUCCESS) {
-        errorCode = Error::InvalidJson;
-        return nullptr;
-    }
-
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), path.parent_path(), options));
-    if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
-        errorCode = Error::InvalidOrMissingAssetField;
-        return nullptr;
-    }
-    return gltf;
-}
-
-std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(std::string_view path, fastgltf::Options options) {
-    fs::path parsed = { path };
-    if (parsed.empty() || !fs::exists(parsed)) {
-        errorCode = Error::InvalidPath;
-        return nullptr;
-    }
-    return loadGLTF(parsed, options);
-}
-
-std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(uint8_t* bytes, size_t byteCount, fs::path directory, Options options) {
+std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path directory, Options options) {
     using namespace simdjson;
 
     if (!fs::is_directory(directory)) {
@@ -732,11 +700,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(uint8_t* bytes, size_t byteCount,
         simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
     }
 
-    // simdjson expects a small bit of padding. We sadly have to reallocate.
-    data->bytes.resize(byteCount + SIMDJSON_PADDING);
-    std::memcpy(data->bytes.data(), bytes, byteCount);
-
-    if (parser->iterate(data->bytes.data(), byteCount, data->bytes.size()).get(data->doc) != SUCCESS) {
+    if (parser->iterate(*jsonData->data).get(data->doc) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }
@@ -755,13 +719,13 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(uint8_t* bytes, size_t byteCount,
     return gltf;
 }
 
-std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(uint8_t* bytes, size_t byteCount, std::string_view directory, Options options) {
+std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, std::string_view directory, Options options) {
     fs::path parsed = { directory };
     if (parsed.empty() || !fs::is_directory(parsed)) {
         errorCode = Error::InvalidPath;
         return nullptr;
     }
-    return loadGLTF(bytes, byteCount, parsed, options);
+    return loadGLTF(jsonData, parsed, options);
 }
 
 bool fg::Parser::readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes) {

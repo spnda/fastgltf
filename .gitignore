@@ -25,5 +25,4 @@ simdjson/
 
 # Test files
 tests/gltf/intel_sponza/
-tests/tinygltf/
-tests/cgltf/
+tests/gltf_loaders/

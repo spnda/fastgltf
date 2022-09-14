@@ -7,6 +7,11 @@
 
 #include "fastgltf_util.hpp"
 
+// fwd
+namespace simdjson {
+    struct padded_string;
+}
+
 namespace fastgltf {
     struct Asset;
     struct DataSource;
@@ -112,6 +117,25 @@ namespace fastgltf {
     };
 
     /**
+     * This class represents a chunk of data that makes up a JSON string. It is reusable to
+     * reduce memory allocations though has to outlive the glTF object that is created from this.
+     */
+    class JsonData {
+        friend class Parser;
+
+        std::unique_ptr<simdjson::padded_string> data;
+
+    public:
+        explicit JsonData(uint8_t* bytes, size_t byteCount) noexcept;
+        // If this constructor fails, getData will return nullptr.
+        explicit JsonData(std::filesystem::path path) noexcept;
+
+        ~JsonData();
+
+        [[nodiscard]] const uint8_t* getData() const;
+    };
+
+    /**
      * A parser for one or more glTF files. It uses a SIMD based JSON parser to maximize efficiency
      * and performance at runtime.
      *
@@ -141,19 +165,11 @@ namespace fastgltf {
         [[nodiscard]] Error getError() const;
 
         /**
-         * Loads a glTF file stored in a .glTF file.
-         * @return A glTF instance or nullptr if an error occurred.
-         */
-        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(std::filesystem::path path, Options options = Options::None);
-
-        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(std::string_view path, Options options = Options::None);
-
-        /**
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
          * @return A glTF instance or nullptr if an error occurred.
          */
-        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(uint8_t* bytes, size_t byteCount, std::filesystem::path directory, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::filesystem::path directory, Options options = Options::None);
 
-        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(uint8_t* bytes, size_t byteCount, std::string_view directory, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::string_view directory, Options options = Options::None);
     };
 }

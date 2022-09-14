@@ -25,10 +25,12 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     fastgltf::Image texture;
     std::string bufferData;
 
-    auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded" / "2CylinderEngine.gltf";
+    auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded";
+
+    auto jsonData = std::make_unique<fastgltf::JsonData>(cylinderEngine / "2CylinderEngine.gltf");
 
     SECTION("Validate large buffer load from glTF") {
-        auto gltf = parser.loadGLTF(cylinderEngine);
+        auto gltf = parser.loadGLTF(jsonData.get(), cylinderEngine);
         REQUIRE(gltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 

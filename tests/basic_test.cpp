@@ -43,18 +43,23 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
     fastgltf::Parser parser;
     SECTION("Loading basic invalid glTF files") {
-        auto emptyGltf = parser.loadGLTF(path / "empty_json.gltf");
+        auto jsonData = std::make_unique<fastgltf::JsonData>(path / "empty_json.gltf");
+        auto emptyGltf = parser.loadGLTF(jsonData.get(), path);
         REQUIRE(emptyGltf == nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::InvalidOrMissingAssetField);
     }
 
-    SECTION("Loading basic glTF files") {
-        // basic_gltf is a glTF file including only the absolute minimum a glTF file needs.
-        auto basicGltf = parser.loadGLTF(path / "basic_gltf.gltf");
+    SECTION("Load basic glTF file") {
+        auto basicJsonData = std::make_unique<fastgltf::JsonData>(path / "basic_gltf.gltf");
+        auto basicGltf = parser.loadGLTF(basicJsonData.get(), path);
         REQUIRE(basicGltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
+    }
 
-        auto cubeGltf = parser.loadGLTF(path / "sample-models" / "2.0" / "Cube" / "glTF" / "Cube.gltf");
+    SECTION("Loading basic glTF files") {
+        auto cubePath = path / "sample-models" / "2.0" / "Cube" / "glTF";
+        auto cubeJsonData = std::make_unique<fastgltf::JsonData>(cubePath / "Cube.gltf");
+        auto cubeGltf = parser.loadGLTF(cubeJsonData.get(), cubePath);
         REQUIRE(cubeGltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
@@ -86,10 +91,12 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
 TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
-    auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU" / "StainedGlassLamp.gltf";
+    auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU";
+
+    auto jsonData = std::make_unique<fastgltf::JsonData>(stainedLamp / "StainedGlassLamp.gltf");
 
     fastgltf::Parser parser;
-    auto stainedGlassLamp = parser.loadGLTF(stainedLamp, fastgltf::Options::LoadKTXExtension);
+    auto stainedGlassLamp = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::LoadKTXExtension);
     REQUIRE(stainedGlassLamp != nullptr);
     REQUIRE(parser.getError() == fastgltf::Error::None);
 
