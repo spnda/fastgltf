@@ -1,8 +1,11 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.24)
 project(fastgltf)
+
+cmake_policy(SET CMP0135 NEW)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
+include(ExternalProject)
 include(FetchContent)
 
 # Download and configure simdjson
@@ -11,8 +14,10 @@ set(SIMDJSON_HEADER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h")
 set(SIMDJSON_SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp")
 
 macro(download_simdjson)
-    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.h" ${SIMDJSON_HEADER_FILE})
-    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.cpp" ${SIMDJSON_SOURCE_FILE})
+    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.h" ${SIMDJSON_HEADER_FILE}
+        SHOW_PROGRESS)
+    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.cpp" ${SIMDJSON_SOURCE_FILE}
+        SHOW_PROGRESS)
 endmacro()
 
 if (EXISTS ${SIMDJSON_HEADER_FILE})

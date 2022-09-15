@@ -9,7 +9,7 @@ By utilising simdjson, this library can take advantage of SSE4, AVX2, AVX512, an
 
 ## Usage
 
-The project uses a fairly simple CMake 3.10 script, which you can simply add as a subdirectory.
+The project uses a fairly simple CMake 3.24 script, which you can simply add as a subdirectory.
 
 ```cpp
 #include <fastgltf_parser.hpp>

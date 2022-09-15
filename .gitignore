@@ -25,4 +25,5 @@ simdjson/
 
 # Test files
 tests/gltf/intel_sponza/
+tests/gltf/sample-models/
 tests/gltf_loaders/
