@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <unordered_map>
 
 #include "fastgltf_util.hpp"
@@ -161,57 +162,66 @@ namespace fastgltf {
     };
 
     struct Scene {
-        std::string name;
         std::vector<size_t> nodeIndices;
+
+        std::string name;
     };
 
     struct Node {
-        std::string name;
-        size_t meshIndex;
+        std::optional<size_t> meshIndex;
+        std::vector<size_t> children;
 
         bool hasMatrix = false;
         std::array<float, 16> matrix;
+
+        std::string name;
     };
 
     struct Primitive {
-        size_t indicesAccessorIndex;
-        size_t materialIndex;
-        PrimitiveType type;
         std::unordered_map<std::string, size_t> attributes;
+        PrimitiveType type;
+
+        std::optional<size_t> indicesAccessor;
+        std::optional<size_t> materialIndex;
     };
 
     struct Mesh {
-        std::string name;
         std::vector<Primitive> primitives;
+
+        std::string name;
     };
 
     struct Texture {
         size_t imageIndex;
 
         // If the imageIndex is specified by the KTX2 or DDS glTF extensions, this is supposed to
-        // be used as a fallback.
-        size_t fallbackImageIndex;
+        // be used as a fallback if those file containers are not supported.
+        std::optional<size_t> fallbackImageIndex;
 
-        // if numeric_limits<size_t>::max, use a default sampler with repeat wrap and auto filter
-        size_t samplerIndex;
+        // if a value not present, use a default sampler with repeat wrap and auto filter should
+        // be used.
+        std::optional<size_t> samplerIndex;
+
         std::string name;
     };
 
     struct Image {
-        std::string name;
-
         DataLocation location;
         DataSource data;
+
+        std::string name;
     };
 
     struct Accessor {
-        size_t bufferViewIndex;
         size_t byteOffset;
         size_t count;
-
         AccessorType type;
         ComponentType componentType;
         bool normalized = false;
+
+        // Could have no value for sparse morph targets
+        std::optional<size_t> bufferViewIndex;
+
         std::string name;
     };
 
@@ -219,21 +229,25 @@ namespace fastgltf {
         size_t bufferIndex;
         size_t byteOffset;
         size_t byteLength;
-        BufferTarget target = BufferTarget::ArrayBuffer;
+
+        std::optional<size_t> byteStride;
+        std::optional<BufferTarget> target;
+
         std::string name;
     };
 
     struct Buffer {
         size_t byteLength;
-        std::string name;
 
         DataLocation location;
         DataSource data;
+
+        std::string name;
     };
 
     struct Asset {
         // A value of std::numeric_limits<size_t>::max() indicates no default scene.
-        size_t defaultScene = std::numeric_limits<size_t>::max();
+        std::optional<size_t> defaultScene;
         std::vector<Scene> scenes;
         std::vector<Node> nodes;
         std::vector<Mesh> meshes;

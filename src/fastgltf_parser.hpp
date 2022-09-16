@@ -43,11 +43,6 @@ namespace fastgltf {
         DontRequireValidAssetMember     = 1 << 1,
 
         /**
-         * By default, fastgltf checks for the file extension and checks if it is .gltf or.glb.
-         */
-        IgnoreFileExtension             = 1 << 2,
-
-        /**
          * This should only be used for benchmarking
          */
         DontUseSIMD                     = 1 << 3,
@@ -147,10 +142,6 @@ namespace fastgltf {
         void* jsonParser;
 
         Error errorCode = Error::None;
-
-        // Checks if the path has an extension, whether it matches the given extension string.
-        bool checkFileExtension(std::filesystem::path& path, std::string_view extension);
-        bool readJsonFile(std::filesystem::path& path, std::vector<uint8_t>& bytes);
 
     public:
         explicit Parser() noexcept;

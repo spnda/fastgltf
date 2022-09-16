@@ -56,12 +56,12 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(parser.getError() == fastgltf::Error::None);
     }
 
-    SECTION("Loading basic glTF files") {
+    SECTION("Loading basic Cube.gltf") {
         auto cubePath = path / "sample-models" / "2.0" / "Cube" / "glTF";
         auto cubeJsonData = std::make_unique<fastgltf::JsonData>(cubePath / "Cube.gltf");
         auto cubeGltf = parser.loadGLTF(cubeJsonData.get(), cubePath);
-        REQUIRE(cubeGltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(cubeGltf != nullptr);
 
         REQUIRE(cubeGltf->parseScenes() == fastgltf::Error::None);
         REQUIRE(cubeGltf->parseNodes() == fastgltf::Error::None);
@@ -87,6 +87,28 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(cube->bufferViews.size() == 5);
         REQUIRE(cube->buffers.size() == 1);
     }
+
+    SECTION("Loading basic Box.gltf") {
+        auto boxPath = path / "sample-models" / "2.0" / "Box" / "glTF";
+        auto boxJsonData = std::make_unique<fastgltf::JsonData>(boxPath / "Box.gltf");
+        auto boxGltf = parser.loadGLTF(boxJsonData.get(), boxPath);
+        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(boxGltf != nullptr);
+
+        REQUIRE(boxGltf->parseNodes() == fastgltf::Error::None);
+        REQUIRE(boxGltf->parseScenes() == fastgltf::Error::None);
+
+        auto box = boxGltf->getParsedAsset();
+        REQUIRE(box->defaultScene.has_value());
+        REQUIRE(box->defaultScene.value() == 0);
+
+        REQUIRE(box->nodes.size() == 2);
+        REQUIRE(box->nodes[0].children.size() == 1);
+        REQUIRE(box->nodes[0].children[0] == 1);
+        REQUIRE(box->nodes[1].children.empty());
+        REQUIRE(box->nodes[1].meshIndex.has_value());
+        REQUIRE(box->nodes[1].meshIndex.value() == 0);
+    }
 };
 
 TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
@@ -97,8 +119,8 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
 
     fastgltf::Parser parser;
     auto stainedGlassLamp = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::LoadKTXExtension);
-    REQUIRE(stainedGlassLamp != nullptr);
     REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(stainedGlassLamp != nullptr);
 
     REQUIRE(stainedGlassLamp->parseImages() == fastgltf::Error::None);
     REQUIRE(stainedGlassLamp->parseTextures() == fastgltf::Error::None);
@@ -110,7 +132,7 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     auto& texture = asset->textures[1];
     REQUIRE(texture.imageIndex == 1);
     REQUIRE(texture.samplerIndex == 0);
-    REQUIRE(texture.fallbackImageIndex == std::numeric_limits<size_t>::max());
+    REQUIRE(!texture.fallbackImageIndex.has_value());
 
     auto& image = asset->images.front();
     REQUIRE(image.location == fastgltf::DataLocation::FilePathWithByteRange);

@@ -40,7 +40,7 @@ std::vector<uint8_t> fg::base64::avx2_decode(std::string_view encoded) {
     // We align the memory to be a multiple of 32, as we can only process 32 bytes at one time,
     // and nothing less.
     auto encodedSize = encoded.size();
-    std::vector<uint8_t> input((encodedSize + 32 - 1) & -32);
+    std::vector<uint8_t> input((encodedSize + dataSetSize - 1) & -dataSetSize);
     std::memcpy(input.data(), encoded.data(), encodedSize);
 
     // We search for the amount of padding the string has.
@@ -84,7 +84,7 @@ std::vector<uint8_t> fg::base64::avx2_decode(std::string_view encoded) {
     // We now resize the vector to only show the actual values, not the 0's padded in to meet the
     // 32x requirement.
     auto diff = static_cast<float>(encodedSize - padding);
-    ret.resize(std::floor(diff * 0.75));
+    ret.resize(std::floor(diff * 0.75f));
 
     return ret;
 }
@@ -100,6 +100,7 @@ std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
     std::array<uint8_t, 4> sixBitChars = {};
     std::array<uint8_t, 3> eightBitChars = {};
     std::vector<uint8_t> ret;
+    ret.reserve(static_cast<size_t>(static_cast<float>(in_len) * 0.75f));
 
     // We use i here to track how many we've parsed and to batch 4 chars together.
     size_t i = 0;
