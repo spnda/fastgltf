@@ -27,10 +27,10 @@ namespace fastgltf {
         simdjson::dom::object root;
     };
 
-    [[nodiscard]] std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
-    [[nodiscard]] bool parseTextureExtensions(fastgltf::Texture& texture, simdjson::dom::object& extensions, fastgltf::Options options);
+    [[nodiscard, gnu::always_inline]] std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
+    [[nodiscard, gnu::always_inline]] bool parseTextureExtensions(fastgltf::Texture& texture, simdjson::dom::object& extensions, fastgltf::Options options);
 
-    [[nodiscard]] std::pair<bool, Error> iterateOverArray(simdjson::dom::object& parent, std::string_view arrayName, const std::function<bool(simdjson::dom::element&)>& callback);
+    [[nodiscard, gnu::always_inline]] std::pair<bool, Error> iterateOverArray(simdjson::dom::object& parent, std::string_view arrayName, const std::function<bool(simdjson::dom::element&)>& callback);
 }
 
 std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
@@ -197,6 +197,67 @@ fg::Asset* fg::glTF::getParsedAssetPointer() {
     return parsedAsset.get();
 }
 
+fg::Error fg::glTF::parseAccessors() {
+    using namespace simdjson;
+    auto [foundAccessors, accessorError] = iterateOverArray(data->root, "accessors", [this](auto& value) mutable -> bool {
+        // Required fields: "componentType", "count"
+        Accessor accessor = {};
+        dom::object accessorObject;
+        if (value.get_object().get(accessorObject) != SUCCESS) {
+            return false;
+        }
+
+        size_t componentType;
+        if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) {
+            return false;
+        } else {
+            accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
+            if (accessor.componentType == ComponentType::Double && !hasBit(options, Options::AllowDouble)) {
+                return false;
+            }
+        }
+
+        std::string_view accessorType;
+        if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) {
+            return false;
+        } else {
+            accessor.type = getAccessorType(accessorType);
+        }
+
+        if (accessorObject["count"].get_uint64().get(accessor.count) != SUCCESS) {
+            return false;
+        }
+
+        size_t bufferView;
+        if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) {
+            accessor.bufferViewIndex = bufferView;
+        }
+
+        // byteOffset is optional, but defaults to 0
+        if (accessorObject["byteOffset"].get_uint64().get(accessor.byteOffset) != SUCCESS) {
+            accessor.byteOffset = 0;
+        }
+
+        if (accessorObject["normalized"].get_bool().get(accessor.normalized) != SUCCESS) {
+            accessor.normalized = false;
+        }
+
+        // name is optional.
+        std::string_view name;
+        if (accessorObject["name"].get_string().get(name) == SUCCESS) {
+            accessor.name = std::string { name };
+        }
+
+        parsedAsset->accessors.emplace_back(std::move(accessor));
+        return true;
+    });
+
+    if (!foundAccessors && accessorError != Error::None) {
+        errorCode = accessorError;
+    }
+    return errorCode;
+}
+
 fg::Error fg::glTF::parseBuffers() {
     using namespace simdjson;
     auto [foundBuffers, bufferError] = iterateOverArray(data->root, "buffers", [this](auto& value) mutable -> bool {
@@ -295,67 +356,6 @@ fg::Error fg::glTF::parseBufferViews() {
     return errorCode;
 }
 
-fg::Error fg::glTF::parseAccessors() {
-    using namespace simdjson;
-    auto [foundAccessors, accessorError] = iterateOverArray(data->root, "accessors", [this](auto& value) mutable -> bool {
-        // Required fields: "componentType", "count"
-        Accessor accessor = {};
-        dom::object accessorObject;
-        if (value.get_object().get(accessorObject) != SUCCESS) {
-            return false;
-        }
-
-        size_t componentType;
-        if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) {
-            return false;
-        } else {
-            accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
-            if (accessor.componentType == ComponentType::Double && !hasBit(options, Options::AllowDouble)) {
-                return false;
-            }
-        }
-
-        std::string_view accessorType;
-        if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) {
-            return false;
-        } else {
-            accessor.type = getAccessorType(accessorType);
-        }
-
-        if (accessorObject["count"].get_uint64().get(accessor.count) != SUCCESS) {
-            return false;
-        }
-
-        size_t bufferView;
-        if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) {
-            accessor.bufferViewIndex = bufferView;
-        }
-
-        // byteOffset is optional, but defaults to 0
-        if (accessorObject["byteOffset"].get_uint64().get(accessor.byteOffset) != SUCCESS) {
-            accessor.byteOffset = 0;
-        }
-
-        if (accessorObject["normalized"].get_bool().get(accessor.normalized) != SUCCESS) {
-            accessor.normalized = false;
-        }
-
-        // name is optional.
-        std::string_view name;
-        if (accessorObject["name"].get_string().get(name) == SUCCESS) {
-            accessor.name = std::string { name };
-        }
-
-        parsedAsset->accessors.emplace_back(std::move(accessor));
-        return true;
-    });
-
-    if (!foundAccessors && accessorError != Error::None) {
-        errorCode = accessorError;
-    }
-    return errorCode;
-}
-
 fg::Error fg::glTF::parseImages() {
     using namespace simdjson;
     auto [foundImages, imageError] = iterateOverArray(data->root, "images", [this](auto& value) mutable -> bool {
@@ -416,60 +416,115 @@ fg::Error fg::glTF::parseImages() {
     return errorCode;
 }
 
-fg::Error fg::glTF::parseTextures() {
+fg::Error fg::glTF::parseMaterials() {
     using namespace simdjson;
-    auto [foundTextures, textureError] = iterateOverArray(data->root, "textures", [this](auto& value) mutable -> bool {
-        Texture texture;
-        dom::object textureObject;
-        if (value.get_object().get(textureObject) != SUCCESS) {
+    auto [foundMaterials, materialsError] = iterateOverArray(data->root, "materials", [this](auto& value) mutable -> bool {
+        dom::object materialObject;
+        if (value.get_object().get(materialObject) != SUCCESS) {
             return false;
         }
+        Material material = {};
 
-        bool hasExtensions = false;
-        dom::object extensionsObject;
-        if (textureObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
-            hasExtensions = true;
-        }
-
-        texture.imageIndex = std::numeric_limits<size_t>::max();
-        if (textureObject["source"].get_uint64().get(texture.imageIndex) != SUCCESS && !hasExtensions) {
-            // "The index of the image used by this texture. When undefined, an extension or other
-            // mechanism SHOULD supply an alternate texture source, otherwise behavior is undefined."
-            // => We'll have it be invalid.
-            return false;
-        }
-
-        // If we have extensions, we'll use the normal "source" as the fallback and then parse
-        // the extensions for any "source" field.
-        if (hasExtensions) {
-            if (texture.imageIndex != std::numeric_limits<size_t>::max()) {
-                // If the source was specified we'll use that as a fallback.
-                texture.fallbackImageIndex = texture.imageIndex;
+        dom::array emissiveFactor;
+        if (materialObject["emissiveFactor"].get_array().get(emissiveFactor) == SUCCESS) {
+            if (emissiveFactor.size() != 3)
+                return false;
+            for (auto i = 0U; i < 3; ++i) {
+                double val;
+                if (emissiveFactor.at(i).get_double().get(val) != SUCCESS)
+                    return false;
+                material.emissiveFactor[i] = static_cast<float>(val);
             }
-            if (!parseTextureExtensions(texture, extensionsObject, options)) {
+        } else {
+            material.emissiveFactor = { 0, 0, 0 };
+        }
+
+        {
+            TextureInfo normalTexture = {};
+            auto error = parseTextureObject(&materialObject, "normalTexture", &normalTexture);
+            if (error != Error::None) {
                 return false;
             }
+            material.normalTexture = normalTexture;
+        }
+        {
+            TextureInfo occlusionTexture = {};
+            auto error = parseTextureObject(&materialObject, "occlusionTexture", &occlusionTexture);
+            if (error != Error::None) {
+                return false;
+            }
+            material.occlusionTexture = occlusionTexture;
+        }
+        {
+            TextureInfo emissiveTexture = {};
+            auto error = parseTextureObject(&materialObject, "emissiveTexture", &emissiveTexture);
+            if (error != Error::None) {
+                return false;
+            }
+            material.emissiveTexture = emissiveTexture;
         }
 
-        // The index of the sampler used by this texture. When undefined, a sampler with
-        // repeat wrapping and auto filtering SHOULD be used.
-        size_t samplerIndex;
-        if (textureObject["sampler"].get_uint64().get(samplerIndex) == SUCCESS) {
-            texture.samplerIndex = samplerIndex;
+        dom::object pbrMetallicRoughness;
+        if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) {
+            PBRData pbr = {};
+
+            dom::array baseColorFactor;
+            if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) {
+                for (auto i = 0U; i < 4; ++i) {
+                    double val;
+                    if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) {
+                        return false;
+                    }
+                    pbr.baseColorFactor[i] = static_cast<float>(val);
+                }
+            } else {
+                pbr.baseColorFactor = { 1, 1, 1, 1 };
+            }
+
+            double factor;
+            if (pbrMetallicRoughness["metallicFactor"].get_double().get(factor) == SUCCESS) {
+                pbr.metallicFactor = static_cast<float>(factor);
+            } else {
+                pbr.metallicFactor = 1.0f;
+            }
+            if (pbrMetallicRoughness["roughnessFactor"].get_double().get(factor) == SUCCESS) {
+                pbr.roughnessFactor = static_cast<float>(factor);
+            } else {
+                pbr.roughnessFactor = 1.0f;
+            }
+
+            {
+                TextureInfo baseColorTexture = {};
+                auto error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &baseColorTexture);
+                if (error != Error::None) {
+                    return false;
+                }
+                pbr.baseColorTexture = baseColorTexture;
+            }
+            {
+                TextureInfo metallicRoughnessTexture = {};
+                auto error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &metallicRoughnessTexture);
+                if (error != Error::None) {
+                    return false;
+                }
+                pbr.metallicRoughnessTexture = metallicRoughnessTexture;
+            }
+
+            material.pbrData = pbr;
         }
 
         // name is optional.
         std::string_view name;
-        if (textureObject["name"].get_string().get(name) == SUCCESS) {
-            texture.name = std::string { name };
+        if (materialObject["name"].get_string().get(name) == SUCCESS) {
+            material.name = std::string { name };
         }
 
-        parsedAsset->textures.emplace_back(std::move(texture));
+        parsedAsset->materials.emplace_back(std::move(material));
         return true;
     });
 
-    if (!foundTextures && textureError != fg::Error::None) {
-        errorCode = textureError;
+    if (!foundMaterials && materialsError != fg::Error::None) {
+        errorCode = materialsError;
     }
     return errorCode;
 }
@@ -478,11 +533,11 @@ fg::Error fg::glTF::parseMeshes() {
     using namespace simdjson;
     auto [foundMeshes, meshError] = iterateOverArray(data->root, "meshes", [this](auto& value) mutable -> bool {
         // Required fields: "primitives"
-        Mesh mesh;
         dom::object meshObject;
         if (value.get_object().get(meshObject) != SUCCESS) {
             return false;
         }
+        Mesh mesh = {};
 
         auto [foundPrimitives, primitiveError] = iterateOverArray(meshObject, "primitives", [&primitives = mesh.primitives](auto& value) mutable -> bool {
             using namespace simdjson; // Why MSVC?
@@ -664,6 +719,84 @@ fg::Error fg::glTF::parseScenes() {
     }
     return errorCode;
 }
+
+fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept {
+    using namespace simdjson;
+    auto& obj = *static_cast<dom::object*>(object);
+
+    dom::object child;
+    if (obj[key].get_object().get(child) != SUCCESS) {
+        return Error::None;
+    }
+
+    size_t index;
+    if (child["index"].get_uint64().get(index) == SUCCESS) {
+        info->textureIndex = index;
+    } else {
+        return Error::InvalidGltf;
+    }
+
+    return Error::None;
+}
+
+fg::Error fg::glTF::parseTextures() {
+    using namespace simdjson;
+    auto [foundTextures, textureError] = iterateOverArray(data->root, "textures", [this](auto& value) mutable -> bool {
+        Texture texture;
+        dom::object textureObject;
+        if (value.get_object().get(textureObject) != SUCCESS) {
+            return false;
+        }
+
+        bool hasExtensions = false;
+        dom::object extensionsObject;
+        if (textureObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
+            hasExtensions = true;
+        }
+
+        texture.imageIndex = std::numeric_limits<size_t>::max();
+        if (textureObject["source"].get_uint64().get(texture.imageIndex) != SUCCESS && !hasExtensions) {
+            // "The index of the image used by this texture. When undefined, an extension or other
+            // mechanism SHOULD supply an alternate texture source, otherwise behavior is undefined."
+            // => We'll have it be invalid.
+            return false;
+        }
+
+        // If we have extensions, we'll use the normal "source" as the fallback and then parse
+        // the extensions for any "source" field.
+        if (hasExtensions) {
+            if (texture.imageIndex != std::numeric_limits<size_t>::max()) {
+                // If the source was specified we'll use that as a fallback.
+                texture.fallbackImageIndex = texture.imageIndex;
+            }
+            if (!parseTextureExtensions(texture, extensionsObject, options)) {
+                return false;
+            }
+        }
+
+        // The index of the sampler used by this texture. When undefined, a sampler with
+        // repeat wrapping and auto filtering SHOULD be used.
+        size_t samplerIndex;
+        if (textureObject["sampler"].get_uint64().get(samplerIndex) == SUCCESS) {
+            texture.samplerIndex = samplerIndex;
+        }
+
+        // name is optional.
+        std::string_view name;
+        if (textureObject["name"].get_string().get(name) == SUCCESS) {
+            texture.name = std::string { name };
+        }
+
+        parsedAsset->textures.emplace_back(std::move(texture));
+        return true;
+    });
+
+    if (!foundTextures && textureError != fg::Error::None) {
+        errorCode = textureError;
+    }
+    return errorCode;
+}
+
 #pragma endregion
 
 #pragma region JsonData
@@ -672,7 +805,7 @@ fg::JsonData::JsonData(uint8_t* bytes, size_t byteCount) noexcept {
     data = std::make_unique<padded_string>(reinterpret_cast<char*>(bytes), byteCount);
 }
 
-fg::JsonData::JsonData(std::filesystem::path path) noexcept {
+fg::JsonData::JsonData(const std::filesystem::path& path) noexcept {
     using namespace simdjson;
     data = std::make_unique<padded_string>();
     if (padded_string::load(path.string()).get(*data) != SUCCESS) {

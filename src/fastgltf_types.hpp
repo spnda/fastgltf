@@ -191,6 +191,54 @@ namespace fastgltf {
         std::string name;
     };
 
+    struct TextureInfo {
+        size_t textureIndex;
+        size_t texCoordIndex;
+    };
+
+    struct PBRData {
+        /**
+         * The factors for the base color of then material. Defaults to 1,1,1,1
+         */
+        std::array<float, 4> baseColorFactor;
+
+        /**
+         * The factor fot eh metalness of the material. Defaults to 1
+         */
+        float metallicFactor;
+
+        /**
+         * The factor fot eh roughness of the material. Defaults to 1
+         */
+        float roughnessFactor;
+
+        std::optional<TextureInfo> baseColorTexture;
+        std::optional<TextureInfo> metallicRoughnessTexture;
+    };
+
+    struct Material {
+        /**
+         * A set of parameter values that are used to define the metallic-roughness material model
+         * from Physically Based Rendering (PBR) methodology. When undefined, all the default
+         * values of pbrMetallicRoughness MUST apply.
+         */
+        std::optional<PBRData> pbrData;
+
+        /**
+         * The tangent space normal texture.
+         */
+        std::optional<TextureInfo> normalTexture;
+        std::optional<TextureInfo> occlusionTexture;
+        std::optional<TextureInfo> emissiveTexture;
+
+        /**
+         * The factors for the emissive color of the material. Defaults to 0,0,0
+         */
+        std::array<float, 3> emissiveFactor;
+
+        std::string name;
+    };
+
     struct Texture {
         size_t imageIndex;
 
@@ -248,14 +296,15 @@ namespace fastgltf {
     struct Asset {
         // A value of std::numeric_limits<size_t>::max() indicates no default scene.
         std::optional<size_t> defaultScene;
-        std::vector<Scene> scenes;
-        std::vector<Node> nodes;
-        std::vector<Mesh> meshes;
         std::vector<Accessor> accessors;
         std::vector<BufferView> bufferViews;
         std::vector<Buffer> buffers;
-        std::vector<Texture> textures;
         std::vector<Image> images;
+        std::vector<Material> materials;
+        std::vector<Mesh> meshes;
+        std::vector<Node> nodes;
+        std::vector<Scene> scenes;
+        std::vector<Texture> textures;
 
         explicit Asset() = default;
         explicit Asset(const Asset& scene) = delete;

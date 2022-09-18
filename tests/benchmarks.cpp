@@ -19,6 +19,7 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
         sponza->parseBuffers();
         sponza->parseBufferViews();
         sponza->parseAccessors();
+        sponza->parseMaterials();
         sponza->parseMeshes();
         sponza->parseNodes();
         return sponza->parseScenes();
@@ -29,6 +30,7 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
         sponza->parseBuffers();
         sponza->parseBufferViews();
         sponza->parseAccessors();
+        sponza->parseMaterials();
         sponza->parseMeshes();
         sponza->parseNodes();
         return sponza->parseScenes();

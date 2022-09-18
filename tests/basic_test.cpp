@@ -68,6 +68,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(cubeGltf->parseAccessors() == fastgltf::Error::None);
         REQUIRE(cubeGltf->parseBufferViews() == fastgltf::Error::None);
         REQUIRE(cubeGltf->parseBuffers() == fastgltf::Error::None);
+        REQUIRE(cubeGltf->parseMaterials() == fastgltf::Error::None);
 
         auto cube = cubeGltf->getParsedAsset();
         REQUIRE(cube->scenes.size() == 1);
@@ -86,6 +87,15 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
         REQUIRE(cube->bufferViews.size() == 5);
         REQUIRE(cube->buffers.size() == 1);
+
+        REQUIRE(cube->materials.size() == 1);
+        auto& material = cube->materials.front();
+        REQUIRE(material.name == "Cube");
+        REQUIRE(material.pbrData.has_value());
+        REQUIRE(material.pbrData->baseColorTexture.has_value());
+        REQUIRE(material.pbrData->baseColorTexture->textureIndex == 0);
+        REQUIRE(material.pbrData->metallicRoughnessTexture.has_value());
+        REQUIRE(material.pbrData->metallicRoughnessTexture->textureIndex == 1);
     }
 
     SECTION("Loading basic Box.gltf") {
@@ -97,6 +107,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
         REQUIRE(boxGltf->parseNodes() == fastgltf::Error::None);
         REQUIRE(boxGltf->parseScenes() == fastgltf::Error::None);
+        REQUIRE(boxGltf->parseMaterials() == fastgltf::Error::None);
 
         auto box = boxGltf->getParsedAsset();
         REQUIRE(box->defaultScene.has_value());
@@ -108,6 +119,12 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(box->nodes[1].children.empty());
         REQUIRE(box->nodes[1].meshIndex.has_value());
         REQUIRE(box->nodes[1].meshIndex.value() == 0);
+
+        REQUIRE(box->materials.size() == 1);
+        REQUIRE(box->materials[0].name == "Red");
+        REQUIRE(box->materials[0].pbrData.has_value());
+        REQUIRE(box->materials[0].pbrData->baseColorFactor[3] == 1.0f);
+        REQUIRE(box->materials[0].pbrData->metallicFactor == 0.0f);
     }
 };
 

@@ -16,13 +16,13 @@ namespace fastgltf {
     struct Asset;
     struct DataSource;
     struct ParserData;
+    struct TextureInfo;
     enum class DataLocation : uint8_t;
     enum class MimeType : uint8_t;
 
     enum class Error : uint32_t {
         None = 0,
         InvalidPath = 1,
-        WrongExtension = 2,
         NonExistentPath = 3,
         InvalidJson = 4,
         InvalidGltf = 5,
@@ -64,11 +64,11 @@ namespace fastgltf {
     };
     // clang-format on
 
-    constexpr Options operator&(Options a, Options b) {
+    constexpr Options operator&(Options a, Options b) noexcept {
         return static_cast<Options>(to_underlying(a) & to_underlying(b));
     }
 
-    constexpr Options operator|(Options a, Options b) {
+    constexpr Options operator|(Options a, Options b) noexcept {
         return static_cast<Options>(to_underlying(a) | to_underlying(b));
     }
 
@@ -88,6 +88,8 @@ namespace fastgltf {
         [[nodiscard]] bool checkAssetField();
         [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
 
+        [[gnu::always_inline]] Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
+
     public:
         explicit glTF(const glTF& scene) = delete;
         glTF& operator=(const glTF& scene) = delete;
@@ -101,14 +103,15 @@ namespace fastgltf {
          * This parses all buffers
          * @return
          */
+        Error parseAccessors();
         Error parseBuffers();
         Error parseBufferViews();
-        Error parseAccessors();
         Error parseImages();
-        Error parseTextures();
+        Error parseMaterials();
         Error parseMeshes();
         Error parseNodes();
         Error parseScenes();
+        Error parseTextures();
     };
 
     /**
@@ -123,11 +126,11 @@ namespace fastgltf {
     public:
         explicit JsonData(uint8_t* bytes, size_t byteCount) noexcept;
         // If this constructor fails, getData will return nullptr.
-        explicit JsonData(std::filesystem::path path) noexcept;
+        explicit JsonData(const std::filesystem::path& path) noexcept;
 
         ~JsonData();
 
-        [[nodiscard]] const uint8_t* getData() const;
+        [[nodiscard, gnu::const]] const uint8_t* getData() const;
     };
 
     /**
