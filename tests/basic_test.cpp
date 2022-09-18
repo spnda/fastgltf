@@ -155,3 +155,26 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     REQUIRE(image.location == fastgltf::DataLocation::FilePathWithByteRange);
     REQUIRE(image.data.mimeType == fastgltf::MimeType::KTX2);
 };
+
+TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
+    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
+    auto transformTest = path / "sample-models" / "2.0" / "TextureTransformMultiTest" / "glTF";
+
+    auto jsonData = std::make_unique<fastgltf::JsonData>(transformTest / "TextureTransformMultiTest.gltf");
+
+    fastgltf::Parser parser;
+    auto test = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::LoadTextureTransformExtension);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(test != nullptr);
+
+    REQUIRE(test->parseMaterials() == fastgltf::Error::None);
+
+    auto asset = test->getParsedAsset();
+    REQUIRE(!asset->materials.empty());
+
+    auto& material = asset->materials.front();
+    REQUIRE(material.pbrData.has_value());
+    REQUIRE(material.pbrData->baseColorTexture.has_value());
+    REQUIRE(material.pbrData->baseColorTexture->uvOffset[0] == 0.705f);
+    REQUIRE(material.pbrData->baseColorTexture->rotation == 1.5708f);
+}

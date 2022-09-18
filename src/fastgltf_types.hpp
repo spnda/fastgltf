@@ -194,6 +194,14 @@ namespace fastgltf {
     struct TextureInfo {
         size_t textureIndex;
         size_t texCoordIndex;
+        float scale;
+
+        // UV counter-clockwise rotation in radians. From KHR_texture_transform.
+        float rotation;
+        // UV offset. From KHR_texture_transform.
+        std::array<float, 2> uvOffset;
+        // UV scale. From KHR_texture_transform.
+        std::array<float, 2> uvScale;
     };
 
     struct PBRData {

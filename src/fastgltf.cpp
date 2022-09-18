@@ -736,6 +736,52 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
         return Error::InvalidGltf;
     }
 
+    if (child["texCoord"].get_uint64().get(index) == SUCCESS) {
+        info->texCoordIndex = index;
+    } else {
+        info->texCoordIndex = 0;
+    }
+
+    // scale only applies to normal textures.
+    double scale = 1.0f;
+    child["scale"].get_double().get(scale);
+    info->scale = static_cast<float>(scale);
+
+    dom::object extensions;
+    if (child["extensions"].get_object().get(extensions) == SUCCESS) {
+        dom::object textureTransform;
+        if (extensions["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS && hasBit(options, Options::LoadTextureTransformExtension)) {
+            if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
+                info->texCoordIndex = index;
+            }
+
+            double rotation = 0.0f;
+            textureTransform["rotation"].get_double().get(rotation);
+            info->rotation = static_cast<float>(rotation);
+
+            dom::array array;
+            if (textureTransform["offset"].get_array().get(array) == SUCCESS) {
+                for (auto i = 0U; i < 2; ++i) {
+                    double val;
+                    if (array.at(i).get_double().get(val) != SUCCESS) {
+                        return Error::InvalidGltf;
+                    }
+                    info->uvOffset[i] = static_cast<float>(val);
+                }
+            }
+
+            if (textureTransform["scale"].get_array().get(array) == SUCCESS) {
+                for (auto i = 0U; i < 2; ++i) {
+                    double val;
+                    if (array.at(i).get_double().get(val) != SUCCESS) {
+                        return Error::InvalidGltf;
+                    }
+                    info->uvScale[i] = static_cast<float>(val);
+                }
+            }
+        }
+    }
+
     return Error::None;
 }
 

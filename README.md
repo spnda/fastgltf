@@ -22,6 +22,7 @@ fastgltf supports glTF 2.0:
 
 fastgltf supports a number of extensions:
 - [x] KHR_texture_basisu
+- [x] KHR_texture_transform
 - [x] MSFT_texture_dds
 
 ## Usage

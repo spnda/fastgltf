@@ -43,6 +43,11 @@ namespace fastgltf {
         DontRequireValidAssetMember     = 1 << 1,
 
         /**
+         * Loads KHR_texture_transform
+         */
+        LoadTextureTransformExtension   = 1 << 2,
+
+        /**
          * This should only be used for benchmarking
          */
         DontUseSIMD                     = 1 << 3,
