@@ -6,7 +6,6 @@ FetchContent_Declare(
     GIT_TAG v3.1.0)
 FetchContent_MakeAvailable(Catch2)
 
-message(STATUS "Downloading glTF Sample Models")
 ExternalProject_Add(gltf-sample-models
     URL "https://github.com/KhronosGroup/glTF-Sample-Models/archive/8e9a5a6ad1a2790e2333e3eb48a1ee39f9e0e31b.zip"
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/gltf/sample-models"

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
-project(fastgltf)
-
 cmake_policy(SET CMP0135 NEW)
+
+project(fastgltf VERSION 0.1.0 LANGUAGES C CXX)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
@@ -45,3 +45,4 @@ compiler_flags(TARGET fastgltf_simdjson)
 
 add_subdirectory(src)
 add_subdirectory(tests)
+add_subdirectory(examples)

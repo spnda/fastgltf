@@ -649,8 +649,40 @@ fg::Error fg::glTF::parseNodes() {
                     break;
                 }
                 node.matrix[i] = static_cast<float>(val);
+                ++i;
             }
         }
+
+        dom::array scale;
+        if (nodeObject["scale"].get_array().get(scale) == SUCCESS) {
+            auto i = 0U;
+            for (auto num : scale) {
+                double val;
+                if (num.get_double().get(val) != SUCCESS) {
+                    return false;
+                }
+                node.scale[i] = static_cast<float>(val);
+                ++i;
+            }
+        } else {
+            node.scale = {1.0f, 1.0f, 1.0f};
+        }
+
+        dom::array translation;
+        if (nodeObject["translation"].get_array().get(translation) == SUCCESS) {
+            auto i = 0U;
+            for (auto num : translation) {
+                double val;
+                if (num.get_double().get(val) != SUCCESS) {
+                    return false;
+                }
+                node.translation[i] = static_cast<float>(val);
+                ++i;
+            }
+        } else {
+            node.translation = {1.0f, 1.0f, 1.0f};
+        }
+
 
         // name is optional.
         {

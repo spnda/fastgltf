@@ -26,4 +26,12 @@ simdjson/
 # Test files
 tests/gltf/intel_sponza/
 tests/gltf/sample-models/
+tests/gltf/good-froge/
+tests/gltf/deccer-cubes/
 tests/gltf_loaders/
+
+# Example files
+examples/deps/
+!examples/deps/glad/
+*.ngfx-proj
+SpirvTemp/

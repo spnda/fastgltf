@@ -1,3 +1,4 @@
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
@@ -24,6 +25,10 @@ TEST_CASE("Component type tests", "[gltf-loader]") {
     REQUIRE(fastgltf::getComponentBitSize(ComponentType::Float)         == 32);
     REQUIRE(fastgltf::getComponentBitSize(ComponentType::Double)        == 64);
     REQUIRE(fastgltf::getComponentBitSize(ComponentType::Invalid)       ==  0);
+
+    REQUIRE(fastgltf::getElementByteSize(AccessorType::Scalar, ComponentType::Byte)  == 1);
+    REQUIRE(fastgltf::getElementByteSize(AccessorType::Vec4,   ComponentType::Byte)  == 4);
+    REQUIRE(fastgltf::getElementByteSize(AccessorType::Vec4,   ComponentType::Short) == 8);
 
     REQUIRE(fastgltf::getComponentType(5120) == ComponentType::Byte);
     REQUIRE(fastgltf::getComponentType(5121) == ComponentType::UnsignedByte);
@@ -176,5 +181,5 @@ TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
     REQUIRE(material.pbrData.has_value());
     REQUIRE(material.pbrData->baseColorTexture.has_value());
     REQUIRE(material.pbrData->baseColorTexture->uvOffset[0] == 0.705f);
-    REQUIRE(material.pbrData->baseColorTexture->rotation == 1.5708f);
+    REQUIRE(material.pbrData->baseColorTexture->rotation == Catch::Approx(1.5707963705062866f));
 }

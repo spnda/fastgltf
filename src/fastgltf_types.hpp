@@ -21,9 +21,8 @@ namespace fastgltf {
         TriangleFan = 6,
     };
 
-    // We encode these values with the number of components in their top 8 bits.
-    constexpr uint16_t accessorTypeMask = 0x00FF;
-    constexpr uint16_t accessorTypeBitSizeMask = 0xFF00;
+    // We encode these values with the number of components in their top 8 bits for fast
+    // access & storage
     enum class AccessorType : uint16_t {
         Invalid = 0,
         Scalar  = ( 1 << 8) | 1,
@@ -37,8 +36,6 @@ namespace fastgltf {
 
     // We use the top 32-bits to encode the amount of bits this component type needs.
     // The lower 32-bits are used to store the glTF ID for the type.
-    constexpr uint32_t componentTypeMask = 0xFFFF;
-    constexpr uint32_t componentTypeBitSizeMask = 0xFFFF0000;
     enum class ComponentType : uint32_t {
         Invalid         = 0,
         Byte            = ( 8 << 16) | 5120,
@@ -90,12 +87,16 @@ namespace fastgltf {
     }
 
     constexpr uint32_t getComponentBitSize(ComponentType componentType) noexcept {
-        auto masked = static_cast<uint32_t>(componentType) & componentTypeBitSizeMask;
+        auto masked = static_cast<uint32_t>(componentType) & 0xFFFF0000;
         return (masked >> 16);
     }
 
-    constexpr uint32_t getElementSize(AccessorType type, ComponentType componentType) noexcept {
+    constexpr uint32_t getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
         return getNumComponents(type) * (getComponentBitSize(componentType) / 8);
+    }
+
+    constexpr uint32_t getGLComponentType(ComponentType type) noexcept {
+        return to_underlying(type) & 0xFFFF;
     }
 
     constexpr ComponentType getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
@@ -110,7 +111,7 @@ namespace fastgltf {
         };
         // This shouldn't bee too slow if called multiple times when parsing...
         for (auto component : components) {
-            if ((to_underlying(component) & componentTypeMask) == componentType) {
+            if ((to_underlying(component) & 0xFFFF) == componentType) {
                 return component;
             }
         }
@@ -173,6 +174,9 @@ namespace fastgltf {
 
         bool hasMatrix = false;
         std::array<float, 16> matrix;
+
+        std::array<float, 3> scale;
+        std::array<float, 3> translation;
 
         std::string name;
     };

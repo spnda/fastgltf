@@ -102,5 +102,11 @@ The **fastgltf** library is licensed under the MIT License.
 
 ----
 
-Third party licenses:
+Libraries embedded in fastgltf:
 - [simdjson](https://github.com/simdjson/simdjson): Licensed under Apache 2.0.
+
+Libraries used in examples and tests:
+- [Catch2](https://github.com/catchorg/Catch2): Licensed under BSL-1.0.
+- [glad](https://github.com/Dav1dde/glad): Licensed under MIT.
+- [glfw](https://github.com/glfw/glfw): Licensed under Zlib.
+- [glm](https://github.com/g-truc/glm): Licensed under MIT.
