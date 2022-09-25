@@ -111,7 +111,7 @@ void windowSizeCallback(GLFWwindow* window, int width, int height) {
     glm::mat4 projection = glm::perspective(glm::radians(75.0f),
                                             static_cast<float>(width) / static_cast<float>(height),
                                             0.1f, 100.0f);
-    glm::mat4 view = glm::lookAt(glm::vec3(5, 5, 5), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+    glm::mat4 view = glm::lookAt(glm::vec3(3, 3, 3), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
     glm::mat4 viewProjection = projection * view;
     glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, &viewProjection[0][0]);
 
@@ -243,9 +243,16 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
                                   GL_FALSE, 0);
         glVertexArrayAttribBinding(vao, 0, 0);
 
-        glVertexArrayVertexBuffer(vao, 0, primitive.vertexBuffer,
-                                  static_cast<GLintptr>(positionView.byteOffset + positionAccessor.byteOffset),
-                                  static_cast<int32_t>(fastgltf::getElementByteSize(positionAccessor.type, positionAccessor.componentType)));
+        if (positionView.byteStride.has_value()) {
+            glVertexArrayVertexBuffer(vao, 0, primitive.vertexBuffer,
+                                      static_cast<GLintptr>(positionView.byteOffset + positionAccessor.byteOffset),
+                                      static_cast<GLsizei>(positionView.byteStride.value()));
+        } else {
+            auto offset = positionView.byteOffset + positionAccessor.byteOffset;
+            glVertexArrayVertexBuffer(vao, 0, primitive.vertexBuffer,
+                                      static_cast<GLintptr>(offset),
+                                      static_cast<GLsizei>(fastgltf::getElementByteSize(positionAccessor.type, positionAccessor.componentType)));
+        }
         glVertexArrayElementBuffer(vao, primitive.indexBuffer);
 
         // Generate the indirect draw command
