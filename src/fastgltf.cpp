@@ -176,7 +176,7 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
         }
 
         // Decode the base64 data.
-        auto encodedData = uri.substr(encodingEnd);
+        auto encodedData = uri.substr(encodingEnd + 1);
         std::vector<uint8_t> uriData;
         if (hasBit(options, Options::DontUseSIMD)) {
             uriData = base64::fallback_decode(encodedData);
