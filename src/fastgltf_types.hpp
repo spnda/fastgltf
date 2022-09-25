@@ -178,6 +178,7 @@ namespace fastgltf {
 
         std::array<float, 3> scale;
         std::array<float, 3> translation;
+        std::array<float, 4> rotation;
 
         std::string name;
     };

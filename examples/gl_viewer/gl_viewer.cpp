@@ -5,8 +5,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <fastgltf_parser.hpp>
 #include <fastgltf_types.hpp>
@@ -186,9 +187,9 @@ glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
     if (node.hasMatrix) {
         return base * glm::mat4x4(glm::make_mat4x4(node.matrix.data()));
     } else {
-        // TODO: Support rotation
         return base
             * glm::translate(glm::mat4(1.0f), glm::make_vec3(node.translation.data()))
+            * glm::toMat4(glm::make_quat(node.rotation.data()))
             * glm::scale(glm::mat4(1.0f), glm::make_vec3(node.scale.data()));
     }
 }

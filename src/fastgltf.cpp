@@ -699,6 +699,15 @@ fg::Error fg::glTF::parseNodes() {
                 node.matrix[i] = static_cast<float>(val);
                 ++i;
             }
+        } else {
+            // clang-format off
+            node.matrix = {
+                1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f,
+            };
+            // clang-format on
         }
 
         dom::array scale;
@@ -728,9 +737,23 @@ fg::Error fg::glTF::parseNodes() {
                 ++i;
             }
         } else {
-            node.translation = {1.0f, 1.0f, 1.0f};
+            node.translation = {0.0f, 0.0f, 0.0f};
         }
 
+        dom::array rotation;
+        if (nodeObject["rotation"].get_array().get(rotation) == SUCCESS) {
+            auto i = 0U;
+            for (auto num : rotation) {
+                double val;
+                if (num.get_double().get(val) != SUCCESS) {
+                    return false;
+                }
+                node.rotation[i] = static_cast<float>(val);
+                ++i;
+            }
+        } else {
+            node.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
+        }
 
         // name is optional.
         {
