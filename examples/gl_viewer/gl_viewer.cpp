@@ -99,23 +99,85 @@ struct Viewer {
     std::vector<GLuint> buffers;
     std::vector<Mesh> meshes;
 
-    glm::mat4 viewProjectionMatrix;
-    GLint viewProjectionMatrixUniform;
-    GLint modelMatrixUniform;
+    glm::mat4 viewMatrix = glm::mat4(1.0f);
+    glm::mat4 projectionMatrix = glm::mat4(1.0f);
+    GLint viewProjectionMatrixUniform = GL_NONE;
+    GLint modelMatrixUniform = GL_NONE;
+
+    float lastFrame = 0.0f;
+    float deltaTime = 0.0f;
+    glm::vec3 accelerationVector = glm::vec3(0.0f);
+    glm::vec3 velocity = glm::vec3(0.0f);
+    glm::vec3 position = glm::vec3(3.0f, 3.0f, 3.0f);
+
+    glm::dvec2 lastCursorPosition = glm::dvec2(0.0f);
+    glm::vec3 direction = glm::vec3(0.0f);
+    float yaw = -90.0f;
+    float pitch = 0.0f;
+    bool firstMouse = true;
 };
+
+void updateCameraMatrix(Viewer* viewer) {
+    glm::mat4 viewProjection = viewer->projectionMatrix * viewer->viewMatrix;
+    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, &viewProjection[0][0]);
+}
 
 void windowSizeCallback(GLFWwindow* window, int width, int height) {
     void* ptr = glfwGetWindowUserPointer(window);
     auto* viewer = static_cast<Viewer*>(ptr);
 
-    glm::mat4 projection = glm::perspective(glm::radians(75.0f),
-                                            static_cast<float>(width) / static_cast<float>(height),
-                                            0.1f, 100.0f);
-    glm::mat4 view = glm::lookAt(glm::vec3(3, 3, 3), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-    glm::mat4 viewProjection = projection * view;
-    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, &viewProjection[0][0]);
+    viewer->projectionMatrix = glm::perspective(glm::radians(75.0f),
+                                                static_cast<float>(width) / static_cast<float>(height),
+                                                0.1f, 1000.0f);
 
     glViewport(0, 0, width, height);
+}
+
+void cursorCallback(GLFWwindow* window, double xpos, double ypos) {
+    void* ptr = glfwGetWindowUserPointer(window);
+    auto* viewer = static_cast<Viewer*>(ptr);
+
+    if (viewer->firstMouse) {
+        viewer->lastCursorPosition = { xpos, ypos };
+        viewer->firstMouse = false;
+    }
+
+    auto offset = glm::vec2(xpos - viewer->lastCursorPosition.x, viewer->lastCursorPosition.y - ypos);
+    viewer->lastCursorPosition = { xpos, ypos };
+    offset *= 0.1f;
+
+    viewer->yaw   += offset.x;
+    viewer->pitch += offset.y;
+    viewer->pitch = glm::clamp(viewer->pitch, -89.0f, 89.0f);
+
+    auto& direction = viewer->direction;
+    direction.x = cos(glm::radians(viewer->yaw)) * cos(glm::radians(viewer->pitch));
+    direction.y = sin(glm::radians(viewer->pitch));
+    direction.z = sin(glm::radians(viewer->yaw)) * cos(glm::radians(viewer->pitch));
+    direction = glm::normalize(direction);
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    void* ptr = glfwGetWindowUserPointer(window);
+    auto* viewer = static_cast<Viewer*>(ptr);
+    constexpr glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    auto& acceleration = viewer->accelerationVector;
+    if (key == GLFW_KEY_W) {
+        acceleration = viewer->direction;
+    }
+
+    if (key == GLFW_KEY_S) {
+        acceleration -= viewer->direction;
+    }
+
+    if (key == GLFW_KEY_D) {
+        acceleration += glm::normalize(glm::cross(viewer->direction, cameraUp));
+    }
+
+    if (key == GLFW_KEY_A) {
+        acceleration -= glm::normalize(glm::cross(viewer->direction, cameraUp));
+    }
 }
 
 glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
@@ -335,7 +397,11 @@ int main(int argc, char* argv[]) {
     glfwSetWindowUserPointer(window, &viewer);
     glfwMakeContextCurrent(window);
 
+    glfwSetKeyCallback(window, keyCallback);
+    glfwSetCursorPosCallback(window, cursorCallback);
     glfwSetWindowSizeCallback(window, windowSizeCallback);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
         std::cerr << "Failed to initialize OpenGL context." << std::endl;
@@ -406,8 +472,26 @@ int main(int argc, char* argv[]) {
         windowSizeCallback(window, width, height);
     }
 
+    viewer.lastFrame = static_cast<float>(glfwGetTime());
     while (!glfwWindowShouldClose(window)) {
+        auto currentFrame = static_cast<float>(glfwGetTime());
+        viewer.deltaTime = currentFrame - viewer.lastFrame;
+        viewer.lastFrame = currentFrame;
+
+        // Reset the acceleration
+        viewer.accelerationVector = glm::vec3(0.0f);
+
+        // Updates the acceleration vector and direction vectors.
         glfwPollEvents();
+
+        // Factor the deltaTime into the amount of acceleration
+        viewer.velocity += (viewer.accelerationVector * 50.0f) * viewer.deltaTime;
+        // Lerp the velocity to 0, adding deceleration.
+        viewer.velocity = viewer.velocity + (2.0f * viewer.deltaTime) * (glm::vec3(0.0f) - viewer.velocity);
+        // Add the velocity into the position
+        viewer.position += viewer.velocity * viewer.deltaTime;
+        viewer.viewMatrix = glm::lookAt(viewer.position, viewer.position + viewer.direction, glm::vec3(0.0f, 1.0f, 0.0f));
+        updateCameraMatrix(&viewer);
 
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
