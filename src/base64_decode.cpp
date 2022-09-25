@@ -16,6 +16,7 @@ namespace fg = fastgltf;
 // The AVX and SSE decoding functions are based on http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html.
 // It covers various methods of en-/decoding base64 using SSE and AVX and also shows their
 // performance metrics.
+// TODO: Mark these functions with msvc::forceinline which is available from C++20
 [[gnu::target("avx2"), gnu::always_inline]] auto lookup_pshufb_bitmask(const __m256i input) {
     const auto higher_nibble = _mm256_and_si256(_mm256_srli_epi32(input, 4), _mm256_set1_epi8(0x0f));
 

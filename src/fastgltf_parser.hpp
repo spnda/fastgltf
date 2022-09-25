@@ -14,6 +14,7 @@ namespace simdjson {
 
 namespace fastgltf {
     struct Asset;
+    struct BinaryGltfChunk;
     struct DataSource;
     struct ParserData;
     struct TextureInfo;
@@ -27,6 +28,7 @@ namespace fastgltf {
         InvalidJson = 4,
         InvalidGltf = 5,
         InvalidOrMissingAssetField = 6,
+        InvalidGLB = 6,
     };
 
     // clang-format off
@@ -66,6 +68,13 @@ namespace fastgltf {
          * the actual images.
          */
         LoadDDSExtension                = 1 << 5,
+
+        /**
+         * Loads all the GLB buffers into CPU memory. If disabled, fastgltf will only provide
+         * a byte offset and length into the GLB file, which can be useful when using APIs like
+         * DirectStorage or Metal IO.
+         */
+        LoadGLBBuffers                  = 1 << 6,
     };
     // clang-format on
 
@@ -80,13 +89,24 @@ namespace fastgltf {
     class glTF {
         friend class Parser;
 
-        std::unique_ptr<fastgltf::ParserData> data;
+        struct GLBBuffer {
+            size_t fileOffset;
+            size_t fileSize;
+            std::filesystem::path file;
+
+            std::vector<uint8_t> buffer;
+        };
+        std::unique_ptr<GLBBuffer> glb;
+
+        std::unique_ptr<ParserData> data;
         std::unique_ptr<Asset> parsedAsset;
         std::filesystem::path directory;
         Options options;
         Error errorCode = Error::None;
 
-        explicit glTF(std::unique_ptr<fastgltf::ParserData> data, std::filesystem::path directory, Options options);
+        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options);
+        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, std::vector<uint8_t>&& glbData, Options options);
+        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, size_t fileOffset, size_t fileSize, Options options);
 
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 
@@ -122,6 +142,7 @@ namespace fastgltf {
     /**
      * This class represents a chunk of data that makes up a JSON string. It is reusable to
      * reduce memory allocations though has to outlive the glTF object that is created from this.
+     * It is not needed when loading GLB files.
      */
     class JsonData {
         friend class Parser;
@@ -170,5 +191,9 @@ namespace fastgltf {
         [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::filesystem::path directory, Options options = Options::None);
 
         [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::string_view directory, Options options = Options::None);
+
+        [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(const std::filesystem::path& file, Options options = Options::None);
+
+        [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(std::string_view file, Options options = Options::None);
     };
 }

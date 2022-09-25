@@ -1,3 +1,4 @@
+#include <chrono>
 #include <fstream>
 #include <iostream>
 
@@ -138,8 +139,15 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         fastgltf::Parser parser;
 
         auto path = std::filesystem::path{cPath};
-        auto data = fastgltf::JsonData(path);
-        auto gltf = parser.loadGLTF(&data, path.parent_path(), fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble);
+        std::unique_ptr<fastgltf::glTF> gltf;
+
+        if (path.extension() == ".gltf") {
+            auto data = fastgltf::JsonData(path);
+            gltf = parser.loadGLTF(&data, path.parent_path(), fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble);
+        } else if (path.extension() == ".glb") {
+            gltf = parser.loadBinaryGLTF(path, fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers);
+        }
+
         if (parser.getError() != fastgltf::Error::None) {
             std::cerr << "Failed to load glTF: " << fastgltf::to_underlying(parser.getError()) << std::endl;
             return false;
@@ -366,7 +374,8 @@ int main(int argc, char* argv[]) {
         glDeleteShader(vertexShader);
     }
 
-    // Load the glTF
+    // Load the glTF file
+    auto start = std::chrono::high_resolution_clock::now();
     if (!loadGltf(&viewer, gltfFile)) {
         std::cerr << "Failed to parse glTF" << std::endl;
         return -1;
@@ -376,6 +385,8 @@ int main(int argc, char* argv[]) {
     for (auto& mesh : asset->meshes) {
         loadMesh(&viewer, mesh);
     }
+    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+    std::cout << "Loaded glTF file in " << diff.count() << "ms." << std::endl;
 
     viewer.modelMatrixUniform = glGetUniformLocation(program, "modelMatrix");
     viewer.viewProjectionMatrixUniform = glGetUniformLocation(program, "viewProjectionMatrix");

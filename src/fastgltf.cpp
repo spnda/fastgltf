@@ -27,8 +27,23 @@ namespace fastgltf {
         simdjson::dom::object root;
     };
 
+    // ASCII for "glTF".
+    constexpr uint32_t binaryGltfHeaderMagic = 0x46546C67;
+
+    struct BinaryGltfHeader {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t length;
+    };
+    static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
+
+    struct BinaryGltfChunk {
+        uint32_t chunkLength;
+        uint32_t chunkType;
+    };
+
     [[nodiscard, gnu::always_inline]] std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
-    [[nodiscard, gnu::always_inline]] bool parseTextureExtensions(fastgltf::Texture& texture, simdjson::dom::object& extensions, fastgltf::Options options);
+    [[nodiscard, gnu::always_inline]] bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Options options);
 
     [[nodiscard, gnu::always_inline]] std::pair<bool, Error> iterateOverArray(simdjson::dom::object& parent, std::string_view arrayName, const std::function<bool(simdjson::dom::element&)>& callback);
 }
@@ -58,25 +73,25 @@ std::pair<bool, fg::Error> fg::iterateOverArray(simdjson::dom::object& parent, s
 
     dom::array array;
     if (parent[arrayName].get_array().get(array) != SUCCESS) {
-        return std::make_pair(false, fg::Error::None);
+        return std::make_pair(false, Error::None);
     }
 
     /*size_t count = 0;
     if (array.count_elements().get(count) != SUCCESS) {
-        return std::make_tuple(false, 0, fg::Error::InvalidJson);
+        return std::make_tuple(false, 0, Error::InvalidJson);
     }*/
 
     for (auto field : array) {
         if (!callback(field)) {
-            return std::make_pair(false, fg::Error::InvalidGltf);
+            return std::make_pair(false, Error::InvalidGltf);
         }
     }
 
-    return std::make_pair(true, fg::Error::None);
+    return std::make_pair(true, Error::None);
 }
 
-bool fg::parseTextureExtensions(fastgltf::Texture& texture, simdjson::dom::object& extensions, fastgltf::Options options) {
-    if (hasBit(options, fastgltf::Options::LoadKTXExtension)) {
+bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Options options) {
+    if (hasBit(options, Options::LoadKTXExtension)) {
         auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "KHR_texture_basisu");
         if (invalidGltf) {
             return false;
@@ -88,7 +103,7 @@ bool fg::parseTextureExtensions(fastgltf::Texture& texture, simdjson::dom::objec
         }
     }
 
-    if (hasBit(options, fastgltf::Options::LoadDDSExtension)) {
+    if (hasBit(options, Options::LoadDDSExtension)) {
         auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "MSFT_texture_dds");
         if (invalidGltf) {
             return false;
@@ -104,8 +119,24 @@ bool fg::parseTextureExtensions(fastgltf::Texture& texture, simdjson::dom::objec
 }
 
 #pragma region glTF
-fg::glTF::glTF(std::unique_ptr<fastgltf::ParserData> data, std::filesystem::path directory, Options options) : data(std::move(data)), directory(std::move(directory)), options(options) {
+fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options options) : data(std::move(data)), directory(std::move(directory)), options(options) {
     parsedAsset = std::make_unique<Asset>();
+    glb = nullptr;
+}
+
+fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, std::vector<uint8_t>&& glbData, Options options) : data(std::move(data)), directory(file.parent_path()), options(options) {
+    parsedAsset = std::make_unique<Asset>();
+    glb = std::make_unique<GLBBuffer>();
+    glb->buffer = std::move(glbData);
+    glb->file = std::move(file);
+}
+
+fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, size_t fileOffset, size_t fileSize, Options options) : data(std::move(data)), directory(file.parent_path()), options(options) {
+    parsedAsset = std::make_unique<Asset>();
+    glb = std::make_unique<GLBBuffer>();
+    glb->file = std::move(file);
+    glb->fileOffset = fileOffset;
+    glb->fileSize = fileSize;
 }
 
 // We define the destructor here as otherwise the definition would be generated in other cpp files
@@ -136,12 +167,12 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
         auto index =  uri.find(';');
         auto encodingEnd = uri.find(',', index + 1);
         if (index == std::string::npos || encodingEnd == std::string::npos) {
-            return std::make_tuple(fg::Error::InvalidGltf, fg::DataSource {}, fg::DataLocation::None);
+            return std::make_tuple(Error::InvalidGltf, DataSource {}, DataLocation::None);
         }
 
         auto encoding = uri.substr(index + 1, encodingEnd - index - 1);
         if (encoding != "base64") {
-            return std::make_tuple(fg::Error::InvalidGltf, fg::DataSource {}, fg::DataLocation::None);
+            return std::make_tuple(Error::InvalidGltf, DataSource {}, DataLocation::None);
         }
 
         // Decode the base64 data.
@@ -153,18 +184,18 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
             uriData = base64::decode(encodedData);
         }
 
-        fg::DataSource source = {};
+        DataSource source = {};
         source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
         source.bytes = std::move(uriData);
-        return std::make_tuple(Error::None, source, fg::DataLocation::VectorWithMime);
+        return std::make_tuple(Error::None, source, DataLocation::VectorWithMime);
     } else {
-        fg::DataSource source = {};
+        DataSource source = {};
         source.path = directory / uri;
-        return std::make_tuple(Error::None, source, fg::DataLocation::FilePathWithByteRange);
+        return std::make_tuple(Error::None, source, DataLocation::FilePathWithByteRange);
     }
 }
 
-fastgltf::MimeType fg::glTF::getMimeTypeFromString(std::string_view mime) {
+fg::MimeType fg::glTF::getMimeTypeFromString(std::string_view mime) {
     if (mime == mimeTypeJpeg) {
         return MimeType::JPEG;
     } else if (mime == mimeTypePng) {
@@ -260,7 +291,8 @@ fg::Error fg::glTF::parseAccessors() {
 
 fg::Error fg::glTF::parseBuffers() {
     using namespace simdjson;
-    auto [foundBuffers, bufferError] = iterateOverArray(data->root, "buffers", [this](auto& value) mutable -> bool {
+    size_t bufferIndex = 0;
+    auto [foundBuffers, bufferError] = iterateOverArray(data->root, "buffers", [this, &bufferIndex](auto& value) mutable -> bool {
         // Required fields: "byteLength"
         Buffer buffer = {};
         dom::object bufferObject;
@@ -282,6 +314,21 @@ fg::Error fg::glTF::parseBuffers() {
 
             buffer.data = source;
             buffer.location = location;
+        } else if (bufferIndex == 0 && glb != nullptr) {
+            if (hasBit(options, Options::LoadGLBBuffers)) {
+                // We've loaded the GLB chunk already.
+                buffer.data.bytes = std::move(glb->buffer);
+                buffer.location = DataLocation::VectorWithMime;
+            } else if (!hasBit(options, Options::LoadGLBBuffers)) {
+                // The GLB chunk has not been loaded.
+                buffer.location = DataLocation::FilePathWithByteRange;
+                buffer.data.path = glb->file;
+                buffer.data.mimeType = MimeType::GltfBuffer;
+                buffer.data.fileByteOffset = glb->fileOffset;
+            }
+        } else {
+            // All other buffers have to contain a uri field.
+            return false;
         }
 
         if (buffer.location == DataLocation::None) {
@@ -294,6 +341,7 @@ fg::Error fg::glTF::parseBuffers() {
             buffer.name = std::string { name };
         }
 
+        ++bufferIndex;
         parsedAsset->buffers.emplace_back(std::move(buffer));
         return true;
     });
@@ -410,7 +458,7 @@ fg::Error fg::glTF::parseImages() {
         return true;
     });
 
-    if (!foundImages && imageError != fg::Error::None) {
+    if (!foundImages && imageError != Error::None) {
         errorCode = imageError;
     }
     return errorCode;
@@ -523,7 +571,7 @@ fg::Error fg::glTF::parseMaterials() {
         return true;
     });
 
-    if (!foundMaterials && materialsError != fg::Error::None) {
+    if (!foundMaterials && materialsError != Error::None) {
         errorCode = materialsError;
     }
     return errorCode;
@@ -604,7 +652,7 @@ fg::Error fg::glTF::parseMeshes() {
         return true;
     });
 
-    if (!foundMeshes && meshError != fg::Error::None) {
+    if (!foundMeshes && meshError != Error::None) {
         errorCode = meshError;
     }
     return errorCode;
@@ -696,7 +744,7 @@ fg::Error fg::glTF::parseNodes() {
         return true;
     });
 
-    if (!foundNodes && nodeError != fg::Error::None) {
+    if (!foundNodes && nodeError != Error::None) {
         errorCode = nodeError;
     }
     return errorCode;
@@ -735,7 +783,7 @@ fg::Error fg::glTF::parseScenes() {
             return true;
         });
 
-        if (!foundNodes && nodeError != fg::Error::None) {
+        if (!foundNodes && nodeError != Error::None) {
             errorCode = nodeError;
             return false;
         }
@@ -869,7 +917,7 @@ fg::Error fg::glTF::parseTextures() {
         return true;
     });
 
-    if (!foundTextures && textureError != fg::Error::None) {
+    if (!foundTextures && textureError != Error::None) {
         errorCode = textureError;
     }
     return errorCode;
@@ -883,7 +931,7 @@ fg::JsonData::JsonData(uint8_t* bytes, size_t byteCount) noexcept {
     data = std::make_unique<padded_string>(reinterpret_cast<char*>(bytes), byteCount);
 }
 
-fg::JsonData::JsonData(const std::filesystem::path& path) noexcept {
+fg::JsonData::JsonData(const fs::path& path) noexcept {
     using namespace simdjson;
     data = std::make_unique<padded_string>();
     if (padded_string::load(path.string()).get(*data) != SUCCESS) {
@@ -948,5 +996,110 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, std::string_v
         return nullptr;
     }
     return loadGLTF(jsonData, parsed, options);
+}
+
+std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Options options) {
+    using namespace simdjson;
+
+    if (!fs::is_regular_file(file)) {
+        errorCode = Error::InvalidPath;
+        return nullptr;
+    }
+
+    errorCode = Error::None;
+
+    std::ifstream gltfFile(file, std::ios::ate, std::ios::binary);
+#if defined(DEBUG) || defined(_DEBUG)
+    auto length = gltfFile.tellg();
+    gltfFile.seekg(0, std::ifstream::beg);
+#endif
+
+    auto read = [&gltfFile](void* dst, size_t size) mutable {
+        gltfFile.read(static_cast<char*>(dst), static_cast<int64_t>(size));
+    };
+
+    BinaryGltfHeader header = {};
+    read(&header, sizeof header);
+    if (header.magic != binaryGltfHeaderMagic || header.version != 2) {
+        errorCode = Error::InvalidGLB;
+        return nullptr;
+    }
+#if defined(DEBUG) || defined(_DEBUG)
+    if (header.length != length) {
+        errorCode = Error::InvalidGLB;
+        return nullptr;
+    }
+#endif
+
+    // The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
+    //  1. JSON chunk
+    //  2. BIN chunk (optional)
+    BinaryGltfChunk jsonChunk = {};
+    read(&jsonChunk, sizeof jsonChunk);
+    if (jsonChunk.chunkType != 0x4E4F534A) {
+        errorCode = Error::InvalidGLB;
+        return nullptr;
+    }
+
+    std::vector<uint8_t> jsonData(jsonChunk.chunkLength + simdjson::SIMDJSON_PADDING);
+    read(jsonData.data(), jsonChunk.chunkLength);
+    // We set the padded region to 0 to avoid simdjson reading garbage
+    std::memset(jsonData.data() + jsonChunk.chunkLength, 0, jsonData.size() - jsonChunk.chunkLength);
+
+    auto data = std::make_unique<ParserData>();
+    auto* parser = static_cast<dom::parser*>(jsonParser);
+
+    if (hasBit(options, Options::DontUseSIMD)) {
+        simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
+    }
+
+    // The 'false' indicates that simdjson doesn't have to copy the data internally.
+    if (parser->parse(jsonData.data(), jsonChunk.chunkLength, jsonData.size()).get(data->root) != SUCCESS) {
+        errorCode = Error::InvalidJson;
+        return nullptr;
+    }
+
+    // Is there enough room for another chunk header?
+    if (header.length > (static_cast<uint32_t>(gltfFile.tellg()) + sizeof(BinaryGltfChunk))) {
+        BinaryGltfChunk binaryChunk = {};
+        read(&binaryChunk, sizeof binaryChunk);
+
+        if (binaryChunk.chunkType != 0x004E4942) {
+            errorCode = Error::InvalidGLB;
+            return nullptr;
+        }
+
+        std::unique_ptr<glTF> gltf;
+        if (hasBit(options, Options::LoadGLBBuffers)) {
+            std::vector<uint8_t> binary(binaryChunk.chunkLength);
+            read(binary.data(), binaryChunk.chunkLength);
+            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, std::move(binary), options));
+        } else {
+            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, static_cast<size_t>(gltfFile.tellg()), binaryChunk.chunkLength, options));
+        }
+
+        if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
+            errorCode = Error::InvalidOrMissingAssetField;
+            return nullptr;
+        }
+        return gltf;
+    }
+
+    // We're not loading the GLB buffer or there's none.
+    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, options));
+    if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
+        errorCode = Error::InvalidOrMissingAssetField;
+        return nullptr;
+    }
+    return gltf;
+}
+
+std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(std::string_view file, Options options) {
+    fs::path parsed = { file };
+    if (parsed.empty() || !fs::is_regular_file(parsed)) {
+        errorCode = Error::InvalidPath;
+        return nullptr;
+    }
+    return loadBinaryGLTF(parsed, options);
 }
 #pragma endregion

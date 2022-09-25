@@ -153,6 +153,7 @@ namespace fastgltf {
         size_t bufferViewIndex;
 
         // Corresponds to DataLocation::FilePathWithByteRange
+        size_t fileByteOffset;
         std::filesystem::path path;
 
         // Corresponds to DataLocation::VectorWithMime

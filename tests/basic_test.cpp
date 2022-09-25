@@ -5,6 +5,10 @@
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
 
+// We need to use the __FILE__ macro so that we have access to test glTF files in this
+// directory. As Clang does not yet fully support std::source_location, we cannot use that.
+auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
+
 TEST_CASE("Component type tests", "[gltf-loader]") {
     using namespace fastgltf;
 
@@ -42,10 +46,6 @@ TEST_CASE("Component type tests", "[gltf-loader]") {
 };
 
 TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
-    // We need to use the __FILE__ macro so that we have access to test glTF files in this
-    // directory. As Clang does not yet fully support std::source_location, we cannot use that.
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
-
     fastgltf::Parser parser;
     SECTION("Loading basic invalid glTF files") {
         auto jsonData = std::make_unique<fastgltf::JsonData>(path / "empty_json.gltf");
@@ -134,7 +134,6 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 };
 
 TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
     auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU";
 
     auto jsonData = std::make_unique<fastgltf::JsonData>(stainedLamp / "StainedGlassLamp.gltf");

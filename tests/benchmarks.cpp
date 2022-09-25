@@ -6,8 +6,9 @@
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
 
+auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
+
 TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
     auto intel = path / "intel_sponza" / "NewSponza_Main_glTF_002.gltf";
 
     fastgltf::Parser parser;
@@ -38,8 +39,6 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
 }
 
 TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
-
     fastgltf::Parser parser;
     fastgltf::Image texture;
     std::string bufferData;
@@ -61,8 +60,6 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
 };
 
 TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
-
     auto cylinderEngine = path / "sample-models" / "2.0" / "Buggy" / "glTF" / "Buggy.gltf";
 
     auto jsonData = std::make_unique<fastgltf::JsonData>(cylinderEngine);
