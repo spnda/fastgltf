@@ -6,7 +6,7 @@
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
 
-auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
+extern std::filesystem::path path;
 
 TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
     auto intel = path / "intel_sponza" / "NewSponza_Main_glTF_002.gltf";

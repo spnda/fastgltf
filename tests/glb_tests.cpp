@@ -3,9 +3,9 @@
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
 
-TEST_CASE("Load basic GLB file", "[gltf-loader]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
+extern std::filesystem::path path;
 
+TEST_CASE("Load basic GLB file", "[gltf-loader]") {
     fastgltf::Parser parser;
     SECTION("Load basic Box.glb") {
         auto box = parser.loadBinaryGLTF(path / "sample-models" / "2.0" / "Box" / "glTF-Binary" / "Box.glb", fastgltf::Options::None);
@@ -27,7 +27,10 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
 
         auto asset = box->getParsedAsset();
         REQUIRE(asset->buffers.size() == 1);
-        REQUIRE(asset->buffers.front().location == fastgltf::DataLocation::VectorWithMime);
-        REQUIRE(!asset->buffers.front().data.bytes.empty());
+
+        auto& buffer = asset->buffers.front();
+        REQUIRE(buffer.location == fastgltf::DataLocation::VectorWithMime);
+        REQUIRE(!buffer.data.bytes.empty());
+        REQUIRE(static_cast<uint64_t>(buffer.data.bytes.size() - buffer.byteLength) < 3);
     }
 }

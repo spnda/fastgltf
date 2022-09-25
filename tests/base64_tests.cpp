@@ -5,6 +5,8 @@
 #include "fastgltf_types.hpp"
 #include "fastgltf_parser.hpp"
 
+extern std::filesystem::path path;
+
 TEST_CASE("Check base64 decoding", "[base64]") {
     // This is "Hello World. Hello World.". The decode function
     // uses the best possible SIMD version of the algorithm.
@@ -21,8 +23,6 @@ TEST_CASE("Check all base64 decoders", "[base64]") {
 };
 
 TEST_CASE("Test base64 buffer decoding", "[base64]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
-
     fastgltf::Parser parser;
     fastgltf::Image texture;
     std::string bufferData;
