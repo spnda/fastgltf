@@ -1,5 +1,8 @@
-cmake_minimum_required(VERSION 3.24)
-cmake_policy(SET CMP0135 NEW)
+cmake_minimum_required(VERSION 3.11)
+
+if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" VERSION_GREATER_EQUAL "3.24")
+    cmake_policy(SET CMP0135 NEW)
+endif()
 
 project(fastgltf VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -14,16 +17,14 @@ set(SIMDJSON_HEADER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h")
 set(SIMDJSON_SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp")
 
 macro(download_simdjson)
-    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.h" ${SIMDJSON_HEADER_FILE}
-        SHOW_PROGRESS)
-    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.cpp" ${SIMDJSON_SOURCE_FILE}
-        SHOW_PROGRESS)
+    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.h" ${SIMDJSON_HEADER_FILE})
+    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.cpp" ${SIMDJSON_SOURCE_FILE})
 endmacro()
 
 if (EXISTS ${SIMDJSON_HEADER_FILE})
     # Look for the SIMDJSON_VERSION define in the header to check the version.
     file(STRINGS ${SIMDJSON_HEADER_FILE} SIMDJSON_HEADER_VERSION_LINE REGEX "^#define SIMDJSON_VERSION ")
-    string(REGEX MATCHALL "[0-9.]+" SIMDJSON_HEADER_VERSION ${SIMDJSON_HEADER_VERSION_LINE})
+    string(REGEX MATCHALL "[0-9.]+" "${SIMDJSON_HEADER_VERSION}" "${SIMDJSON_HEADER_VERSION_LINE}")
     message(STATUS "fastgltf: Found simdjson version: ${SIMDJSON_HEADER_VERSION}")
     if (SIMDJSON_HEADER_VERSION VERSION_LESS SIMDJSON_TARGET_VERSION)
         message(STATUS "fastgltf: simdjson outdated, downloading...")
