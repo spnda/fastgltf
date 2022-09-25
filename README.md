@@ -11,10 +11,10 @@ By utilising simdjson, this library can take advantage of SSE4, AVX2, AVX512, an
 
 fastgltf supports glTF 2.0:
 - [x] glTF JSON files
+- [x] GLB binary files
 - [x] Scenes, nodes, meshes
 - [x] Accessors, buffer views, buffers
 - [x] Materials, textures, images, samplers
-- [ ] GLB binary files
 - [ ] Animations
 - [ ] Skins
 - [ ] Cameras

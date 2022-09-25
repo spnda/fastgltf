@@ -971,12 +971,10 @@ const uint8_t* fg::JsonData::getData() const {
 
 #pragma region Parser
 fg::Parser::Parser() noexcept {
-    jsonParser = new simdjson::dom::parser();
+    jsonParser = std::make_unique<simdjson::dom::parser>();
 }
 
-fg::Parser::~Parser() {
-    delete static_cast<simdjson::dom::parser*>(jsonParser);
-}
+fg::Parser::~Parser() = default;
 
 fg::Error fg::Parser::getError() const {
     return errorCode;
@@ -992,14 +990,12 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path dire
 
     errorCode = Error::None;
 
-    auto data = std::make_unique<ParserData>();
-    auto* parser = static_cast<dom::parser*>(jsonParser);
-
     if (hasBit(options, Options::DontUseSIMD)) {
         simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
     }
 
-    if (parser->parse(*jsonData->data).get(data->root) != SUCCESS) {
+    auto data = std::make_unique<ParserData>();
+    if (jsonParser->parse(*jsonData->data).get(data->root) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }
@@ -1031,10 +1027,12 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
 
     errorCode = Error::None;
 
-    std::ifstream gltfFile(file, std::ios::ate, std::ios::binary);
 #if defined(DEBUG) || defined(_DEBUG)
+    std::ifstream gltfFile(file, std::ios::ate, std::ios::binary);
     auto length = gltfFile.tellg();
     gltfFile.seekg(0, std::ifstream::beg);
+#else
+    std::ifstream gltfFile(file, std::ios::binary);
 #endif
 
     auto read = [&gltfFile](void* dst, size_t size) mutable {
@@ -1069,15 +1067,13 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
     // We set the padded region to 0 to avoid simdjson reading garbage
     std::memset(jsonData.data() + jsonChunk.chunkLength, 0, jsonData.size() - jsonChunk.chunkLength);
 
-    auto data = std::make_unique<ParserData>();
-    auto* parser = static_cast<dom::parser*>(jsonParser);
-
     if (hasBit(options, Options::DontUseSIMD)) {
         simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
     }
 
     // The 'false' indicates that simdjson doesn't have to copy the data internally.
-    if (parser->parse(jsonData.data(), jsonChunk.chunkLength, jsonData.size()).get(data->root) != SUCCESS) {
+    auto data = std::make_unique<ParserData>();
+    if (jsonParser->parse(jsonData.data(), jsonChunk.chunkLength, false).get(data->root) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }

@@ -10,6 +10,9 @@
 // fwd
 namespace simdjson {
     struct padded_string;
+    namespace dom {
+        class parser;
+    }
 }
 
 namespace fastgltf {
@@ -168,7 +171,7 @@ namespace fastgltf {
     class Parser {
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
-        void* jsonParser;
+        std::unique_ptr<simdjson::dom::parser> jsonParser;
 
         Error errorCode = Error::None;
 
