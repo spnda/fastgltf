@@ -69,7 +69,7 @@ namespace fastgltf {
         ElementArrayBuffer = 34963,
     };
 
-    enum class MimeType : uint8_t {
+    enum class MimeType : uint16_t {
         None = 0,
         JPEG = 1,
         PNG = 2,
@@ -202,11 +202,20 @@ namespace fastgltf {
         size_t texCoordIndex;
         float scale;
 
-        // UV counter-clockwise rotation in radians. From KHR_texture_transform.
+        /**
+         * UV counter-clockwise rotation in radians.
+         * @note 0.0f unless KHR_texture_transform is specified and used by the glTF.
+         */
         float rotation;
-        // UV offset. From KHR_texture_transform.
+        /**
+         * UV offset.
+         * @note 0.0f unless KHR_texture_transform is specified and used by the glTF.
+         */
         std::array<float, 2> uvOffset;
-        // UV scale. From KHR_texture_transform.
+        /**
+         * UV scale.
+         * @note 1.0f unless KHR_texture_transform is specified and used by the glTF.
+         */
         std::array<float, 2> uvScale;
     };
 

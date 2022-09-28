@@ -138,36 +138,44 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
 
     auto jsonData = std::make_unique<fastgltf::JsonData>(stainedLamp / "StainedGlassLamp.gltf");
 
-    fastgltf::Parser parser;
-    auto stainedGlassLamp = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::LoadKTXExtension);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(stainedGlassLamp != nullptr);
+    SECTION("Loading KHR_texture_basisu") {
+        fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_basisu);
+        auto stainedGlassLamp = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DontRequireValidAssetMember);
+        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(stainedGlassLamp != nullptr);
 
-    REQUIRE(stainedGlassLamp->parseImages() == fastgltf::Error::None);
-    REQUIRE(stainedGlassLamp->parseTextures() == fastgltf::Error::None);
+        REQUIRE(stainedGlassLamp->parseImages() == fastgltf::Error::None);
+        REQUIRE(stainedGlassLamp->parseTextures() == fastgltf::Error::None);
 
-    auto asset = stainedGlassLamp->getParsedAsset();
-    REQUIRE(asset->textures.size() == 19);
-    REQUIRE(!asset->images.empty());
+        auto asset = stainedGlassLamp->getParsedAsset();
+        REQUIRE(asset->textures.size() == 19);
+        REQUIRE(!asset->images.empty());
 
-    auto& texture = asset->textures[1];
-    REQUIRE(texture.imageIndex == 1);
-    REQUIRE(texture.samplerIndex == 0);
-    REQUIRE(!texture.fallbackImageIndex.has_value());
+        auto& texture = asset->textures[1];
+        REQUIRE(texture.imageIndex == 1);
+        REQUIRE(texture.samplerIndex == 0);
+        REQUIRE(!texture.fallbackImageIndex.has_value());
 
-    auto& image = asset->images.front();
-    REQUIRE(image.location == fastgltf::DataLocation::FilePathWithByteRange);
-    REQUIRE(image.data.mimeType == fastgltf::MimeType::KTX2);
+        auto& image = asset->images.front();
+        REQUIRE(image.location == fastgltf::DataLocation::FilePathWithByteRange);
+        REQUIRE(image.data.mimeType == fastgltf::MimeType::KTX2);
+    }
+
+    SECTION("Testing requiredExtensions") {
+        // We specify no extensions, yet the StainedGlassLamp requires KHR_texture_basisu.
+        fastgltf::Parser parser(fastgltf::Extensions::None);
+        auto stainedGlassLamp = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DontRequireValidAssetMember);
+        REQUIRE(parser.getError() == fastgltf::Error::MissingExtensions);
+    }
 };
 
 TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
-    auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
     auto transformTest = path / "sample-models" / "2.0" / "TextureTransformMultiTest" / "glTF";
 
     auto jsonData = std::make_unique<fastgltf::JsonData>(transformTest / "TextureTransformMultiTest.gltf");
 
-    fastgltf::Parser parser;
-    auto test = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::LoadTextureTransformExtension);
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_transform);
+    auto test = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DontRequireValidAssetMember);
     REQUIRE(parser.getError() == fastgltf::Error::None);
     REQUIRE(test != nullptr);
 

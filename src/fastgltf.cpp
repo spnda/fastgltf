@@ -43,7 +43,7 @@ namespace fastgltf {
     };
 
     [[nodiscard, gnu::always_inline]] std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
-    [[nodiscard, gnu::always_inline]] bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Options options);
+    [[nodiscard, gnu::always_inline]] bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags);
 
     [[nodiscard, gnu::always_inline]] std::pair<bool, Error> iterateOverArray(simdjson::dom::object& parent, std::string_view arrayName, const std::function<bool(simdjson::dom::element&)>& callback);
 }
@@ -65,7 +65,7 @@ std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::obje
     }
 
     return std::make_tuple(false, false, imageIndex);
-};
+}
 
 std::pair<bool, fg::Error> fg::iterateOverArray(simdjson::dom::object& parent, std::string_view arrayName,
                                                  const std::function<bool(simdjson::dom::element&)>& callback) {
@@ -90,8 +90,8 @@ std::pair<bool, fg::Error> fg::iterateOverArray(simdjson::dom::object& parent, s
     return std::make_pair(true, Error::None);
 }
 
-bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Options options) {
-    if (hasBit(options, Options::LoadKTXExtension)) {
+bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags) {
+    if (hasBit(extensionFlags, Extensions::KHR_texture_basisu)) {
         auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "KHR_texture_basisu");
         if (invalidGltf) {
             return false;
@@ -103,7 +103,7 @@ bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensi
         }
     }
 
-    if (hasBit(options, Options::LoadDDSExtension)) {
+    if (hasBit(extensionFlags, Extensions::MSFT_texture_dds)) {
         auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "MSFT_texture_dds");
         if (invalidGltf) {
             return false;
@@ -119,19 +119,19 @@ bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensi
 }
 
 #pragma region glTF
-fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options options) : data(std::move(data)), directory(std::move(directory)), options(options) {
+fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options options, Extensions extensions) : data(std::move(data)), directory(std::move(directory)), options(options), extensions(extensions) {
     parsedAsset = std::make_unique<Asset>();
     glb = nullptr;
 }
 
-fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, std::vector<uint8_t>&& glbData, Options options) : data(std::move(data)), directory(file.parent_path()), options(options) {
+fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, std::vector<uint8_t>&& glbData, Options options, Extensions extensions) : data(std::move(data)), directory(file.parent_path()), options(options), extensions(extensions) {
     parsedAsset = std::make_unique<Asset>();
     glb = std::make_unique<GLBBuffer>();
     glb->buffer = std::move(glbData);
     glb->file = std::move(file);
 }
 
-fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, size_t fileOffset, size_t fileSize, Options options) : data(std::move(data)), directory(file.parent_path()), options(options) {
+fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, size_t fileOffset, size_t fileSize, Options options, Extensions extensions) : data(std::move(data)), directory(file.parent_path()), options(options), extensions(extensions) {
     parsedAsset = std::make_unique<Asset>();
     glb = std::make_unique<GLBBuffer>();
     glb->file = std::move(file);
@@ -156,6 +156,53 @@ bool fg::glTF::checkAssetField() {
     if (asset["version"].get_string().get(version) != SUCCESS) {
         errorCode = Error::InvalidOrMissingAssetField;
         return false;
+    }
+
+    return true;
+}
+
+// clang-format off
+constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 3> extensionStrings = {{
+    { "KHR_texture_basisu",     fastgltf::Extensions::KHR_texture_basisu },
+    { "KHR_texture_transform",  fastgltf::Extensions::KHR_texture_transform },
+    { "MSFT_texture_dds",       fastgltf::Extensions::MSFT_texture_dds },
+}};
+// clang-format on
+
+bool fg::glTF::checkExtensions() {
+    using namespace simdjson;
+
+    dom::array extensionsRequired;
+    if (data->root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) {
+        for (auto extension : extensionsRequired) {
+            std::string_view string;
+            if (extension.get_string().get(string) != SUCCESS) {
+                errorCode = Error::InvalidGltf;
+                return false;
+            }
+
+            // Check if the extension is known and listed in the parser.
+            bool known = false;
+            bool listed = false;
+            for (auto& [extensionString, extensionEnum] : extensionStrings) {
+                if (!known) {
+                    known = extensionString == string;
+                }
+                if (!listed) {
+                    listed = hasBit(extensions, extensionEnum);
+                }
+                if (known && listed)
+                    break;
+            }
+            if (!known) {
+                errorCode = Error::UnsupportedExtensions;
+                return false;
+            }
+            if (!listed) {
+                errorCode = Error::MissingExtensions;
+                return false;
+            }
+        }
     }
 
     return true;
@@ -850,10 +897,17 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     child["scale"].get_double().get(scale);
     info->scale = static_cast<float>(scale);
 
+    if (!hasBit(this->extensions, Extensions::KHR_texture_transform)) {
+        info->rotation = 0.0f;
+        info->uvOffset = {0.0f, 0.0f};
+        info->uvScale = {1.0f, 1.0f};
+        return Error::None;
+    }
+
     dom::object extensions;
     if (child["extensions"].get_object().get(extensions) == SUCCESS) {
         dom::object textureTransform;
-        if (extensions["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS && hasBit(options, Options::LoadTextureTransformExtension)) {
+        if (extensions["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS) {
             if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
                 info->texCoordIndex = index;
             }
@@ -918,7 +972,7 @@ fg::Error fg::glTF::parseTextures() {
                 // If the source was specified we'll use that as a fallback.
                 texture.fallbackImageIndex = texture.imageIndex;
             }
-            if (!parseTextureExtensions(texture, extensionsObject, options)) {
+            if (!parseTextureExtensions(texture, extensionsObject, extensions)) {
                 return false;
             }
         }
@@ -970,7 +1024,7 @@ const uint8_t* fg::JsonData::getData() const {
 #pragma endregion
 
 #pragma region Parser
-fg::Parser::Parser() noexcept {
+fg::Parser::Parser(Extensions extensionsToLoad) noexcept : extensions(extensionsToLoad) {
     jsonParser = std::make_unique<simdjson::dom::parser>();
 }
 
@@ -1000,9 +1054,13 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path dire
         return nullptr;
     }
 
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options));
+    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
     if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
         errorCode = Error::InvalidOrMissingAssetField;
+        return nullptr;
+    }
+    if (!gltf->checkExtensions()) {
+        errorCode = gltf->errorCode;
         return nullptr;
     }
     return gltf;
@@ -1092,22 +1150,30 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
         if (hasBit(options, Options::LoadGLBBuffers)) {
             std::vector<uint8_t> binary(binaryChunk.chunkLength);
             read(binary.data(), binaryChunk.chunkLength);
-            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, std::move(binary), options));
+            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, std::move(binary), options, extensions));
         } else {
-            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, static_cast<size_t>(gltfFile.tellg()), binaryChunk.chunkLength, options));
+            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, static_cast<size_t>(gltfFile.tellg()), binaryChunk.chunkLength, options, extensions));
         }
 
         if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
             errorCode = Error::InvalidOrMissingAssetField;
             return nullptr;
         }
+        if (!gltf->checkExtensions()) {
+            errorCode = gltf->errorCode;
+            return nullptr;
+        }
         return gltf;
     }
 
     // We're not loading the GLB buffer or there's none.
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, options));
+    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, options, extensions));
     if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
         errorCode = Error::InvalidOrMissingAssetField;
+        return nullptr;
+    }
+    if (!gltf->checkExtensions()) {
+        errorCode = gltf->errorCode;
         return nullptr;
     }
     return gltf;

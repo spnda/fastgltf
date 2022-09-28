@@ -22,12 +22,13 @@ namespace fastgltf {
     struct ParserData;
     struct TextureInfo;
     enum class DataLocation : uint8_t;
-    enum class MimeType : uint8_t;
+    enum class MimeType : uint16_t;
 
-    enum class Error : uint32_t {
+    enum class Error : uint64_t {
         None = 0,
         InvalidPath = 1,
-        NonExistentPath = 3,
+        MissingExtensions = 2,
+        UnsupportedExtensions = 3,
         InvalidJson = 4,
         InvalidGltf = 5,
         InvalidOrMissingAssetField = 6,
@@ -35,6 +36,21 @@ namespace fastgltf {
     };
 
     // clang-format off
+    enum class Extensions : uint64_t {
+        None = 0,
+        KHR_texture_transform = 1 << 1,
+        KHR_texture_basisu = 1 << 2,
+        MSFT_texture_dds = 1 << 3,
+    };
+
+    constexpr Extensions operator&(Extensions a, Extensions b) noexcept {
+        return static_cast<Extensions>(to_underlying(a) & to_underlying(b));
+    }
+
+    constexpr Extensions operator|(Extensions a, Extensions b) noexcept {
+        return static_cast<Extensions>(to_underlying(a) | to_underlying(b));
+    }
+
     enum class Options : uint64_t {
         None                            = 0,
         /**
@@ -48,36 +64,16 @@ namespace fastgltf {
         DontRequireValidAssetMember     = 1 << 1,
 
         /**
-         * Loads KHR_texture_transform
-         */
-        LoadTextureTransformExtension   = 1 << 2,
-
-        /**
          * This should only be used for benchmarking
          */
-        DontUseSIMD                     = 1 << 3,
-
-        /**
-         * Enables loading of KHR_texture_basisu. Images where both KHR_texture_basisu and
-         * MSFT_texture_dds are specified only the basisu extension is loaded.
-         * @note This only enables loading textures that report as being DDS, it doesn't load
-         * the actual images.
-         */
-        LoadKTXExtension                = 1 << 4,
-
-        /**
-         * Enables loading of MSFT_texture_dds
-         * @note This only enables loading textures that report as being DDS, it doesn't load
-         * the actual images.
-         */
-        LoadDDSExtension                = 1 << 5,
+        DontUseSIMD                     = 1 << 2,
 
         /**
          * Loads all the GLB buffers into CPU memory. If disabled, fastgltf will only provide
          * a byte offset and length into the GLB file, which can be useful when using APIs like
          * DirectStorage or Metal IO.
          */
-        LoadGLBBuffers                  = 1 << 6,
+        LoadGLBBuffers                  = 1 << 3,
     };
     // clang-format on
 
@@ -105,15 +101,17 @@ namespace fastgltf {
         std::unique_ptr<Asset> parsedAsset;
         std::filesystem::path directory;
         Options options;
+        Extensions extensions;
         Error errorCode = Error::None;
 
-        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options);
-        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, std::vector<uint8_t>&& glbData, Options options);
-        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, size_t fileOffset, size_t fileSize, Options options);
+        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options, Extensions extension);
+        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, std::vector<uint8_t>&& glbData, Options options, Extensions extension);
+        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, size_t fileOffset, size_t fileSize, Options options, Extensions extension);
 
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 
         [[nodiscard]] bool checkAssetField();
+        [[nodiscard]] bool checkExtensions();
         [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
 
         [[gnu::always_inline]] Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
@@ -172,11 +170,12 @@ namespace fastgltf {
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
         std::unique_ptr<simdjson::dom::parser> jsonParser;
+        Extensions extensions;
 
         Error errorCode = Error::None;
 
     public:
-        explicit Parser() noexcept;
+        explicit Parser(Extensions extensionsToLoad = Extensions::None) noexcept;
         explicit Parser(const Parser& scene) = delete;
         Parser& operator=(const Parser& scene) = delete;
 
