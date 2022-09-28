@@ -327,7 +327,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         auto& indices = asset->accessors[it->indicesAccessor.value()];
         if (!indices.bufferViewIndex.has_value())
             return false;
-        draw.count = indices.count;
+        draw.count = static_cast<uint32_t>(indices.count);
 
         auto& indicesView = asset->bufferViews[indices.bufferViewIndex.value()];
         draw.firstIndex = (indices.byteOffset + indicesView.byteOffset) / fastgltf::getElementByteSize(indices.type, indices.componentType);
