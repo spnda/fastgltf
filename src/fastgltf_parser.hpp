@@ -33,6 +33,7 @@ namespace fastgltf {
         InvalidGltf = 5,
         InvalidOrMissingAssetField = 6,
         InvalidGLB = 6,
+        MissingField = 7,
     };
 
     // clang-format off
@@ -113,7 +114,7 @@ namespace fastgltf {
         [[nodiscard]] bool checkAssetField();
         [[nodiscard]] bool checkExtensions();
         [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
-
+        [[nodiscard, gnu::always_inline]] Error returnError(Error error) noexcept;
         [[gnu::always_inline]] Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
     public:
@@ -125,10 +126,6 @@ namespace fastgltf {
         [[nodiscard]] std::unique_ptr<Asset> getParsedAsset();
         [[nodiscard]] Asset* getParsedAssetPointer();
 
-        /**
-         * This parses all buffers
-         * @return
-         */
         Error parseAccessors();
         Error parseBuffers();
         Error parseBufferViews();
