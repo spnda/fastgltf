@@ -767,7 +767,7 @@ fg::Error fg::glTF::parseNodes() {
 
                     node.children.emplace_back(index);
                 }
-            } else if (childError != Error::None) {
+            } else if (childError != Error::None && childError != Error::MissingField) {
                 return returnError(childError);
             }
         }
@@ -900,7 +900,7 @@ fg::Error fg::glTF::parseScenes() {
             }
 
             parsedAsset->scenes.emplace_back(std::move(scene));
-        } else if (nodeError != Error::None) {
+        } else if (nodeError != Error::None && nodeError != Error::MissingField) {
             return returnError(nodeError);
         }
     }
