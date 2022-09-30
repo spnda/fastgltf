@@ -165,55 +165,57 @@ namespace fg = fastgltf;
     return ret;
 }
 
-static const std::string base64_chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "abcdefghijklmnopqrstuvwxyz"
-    "0123456789+/";
-
 std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
-    auto in_len = encoded.size();
-    size_t pos = 0;
+    auto encodedSize = encoded.size();
     std::array<uint8_t, 4> sixBitChars = {};
     std::array<uint8_t, 3> eightBitChars = {};
     std::vector<uint8_t> ret;
-    ret.reserve(static_cast<size_t>(static_cast<float>(in_len) * 0.75f));
+    ret.reserve(static_cast<size_t>(static_cast<float>(encodedSize) * 0.75f));
 
-    // We use i here to track how many we've parsed and to batch 4 chars together.
-    size_t i = 0;
-    while (in_len-- && (encoded[pos] != '=')) {
-        sixBitChars[i++] = encoded[pos]; pos++;
-        if (i == 4) {
-            for (i = 0; i < 4; i++)
-                sixBitChars[i] = base64_chars.find(static_cast<int8_t>(sixBitChars[i]));
-
-            eightBitChars[0] = (sixBitChars[0] << 2) + ((sixBitChars[1] & 0x30) >> 4);
-            eightBitChars[1] = ((sixBitChars[1] & 0xf) << 4) + ((sixBitChars[2] & 0x3c) >> 2);
-            eightBitChars[2] = ((sixBitChars[2] & 0x3) << 6) + sixBitChars[3];
-
-            for (i = 0; i < 3; i++) {
-                ret.push_back(eightBitChars[i]);
-            }
-
-            i = 0;
-        }
+    size_t padding = 0;
+    for (auto i = encodedSize - 1; i >= (encodedSize - 3); --i) {
+        if (encoded[i] == '=')
+            ++padding;
+        else
+            break;
     }
 
-    if (i != 0) {
-        for (size_t j = i; j < 4; j++) {
-            sixBitChars[j] = 0;
-        }
+    // We use i here to track how many we've parsed and to batch 4 chars together.
+    size_t i = 0U;
+    for (auto pos = 0U; pos < encodedSize;) {
+        sixBitChars[i++] = encoded[pos]; ++pos;
+        if (i != 4)
+            continue;
 
-        for (size_t j = 0; j < 4; j++) {
-            sixBitChars[j] = base64_chars.find(static_cast<int8_t>(sixBitChars[j]));
+        for (i = 0; i < 4; i++) {
+            auto& c = sixBitChars[i];
+            // Some of these would overflow if we used -=
+            if (c >= 65 && c <= 90) {
+                c -= 65;
+            } else if (c >= 97 && c <= 122) {
+                c = (c - 97) + 26; // 26 is 'a' in the base64 table.
+            } else if (c >= 48 && c <= 57) {
+                c = (c - 48) + 52; // 53 is '0' in the base64 table.
+            } else if (c == '+') {
+                c = (c - '+') + 62;
+            } else if (c == '/') {
+                c = (c - '/') + 63;
+            } else {
+                c = 0;
+            }
         }
 
         eightBitChars[0] = (sixBitChars[0] << 2) + ((sixBitChars[1] & 0x30) >> 4);
         eightBitChars[1] = ((sixBitChars[1] & 0xf) << 4) + ((sixBitChars[2] & 0x3c) >> 2);
         eightBitChars[2] = ((sixBitChars[2] & 0x3) << 6) + sixBitChars[3];
 
-        for (size_t j = 0; (j < i - 1); j++) {
-            ret.push_back(eightBitChars[j]);
+        // This adds 3 elements to the output vector. It also checks to not write zeroes that are
+        // generate from the padding.
+        for (size_t j = 0; j < 3 && ((pos - i + 1) + j) < (encodedSize - padding); ++j) {
+            ret.emplace_back(eightBitChars[j]);
         }
+
+        i = 0;
     }
 
     return ret;
