@@ -83,7 +83,7 @@ namespace fastgltf {
 
 #pragma region ConversionFunctions
     constexpr uint32_t getNumComponents(AccessorType type) noexcept {
-        return (static_cast<uint16_t>(type) >> 8) & 0xFF;
+        return static_cast<uint32_t>((static_cast<uint16_t>(type) >> 8) & 0xFF);
     }
 
     constexpr uint32_t getComponentBitSize(ComponentType componentType) noexcept {

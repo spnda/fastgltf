@@ -8,6 +8,12 @@
 
 #include "fastgltf_util.hpp"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 5030) // attribute 'x' is not recognized
+#pragma warning(disable : 4514) // unreferenced inline function has been removed
+#endif
+
 // fwd
 namespace simdjson {
     struct padded_string;
@@ -197,3 +203,7 @@ namespace fastgltf {
         [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(std::string_view file, Options options = Options::None);
     };
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

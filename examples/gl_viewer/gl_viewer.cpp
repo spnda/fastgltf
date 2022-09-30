@@ -330,7 +330,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         draw.count = static_cast<uint32_t>(indices.count);
 
         auto& indicesView = asset->bufferViews[indices.bufferViewIndex.value()];
-        draw.firstIndex = (indices.byteOffset + indicesView.byteOffset) / fastgltf::getElementByteSize(indices.type, indices.componentType);
+        draw.firstIndex = static_cast<uint32_t>(indices.byteOffset + indicesView.byteOffset) / fastgltf::getElementByteSize(indices.type, indices.componentType);
         primitive.indexType = getGLComponentType(indices.componentType);
     }
 
@@ -408,6 +408,10 @@ int main(int argc, char* argv[]) {
         std::cerr << "Failed to initialize OpenGL context." << std::endl;
         return -1;
     }
+
+    auto glRenderer = glGetString(GL_RENDERER);
+    auto glVersion = glGetString(GL_VERSION);
+    std::cout << "GL Renderer: " << glRenderer << "\nGL Version: " << glVersion << std::endl;
 
     if (GLAD_GL_VERSION_4_6 != 1) {
         std::cerr << "Missing support for GL 4.6" << std::endl;

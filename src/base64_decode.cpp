@@ -7,6 +7,11 @@
 #include <avx2intrin.h>
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 5030)
+#endif
+
 #include "simdjson.h"
 
 #include "base64_decode.hpp"
@@ -89,7 +94,7 @@ namespace fg = fastgltf;
     // We now resize the vector to only show the actual values, not the 0's padded in to meet the
     // 32x requirement.
     auto diff = static_cast<float>(encodedSize - padding);
-    ret.resize(std::floor(diff * 0.75f));
+    ret.resize(static_cast<size_t>(std::floor(diff * 0.75f)));
 
     return ret;
 }
@@ -155,7 +160,7 @@ namespace fg = fastgltf;
     // We now resize the vector to only show the actual values, not the 0's padded in to meet the
     // 16x requirement.
     auto diff = static_cast<float>(encodedSize - padding);
-    ret.resize(std::floor(diff * 0.75f));
+    ret.resize(static_cast<size_t>(std::floor(diff * 0.75f)));
 
     return ret;
 }
@@ -226,3 +231,7 @@ std::vector<uint8_t> fg::base64::decode(std::string_view encoded) {
         return fallback_decode(encoded);
     }
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

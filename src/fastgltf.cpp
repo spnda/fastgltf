@@ -3,6 +3,12 @@
 #include <functional>
 #include <utility>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 5030) // attribute 'x' is not recognized
+#pragma warning(disable : 4514) // unreferenced inline function has been removed
+#endif
+
 #include "simdjson.h"
 
 #include "fastgltf_parser.hpp"
@@ -55,13 +61,13 @@ std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::obje
     // image source index.
     dom::object sourceExtensionObject;
     if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) {
-        return std::make_tuple(false, true, 0);
+        return std::make_tuple(false, true, 0U);
     }
 
     // Check if the extension object provides a source index.
     size_t imageIndex;
     if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
-        return std::make_tuple(true, false, 0);
+        return std::make_tuple(true, false, 0U);
     }
 
     return std::make_tuple(false, false, imageIndex);
@@ -942,10 +948,10 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
         return Error::None;
     }
 
-    dom::object extensions;
-    if (child["extensions"].get_object().get(extensions) == SUCCESS) {
+    dom::object extensionsObject;
+    if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
         dom::object textureTransform;
-        if (extensions["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS) {
+        if (extensionsObject["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS) {
             if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
                 info->texCoordIndex = index;
             }
@@ -1231,3 +1237,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(std::string_view file, Opti
     return loadBinaryGLTF(parsed, options);
 }
 #pragma endregion
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
