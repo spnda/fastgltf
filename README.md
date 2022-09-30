@@ -77,14 +77,14 @@ which contains a 1.7MB embedded buffer. fastgltf includes a optimised base64 dec
 that can take advantage of SSE4 and AVX2. With this asset, fastlgtf is **2.1 times faster** than
 cgltf and **7.3 times faster** than tinygltf using RapidJSON.
 
-![](https://cdn.discordapp.com/attachments/1019965526434394173/1021063521414426654/Mean_time_parsing_2CylinderEngine_ms_3.png)
+![](https://cdn.discordapp.com/attachments/1019965526434394173/1025554414884364348/Mean_time_parsing_2CylinderEngine_ms_5.png)
 
 [Buggy.gltf](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Buggy) is another
 excellent test subject, as it's a 15k line long JSON. This shows the raw serialization speed of
 all the parsers. In this case fastgltf is **2.5 times faster** than tinygltf and **1.9** times faster
 than cgltf.
 
-![](https://cdn.discordapp.com/attachments/1019965526434394173/1021081663163346946/Mean_time_parsing_Buggy.gltf_ms_1.png)
+![](https://cdn.discordapp.com/attachments/442748131898032138/1025556349465145405/Mean_time_parsing_Buggy.gltf_ms_2.png)
 
 ## Acknowledgments
 
