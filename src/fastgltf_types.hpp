@@ -263,7 +263,7 @@ namespace fastgltf {
     };
 
     struct Texture {
-        size_t imageIndex;
+        std::optional<size_t> imageIndex;
 
         // If the imageIndex is specified by the KTX2 or DDS glTF extensions, this is supposed to
         // be used as a fallback if those file containers are not supported.

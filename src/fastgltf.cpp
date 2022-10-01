@@ -65,7 +65,7 @@ std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::obje
     }
 
     // Check if the extension object provides a source index.
-    size_t imageIndex;
+    uint64_t imageIndex;
     if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
         return std::make_tuple(true, false, 0U);
     }
@@ -295,7 +295,7 @@ fg::Error fg::glTF::parseAccessors() {
             return returnError(Error::InvalidGltf);
         }
 
-        size_t componentType;
+        uint64_t componentType;
         if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) {
             return returnError(Error::InvalidGltf);
         } else {
@@ -312,18 +312,24 @@ fg::Error fg::glTF::parseAccessors() {
             accessor.type = getAccessorType(accessorType);
         }
 
-        if (accessorObject["count"].get_uint64().get(accessor.count) != SUCCESS) {
+        uint64_t accessorCount;
+        if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) {
             return returnError(Error::InvalidGltf);
+        } else {
+            accessor.count = static_cast<size_t>(accessorCount);
         }
 
-        size_t bufferView;
+        uint64_t bufferView;
         if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) {
-            accessor.bufferViewIndex = bufferView;
+            accessor.bufferViewIndex = static_cast<size_t>(bufferView);
         }
 
         // byteOffset is optional, but defaults to 0
-        if (accessorObject["byteOffset"].get_uint64().get(accessor.byteOffset) != SUCCESS) {
-            accessor.byteOffset = 0;
+        uint64_t byteOffset;
+        if (accessorObject["byteOffset"].get_uint64().get(byteOffset) != SUCCESS) {
+            accessor.byteOffset = 0U;
+        } else {
+            accessor.byteOffset = static_cast<size_t>(byteOffset);
         }
 
         if (accessorObject["normalized"].get_bool().get(accessor.normalized) != SUCCESS) {
@@ -362,8 +368,11 @@ fg::Error fg::glTF::parseBuffers() {
             return returnError(Error::InvalidGltf);
         }
 
-        if (bufferObject["byteLength"].get_uint64().get(buffer.byteLength) != SUCCESS) {
+        uint64_t byteLength;
+        if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) {
             return returnError(Error::InvalidGltf);
+        } else {
+            buffer.byteLength = static_cast<size_t>(byteLength);
         }
 
         // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
@@ -430,26 +439,35 @@ fg::Error fg::glTF::parseBufferViews() {
         }
 
         // Required with normal glTF, not necessary with GLB files.
-        if (bufferViewObject["buffer"].get_uint64().get(view.bufferIndex) != SUCCESS) {
+        uint64_t bufferIndex;
+        if (bufferViewObject["buffer"].get_uint64().get(bufferIndex) != SUCCESS) {
             return returnError(Error::InvalidGltf);
+        } else {
+            view.bufferIndex = static_cast<size_t>(bufferIndex);
         }
 
-        if (bufferViewObject["byteLength"].get_uint64().get(view.byteLength) != SUCCESS) {
+        uint64_t byteLength;
+        if (bufferViewObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) {
             return returnError(Error::InvalidGltf);
+        } else {
+            view.byteLength = static_cast<size_t>(byteLength);
         }
 
         // byteOffset is optional, but defaults to 0
-        if (bufferViewObject["byteOffset"].get_uint64().get(view.byteOffset) != SUCCESS) {
+        uint64_t byteOffset;
+        if (bufferViewObject["byteOffset"].get_uint64().get(byteOffset) != SUCCESS) {
             view.byteOffset = 0;
+        } else {
+            view.byteOffset = static_cast<size_t>(byteOffset);
         }
 
-        size_t byteStride;
+        uint64_t byteStride;
         if (bufferViewObject["byteStride"].get_uint64().get(byteStride) == SUCCESS) {
-            view.byteStride = byteStride;
+            view.byteStride = static_cast<size_t>(byteStride);
         }
 
         // target is optional
-        size_t target;
+        uint64_t target;
         if (bufferViewObject["target"].get_uint64().get(target) == SUCCESS) {
             view.target = static_cast<BufferTarget>(target);
         }
@@ -503,7 +521,7 @@ fg::Error fg::glTF::parseImages() {
             }
         }
 
-        size_t bufferViewIndex;
+        uint64_t bufferViewIndex;
         if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) {
             std::string_view mimeType;
             if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) {
@@ -511,7 +529,7 @@ fg::Error fg::glTF::parseImages() {
                 return returnError(Error::InvalidGltf);
             }
 
-            image.data.bufferViewIndex = bufferViewIndex;
+            image.data.bufferViewIndex = static_cast<size_t>(bufferViewIndex);
             image.data.mimeType = getMimeTypeFromString(mimeType);
         }
 
@@ -695,9 +713,11 @@ fg::Error fg::glTF::parseMeshes() {
                     for (auto field : attributesObject) {
                         std::string_view key = field.key;
 
-                        auto& attribute = primitive.attributes[std::string { key }];
-                        if (field.value.get_uint64().get(attribute) != SUCCESS) {
+                        uint64_t attributeIndex;
+                        if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
                             return returnError(Error::InvalidGltf);
+                        } else {
+                            primitive.attributes[std::string { key }] = static_cast<size_t>(attributeIndex);
                         }
                     }
                 }
@@ -711,14 +731,14 @@ fg::Error fg::glTF::parseMeshes() {
                     primitive.type = static_cast<PrimitiveType>(mode);
                 }
 
-                size_t indicesAccessor;
+                uint64_t indicesAccessor;
                 if (primitiveObject["indices"].get_uint64().get(indicesAccessor) == SUCCESS) {
-                    primitive.indicesAccessor = indicesAccessor;
+                    primitive.indicesAccessor = static_cast<size_t>(indicesAccessor);
                 }
 
-                size_t materialIndex;
+                uint64_t materialIndex;
                 if (primitiveObject["material"].get_uint64().get(materialIndex) == SUCCESS) {
-                    primitive.materialIndex = materialIndex;
+                    primitive.materialIndex = static_cast<size_t>(materialIndex);
                 }
 
                 mesh.primitives.emplace_back(std::move(primitive));
@@ -755,9 +775,9 @@ fg::Error fg::glTF::parseNodes() {
             return returnError(Error::InvalidGltf);
         }
 
-        size_t meshIndex;
+        uint64_t meshIndex;
         if (nodeObject["mesh"].get_uint64().get(meshIndex) == SUCCESS) {
-            node.meshIndex = meshIndex;
+            node.meshIndex = static_cast<size_t>(meshIndex);
         }
 
         {
@@ -766,12 +786,12 @@ fg::Error fg::glTF::parseNodes() {
             if (childError == Error::None) {
                 node.children.reserve(children.size());
                 for (auto childValue : children) {
-                    size_t index;
+                    uint64_t index;
                     if (childValue.get_uint64().get(index) != SUCCESS) {
                         return returnError(Error::InvalidGltf);
                     }
 
-                    node.children.emplace_back(index);
+                    node.children.emplace_back(static_cast<size_t>(index));
                 }
             } else if (childError != Error::None && childError != Error::MissingField) {
                 return returnError(childError);
@@ -871,9 +891,9 @@ fg::Error fg::glTF::parseScenes() {
         return returnError(sceneError);
     }
 
-    size_t defaultScene;
+    uint64_t defaultScene;
     if (data->root["scene"].get_uint64().get(defaultScene) == SUCCESS) {
-        parsedAsset->defaultScene = defaultScene;
+        parsedAsset->defaultScene = static_cast<size_t>(defaultScene);
     }
 
     parsedAsset->scenes.reserve(scenes.size());
@@ -897,12 +917,12 @@ fg::Error fg::glTF::parseScenes() {
         if (nodeError == Error::None) {
             scene.nodeIndices.reserve(nodes.size());
             for (auto nodeValue : nodes) {
-                size_t index;
+                uint64_t index;
                 if (nodeValue.get_uint64().get(index) != SUCCESS) {
                     return returnError(Error::InvalidGltf);
                 }
 
-                scene.nodeIndices.emplace_back(index);
+                scene.nodeIndices.emplace_back(static_cast<size_t>(index));
             }
 
             parsedAsset->scenes.emplace_back(std::move(scene));
@@ -923,15 +943,15 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
         return Error::None;
     }
 
-    size_t index;
+    uint64_t index;
     if (child["index"].get_uint64().get(index) == SUCCESS) {
-        info->textureIndex = index;
+        info->textureIndex = static_cast<size_t>(index);
     } else {
         return Error::InvalidGltf;
     }
 
     if (child["texCoord"].get_uint64().get(index) == SUCCESS) {
-        info->texCoordIndex = index;
+        info->texCoordIndex = static_cast<size_t>(index);
     } else {
         info->texCoordIndex = 0;
     }
@@ -1004,24 +1024,21 @@ fg::Error fg::glTF::parseTextures() {
             return returnError(Error::InvalidGltf);
         }
 
+        uint64_t sourceIndex;
+        if (textureObject["source"].get_uint64().get(sourceIndex) == SUCCESS) {
+            texture.imageIndex = static_cast<size_t>(sourceIndex);
+        }
+
         bool hasExtensions = false;
         dom::object extensionsObject;
         if (textureObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
             hasExtensions = true;
         }
 
-        texture.imageIndex = std::numeric_limits<size_t>::max();
-        if (textureObject["source"].get_uint64().get(texture.imageIndex) != SUCCESS && !hasExtensions) {
-            // "The index of the image used by this texture. When undefined, an extension or other
-            // mechanism SHOULD supply an alternate texture source, otherwise behavior is undefined."
-            // => We'll have it be invalid.
-            return returnError(Error::InvalidGltf);
-        }
-
         // If we have extensions, we'll use the normal "source" as the fallback and then parse
         // the extensions for any "source" field.
         if (hasExtensions) {
-            if (texture.imageIndex != std::numeric_limits<size_t>::max()) {
+            if (texture.imageIndex.has_value()) {
                 // If the source was specified we'll use that as a fallback.
                 texture.fallbackImageIndex = texture.imageIndex;
             }
@@ -1032,9 +1049,9 @@ fg::Error fg::glTF::parseTextures() {
 
         // The index of the sampler used by this texture. When undefined, a sampler with
         // repeat wrapping and auto filtering SHOULD be used.
-        size_t samplerIndex;
+        uint64_t samplerIndex;
         if (textureObject["sampler"].get_uint64().get(samplerIndex) == SUCCESS) {
-            texture.samplerIndex = samplerIndex;
+            texture.samplerIndex = static_cast<size_t>(samplerIndex);
         }
 
         // name is optional.

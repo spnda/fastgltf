@@ -18,8 +18,13 @@ TEST_CASE("Check base64 decoding", "[base64]") {
 TEST_CASE("Check all base64 decoders", "[base64]") {
     // Checks that the base64 decoders return the same.
     constexpr std::string_view test = "SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLg==";
+#if defined(__x86_64__)
     REQUIRE(fastgltf::base64::fallback_decode(test) == fastgltf::base64::avx2_decode(test));
     REQUIRE(fastgltf::base64::fallback_decode(test) == fastgltf::base64::sse4_decode(test));
+#endif
+#if defined(__aarch64__)
+    REQUIRE(fastgltf::base64::fallback_decode(test) == fastgltf::base64::neon_decode(test));
+#endif
 };
 
 TEST_CASE("Test base64 buffer decoding", "[base64]") {
