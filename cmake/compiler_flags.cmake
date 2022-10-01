@@ -9,7 +9,13 @@ macro(compiler_flags)
     # cpuid, meaning no architecture flags or other compile flags need to be passed.
     # See https://github.com/simdjson/simdjson/blob/master/doc/implementation-selection.md.
     if (MSVC)
-        target_compile_options(${PARAM_TARGET} PRIVATE /EHsc $<$<CONFIG:RELEASE>:/O2 /Ob3 /Ot>)
+        target_compile_options(${PARAM_TARGET} PRIVATE /EHsc $<$<CONFIG:RELEASE>:/O2>)
+        if (MSVC_VERSION GREATER_EQUAL 1920)
+            # With VS 16 (2019) /Ob3 was added to more aggressively inline functions.
+            target_compile_options(${PARAM_TARGET} PRIVATE $<$<CONFIG:RELEASE>:/Ob3>)
+        else()
+            target_compile_options(${PARAM_TARGET} PRIVATE $<$<CONFIG:RELEASE>:/Ob2>)
+        endif()
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${PARAM_TARGET} PRIVATE $<$<CONFIG:RELEASE>:-O3>)
     endif()

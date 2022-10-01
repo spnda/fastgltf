@@ -42,6 +42,8 @@ the CMake script. The library is tested on GCC 9, GCC 10, Clang 12, and MSVC 14 
 using CI. The project uses a simple CMake 3.11, and can be simply used by adding fastgltf as a
 subdirectory. Also, fastgltf is available from [vcpkg](https://github.com/microsoft/vcpkg).
 
+### C++ API
+
 ```cpp
 #include <fastgltf_parser.hpp>
 #include <fastgltf_types.hpp>
@@ -85,6 +87,41 @@ void load(std::filesystem::path path) {
 All the nodes, meshes, buffers, textures, ... can now be accessed through the `fastgltf::Asset`
 type. References in between objects are done with a single `size_t`, which is used to index into
 the various vectors in the asset.
+
+### C89 API
+
+```c
+#include <fastgltf_c.h>
+
+void load(const char* path, const char* directory) {
+    // Creates a parser object
+    fastgltf_parser* parser = fastgltf_create_parser(0);
+    
+    fastgltf_json_data* data = fastgltf_create_json_data_from_file(path);
+    
+    // For GLB files, use fastgltf_load_binary_gltf
+    fastgltf_gltf* gltf = fastgltf_load_gltf(parser, data, directory, OptionsDontRequireValidAssetMember);
+    if (fastgltf_get_parser_error(parser) != ErrorNone) {
+        // error
+    }
+    
+    // Tell fastgltf to parse the whole glTF structure. Optionally, you can parse individual
+    // aspects of glTF files by calling the various parse methods.
+    fastgltf_parse_all(gltf);
+
+    // You can now destroy the parser and JSON data. It is advised, however, to reuse parsers.
+    fastgltf_destroy_json_data(data);
+    fastgltf_destroy_parser(parser);
+    
+    // You can now query the parsed asset and destroy the glTF object. 
+    fastgltf_asset* asset = fastgltf_get_parsed_asset(gltf);
+    fastgltf_destroy_gltf(gltf);
+    
+    // Use the parsed asset here.
+    
+    fastgltf_destroy_asset(asset);
+}
+```
 
 ## Performance
 
