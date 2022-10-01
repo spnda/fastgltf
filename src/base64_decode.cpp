@@ -165,6 +165,19 @@ namespace fg = fastgltf;
     return ret;
 }
 
+// clang-format off
+// ASCII value -> base64 value LUT
+constexpr std::array<uint8_t, 128> base64lut = {
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+    0,0,0,0,0,0,0,
+    0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,
+    0,0,0,0,0,0,
+    26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,
+    0,0,0,0,0,
+};
+// clang-format on
+
 std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
     auto encodedSize = encoded.size();
     std::array<uint8_t, 4> sixBitChars = {};
@@ -188,21 +201,7 @@ std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
             continue;
 
         for (i = 0; i < 4; i++) {
-            auto& c = sixBitChars[i];
-            // Some of these would overflow if we used -=
-            if (c >= 65 && c <= 90) {
-                c -= 65;
-            } else if (c >= 97 && c <= 122) {
-                c = (c - 97) + 26; // 26 is 'a' in the base64 table.
-            } else if (c >= 48 && c <= 57) {
-                c = (c - 48) + 52; // 53 is '0' in the base64 table.
-            } else if (c == '+') {
-                c = (c - '+') + 62;
-            } else if (c == '/') {
-                c = (c - '/') + 63;
-            } else {
-                c = 0;
-            }
+            sixBitChars[i] = base64lut[sixBitChars[i]];
         }
 
         eightBitChars[0] = (sixBitChars[0] << 2) + ((sixBitChars[1] & 0x30) >> 4);
