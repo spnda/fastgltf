@@ -4,7 +4,7 @@
 #include <vector>
 
 namespace fastgltf::base64 {
-#if defined(__x86_64__) || defined(_M_AMD64)
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
     [[nodiscard, gnu::target("sse4.1")]] std::vector<uint8_t> sse4_decode(std::string_view encoded);
     [[nodiscard, gnu::target("avx2")]] std::vector<uint8_t> avx2_decode(std::string_view encoded);
 #endif
