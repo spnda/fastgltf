@@ -12,13 +12,13 @@ include(ExternalProject)
 include(FetchContent)
 
 # Download and configure simdjson
-set(SIMDJSON_TARGET_VERSION "2.2.2")
+set(SIMDJSON_TARGET_VERSION "2.2.3")
 set(SIMDJSON_HEADER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h")
 set(SIMDJSON_SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp")
 
 macro(download_simdjson)
-    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.h" ${SIMDJSON_HEADER_FILE})
-    file(DOWNLOAD "https://github.com/simdjson/simdjson/releases/download/v${SIMDJSON_TARGET_VERSION}/simdjson.cpp" ${SIMDJSON_SOURCE_FILE})
+    file(DOWNLOAD "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h" ${SIMDJSON_HEADER_FILE})
+    file(DOWNLOAD "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.cpp" ${SIMDJSON_SOURCE_FILE})
 endmacro()
 
 if (EXISTS ${SIMDJSON_HEADER_FILE})
