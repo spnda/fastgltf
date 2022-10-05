@@ -78,6 +78,42 @@ namespace fastgltf {
         GltfBuffer = 5,
         OctetStream = 6,
     };
+
+    enum class AnimationInterpolation : uint16_t {
+        /**
+         * The animated values are linearly interpolated between keyframes. When targeting a
+         * rotation, spherical linear interpolation (slerp) SHOULD be used to interpolate quaternions.
+         */
+        Linear = 0,
+        /**
+         * The animated values remain constant to the output of the first keyframe, until the next
+         * keyframe.
+         */
+        Step = 1,
+        /**
+         * The animation’s interpolation is computed using a cubic spline with specified tangents.
+         * The number of output elements MUST equal three times the number of input elements. For
+         * each input element, the output stores three elements, an in-tangent, a spline vertex,
+         * and an out-tangent.
+         */
+        CubicSpline = 2,
+    };
+
+    enum class AnimationPath : uint16_t {
+        /**
+         * The values are the translation along the X, Y, and Z axes.
+         */
+        Translation = 1,
+        /**
+         * The values are a quaternion in the order x, y, z, w where w is the scalar.
+         */
+        Rotation = 2,
+        /**
+         * The values are scaling factors along the X, Y, and Z axes.
+         */
+        Scale = 3,
+        Weights = 4,
+    };
     // clang-format on
 #pragma endregion
 
@@ -161,6 +197,23 @@ namespace fastgltf {
 
         // Defined if DataLocation::BufferViewWithMime or VectorWithMime
         MimeType mimeType;
+    };
+
+    struct AnimationChannel {
+        size_t samplerIndex;
+        size_t nodeIndex;
+        AnimationPath path;
+    };
+
+    struct AnimationSampler {
+        size_t inputAccessor;
+        size_t outputAccessor;
+        AnimationInterpolation interpolation;
+    };
+
+    struct Animation {
+        std::vector<AnimationChannel> channels;
+        std::vector<AnimationSampler> samplers;
     };
 
     struct Scene {
@@ -320,6 +373,7 @@ namespace fastgltf {
         // A value of std::numeric_limits<size_t>::max() indicates no default scene.
         std::optional<size_t> defaultScene;
         std::vector<Accessor> accessors;
+        std::vector<Animation> animations;
         std::vector<BufferView> bufferViews;
         std::vector<Buffer> buffers;
         std::vector<Image> images;

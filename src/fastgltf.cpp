@@ -355,6 +355,124 @@ fg::Error fg::glTF::parseAccessors() {
     return errorCode;
 }
 
+fg::Error fg::glTF::parseAnimations() {
+    using namespace simdjson;
+    dom::array animations;
+    auto animationError = getJsonArray(data->root, "animations", &animations);
+    if (animationError == Error::MissingField) {
+        return Error::None;
+    } else if (animationError != Error::None) {
+        return returnError(animationError);
+    }
+
+    parsedAsset->animations.reserve(animations.size());
+    for (auto animationValue : animations) {
+        dom::object animationObject;
+        Animation animation = {};
+        if (animationValue.get_object().get(animationObject) != SUCCESS) {
+            return returnError(Error::InvalidGltf);
+        }
+
+        dom::array channels;
+        auto channelError = getJsonArray(animationObject, "channels", &channels);
+        if (channelError != Error::None) {
+            return returnError(Error::InvalidGltf);
+        }
+
+        animation.channels.reserve(channels.size());
+        for (auto channelValue : channels) {
+            dom::object channelObject;
+            AnimationChannel channel = {};
+            if (channelValue.get_object().get(channelObject) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+
+            uint64_t sampler;
+            if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+            channel.samplerIndex = static_cast<size_t>(sampler);
+
+            dom::object targetObject;
+            if (channelObject["target"].get_object().get(targetObject) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            } else {
+                uint64_t node;
+                if (targetObject["node"].get_uint64().get(node) != SUCCESS) {
+                    // We don't support any extensions for animations, so it is required.
+                    return returnError(Error::InvalidGltf);
+                }
+                channel.nodeIndex = static_cast<size_t>(node);
+
+                std::string_view path;
+                if (targetObject["path"].get_string().get(path) != SUCCESS) {
+                    return returnError(Error::InvalidGltf);
+                }
+
+                if (path == "translation") {
+                    channel.path = AnimationPath::Translation;
+                } else if (path == "rotation") {
+                    channel.path = AnimationPath::Rotation;
+                } else if (path == "scale") {
+                    channel.path = AnimationPath::Scale;
+                } else if (path == "weights") {
+                    channel.path = AnimationPath::Weights;
+                }
+            }
+
+            animation.channels.emplace_back(channel);
+        }
+
+        dom::array samplers;
+        auto samplerError = getJsonArray(animationObject, "samplers", &samplers);
+        if (samplerError != Error::None) {
+            return returnError(Error::InvalidGltf);
+        }
+
+        animation.samplers.reserve(samplers.size());
+        for (auto samplerValue : samplers) {
+            dom::object samplerObject;
+            AnimationSampler sampler = {};
+            if (samplerValue.get_object().get(samplerObject) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+
+            uint64_t input;
+            if (samplerObject["input"].get_uint64().get(input) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+            sampler.inputAccessor = static_cast<size_t>(input);
+
+            uint64_t output;
+            if (samplerObject["output"].get_uint64().get(output) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+            sampler.outputAccessor = static_cast<size_t>(output);
+
+            std::string_view interpolation;
+            if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) {
+                sampler.interpolation = AnimationInterpolation::Linear;
+            }
+
+            if (interpolation == "LINEAR") {
+                sampler.interpolation = AnimationInterpolation::Linear;
+            } else if (interpolation == "STEP") {
+                sampler.interpolation = AnimationInterpolation::Step;
+            } else if (interpolation == "CUBICSPLINE") {
+                sampler.interpolation = AnimationInterpolation::CubicSpline;
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+
+            animation.samplers.emplace_back(sampler);
+        }
+
+        parsedAsset->animations.emplace_back(std::move(animation));
+    }
+
+    return errorCode;
+}
+
 fg::Error fg::glTF::parseBuffers() {
     using namespace simdjson;
     dom::array buffers;

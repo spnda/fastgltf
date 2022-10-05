@@ -175,7 +175,7 @@ TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
     auto jsonData = std::make_unique<fastgltf::JsonData>(transformTest / "TextureTransformMultiTest.gltf");
 
     fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_transform);
-    auto test = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DontRequireValidAssetMember);
+    auto test = parser.loadGLTF(jsonData.get(), transformTest, fastgltf::Options::DontRequireValidAssetMember);
     REQUIRE(parser.getError() == fastgltf::Error::None);
     REQUIRE(test != nullptr);
 
@@ -189,4 +189,31 @@ TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
     REQUIRE(material.pbrData->baseColorTexture.has_value());
     REQUIRE(material.pbrData->baseColorTexture->uvOffset[0] == 0.705f);
     REQUIRE(material.pbrData->baseColorTexture->rotation == Catch::Approx(1.5707963705062866f));
+}
+
+TEST_CASE("Loading glTF animation", "[gltf-loader]") {
+    auto animatedCube = path / "sample-models" / "2.0" / "AnimatedCube" / "glTF";
+
+    auto jsonData = std::make_unique<fastgltf::JsonData>(animatedCube / "AnimatedCube.gltf");
+
+    fastgltf::Parser parser;
+    auto cube = parser.loadGLTF(jsonData.get(), animatedCube);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(cube != nullptr);
+
+    REQUIRE(cube->parseAnimations() == fastgltf::Error::None);
+
+    auto asset = cube->getParsedAsset();
+    REQUIRE(!asset->animations.empty());
+
+    auto& animation = asset->animations.front();
+    REQUIRE(!animation.channels.empty());
+    REQUIRE(animation.channels.front().nodeIndex == 0);
+    REQUIRE(animation.channels.front().samplerIndex == 0);
+    REQUIRE(animation.channels.front().path == fastgltf::AnimationPath::Rotation);
+
+    REQUIRE(!animation.samplers.empty());
+    REQUIRE(animation.samplers.front().interpolation == fastgltf::AnimationInterpolation::Linear);
+    REQUIRE(animation.samplers.front().inputAccessor == 0);
+    REQUIRE(animation.samplers.front().outputAccessor == 1);
 }

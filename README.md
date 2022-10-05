@@ -15,9 +15,10 @@ fastgltf supports glTF 2.0:
 - [x] Scenes, nodes, meshes
 - [x] Accessors, buffer views, buffers
 - [x] Materials, textures, images, samplers
-- [ ] Animations
+- [x] Animations
 - [ ] Skins
 - [ ] Cameras
+- [ ] Morph targets
 - [ ] Extra data
 
 fastgltf supports a number of extensions:

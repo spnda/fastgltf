@@ -134,6 +134,7 @@ namespace fastgltf {
         [[nodiscard]] Asset* getParsedAssetPointer();
 
         Error parseAccessors();
+        Error parseAnimations();
         Error parseBuffers();
         Error parseBufferViews();
         Error parseImages();
