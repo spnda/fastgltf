@@ -229,6 +229,7 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
     REQUIRE(model != nullptr);
 
     REQUIRE(model->parseSkins() == fastgltf::Error::None);
+    REQUIRE(model->parseNodes() == fastgltf::Error::None);
 
     auto asset = model->getParsedAsset();
     REQUIRE(!asset->skins.empty());
@@ -239,4 +240,10 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
     REQUIRE(skin.joints[1] == 2);
     REQUIRE(skin.inverseBindMatrices.has_value());
     REQUIRE(skin.inverseBindMatrices.value() == 4);
+
+    REQUIRE(!asset->nodes.empty());
+
+    auto& node = asset->nodes.front();
+    REQUIRE(node.skinIndex.has_value());
+    REQUIRE(node.skinIndex == 0);
 }

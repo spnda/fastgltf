@@ -232,6 +232,7 @@ namespace fastgltf {
 
     struct Node {
         std::optional<size_t> meshIndex;
+        std::optional<size_t> skinIndex;
         std::vector<size_t> children;
 
         bool hasMatrix = false;

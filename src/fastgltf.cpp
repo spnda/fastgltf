@@ -914,9 +914,12 @@ fg::Error fg::glTF::parseNodes() {
             return returnError(Error::InvalidGltf);
         }
 
-        uint64_t meshIndex;
-        if (nodeObject["mesh"].get_uint64().get(meshIndex) == SUCCESS) {
-            node.meshIndex = static_cast<size_t>(meshIndex);
+        uint64_t index;
+        if (nodeObject["mesh"].get_uint64().get(index) == SUCCESS) {
+            node.meshIndex = static_cast<size_t>(index);
+        }
+        if (nodeObject["skin"].get_uint64().get(index) == SUCCESS) {
+            node.skinIndex = static_cast<size_t>(index);
         }
 
         {
@@ -925,7 +928,6 @@ fg::Error fg::glTF::parseNodes() {
             if (childError == Error::None) {
                 node.children.reserve(children.size());
                 for (auto childValue : children) {
-                    uint64_t index;
                     if (childValue.get_uint64().get(index) != SUCCESS) {
                         return returnError(Error::InvalidGltf);
                     }
