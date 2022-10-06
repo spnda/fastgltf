@@ -285,6 +285,7 @@ fg::Asset* fg::glTF::getParsedAssetPointer() {
 
 fg::Error fg::glTF::parseAll() {
     parseAccessors();
+    parseAnimations();
     parseBuffers();
     parseBufferViews();
     parseImages();
