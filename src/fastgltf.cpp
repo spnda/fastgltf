@@ -733,26 +733,32 @@ fg::Error fg::glTF::parseMaterials() {
         {
             TextureInfo normalTexture = {};
             auto error = parseTextureObject(&materialObject, "normalTexture", &normalTexture);
-            if (error != Error::None) {
+            if (error != Error::None && error != Error::MissingField) {
                 return returnError(error);
             }
-            material.normalTexture = normalTexture;
+            if (error == Error::None) {
+                material.normalTexture = normalTexture;
+            }
         }
         {
             TextureInfo occlusionTexture = {};
             auto error = parseTextureObject(&materialObject, "occlusionTexture", &occlusionTexture);
-            if (error != Error::None) {
+            if (error != Error::None && error != Error::MissingField) {
                 return returnError(error);
             }
-            material.occlusionTexture = occlusionTexture;
+            if (error == Error::None) {
+                material.occlusionTexture = occlusionTexture;
+            }
         }
         {
             TextureInfo emissiveTexture = {};
             auto error = parseTextureObject(&materialObject, "emissiveTexture", &emissiveTexture);
-            if (error != Error::None) {
+            if (error != Error::None && error != Error::MissingField) {
                 return returnError(error);
             }
-            material.emissiveTexture = emissiveTexture;
+            if (error == Error::None) {
+                material.emissiveTexture = emissiveTexture;
+            }
         }
 
         dom::object pbrMetallicRoughness;
@@ -787,18 +793,22 @@ fg::Error fg::glTF::parseMaterials() {
             {
                 TextureInfo baseColorTexture = {};
                 auto error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &baseColorTexture);
-                if (error != Error::None) {
+                if (error != Error::None && error != Error::MissingField) {
                     return returnError(error);
                 }
-                pbr.baseColorTexture = baseColorTexture;
+                if (error == Error::None) {
+                    pbr.baseColorTexture = baseColorTexture;
+                }
             }
             {
                 TextureInfo metallicRoughnessTexture = {};
                 auto error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &metallicRoughnessTexture);
-                if (error != Error::None) {
+                if (error != Error::None && error != Error::MissingField) {
                     return returnError(error);
                 }
-                pbr.metallicRoughnessTexture = metallicRoughnessTexture;
+                if (error == Error::None) {
+                    pbr.metallicRoughnessTexture = metallicRoughnessTexture;
+                }
             }
 
             material.pbrData = pbr;
@@ -1189,7 +1199,7 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
 
     dom::object child;
     if (obj[key].get_object().get(child) != SUCCESS) {
-        return Error::None;
+        return Error::MissingField;
     }
 
     uint64_t index;
