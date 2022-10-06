@@ -217,3 +217,26 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
     REQUIRE(animation.samplers.front().inputAccessor == 0);
     REQUIRE(animation.samplers.front().outputAccessor == 1);
 }
+
+TEST_CASE("Loading glTF skins", "[gltf-loader]") {
+    auto simpleSkin = path / "sample-models" / "2.0" / "SimpleSkin" / "glTF";
+
+    auto jsonData = std::make_unique<fastgltf::JsonData>(simpleSkin / "SimpleSkin.gltf");
+
+    fastgltf::Parser parser;
+    auto model = parser.loadGLTF(jsonData.get(), simpleSkin);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model != nullptr);
+
+    REQUIRE(model->parseSkins() == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(!asset->skins.empty());
+
+    auto& skin = asset->skins.front();
+    REQUIRE(skin.joints.size() == 2);
+    REQUIRE(skin.joints[0] == 1);
+    REQUIRE(skin.joints[1] == 2);
+    REQUIRE(skin.inverseBindMatrices.has_value());
+    REQUIRE(skin.inverseBindMatrices.value() == 4);
+}

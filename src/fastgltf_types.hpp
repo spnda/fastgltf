@@ -216,6 +216,14 @@ namespace fastgltf {
         std::vector<AnimationSampler> samplers;
     };
 
+    struct Skin {
+        std::vector<size_t> joints;
+        std::optional<size_t> skeleton;
+        std::optional<size_t> inverseBindMatrices;
+
+        std::string name;
+    };
+
     struct Scene {
         std::vector<size_t> nodeIndices;
 
@@ -381,6 +389,7 @@ namespace fastgltf {
         std::vector<Mesh> meshes;
         std::vector<Node> nodes;
         std::vector<Scene> scenes;
+        std::vector<Skin> skins;
         std::vector<Texture> textures;
 
         explicit Asset() = default;

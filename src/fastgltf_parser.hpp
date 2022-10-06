@@ -133,6 +133,7 @@ namespace fastgltf {
         [[nodiscard]] std::unique_ptr<Asset> getParsedAsset();
         [[nodiscard]] Asset* getParsedAssetPointer();
 
+        [[nodiscard]] Error parseAll();
         Error parseAccessors();
         Error parseAnimations();
         Error parseBuffers();
@@ -142,6 +143,7 @@ namespace fastgltf {
         Error parseMeshes();
         Error parseNodes();
         Error parseScenes();
+        Error parseSkins();
         Error parseTextures();
     };
 

@@ -283,6 +283,20 @@ fg::Asset* fg::glTF::getParsedAssetPointer() {
     return parsedAsset.get();
 }
 
+fg::Error fg::glTF::parseAll() {
+    parseAccessors();
+    parseBuffers();
+    parseBufferViews();
+    parseImages();
+    parseMaterials();
+    parseMeshes();
+    parseNodes();
+    parseScenes();
+    parseSkins();
+    parseTextures();
+    return errorCode;
+}
+
 fg::Error fg::glTF::parseAccessors() {
     using namespace simdjson;
     dom::array accessors;
@@ -523,7 +537,7 @@ fg::Error fg::glTF::parseBuffers() {
                 buffer.data.fileByteOffset = glb->fileOffset;
             }
         } else {
-            // All other buffers have to contain a uri field.
+            // All other buffers have to contain an uri field.
             return returnError(Error::InvalidGltf);
         }
 
@@ -807,7 +821,7 @@ fg::Error fg::glTF::parseMeshes() {
         // Required fields: "primitives"
         dom::object meshObject;
         if (meshValue.get_object().get(meshObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);;
+            return returnError(Error::InvalidGltf);
         }
         Mesh mesh = {};
 
@@ -1054,6 +1068,55 @@ fg::Error fg::glTF::parseScenes() {
         } else if (nodeError != Error::None && nodeError != Error::MissingField) {
             return returnError(nodeError);
         }
+    }
+
+    return errorCode;
+}
+
+fg::Error fg::glTF::parseSkins() {
+    using namespace simdjson;
+    dom::array skins;
+    auto skinsError = getJsonArray(data->root, "skins", &skins);
+    if (skinsError == Error::MissingField) {
+        return errorCode;
+    } else if (skinsError != Error::None) {
+        return returnError(skinsError);
+    }
+
+    parsedAsset->skins.reserve(skins.size());
+    for (auto skinValue : skins) {
+        Skin skin = {};
+        dom::object skinObject;
+        if (skinValue.get_object().get(skinObject) != SUCCESS) {
+            return returnError(Error::InvalidGltf);
+        }
+
+        uint64_t index;
+        if (skinObject["inverseBindMatrices"].get_uint64().get(index) == SUCCESS) {
+            skin.inverseBindMatrices = static_cast<size_t>(index);
+        }
+        if (skinObject["skeleton"].get_uint64().get(index) == SUCCESS) {
+            skin.skeleton = static_cast<size_t>(index);
+        }
+
+        dom::array jointsArray;
+        if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) {
+            return returnError(Error::InvalidGltf);
+        }
+        skin.joints.reserve(jointsArray.size());
+        for (auto jointValue : jointsArray) {
+            if (jointValue.get_uint64().get(index) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+            skin.joints.emplace_back(index);
+        }
+
+        // name is optional.
+        std::string_view name;
+        if (skinObject["name"].get_string().get(name) == SUCCESS) {
+            skin.name = std::string { name };
+        }
+        parsedAsset->skins.emplace_back(std::move(skin));
     }
 
     return errorCode;

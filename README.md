@@ -28,7 +28,7 @@ fastgltf supports a number of extensions:
 
 ## Usage
 
-The project uses a fairly simple CMake 3.24 script, which you can simply add as a subdirectory.
+The project uses a fairly simple CMake 3.11 script, which you can simply add as a subdirectory.
 
 ```cpp
 #include <fastgltf_parser.hpp>
@@ -44,15 +44,19 @@ void load(std::filesystem::path path) {
     // Note that it has to outlive the process of every parsing function you call.
     auto data = std::make_unique<fastgltf::JsonData>(path);
 
-    // This loads the glTF file into the gltf object and parses the JSON.
-    auto gltf = parser.loadGLTF(data.get(), fastgltf::Options::None);
+    // This loads the glTF file into the gltf object and parses the JSON. For GLB files, use
+    // fastgltf::Parser::loadBinaryGLTF instead.
+    auto gltf = parser.loadGLTF(data.get(), path.parent_path(), fastgltf::Options::None);
+    if (parser.getError() != fastgltf::Error::None) {
+        // File doesn't exist, couldn't be read, or is not a valid JSON document.
+    }
 
-    // With this call to parseBuffers you parse all buffer objects in the JSON data. loadGLTF does
-    // not fully serialise the JSON data, which allows you to selectively load based on your needs.
-    // Note that there is a parse* function for every datatype stored in a glTF file, e.g.
-    // buffers, bufferViews, accessors, meshes, cameras, ...
-    if (gltf->parseBuffers() != fastgltf::Error::None) {
-        // error
+    // With this call to parseAll you let fastgltf serialize the whole JSON document into the
+    // glTF data structures. If desired, you can call different parse functions to parse
+    // individual parts of the glTF.
+    if (gltf->parseAll() != fastgltf::Error::None) {
+        // Most likely the asset does not follow the glTF spec. Though perhaps fastgltf doesn't
+        // handle something correctly, so please let me know.
     }
 
     // You obtain the asset with this call. This can only be done once.
@@ -74,7 +78,7 @@ These numbers were tested using Catch2's benchmark tool on a Ryzen 5800X with 32
 
 First of I compared the performance with embedded buffers that are encoded with base64. This uses
 the [2CylinderEngine asset](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/2CylinderEngine)
-which contains a 1.7MB embedded buffer. fastgltf includes a optimised base64 decoding algorithm
+which contains a 1.7MB embedded buffer. fastgltf includes an optimised base64 decoding algorithm
 that can take advantage of SSE4 and AVX2. With this asset, fastlgtf is **2.1 times faster** than
 cgltf and **7.3 times faster** than tinygltf using RapidJSON.
 

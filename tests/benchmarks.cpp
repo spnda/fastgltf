@@ -17,24 +17,12 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
 
     BENCHMARK("Parse NewSponza with SIMD") {
         auto sponza = parser.loadGLTF(data.get(), intel.parent_path(), fastgltf::Options::None);
-        sponza->parseBuffers();
-        sponza->parseBufferViews();
-        sponza->parseAccessors();
-        sponza->parseMaterials();
-        sponza->parseMeshes();
-        sponza->parseNodes();
-        return sponza->parseScenes();
+        return sponza->parseAll();
     };
 
     BENCHMARK("Parse NewSponza without SIMD") {
         auto sponza = parser.loadGLTF(data.get(), intel.parent_path(), fastgltf::Options::DontUseSIMD);
-        sponza->parseBuffers();
-        sponza->parseBufferViews();
-        sponza->parseAccessors();
-        sponza->parseMaterials();
-        sponza->parseMeshes();
-        sponza->parseNodes();
-        return sponza->parseScenes();
+        return sponza->parseAll();
     };
 }
 
@@ -50,12 +38,12 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
 
     BENCHMARK("Parse 2CylinderEngine and decode base64 with SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::None);
-        return engine->parseBuffers();
+        return engine->parseAll();
     };
 
     BENCHMARK("Parse 2CylinderEngine and decode base64 without SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::DontUseSIMD);
-        return engine->parseBuffers();
+        return engine->parseAll();
     };
 };
 
@@ -70,21 +58,11 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
 
     BENCHMARK("Parse Buggy.gltf with SIMD") {
         auto buggy = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::None);
-        buggy->parseBuffers();
-        buggy->parseBufferViews();
-        buggy->parseAccessors();
-        buggy->parseMeshes();
-        buggy->parseNodes();
-        return buggy->parseScenes();
+        return buggy->parseAll();
     };
 
     BENCHMARK("Parse Buggy.gltf without SIMD") {
         auto buggy = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::DontUseSIMD);
-        buggy->parseBuffers();
-        buggy->parseBufferViews();
-        buggy->parseAccessors();
-        buggy->parseMeshes();
-        buggy->parseNodes();
-        return buggy->parseScenes();
+        return buggy->parseAll();
     };
 }
