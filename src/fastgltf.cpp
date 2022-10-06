@@ -468,16 +468,16 @@ fg::Error fg::glTF::parseAnimations() {
             std::string_view interpolation;
             if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) {
                 sampler.interpolation = AnimationInterpolation::Linear;
-            }
-
-            if (interpolation == "LINEAR") {
-                sampler.interpolation = AnimationInterpolation::Linear;
-            } else if (interpolation == "STEP") {
-                sampler.interpolation = AnimationInterpolation::Step;
-            } else if (interpolation == "CUBICSPLINE") {
-                sampler.interpolation = AnimationInterpolation::CubicSpline;
             } else {
-                return returnError(Error::InvalidGltf);
+                if (interpolation == "LINEAR") {
+                    sampler.interpolation = AnimationInterpolation::Linear;
+                } else if (interpolation == "STEP") {
+                    sampler.interpolation = AnimationInterpolation::Step;
+                } else if (interpolation == "CUBICSPLINE") {
+                    sampler.interpolation = AnimationInterpolation::CubicSpline;
+                } else {
+                    return returnError(Error::InvalidGltf);
+                }
             }
 
             animation.samplers.emplace_back(sampler);
