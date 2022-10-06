@@ -483,6 +483,14 @@ fg::Error fg::glTF::parseAnimations() {
             animation.samplers.emplace_back(sampler);
         }
 
+        // name is optional.
+        {
+            std::string_view name;
+            if (animationObject["name"].get_string().get(name) == SUCCESS) {
+                animation.name = std::string { name };
+            }
+        }
+
         parsedAsset->animations.emplace_back(std::move(animation));
     }
 

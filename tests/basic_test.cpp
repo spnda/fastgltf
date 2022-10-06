@@ -207,6 +207,8 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
     REQUIRE(!asset->animations.empty());
 
     auto& animation = asset->animations.front();
+    REQUIRE(animation.name == "animation_AnimatedCube");
+
     REQUIRE(!animation.channels.empty());
     REQUIRE(animation.channels.front().nodeIndex == 0);
     REQUIRE(animation.channels.front().samplerIndex == 0);
