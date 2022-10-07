@@ -138,6 +138,7 @@ namespace fastgltf {
         Error parseAnimations();
         Error parseBuffers();
         Error parseBufferViews();
+        Error parseCameras();
         Error parseImages();
         Error parseMaterials();
         Error parseMeshes();

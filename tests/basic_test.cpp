@@ -252,3 +252,31 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
     REQUIRE(node.skinIndex.has_value());
     REQUIRE(node.skinIndex == 0);
 }
+
+TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
+    auto cameras = path / "sample-models" / "2.0" / "Cameras" / "glTF";
+    auto jsonData = std::make_unique<fastgltf::JsonData>(cameras / "Cameras.gltf");
+
+    fastgltf::Parser parser;
+    auto model = parser.loadGLTF(jsonData.get(), cameras);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model != nullptr);
+
+    REQUIRE(model->parseCameras() == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->cameras.size() == 2);
+
+    REQUIRE(asset->cameras[0].type == fastgltf::CameraType::Perspective);
+    REQUIRE(asset->cameras[1].type == fastgltf::CameraType::Orthographic);
+
+    REQUIRE(asset->cameras[0].camera.perspective.aspectRatio == 1.0f);
+    REQUIRE(asset->cameras[0].camera.perspective.yfov == 0.7f);
+    REQUIRE(asset->cameras[0].camera.perspective.zfar == 100);
+    REQUIRE(asset->cameras[0].camera.perspective.znear == 0.01f);
+
+    REQUIRE(asset->cameras[1].camera.orthographic.xmag == 1.0f);
+    REQUIRE(asset->cameras[1].camera.orthographic.ymag == 1.0f);
+    REQUIRE(asset->cameras[1].camera.orthographic.zfar == 100);
+    REQUIRE(asset->cameras[1].camera.orthographic.znear == 0.01f);
+}

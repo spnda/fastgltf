@@ -288,6 +288,7 @@ fg::Error fg::glTF::parseAll() {
     parseAnimations();
     parseBuffers();
     parseBufferViews();
+    parseCameras();
     parseImages();
     parseMaterials();
     parseMeshes();
@@ -633,6 +634,105 @@ fg::Error fg::glTF::parseBufferViews() {
     return errorCode;
 }
 
+fg::Error fg::glTF::parseCameras() {
+    using namespace simdjson;
+    dom::array cameras;
+    auto cameraError = getJsonArray(data->root, "cameras", &cameras);
+    if (cameraError == Error::MissingField) {
+        return Error::None;
+    } else if (cameraError != Error::None) {
+        return returnError(cameraError);
+    }
+
+    parsedAsset->cameras.reserve(cameras.size());
+    for (auto cameraValue : cameras) {
+        Camera camera = {};
+        dom::object cameraObject;
+        if (cameraValue.get_object().get(cameraObject) != SUCCESS) {
+            return returnError(Error::InvalidGltf);
+        }
+
+        std::string_view name;
+        if (cameraObject["name"].get_string().get(name) == SUCCESS) {
+            camera.name = std::string { name };
+        }
+
+        std::string_view type;
+        if (cameraObject["type"].get_string().get(type) != SUCCESS) {
+            return returnError(Error::InvalidGltf);
+        }
+
+        if (type == "perspective") {
+            camera.type = CameraType::Perspective;
+
+            dom::object perspectiveCamera;
+            if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+
+            auto& perspective = camera.camera.perspective;
+            double value;
+            if (perspectiveCamera["aspectRatio"].get_double().get(value) == SUCCESS) {
+                perspective.aspectRatio = static_cast<float>(value);
+            }
+            if (perspectiveCamera["zfar"].get_double().get(value) == SUCCESS) {
+                perspective.zfar = static_cast<float>(value);
+            }
+
+            if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) {
+                perspective.yfov = static_cast<float>(value);
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+
+            if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) {
+                perspective.znear = static_cast<float>(value);
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+        } else if (type == "orthographic") {
+            camera.type = CameraType::Orthographic;
+
+            dom::object orthographicCamera;
+            if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            }
+
+            auto& orthographic = camera.camera.orthographic;
+            double value;
+            if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) {
+                orthographic.xmag = static_cast<float>(value);
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+
+            if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) {
+                orthographic.ymag = static_cast<float>(value);
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+
+            if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) {
+                orthographic.zfar = static_cast<float>(value);
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+
+            if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) {
+                orthographic.znear = static_cast<float>(value);
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+        } else {
+            return returnError(Error::InvalidGltf);
+        }
+
+        parsedAsset->cameras.emplace_back(std::move(camera));
+    }
+
+    return errorCode;
+}
+
 fg::Error fg::glTF::parseImages() {
     using namespace simdjson;
     dom::array images;
@@ -645,7 +745,7 @@ fg::Error fg::glTF::parseImages() {
 
     parsedAsset->images.reserve(images.size());
     for (auto imageValue : images) {
-        Image image;
+        Image image = {};
         dom::object imageObject;
         if (imageValue.get_object().get(imageObject) != SUCCESS) {
             return returnError(Error::InvalidGltf);
@@ -689,7 +789,7 @@ fg::Error fg::glTF::parseImages() {
         // name is optional.
         std::string_view name;
         if (imageObject["name"].get_string().get(name) == SUCCESS) {
-            image.name = std::string{name};
+            image.name = std::string { name };
         }
 
         parsedAsset->images.emplace_back(std::move(image));

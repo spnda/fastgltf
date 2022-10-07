@@ -114,6 +114,11 @@ namespace fastgltf {
         Scale = 3,
         Weights = 4,
     };
+
+    enum class CameraType : uint8_t {
+        Perspective,
+        Orthographic,
+    };
     // clang-format on
 #pragma endregion
 
@@ -215,6 +220,26 @@ namespace fastgltf {
         std::vector<AnimationChannel> channels;
         std::vector<AnimationSampler> samplers;
 
+        std::string name;
+    };
+
+    struct Camera {
+        union {
+            struct Orthographic {
+                float xmag;
+                float ymag;
+                float zfar;
+                float znear;
+            } orthographic;
+            struct Perspective {
+                std::optional<float> aspectRatio;
+                float yfov;
+                std::optional<float> zfar;
+                float znear;
+            } perspective;
+        } camera;
+
+        CameraType type;
         std::string name;
     };
 
@@ -393,8 +418,9 @@ namespace fastgltf {
         std::optional<size_t> defaultScene;
         std::vector<Accessor> accessors;
         std::vector<Animation> animations;
-        std::vector<BufferView> bufferViews;
         std::vector<Buffer> buffers;
+        std::vector<BufferView> bufferViews;
+        std::vector<Camera> cameras;
         std::vector<Image> images;
         std::vector<Material> materials;
         std::vector<Mesh> meshes;
