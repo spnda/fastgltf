@@ -52,14 +52,16 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 
-    install(TARGETS fastgltf_simdjson
+    install(
+        TARGETS fastgltf_simdjson
         EXPORT fastgltf_simdjson-targets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
-    install(EXPORT fastgltf_simdjson-targets
+    install(
+        EXPORT fastgltf_simdjson-targets
         FILE fastgltf_simdjsonTargets.cmake
         NAMESPACE fastgltf::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf

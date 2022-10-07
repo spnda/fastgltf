@@ -16,9 +16,11 @@ endif()
 
 add_source_directory(TARGET fastgltf FOLDER ".")
 
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/fastgltfConfig.cmake.in" fastgltfConfig.cmake)
+
 install(
-    FILES base64_decode.hpp fastgltf_parser.hpp fastgltf_types.hpp fastgltf_util.hpp
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES "base64_decode.hpp" "fastgltf_parser.hpp" "fastgltf_types.hpp" "fastgltf_util.hpp"
+    TYPE INCLUDE
 )
 
 install(TARGETS fastgltf
@@ -26,16 +28,17 @@ install(TARGETS fastgltf
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 install(EXPORT fastgltf-targets
     FILE fastgltfTargets.cmake
     NAMESPACE fastgltf::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf"
 )
 
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfig.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
+    # ${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf"
 )
