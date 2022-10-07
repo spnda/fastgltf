@@ -142,6 +142,7 @@ namespace fastgltf {
         Error parseMaterials();
         Error parseMeshes();
         Error parseNodes();
+        Error parseSamplers();
         Error parseScenes();
         Error parseSkins();
         Error parseTextures();

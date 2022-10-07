@@ -291,6 +291,7 @@ fg::Error fg::glTF::parseAll() {
     parseMaterials();
     parseMeshes();
     parseNodes();
+    parseSamplers();
     parseScenes();
     parseSkins();
     parseTextures();
@@ -1017,6 +1018,55 @@ fg::Error fg::glTF::parseNodes() {
         }
 
         parsedAsset->nodes.emplace_back(std::move(node));
+    }
+
+    return errorCode;
+}
+
+fg::Error fg::glTF::parseSamplers() {
+    using namespace simdjson;
+    dom::array samplers;
+    auto samplerError = getJsonArray(data->root, "samplers", &samplers);
+    if (samplerError == Error::MissingField) {
+        return Error::None;
+    } else if (samplerError != Error::None) {
+        return returnError(samplerError);
+    }
+
+    uint64_t number;
+    parsedAsset->samplers.reserve(samplers.size());
+    for (auto samplerValue : samplers) {
+        Sampler sampler = {};
+        dom::object samplerObject;
+        if (samplerValue.get_object().get(samplerObject) != SUCCESS) {
+            return returnError(Error::InvalidGltf);
+        }
+
+        // name is optional.
+        std::string_view name;
+        if (sceneObject["name"].get_string().get(name) == SUCCESS) {
+            scene.name = std::string { name };
+        }
+
+        if (sceneObject["magFilter"].get_uint64().get(number) == SUCCESS) {
+            sampler.magFilter = static_cast<Filter>(number);
+        }
+        if (sceneObject["minFilter"].get_uint64().get(number) == SUCCESS) {
+            sampler.minFilter = static_cast<Filter>(number);
+        }
+
+        if (sceneObject["wrapS"].get_uint64().get(number) == SUCCESS) {
+            sampler.wrapS = static_cast<Wrap>(number);
+        } else {
+            sampler.wrapT = Wrap::Repeat;
+        }
+        if (sceneObject["wrapT"].get_uint64().get(number) == SUCCESS) {
+            sampler.wrapT = static_cast<Wrap>(number);
+        } else {
+            sampler.wrapT = Wrap::Repeat;
+        }
+
+        parsedAsset->samplers.emplace_back(std::move(sampler));
     }
 
     return errorCode;

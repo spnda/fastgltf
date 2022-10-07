@@ -224,6 +224,15 @@ namespace fastgltf {
         std::string name;
     };
 
+    struct Sampler {
+        std::optional<Filter> magFilter;
+        std::optional<Filter> minFilter;
+        Wrap wrapS;
+        Wrap wrapT;
+
+        std::string name;
+    };
+
     struct Scene {
         std::vector<size_t> nodeIndices;
 
@@ -331,8 +340,7 @@ namespace fastgltf {
         // be used as a fallback if those file containers are not supported.
         std::optional<size_t> fallbackImageIndex;
 
-        // if a value not present, use a default sampler with repeat wrap and auto filter should
-        // be used.
+        // if a value not present, use a default sampler with repeat wrap and auto filter.
         std::optional<size_t> samplerIndex;
 
         std::string name;
@@ -389,6 +397,7 @@ namespace fastgltf {
         std::vector<Material> materials;
         std::vector<Mesh> meshes;
         std::vector<Node> nodes;
+        std::vector<Sampler> samplers;
         std::vector<Scene> scenes;
         std::vector<Skin> skins;
         std::vector<Texture> textures;
