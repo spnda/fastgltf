@@ -1044,23 +1044,23 @@ fg::Error fg::glTF::parseSamplers() {
 
         // name is optional.
         std::string_view name;
-        if (sceneObject["name"].get_string().get(name) == SUCCESS) {
-            scene.name = std::string { name };
+        if (samplerObject["name"].get_string().get(name) == SUCCESS) {
+            sampler.name = std::string { name };
         }
 
-        if (sceneObject["magFilter"].get_uint64().get(number) == SUCCESS) {
+        if (samplerObject["magFilter"].get_uint64().get(number) == SUCCESS) {
             sampler.magFilter = static_cast<Filter>(number);
         }
-        if (sceneObject["minFilter"].get_uint64().get(number) == SUCCESS) {
+        if (samplerObject["minFilter"].get_uint64().get(number) == SUCCESS) {
             sampler.minFilter = static_cast<Filter>(number);
         }
 
-        if (sceneObject["wrapS"].get_uint64().get(number) == SUCCESS) {
+        if (samplerObject["wrapS"].get_uint64().get(number) == SUCCESS) {
             sampler.wrapS = static_cast<Wrap>(number);
         } else {
-            sampler.wrapT = Wrap::Repeat;
+            sampler.wrapS = Wrap::Repeat;
         }
-        if (sceneObject["wrapT"].get_uint64().get(number) == SUCCESS) {
+        if (samplerObject["wrapT"].get_uint64().get(number) == SUCCESS) {
             sampler.wrapT = static_cast<Wrap>(number);
         } else {
             sampler.wrapT = Wrap::Repeat;
