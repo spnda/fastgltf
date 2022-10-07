@@ -44,11 +44,28 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
 
     add_library(fastgltf_simdjson ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h)
     target_compile_features(fastgltf_simdjson PUBLIC cxx_std_17)
-    target_include_directories(fastgltf_simdjson PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/simdjson/)
+    target_include_directories(fastgltf_simdjson PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/simdjson> $<INSTALL_INTERFACE:include>)
     compiler_flags(TARGET fastgltf_simdjson)
+
+    install(
+        FILES simdjson/simdjson.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+
+    install(TARGETS fastgltf_simdjson
+        EXPORT fastgltf_simdjson-targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+
+    install(EXPORT fastgltf_simdjson-targets
+        FILE fastgltf_simdjsonTargets.cmake
+        NAMESPACE fastgltf::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
+    )
 else()
     find_package(simdjson CONFIG REQUIRED)
-    add_library(fastgltf_simdjson ALIAS simdjson::simdjson)
 endif()
 
 add_subdirectory(src)
