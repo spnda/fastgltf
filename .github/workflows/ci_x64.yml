@@ -1,0 +1,70 @@
+name: CI x64
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/workflows/**'
+      - '**.cpp'
+      - '**.hpp'
+      - '**.txt'
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build_windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        id: sample-models-cache
+        with:
+          path: ${{ github.workspace }}/tests/gltf/sample-models
+          key: gltf-sample-models
+
+      - name: Configure CMake
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build (Windows)
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/tests
+
+      - name: Run tests
+        run: ${{ github.workspace }}/build/tests/tests -d yes --order lex [base64],[gltf-loader]
+
+  build_linux:
+    strategy:
+      matrix:
+        c_compiler: [gcc-9, gcc-10, clang-12]
+        include:
+          - cxx_compiler: g++-9
+            c_compiler: gcc-9
+          - cxx_compiler: g++-10
+            c_compiler: gcc-10
+          - cxx_compiler: clang++-12
+            c_compiler: clang-12
+
+    runs-on: ubuntu-latest
+    env:
+      C: ${{ matrix.c_compiler }}
+      CXX: ${{ matrix.cxx_compiler }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        id: sample-models-cache
+        with:
+          path: ${{ github.workspace }}/tests/gltf/sample-models
+          key: gltf-sample-models
+
+      - name: Configure CMake
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests
+
+      - name: Run tests
+        run: ${{ github.workspace }}/build/tests/tests -d yes --order lex [base64],[gltf-loader]
