@@ -38,7 +38,7 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
         download_simdjson()
 
         if (NOT EXISTS "${SIMDJSON_HEADER_FILE}")
-            message(FATAL_ERROR "Failed to download simdjson.")
+            message(FATAL_ERROR "fastgltf: Failed to download simdjson.")
         endif()
     endif()
 
@@ -49,22 +49,23 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
 
     install(
         FILES simdjson/simdjson.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        DESTINATION include
     )
 
     install(
         TARGETS fastgltf_simdjson
         EXPORT fastgltf_simdjson-targets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include
     )
 
     install(
         EXPORT fastgltf_simdjson-targets
         FILE fastgltf_simdjsonTargets.cmake
         NAMESPACE fastgltf::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
+        DESTINATION lib/cmake/fastgltf
     )
 else()
     find_package(simdjson CONFIG REQUIRED)
