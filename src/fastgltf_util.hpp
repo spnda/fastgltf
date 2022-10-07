@@ -14,4 +14,14 @@ namespace fastgltf {
         static_assert((std::is_enum_v<T> && std::is_integral_v<std::underlying_type_t<T>>) || std::is_integral_v<T>);
         return (flags & bit) == bit;
     }
+
+    template <typename T>
+    constexpr T alignUp(T base, T alignment) {
+        return (base + alignment - 1) & -alignment;
+    }
+
+    template <typename T>
+    constexpr T alignDown(T base, T alignment) {
+        return base - (base % alignment);
+    }
 }

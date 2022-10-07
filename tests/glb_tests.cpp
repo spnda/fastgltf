@@ -16,7 +16,7 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         auto asset = box->getParsedAsset();
         REQUIRE(asset->buffers.size() == 1);
         REQUIRE(asset->buffers.front().location == fastgltf::DataLocation::FilePathWithByteRange);
-        REQUIRE(asset->buffers.front().data.fileByteOffset == 1014);
+        REQUIRE(asset->buffers.front().data.fileByteOffset == 1016);
     }
 
     SECTION("Load basic Box.glb and load buffers") {

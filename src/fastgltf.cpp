@@ -1509,7 +1509,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
     errorCode = Error::None;
 
 #if defined(DEBUG) || defined(_DEBUG)
-    std::ifstream gltfFile(file, std::ios::ate, std::ios::binary);
+    std::ifstream gltfFile(file, std::ios::ate | std::ios::binary);
     auto length = gltfFile.tellg();
     gltfFile.seekg(0, std::ifstream::beg);
 #else
