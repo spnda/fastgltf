@@ -11,12 +11,14 @@
 
 #include "simdjson.h"
 
+#ifdef SIMDJSON_TARGET_VERSION
 #define STR(x) #x
 #define STRX(x) STR(x)
 // Make sure that SIMDJSON_TARGET_VERSION is equal to SIMDJSON_VERSION.
 static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == STRX(SIMDJSON_VERSION), "Outdated version of simdjson. Reconfigure project to update.");
 #undef STRX
 #undef STR
+#endif
 
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
