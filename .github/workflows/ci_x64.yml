@@ -33,7 +33,7 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/tests
 
       - name: Run tests
-        run: ${{ github.workspace }}/build/tests/tests.exe -d yes --order lex [base64],[gltf-loader]
+        run: ${{ github.workspace }}\build\tests\Release\tests.exe -d yes --order lex [base64],[gltf-loader]
 
   build_linux:
     strategy:
