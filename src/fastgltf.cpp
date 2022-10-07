@@ -1198,8 +1198,11 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     auto& obj = *static_cast<dom::object*>(object);
 
     dom::object child;
-    if (obj[key].get_object().get(child) != SUCCESS) {
+    const auto childErr = obj[key].get_object().get(child);
+    if (childErr == NO_SUCH_FIELD) {
         return Error::MissingField;
+    } else if (childErr != SUCCESS) {
+        return Error::InvalidGltf;
     }
 
     uint64_t index;
