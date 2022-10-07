@@ -4,6 +4,8 @@ target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIS
 target_compile_features(fastgltf PUBLIC cxx_std_17)
 compiler_flags(TARGET fastgltf)
 
+set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
+
 if (TARGET fastgltf_simdjson)
     target_link_libraries(fastgltf PRIVATE fastgltf_simdjson)
 elseif(TARGET simdjson::simdjson)
@@ -16,29 +18,23 @@ endif()
 
 add_source_directory(TARGET fastgltf FOLDER ".")
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/fastgltfConfig.cmake.in" fastgltfConfig.cmake)
-
 install(
     FILES "base64_decode.hpp" "fastgltf_parser.hpp" "fastgltf_types.hpp" "fastgltf_util.hpp"
     TYPE INCLUDE
 )
 
-install(TARGETS fastgltf
+install(
+    TARGETS fastgltf
     EXPORT fastgltf-targets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
 )
 
-install(EXPORT fastgltf-targets
-    FILE fastgltfTargets.cmake
+install(
+    EXPORT fastgltf-targets
+    FILE fastgltfConfig.cmake
     NAMESPACE fastgltf::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf"
-)
-
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfig.cmake
-    # ${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf"
+    DESTINATION lib/cmake/fastgltf
 )
