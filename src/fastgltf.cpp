@@ -285,6 +285,7 @@ fg::Asset* fg::glTF::getParsedAssetPointer() {
 
 fg::Error fg::glTF::parseAll() {
     parseAccessors();
+    parseAnimations();
     parseBuffers();
     parseBufferViews();
     parseImages();
@@ -467,19 +468,27 @@ fg::Error fg::glTF::parseAnimations() {
             std::string_view interpolation;
             if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) {
                 sampler.interpolation = AnimationInterpolation::Linear;
-            }
-
-            if (interpolation == "LINEAR") {
-                sampler.interpolation = AnimationInterpolation::Linear;
-            } else if (interpolation == "STEP") {
-                sampler.interpolation = AnimationInterpolation::Step;
-            } else if (interpolation == "CUBICSPLINE") {
-                sampler.interpolation = AnimationInterpolation::CubicSpline;
             } else {
-                return returnError(Error::InvalidGltf);
+                if (interpolation == "LINEAR") {
+                    sampler.interpolation = AnimationInterpolation::Linear;
+                } else if (interpolation == "STEP") {
+                    sampler.interpolation = AnimationInterpolation::Step;
+                } else if (interpolation == "CUBICSPLINE") {
+                    sampler.interpolation = AnimationInterpolation::CubicSpline;
+                } else {
+                    return returnError(Error::InvalidGltf);
+                }
             }
 
             animation.samplers.emplace_back(sampler);
+        }
+
+        // name is optional.
+        {
+            std::string_view name;
+            if (animationObject["name"].get_string().get(name) == SUCCESS) {
+                animation.name = std::string { name };
+            }
         }
 
         parsedAsset->animations.emplace_back(std::move(animation));
@@ -724,26 +733,29 @@ fg::Error fg::glTF::parseMaterials() {
         {
             TextureInfo normalTexture = {};
             auto error = parseTextureObject(&materialObject, "normalTexture", &normalTexture);
-            if (error != Error::None) {
+            if (error == Error::None) {
+                material.normalTexture = normalTexture;
+            } else if (error != Error::MissingField) {
                 return returnError(error);
             }
-            material.normalTexture = normalTexture;
         }
         {
             TextureInfo occlusionTexture = {};
             auto error = parseTextureObject(&materialObject, "occlusionTexture", &occlusionTexture);
-            if (error != Error::None) {
+            if (error == Error::None) {
+                material.occlusionTexture = occlusionTexture;
+            } else if (error != Error::MissingField) {
                 return returnError(error);
             }
-            material.occlusionTexture = occlusionTexture;
         }
         {
             TextureInfo emissiveTexture = {};
             auto error = parseTextureObject(&materialObject, "emissiveTexture", &emissiveTexture);
-            if (error != Error::None) {
+            if (error == Error::None) {
+                material.emissiveTexture = emissiveTexture;
+            } else if (error != Error::MissingField) {
                 return returnError(error);
             }
-            material.emissiveTexture = emissiveTexture;
         }
 
         dom::object pbrMetallicRoughness;
@@ -778,18 +790,20 @@ fg::Error fg::glTF::parseMaterials() {
             {
                 TextureInfo baseColorTexture = {};
                 auto error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &baseColorTexture);
-                if (error != Error::None) {
+                if (error == Error::None) {
+                   pbr.baseColorTexture = baseColorTexture;
+                } else if (error != Error::MissingField) {
                     return returnError(error);
                 }
-                pbr.baseColorTexture = baseColorTexture;
             }
             {
                 TextureInfo metallicRoughnessTexture = {};
                 auto error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &metallicRoughnessTexture);
-                if (error != Error::None) {
+                if (error == Error::None) {
+                   pbr.metallicRoughnessTexture = metallicRoughnessTexture;
+                } else if (error != Error::MissingField) {
                     return returnError(error);
                 }
-                pbr.metallicRoughnessTexture = metallicRoughnessTexture;
             }
 
             material.pbrData = pbr;
@@ -1179,8 +1193,11 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     auto& obj = *static_cast<dom::object*>(object);
 
     dom::object child;
-    if (obj[key].get_object().get(child) != SUCCESS) {
-        return Error::None;
+    const auto childErr = obj[key].get_object().get(child);
+    if (childErr == NO_SUCH_FIELD) {
+        return Error::MissingField;
+    } else if (childErr != SUCCESS) {
+        return Error::InvalidGltf;
     }
 
     uint64_t index;

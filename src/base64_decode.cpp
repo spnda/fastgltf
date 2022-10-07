@@ -147,7 +147,7 @@ namespace fastgltf::base64 {
     auto* out = ret.data();
 
     for (size_t pos = 0; pos < alignedSize; pos += dataSetSize) {
-        auto in = _mm_load_si128(reinterpret_cast<const __m128i*>(&encoded[pos]));
+        auto in = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&encoded[pos]));
         auto values = sse4_lookup_pshufb_bitmask(in);
         const auto merged = sse4_pack_ints(values);
 

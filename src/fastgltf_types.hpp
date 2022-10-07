@@ -214,6 +214,8 @@ namespace fastgltf {
     struct Animation {
         std::vector<AnimationChannel> channels;
         std::vector<AnimationSampler> samplers;
+
+        std::string name;
     };
 
     struct Skin {

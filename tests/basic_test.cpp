@@ -101,6 +101,9 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(material.pbrData->baseColorTexture->textureIndex == 0);
         REQUIRE(material.pbrData->metallicRoughnessTexture.has_value());
         REQUIRE(material.pbrData->metallicRoughnessTexture->textureIndex == 1);
+        REQUIRE(!material.normalTexture.has_value());
+        REQUIRE(!material.emissiveTexture.has_value());
+        REQUIRE(!material.occlusionTexture.has_value());
     }
 
     SECTION("Loading basic Box.gltf") {
@@ -207,6 +210,8 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
     REQUIRE(!asset->animations.empty());
 
     auto& animation = asset->animations.front();
+    REQUIRE(animation.name == "animation_AnimatedCube");
+
     REQUIRE(!animation.channels.empty());
     REQUIRE(animation.channels.front().nodeIndex == 0);
     REQUIRE(animation.channels.front().samplerIndex == 0);
