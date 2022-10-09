@@ -74,6 +74,10 @@ jobs:
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/tests/gltf/sample-models
 
+      # GLFW requires these libs to be present so that configuring succeeds.
+      - name: Install libxandr
+        run: sudo apt-get install -y libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev
+
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
