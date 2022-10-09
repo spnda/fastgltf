@@ -23,7 +23,7 @@
 namespace fg = fastgltf;
 
 namespace fastgltf::base64 {
-    [[gnu::always_inline]] size_t getPadding(std::string_view string) {
+    [[gnu::always_inline]] inline size_t getPadding(std::string_view string) {
         size_t padding = 0;
         auto size = string.size();
         for (auto i = size - 1; i >= (size - 3); --i) {
@@ -40,7 +40,7 @@ namespace fastgltf::base64 {
 // It covers various methods of en-/decoding base64 using SSE and AVX and also shows their
 // performance metrics.
 // TODO: Mark these functions with msvc::forceinline which is available from C++20
-[[gnu::target("avx2"), gnu::always_inline]] auto lookup_pshufb_bitmask(const __m256i input) {
+[[gnu::target("avx2"), gnu::always_inline]] inline auto lookup_pshufb_bitmask(const __m256i input) {
     const auto higher_nibble = _mm256_and_si256(_mm256_srli_epi32(input, 4), _mm256_set1_epi8(0x0f));
 
     const auto shiftLUT = _mm256_setr_epi8(
@@ -57,7 +57,7 @@ namespace fastgltf::base64 {
     return _mm256_add_epi8(input, shift);
 }
 
-[[gnu::target("avx2"), gnu::always_inline]] auto pack_ints(__m256i input) {
+[[gnu::target("avx2"), gnu::always_inline]] inline auto pack_ints(__m256i input) {
     const auto merge = _mm256_maddubs_epi16(input, _mm256_set1_epi32(0x01400140));
     return _mm256_madd_epi16(merge, _mm256_set1_epi32(0x00011000));
 }
@@ -114,7 +114,7 @@ namespace fastgltf::base64 {
     return ret;
 }
 
-[[gnu::target("sse4.1"), gnu::always_inline]] auto sse4_lookup_pshufb_bitmask(const __m128i input) {
+[[gnu::target("sse4.1"), gnu::always_inline]] inline auto sse4_lookup_pshufb_bitmask(const __m128i input) {
     const auto higher_nibble = _mm_and_si128(_mm_srli_epi32(input, 4), _mm_set1_epi8(0x0f));
 
     const auto shiftLUT = _mm_setr_epi8(
@@ -128,7 +128,7 @@ namespace fastgltf::base64 {
     return _mm_add_epi8(input, shift);
 }
 
-[[gnu::target("sse4.1"), gnu::always_inline]] auto sse4_pack_ints(__m128i input) {
+[[gnu::target("sse4.1"), gnu::always_inline]] inline auto sse4_pack_ints(__m128i input) {
     const auto merge = _mm_maddubs_epi16(input, _mm_set1_epi32(0x01400140));
     return _mm_madd_epi16(merge, _mm_set1_epi32(0x00011000));
 }

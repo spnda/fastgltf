@@ -57,10 +57,10 @@ namespace fastgltf {
         uint32_t chunkType;
     };
 
-    [[nodiscard, gnu::always_inline]] std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
-    [[nodiscard, gnu::always_inline]] bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags);
+    [[nodiscard, gnu::always_inline]] inline std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
+    [[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags);
 
-    [[nodiscard, gnu::always_inline]] Error getJsonArray(simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept;
+    [[nodiscard, gnu::always_inline]] inline Error getJsonArray(simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept;
 }
 
 std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
@@ -1317,8 +1317,9 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
 
     // scale only applies to normal textures.
     double scale = 1.0f;
-    child["scale"].get_double().get(scale);
-    info->scale = static_cast<float>(scale);
+    if (child["scale"].get_double().get(scale) == SUCCESS) {
+        info->scale = static_cast<float>(scale);
+    }
 
     if (!hasBit(this->extensions, Extensions::KHR_texture_transform)) {
         info->rotation = 0.0f;
@@ -1330,14 +1331,15 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
         dom::object textureTransform;
-        if (extensionsObject["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS) {
+        if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS) {
             if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
                 info->texCoordIndex = index;
             }
 
             double rotation = 0.0f;
-            textureTransform["rotation"].get_double().get(rotation);
-            info->rotation = static_cast<float>(rotation);
+            if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
+                info->rotation = static_cast<float>(rotation);
+            }
 
             dom::array array;
             if (textureTransform["offset"].get_array().get(array) == SUCCESS) {

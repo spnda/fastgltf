@@ -121,8 +121,8 @@ namespace fastgltf {
         [[nodiscard]] bool checkAssetField();
         [[nodiscard]] bool checkExtensions();
         [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
-        [[nodiscard, gnu::always_inline]] Error returnError(Error error) noexcept;
-        [[gnu::always_inline]] Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
+        [[nodiscard, gnu::always_inline]] inline Error returnError(Error error) noexcept;
+        [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
     public:
         explicit glTF(const glTF& scene) = delete;
