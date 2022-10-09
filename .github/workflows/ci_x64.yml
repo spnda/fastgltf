@@ -26,6 +26,13 @@ jobs:
           path: ${{ github.workspace }}/tests/gltf/sample-models
           key: gltf-sample-models
 
+      - name: Download dependencies
+        run: python3 fetch_test_deps.py
+
+      - name: Clone glTF-Sample-Models
+        if: steps.sample-models-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/tests/gltf/sample-models
+
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
@@ -59,6 +66,13 @@ jobs:
         with:
           path: ${{ github.workspace }}/tests/gltf/sample-models
           key: gltf-sample-models
+
+      - name: Download dependencies
+        run: python3 fetch_test_deps.py
+
+      - name: Clone glTF-Sample-Models
+        if: steps.sample-models-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/tests/gltf/sample-models
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
