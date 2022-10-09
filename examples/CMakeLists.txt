@@ -9,7 +9,7 @@ add_source_directory(TARGET fastgltf_examples_glad FOLDER "${CMAKE_CURRENT_SOURC
 
 # glfw. We emulate parts of glfw's CMakeLists but don't want to include any examples or tests.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/glfw")
-    message(STATUS "Found glfw")
+    message(STATUS "fastgltf: Found glfw")
     # copied from glfw's CMakeLists. We seriously don't want any examples/tests/docs.
     option(GLFW_BUILD_EXAMPLES "Build the GLFW example programs" OFF)
     option(GLFW_BUILD_TESTS "Build the GLFW test programs" OFF)
@@ -26,7 +26,7 @@ endif()
 
 # glm
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/glm")
-    message(STATUS "Found glm")
+    message(STATUS "fastgltf: Found glm")
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/deps/glm")
     add_library(glm::glm ALIAS glm)
 

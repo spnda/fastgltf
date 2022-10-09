@@ -24,6 +24,7 @@ cmake-build-*/
 simdjson/
 
 # Test files
+tests/deps/
 tests/gltf/intel_sponza/
 tests/gltf/sample-models/
 tests/gltf/good-froge/

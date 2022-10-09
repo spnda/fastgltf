@@ -6,6 +6,3 @@ if (TARGET glfw::glfw AND TARGET glm::glm)
 endif()
 
 add_source_directory(TARGET fastgltf_gl_viewer FOLDER ".")
-
-# This is from tests/ and is a clone of KhronosGroup/glTF-Sample-Models
-add_dependencies(fastgltf_gl_viewer gltf-sample-models)
