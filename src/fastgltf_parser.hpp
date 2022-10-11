@@ -49,6 +49,7 @@ namespace fastgltf {
         KHR_texture_transform = 1 << 1,
         KHR_texture_basisu = 1 << 2,
         MSFT_texture_dds = 1 << 3,
+        KHR_mesh_quantization = 1 << 4,
     };
 
     constexpr Extensions operator&(Extensions a, Extensions b) noexcept {

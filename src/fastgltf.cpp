@@ -167,10 +167,11 @@ bool fg::glTF::checkAssetField() {
 }
 
 // clang-format off
-constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 3> extensionStrings = {{
+constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 4> extensionStrings = {{
     { "KHR_texture_basisu",     fastgltf::Extensions::KHR_texture_basisu },
     { "KHR_texture_transform",  fastgltf::Extensions::KHR_texture_transform },
     { "MSFT_texture_dds",       fastgltf::Extensions::MSFT_texture_dds },
+    { "KHR_mesh_quantization",  fastgltf::Extensions::KHR_mesh_quantization },
 }};
 // clang-format on
 
