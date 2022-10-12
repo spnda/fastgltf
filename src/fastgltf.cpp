@@ -987,6 +987,7 @@ fg::Error fg::glTF::parseImages() {
                 return returnError(Error::InvalidGltf);
             }
 
+            image.location = DataLocation::BufferViewWithMime;
             image.data.bufferViewIndex = static_cast<size_t>(bufferViewIndex);
             image.data.mimeType = getMimeTypeFromString(mimeType);
         }
