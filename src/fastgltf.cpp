@@ -1135,9 +1135,9 @@ fg::Error fg::glTF::parseMaterials() {
 
         double alphaCutoff = 0.5;
         if (materialObject["alphaCutoff"].get_double().get(alphaCutoff) == SUCCESS) {
-            material.alphaCutoff = alphaCutoff;
+            material.alphaCutoff = static_cast<float>(alphaCutoff);
         } else {
-            material.alphaCutoff = 0.5;
+            material.alphaCutoff = 0.5f;
         }
 
         bool doubleSided = false;
