@@ -286,6 +286,212 @@ fg::Asset* fg::glTF::getParsedAssetPointer() {
     return parsedAsset.get();
 }
 
+fg::Error fg::glTF::validate() {
+    if (parsedAsset == nullptr) {
+        // This would indicate that the asset has already been moved.
+        return Error::None;
+    }
+    if (errorCode != Error::None) {
+        return errorCode;
+    }
+
+    for (const auto& accessor : parsedAsset->accessors) {
+        if (accessor.type == AccessorType::Invalid)
+            return Error::InvalidGltf;
+        if (accessor.componentType == ComponentType::Invalid)
+            return Error::InvalidGltf;
+        if (accessor.count < 1)
+            return Error::InvalidGltf;
+        if (accessor.bufferViewIndex.has_value() &&
+            accessor.bufferViewIndex.value() >= parsedAsset->bufferViews.size())
+            return Error::InvalidGltf;
+    }
+
+    for (const auto& animation : parsedAsset->animations) {
+        if (animation.channels.empty())
+            return Error::InvalidGltf;
+        if (animation.samplers.empty())
+            return Error::InvalidGltf;
+    }
+
+    for (const auto& buffer : parsedAsset->buffers) {
+        if (buffer.byteLength < 1)
+            return Error::InvalidGltf;
+    }
+
+    for (const auto& bufferView : parsedAsset->bufferViews) {
+        if (bufferView.byteLength < 1)
+            return Error::InvalidGltf;
+        if (bufferView.byteStride.has_value() && (bufferView.byteStride < 4 || bufferView.byteStride > 252))
+            return Error::InvalidGltf;
+        if (bufferView.bufferIndex >= parsedAsset->buffers.size())
+            return Error::InvalidGltf;
+    }
+
+    for (const auto& camera : parsedAsset->cameras) {
+        switch (camera.type) {
+            case CameraType::Orthographic: {
+                if (camera.camera.orthographic.zfar == 0)
+                    return Error::InvalidGltf;
+            }
+            case CameraType::Perspective: {
+                if (camera.camera.perspective.aspectRatio == 0)
+                    return Error::InvalidGltf;
+                if (camera.camera.perspective.yfov == 0)
+                    return Error::InvalidGltf;
+                if (camera.camera.perspective.zfar.has_value() && camera.camera.perspective.zfar == 0)
+                    return Error::InvalidGltf;
+                if (camera.camera.perspective.znear == 0)
+                    return Error::InvalidGltf;
+            }
+        }
+    }
+
+    for (const auto& image : parsedAsset->images) {
+        if (image.location == DataLocation::BufferViewWithMime) {
+            if (image.data.bufferViewIndex >= parsedAsset->bufferViews.size())
+                return Error::InvalidGltf;
+        }
+    }
+
+    for (const auto& material : parsedAsset->materials) {
+        auto isInvalidTexture = [&textures = parsedAsset->textures](std::optional<size_t> textureIndex) {
+            return textureIndex.has_value() && textureIndex.value() >= textures.size();
+        };
+        if (material.normalTexture.has_value() && isInvalidTexture(material.normalTexture->textureIndex))
+            return Error::InvalidGltf;
+        if (material.emissiveTexture.has_value() && isInvalidTexture(material.emissiveTexture->textureIndex))
+            return Error::InvalidGltf;
+        if (material.occlusionTexture.has_value() && isInvalidTexture(material.occlusionTexture->textureIndex))
+            return Error::InvalidGltf;
+        if (material.pbrData.has_value()) {
+            if (material.pbrData->baseColorTexture.has_value() &&
+                isInvalidTexture(material.pbrData->baseColorTexture->textureIndex))
+                return Error::InvalidGltf;
+            if (material.pbrData->metallicRoughnessTexture.has_value() &&
+                isInvalidTexture(material.pbrData->metallicRoughnessTexture->textureIndex))
+                return Error::InvalidGltf;
+        }
+    }
+
+    for (const auto& mesh : parsedAsset->meshes) {
+        for (const auto& primitives : mesh.primitives) {
+            for (auto [name, index] : primitives.attributes) {
+                if (parsedAsset->accessors.size() <= index)
+                    return Error::InvalidGltf;
+
+                auto startsWith = [](std::string_view str, std::string_view search) {
+                    return str.rfind(search, 0) == 0;
+                };
+
+                // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview
+                const auto& accessor = parsedAsset->accessors[index];
+                if (name == "POSITION") {
+                    if (accessor.type != AccessorType::Vec3)
+                        return Error::InvalidGltf;
+                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                        if (accessor.componentType != ComponentType::Float)
+                            return Error::InvalidGltf;
+                    } else {
+                        if (accessor.componentType == ComponentType::Double || accessor.componentType == ComponentType::UnsignedInt)
+                            return Error::InvalidGltf;
+                    }
+                } else if (name == "NORMAL") {
+                    if (accessor.type != AccessorType::Vec3)
+                        return Error::InvalidGltf;
+                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                        if (accessor.componentType != ComponentType::Float)
+                            return Error::InvalidGltf;
+                    } else {
+                        if (accessor.componentType != ComponentType::Short && accessor.componentType != ComponentType::Byte)
+                            return Error::InvalidGltf;
+                    }
+                } else if (name == "TANGENT") {
+                    if (accessor.type != AccessorType::Vec4)
+                        return Error::InvalidGltf;
+                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                        if (accessor.componentType != ComponentType::Float)
+                            return Error::InvalidGltf;
+                    } else {
+                        if (accessor.componentType != ComponentType::Short && accessor.componentType != ComponentType::Byte)
+                            return Error::InvalidGltf;
+                    }
+                } else if (startsWith(name, "TEXCOORD_")) {
+                    if (accessor.type != AccessorType::Vec2)
+                        return Error::InvalidGltf;
+                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                        if (accessor.componentType == ComponentType::Double ||
+                            accessor.componentType == ComponentType::UnsignedInt) {
+                            return Error::InvalidGltf;
+                        }
+                    } else {
+                        if (accessor.componentType != ComponentType::Float &&
+                            accessor.componentType != ComponentType::UnsignedByte &&
+                            accessor.componentType != ComponentType::Short) {
+                            return Error::InvalidGltf;
+                        }
+                    }
+                } else if (startsWith(name, "COLOR_")) {
+                    if (accessor.type != AccessorType::Vec3 && accessor.type != AccessorType::Vec4)
+                        return Error::InvalidGltf;
+                } else if (startsWith(name, "JOINTS_")) {
+                    if (accessor.type != AccessorType::Vec4)
+                        return Error::InvalidGltf;
+                    if (accessor.componentType != ComponentType::UnsignedByte &&
+                        accessor.componentType != ComponentType::UnsignedShort &&
+                        accessor.componentType != ComponentType::Short) {
+                        return Error::InvalidGltf;
+                    }
+                } else if (startsWith(name, "WEIGHTS_")) {
+                    if (accessor.type != AccessorType::Vec4)
+                        return Error::InvalidGltf;
+                    if (accessor.componentType != ComponentType::Float &&
+                        accessor.componentType != ComponentType::UnsignedByte &&
+                        accessor.componentType != ComponentType::UnsignedShort) {
+                        return Error::InvalidGltf;
+                    }
+                }
+            }
+        }
+    }
+
+    for (const auto& node : parsedAsset->nodes) {
+        if (node.cameraIndex.has_value() && parsedAsset->cameras.size() <= node.cameraIndex.value())
+            return Error::InvalidGltf;
+        if (node.skinIndex.has_value() && parsedAsset->skins.size() <= node.skinIndex.value())
+            return Error::InvalidGltf;
+        if (node.meshIndex.has_value() && parsedAsset->meshes.size() <= node.meshIndex.value())
+            return Error::InvalidGltf;
+    }
+
+    for (const auto& scene : parsedAsset->scenes) {
+        for (const auto& node : scene.nodeIndices) {
+            if (node >= parsedAsset->nodes.size())
+                return Error::InvalidGltf;
+        }
+    }
+
+    for (const auto& skin : parsedAsset->skins) {
+        if (skin.joints.empty())
+            return Error::InvalidGltf;
+        if (skin.skeleton.has_value() && skin.skeleton.value() >= parsedAsset->nodes.size())
+            return Error::InvalidGltf;
+        if (skin.inverseBindMatrices.has_value() && skin.inverseBindMatrices.value() >= parsedAsset->accessors.size())
+            return Error::InvalidGltf;
+    }
+
+    for (const auto& texture : parsedAsset->textures) {
+        if (texture.samplerIndex.has_value() && texture.samplerIndex.value() >= parsedAsset->samplers.size())
+            return Error::InvalidGltf;
+        if (texture.imageIndex.has_value() && texture.imageIndex.value() >= parsedAsset->images.size())
+            return Error::InvalidGltf;
+        if (texture.fallbackImageIndex.has_value() && texture.fallbackImageIndex.value() >= parsedAsset->images.size())
+            return Error::InvalidGltf;
+    }
+
+    return Error::None;
+}
+
 fg::Error fg::glTF::parseAll() {
     parseAccessors();
     parseAnimations();
@@ -1038,6 +1244,9 @@ fg::Error fg::glTF::parseNodes() {
         }
         if (nodeObject["skin"].get_uint64().get(index) == SUCCESS) {
             node.skinIndex = static_cast<size_t>(index);
+        }
+        if (nodeObject["camera"].get_uint64().get(index) == SUCCESS) {
+            node.cameraIndex = static_cast<size_t>(index);
         }
 
         {

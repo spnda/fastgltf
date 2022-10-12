@@ -234,6 +234,7 @@ namespace fastgltf {
             struct Perspective {
                 std::optional<float> aspectRatio;
                 float yfov;
+                // If omitted, use a infinite projection matrix.
                 std::optional<float> zfar;
                 float znear;
             } perspective;
@@ -269,6 +270,7 @@ namespace fastgltf {
     struct Node {
         std::optional<size_t> meshIndex;
         std::optional<size_t> skinIndex;
+        std::optional<size_t> cameraIndex;
         std::vector<size_t> children;
 
         bool hasMatrix = false;

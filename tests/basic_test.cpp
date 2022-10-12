@@ -280,3 +280,26 @@ TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
     REQUIRE(asset->cameras[1].camera.orthographic.zfar == 100);
     REQUIRE(asset->cameras[1].camera.orthographic.znear == 0.01f);
 }
+
+TEST_CASE("Validate whole glTF", "[gltf-loader]") {
+    auto sponza = path / "sample-models" / "2.0" / "Sponza" / "glTF";
+    auto jsonData = std::make_unique<fastgltf::JsonData>(sponza / "Sponza.gltf");
+
+    fastgltf::Parser parser;
+    auto model = parser.loadGLTF(jsonData.get(), sponza);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model != nullptr);
+
+    REQUIRE(model->parseAll() == fastgltf::Error::None);
+    REQUIRE(model->validate() == fastgltf::Error::None);
+
+    auto brainStem = path / "sample-models" / "2.0" / "BrainStem" / "glTF";
+    jsonData = std::make_unique<fastgltf::JsonData>(brainStem / "BrainStem.gltf");
+
+    model = parser.loadGLTF(jsonData.get(), brainStem);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model != nullptr);
+
+    REQUIRE(model->parseAll() == fastgltf::Error::None);
+    REQUIRE(model->validate() == fastgltf::Error::None);
+}
