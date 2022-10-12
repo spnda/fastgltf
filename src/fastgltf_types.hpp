@@ -119,6 +119,12 @@ namespace fastgltf {
         Perspective,
         Orthographic,
     };
+
+    enum class AlphaMode : uint8_t {
+        Opaque,
+        Mask,
+        Blend,
+    };
     // clang-format on
 #pragma endregion
 
@@ -358,6 +364,18 @@ namespace fastgltf {
          * The factors for the emissive color of the material. Defaults to 0,0,0
          */
         std::array<float, 3> emissiveFactor;
+
+        /**
+         * The values used to determine the transparency of the material.
+         * Defaults to Opaque, and 0.5 for alpha cutoff.
+         */
+        AlphaMode alphaMode;
+        float alphaCutoff;
+
+        /**
+         * Determines whether back-face culling should be disabled when using this material.
+         */
+        bool doubleSided;
 
         std::string name;
     };

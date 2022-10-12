@@ -1118,6 +1118,35 @@ fg::Error fg::glTF::parseMaterials() {
             material.pbrData = pbr;
         }
 
+        std::string_view alphaMode;
+        if (materialObject["alphaMode"].get_string().get(alphaMode) == SUCCESS) {
+            if (alphaMode == "OPAQUE") {
+                material.alphaMode = AlphaMode::Opaque;
+            } else if (alphaMode == "MASK") {
+                material.alphaMode = AlphaMode::Mask;
+            } else if (alphaMode == "BLEND") {
+                material.alphaMode = AlphaMode::Blend;
+            } else {
+                return returnError(Error::InvalidGltf);
+            }
+        } else {
+            material.alphaMode = AlphaMode::Opaque;
+        }
+
+        double alphaCutoff = 0.5;
+        if (materialObject["alphaCutoff"].get_double().get(alphaCutoff) == SUCCESS) {
+            material.alphaCutoff = static_cast<float>(alphaCutoff);
+        } else {
+            material.alphaCutoff = 0.5f;
+        }
+
+        bool doubleSided = false;
+        if (materialObject["doubleSided"].get_bool().get(doubleSided) == SUCCESS) {
+            material.doubleSided = doubleSided;
+        } else {
+            material.doubleSided = false;
+        }
+
         // name is optional.
         std::string_view name;
         if (materialObject["name"].get_string().get(name) == SUCCESS) {
@@ -1529,14 +1558,13 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     double scale = 1.0f;
     if (child["scale"].get_double().get(scale) == SUCCESS) {
         info->scale = static_cast<float>(scale);
+    } else {
+        info->scale = 1.0f;
     }
 
-    if (!hasBit(this->extensions, Extensions::KHR_texture_transform)) {
-        info->rotation = 0.0f;
-        info->uvOffset = {0.0f, 0.0f};
-        info->uvScale = {1.0f, 1.0f};
-        return Error::None;
-    }
+    info->rotation = 0.0f;
+    info->uvOffset = {0.0f, 0.0f};
+    info->uvScale = {1.0f, 1.0f};
 
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
