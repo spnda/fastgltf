@@ -1558,14 +1558,13 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     double scale = 1.0f;
     if (child["scale"].get_double().get(scale) == SUCCESS) {
         info->scale = static_cast<float>(scale);
+    } else {
+        info->scale = 1.0f;
     }
 
-    if (!hasBit(this->extensions, Extensions::KHR_texture_transform)) {
-        info->rotation = 0.0f;
-        info->uvOffset = {0.0f, 0.0f};
-        info->uvScale = {1.0f, 1.0f};
-        return Error::None;
-    }
+    info->rotation = 0.0f;
+    info->uvOffset = {0.0f, 0.0f};
+    info->uvScale = {1.0f, 1.0f};
 
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
