@@ -405,7 +405,9 @@ fg::Error fg::glTF::validate() {
                         if (accessor.componentType != ComponentType::Float)
                             return Error::InvalidGltf;
                     } else {
-                        if (accessor.componentType != ComponentType::Short && accessor.componentType != ComponentType::Byte)
+                        if (accessor.componentType != ComponentType::Float &&
+                            accessor.componentType != ComponentType::Short &&
+                            accessor.componentType != ComponentType::Byte)
                             return Error::InvalidGltf;
                     }
                 } else if (name == "TANGENT") {
@@ -415,33 +417,39 @@ fg::Error fg::glTF::validate() {
                         if (accessor.componentType != ComponentType::Float)
                             return Error::InvalidGltf;
                     } else {
-                        if (accessor.componentType != ComponentType::Short && accessor.componentType != ComponentType::Byte)
+                        if (accessor.componentType != ComponentType::Float &&
+                            accessor.componentType != ComponentType::Short &&
+                            accessor.componentType != ComponentType::Byte)
                             return Error::InvalidGltf;
                     }
                 } else if (startsWith(name, "TEXCOORD_")) {
                     if (accessor.type != AccessorType::Vec2)
                         return Error::InvalidGltf;
                     if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
-                        if (accessor.componentType == ComponentType::Double ||
-                            accessor.componentType == ComponentType::UnsignedInt) {
+                        if (accessor.componentType != ComponentType::Float &&
+                            accessor.componentType != ComponentType::UnsignedByte &&
+                            accessor.componentType != ComponentType::UnsignedShort) {
                             return Error::InvalidGltf;
                         }
                     } else {
-                        if (accessor.componentType != ComponentType::Float &&
-                            accessor.componentType != ComponentType::UnsignedByte &&
-                            accessor.componentType != ComponentType::Short) {
+                        if (accessor.componentType == ComponentType::Double ||
+                            accessor.componentType == ComponentType::UnsignedInt) {
                             return Error::InvalidGltf;
                         }
                     }
                 } else if (startsWith(name, "COLOR_")) {
                     if (accessor.type != AccessorType::Vec3 && accessor.type != AccessorType::Vec4)
                         return Error::InvalidGltf;
+                    if (accessor.componentType != ComponentType::Float &&
+                        accessor.componentType != ComponentType::UnsignedByte &&
+                        accessor.componentType != ComponentType::UnsignedShort) {
+                        return Error::InvalidGltf;
+                    }
                 } else if (startsWith(name, "JOINTS_")) {
                     if (accessor.type != AccessorType::Vec4)
                         return Error::InvalidGltf;
                     if (accessor.componentType != ComponentType::UnsignedByte &&
-                        accessor.componentType != ComponentType::UnsignedShort &&
-                        accessor.componentType != ComponentType::Short) {
+                        accessor.componentType != ComponentType::UnsignedShort) {
                         return Error::InvalidGltf;
                     }
                 } else if (startsWith(name, "WEIGHTS_")) {
