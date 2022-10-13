@@ -15,7 +15,7 @@ include(FetchContent)
 
 if (FASTGLTF_DOWNLOAD_SIMDJSON)
     # Download and configure simdjson
-    set(SIMDJSON_TARGET_VERSION "2.2.3")
+    set(SIMDJSON_TARGET_VERSION "3.0.0")
     set(SIMDJSON_HEADER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h")
     set(SIMDJSON_SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp")
 
