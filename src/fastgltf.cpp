@@ -333,16 +333,18 @@ fg::Error fg::glTF::validate() {
             case CameraType::Orthographic: {
                 if (camera.camera.orthographic.zfar == 0)
                     return Error::InvalidGltf;
+                break;
             }
             case CameraType::Perspective: {
-                if (camera.camera.perspective.aspectRatio == 0)
+                if (camera.camera.perspective.aspectRatio.has_value() && camera.camera.perspective.aspectRatio == 0)
                     return Error::InvalidGltf;
                 if (camera.camera.perspective.yfov == 0)
                     return Error::InvalidGltf;
                 if (camera.camera.perspective.zfar.has_value() && camera.camera.perspective.zfar == 0)
                     return Error::InvalidGltf;
-                if (camera.camera.perspective.znear == 0)
+                if (camera.camera.perspective.znear == 0.0f)
                     return Error::InvalidGltf;
+                break;
             }
         }
     }
