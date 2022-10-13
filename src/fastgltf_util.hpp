@@ -129,7 +129,7 @@ namespace fastgltf {
         0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
     };
 
-    constexpr uint32_t crc32(std::string_view str) noexcept {
+    [[gnu::hot]] constexpr uint32_t crc32(std::string_view str) noexcept {
         uint32_t crc = 0xffffffff;
         for (auto c : str)
             crc = (crc >> 8) ^ crcHashTable[(crc ^ c) & 0xff];

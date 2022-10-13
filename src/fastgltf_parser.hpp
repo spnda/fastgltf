@@ -16,9 +16,14 @@
 #endif
 
 // fwd
-namespace simdjson::dom {
-    class array;
-    class parser;
+namespace simdjson {
+    struct padded_string;
+    // We assume that SIMDJSON_BUILTIN_IMPLEMENTATION is always fallback.
+    // Is this a valid assumption?
+    namespace fallback::ondemand {
+        class parser;
+        class array;
+    }
 }
 
 namespace fastgltf {
@@ -131,7 +136,7 @@ namespace fastgltf {
     }
 
     // clang-format off
-    enum class Category : uint32_t {
+    enum class Category : uint64_t {
         None        = 0,
         Buffers     = 1 <<  0,
         BufferViews = 1 <<  1 | Buffers,
@@ -212,20 +217,19 @@ namespace fastgltf {
         [[nodiscard]] auto decodeUri(std::string_view uri) const noexcept -> std::tuple<Error, DataSource, DataLocation>;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
-        void parseAccessors(simdjson::dom::array& array);
-        void parseAnimations(simdjson::dom::array& array);
-        void parseBuffers(simdjson::dom::array& array);
-        void parseBufferViews(simdjson::dom::array& array);
-        void parseCameras(simdjson::dom::array& array);
-        void parseImages(simdjson::dom::array& array);
-        void parseMaterials(simdjson::dom::array& array);
-        void parseMeshes(simdjson::dom::array& array);
-        void parseNodes(simdjson::dom::array& array);
-        void parseSamplers(simdjson::dom::array& array);
-        void parseScenes(simdjson::dom::array& array);
-        void parseSkins(simdjson::dom::array& array);
-        void parseTextures(simdjson::dom::array& array);
-
+        void parseAccessors(simdjson::fallback::ondemand::array array);
+        void parseAnimations(simdjson::fallback::ondemand::array array);
+        void parseBuffers(simdjson::fallback::ondemand::array array);
+        void parseBufferViews(simdjson::fallback::ondemand::array array);
+        void parseCameras(simdjson::fallback::ondemand::array array);
+        void parseImages(simdjson::fallback::ondemand::array array);
+        void parseMaterials(simdjson::fallback::ondemand::array array);
+        void parseMeshes(simdjson::fallback::ondemand::array array);
+        void parseNodes(simdjson::fallback::ondemand::array array);
+        void parseSamplers(simdjson::fallback::ondemand::array array);
+        void parseScenes(simdjson::fallback::ondemand::array array);
+        void parseSkins(simdjson::fallback::ondemand::array array);
+        void parseTextures(simdjson::fallback::ondemand::array array);
     public:
         explicit glTF(const glTF& scene) = delete;
         glTF& operator=(const glTF& scene) = delete;
@@ -308,7 +312,7 @@ namespace fastgltf {
     class Parser {
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
-        std::unique_ptr<simdjson::dom::parser> jsonParser;
+        std::unique_ptr<simdjson::fallback::ondemand::parser> jsonParser;
 
         // Callbacks
         BufferMapCallback* mapCallback = nullptr;
