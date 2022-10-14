@@ -11,6 +11,8 @@ namespace fastgltf::base64 {
 #if defined(__aarch64__)
     [[nodiscard]] std::vector<uint8_t> neon_decode(std::string_view encoded);
 #endif
+    // Used from the SSE4, AVX2, and Neon decoders. Should not be used otherwise.
+    void fallback_decode(std::string_view encoded, uint8_t* output, size_t padding);
     [[nodiscard]] std::vector<uint8_t> fallback_decode(std::string_view encoded);
     [[nodiscard]] std::vector<uint8_t> decode(std::string_view encoded);
 }

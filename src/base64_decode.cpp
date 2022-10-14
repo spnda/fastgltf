@@ -33,6 +33,10 @@ namespace fastgltf::base64 {
         }
         return padding;
     }
+
+    [[gnu::always_inline]] inline size_t getOutputSize(size_t encodedSize, size_t padding) {
+        return static_cast<size_t>(static_cast<float>(encodedSize - padding) * 0.75f);
+    }
 }
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
@@ -64,15 +68,19 @@ namespace fastgltf::base64 {
 
 [[gnu::target("avx2")]] std::vector<uint8_t> fg::base64::avx2_decode(std::string_view encoded) {
     constexpr auto dataSetSize = 32;
+    constexpr auto dataOutputSize = 24;
 
     // We align the size to the highest size divisible by 32. By doing this, we don't need to
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
     // remaining data.
-    auto encodedSize = encoded.size();
-    auto alignedSize = encodedSize - (encodedSize % dataSetSize);
-    auto padding = getPadding(encoded);
+    const auto encodedSize = encoded.size();
+    const auto alignedSize = encodedSize - (encodedSize % dataSetSize);
+    const auto padding = getPadding(encoded);
 
-    std::vector<uint8_t> ret(alignedSize);
+    // We have to allocate more than we actually use because _mm_storeu_si128 will write 16 bytes,
+    // regardless if we only use 12 of those.
+    const auto outputSize = (alignedSize / dataSetSize) * dataOutputSize + (dataSetSize - dataOutputSize);
+    std::vector<uint8_t> ret(outputSize);
     auto* out = ret.data();
 
     for (size_t pos = 0; pos < alignedSize; pos += dataSetSize) {
@@ -97,19 +105,18 @@ namespace fastgltf::base64 {
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out), _mm256_extracti128_si256(shuffled, 0));
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 12), _mm256_extracti128_si256(shuffled, 1));
 
-        out += 24;
+        out += dataOutputSize;
     }
-
-    // Remove the zeroes at the end of the vector.
-    ret.resize(static_cast<size_t>(static_cast<float>(encodedSize - padding) * 0.75f));
 
     // Decode the last chunk traditionally
     if (alignedSize < encodedSize) {
         // Decode the last chunk traditionally
-        auto remainder = fallback_decode(encoded.substr(alignedSize, encodedSize));
-        for (size_t i = 0; i < remainder.size(); ++i)
-            ret[ret.size() - remainder.size() + i] = remainder[i];
+        auto remainder = outputSize - (outputSize % dataOutputSize);
+        fallback_decode(encoded.substr(alignedSize, encodedSize), &ret[remainder], padding);
     }
+
+    // Remove the zeroes at the end of the vector.
+    ret.resize(getOutputSize(encodedSize, padding));
 
     return ret;
 }
@@ -135,15 +142,19 @@ namespace fastgltf::base64 {
 
 [[gnu::target("sse4.1")]] std::vector<uint8_t> fg::base64::sse4_decode(std::string_view encoded) {
     constexpr auto dataSetSize = 16;
+    constexpr auto dataOutputSize = 12;
 
     // We align the size to the highest size divisible by 16. By doing this, we don't need to
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
     // remaining data.
-    auto encodedSize = encoded.size();
-    auto alignedSize = encodedSize - (encodedSize % dataSetSize);
-    auto padding = getPadding(encoded);
+    const auto encodedSize = encoded.size();
+    const auto alignedSize = encodedSize - (encodedSize % dataSetSize);
+    const auto padding = getPadding(encoded);
 
-    std::vector<uint8_t> ret(alignedSize);
+    // We have to allocate more than we actually use because _mm_storeu_si128 will write 16 bytes,
+    // regardless if we only use 12 of those.
+    const auto outputSize = (alignedSize / dataSetSize) * dataOutputSize + (dataSetSize - dataOutputSize);
+    std::vector<uint8_t> ret(outputSize);
     auto* out = ret.data();
 
     for (size_t pos = 0; pos < alignedSize; pos += dataSetSize) {
@@ -162,19 +173,18 @@ namespace fastgltf::base64 {
 
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out), shuffled);
 
-        out += 12;
+        out += dataOutputSize;
     }
-
-    // Remove the zeroes at the end of the vector.
-    ret.resize(static_cast<size_t>(static_cast<float>(encodedSize - padding) * 0.75f));
 
     // Decode the last chunk traditionally
     if (alignedSize < encodedSize) {
         // Decode the last chunk traditionally
-        auto remainder = fallback_decode(encoded.substr(alignedSize, encodedSize));
-        for (size_t i = 0; i < remainder.size(); ++i)
-            ret[ret.size() - remainder.size() + i] = remainder[i];
+        const auto remainder = outputSize - (outputSize % dataOutputSize);
+        fallback_decode(encoded.substr(alignedSize, encodedSize), &ret[remainder], padding);
     }
+
+    // Remove the zeroes at the end of the vector.
+    ret.resize(getOutputSize(encodedSize, padding));
 
     return ret;
 }
@@ -215,15 +225,19 @@ namespace fastgltf::base64 {
 
 std::vector<uint8_t> fg::base64::neon_decode(std::string_view encoded) {
     constexpr auto dataSetSize = 16;
+    constexpr auto dataOutputSize = 12;
 
     // We align the size to the highest size divisible by 16. By doing this, we don't need to
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
     // remaining data.
-    auto encodedSize = encoded.size();
-    auto alignedSize = encodedSize - (encodedSize % dataSetSize);
-    auto padding = getPadding(encoded);
+    const auto encodedSize = encoded.size();
+    const auto alignedSize = encodedSize - (encodedSize % dataSetSize);
+    const auto padding = getPadding(encoded);
 
-    std::vector<uint8_t> ret(alignedSize);
+    // We have to allocate more than we actually use because vst1q_u8 will write 16 bytes,
+    // regardless if we only use 12 of those.
+    const auto outputSize = (alignedSize / dataSetSize) * dataOutputSize + (dataSetSize - dataOutputSize);
+    std::vector<uint8_t> ret(outputSize);
     auto* out = ret.data();
 
     // clang-format off
@@ -252,12 +266,15 @@ std::vector<uint8_t> fg::base64::neon_decode(std::string_view encoded) {
         out += 12;
     }
 
-    ret.resize(static_cast<size_t>(static_cast<float>(encodedSize - padding) * 0.75f));
+    // Decode the last chunk traditionally
     if (alignedSize < encodedSize) {
         // Decode the last chunk traditionally
-        auto remainder = fallback_decode(encoded.substr(alignedSize, encodedSize));
-        std::memcpy(out, remainder.data(), remainder.size());
+        auto remainder = outputSize - (outputSize % dataOutputSize);
+        fallback_decode(encoded.substr(alignedSize, encodedSize), &ret[remainder], padding);
     }
+
+    // Remove the zeroes at the end of the vector.
+    ret.resize(getOutputSize(encodedSize, padding));
 
     return ret;
 }
@@ -276,23 +293,20 @@ constexpr std::array<uint8_t, 128> base64lut = {
 };
 // clang-format on
 
-std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
-    auto encodedSize = encoded.size();
+[[gnu::always_inline]] void fg::base64::fallback_decode(std::string_view encoded, uint8_t* output, size_t padding) {
     std::array<uint8_t, 4> sixBitChars = {};
     std::array<uint8_t, 3> eightBitChars = {};
-    std::vector<uint8_t> ret;
-    auto padding = getPadding(encoded);
-
-    ret.reserve(static_cast<size_t>(static_cast<float>(encodedSize - padding) * 0.75f));
 
     // We use i here to track how many we've parsed and to batch 4 chars together.
-    size_t i = 0U;
+    const auto encodedSize = encoded.size();
+    size_t i = 0U, cursor = 0U;
     for (auto pos = 0U; pos < encodedSize;) {
         sixBitChars[i++] = encoded[pos]; ++pos;
         if (i != 4)
             continue;
 
         for (i = 0; i < 4; i++) {
+            assert(static_cast<size_t>(sixBitChars[i]) < base64lut.size());
             sixBitChars[i] = base64lut[sixBitChars[i]];
         }
 
@@ -303,16 +317,27 @@ std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
         // This adds 3 elements to the output vector. It also checks to not write zeroes that are
         // generate from the padding.
         for (size_t j = 0; j < 3 && ((pos - i + 1) + j) < (encodedSize - padding); ++j) {
-            ret.emplace_back(eightBitChars[j]);
+            output[cursor++] = eightBitChars[j];
         }
 
         i = 0;
     }
+}
+
+std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
+    auto encodedSize = encoded.size();
+    auto padding = getPadding(encoded);
+
+    std::vector<uint8_t> ret(getOutputSize(encodedSize, padding));
+
+    fallback_decode(encoded, ret.data(), padding);
 
     return ret;
 }
 
 std::vector<uint8_t> fg::base64::decode(std::string_view encoded) {
+    assert(encoded.size() % 4 == 0);
+
     // We use simdjson's helper functions to determine which SIMD intrinsics are available at runtime.
 #if defined(__x86_64__) || defined(_M_AMD64)
     auto* avx2 = simdjson::get_available_implementations()["haswell"];
