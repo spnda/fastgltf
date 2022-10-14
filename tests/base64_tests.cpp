@@ -38,13 +38,15 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     std::string bufferData;
 
     auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded";
+    auto boxTextured = path / "sample-models" / "2.0" / "BoxTextured" / "glTF-Embedded";
 
-    auto jsonData = std::make_unique<fastgltf::JsonData>(cylinderEngine / "2CylinderEngine.gltf");
+    auto tceJsonData = std::make_unique<fastgltf::JsonData>(cylinderEngine / "2CylinderEngine.gltf");
+    auto btJsonData = std::make_unique<fastgltf::JsonData>(boxTextured / "BoxTextured.gltf");
 
     SECTION("Validate large buffer load from glTF") {
-        auto gltf = parser.loadGLTF(jsonData.get(), cylinderEngine);
-        REQUIRE(gltf != nullptr);
+        auto gltf = parser.loadGLTF(tceJsonData.get(), cylinderEngine);
         REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(gltf != nullptr);
 
         REQUIRE(gltf->parseBuffers() == fastgltf::Error::None);
 
@@ -58,5 +60,30 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
         REQUIRE(buffer.location == fastgltf::DataLocation::VectorWithMime);
         REQUIRE(buffer.data.mimeType == fastgltf::MimeType::OctetStream);
         REQUIRE(!buffer.data.bytes.empty());
+    }
+
+    SECTION("Validate base64 buffer and image load from glTF") {
+        auto gltf = parser.loadGLTF(btJsonData.get(), boxTextured);
+        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(gltf != nullptr);
+
+        REQUIRE(gltf->parseBuffers() == fastgltf::Error::None);
+        REQUIRE(gltf->parseImages() == fastgltf::Error::None);
+
+        auto* asset = gltf->getParsedAssetPointer();
+        REQUIRE(asset != nullptr);
+        REQUIRE(asset->buffers.size() == 1);
+        REQUIRE(asset->images.size() == 1);
+
+        auto& buffer = asset->buffers.front();
+        REQUIRE(buffer.byteLength == 840);
+        REQUIRE(buffer.location == fastgltf::DataLocation::VectorWithMime);
+        REQUIRE(buffer.data.mimeType == fastgltf::MimeType::OctetStream);
+        REQUIRE(!buffer.data.bytes.empty());
+
+        auto& image = asset->images.front();
+        REQUIRE(image.location == fastgltf::DataLocation::VectorWithMime);
+        REQUIRE(image.data.mimeType == fastgltf::MimeType::PNG);
+        REQUIRE(!image.data.bytes.empty());
     }
 };

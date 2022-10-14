@@ -77,9 +77,7 @@ namespace fastgltf::base64 {
     const auto alignedSize = encodedSize - (encodedSize % dataSetSize);
     const auto padding = getPadding(encoded);
 
-    // We have to allocate more than we actually use because _mm_storeu_si128 will write 16 bytes,
-    // regardless if we only use 12 of those.
-    const auto outputSize = (alignedSize / dataSetSize) * dataOutputSize + (dataSetSize - dataOutputSize);
+    auto outputSize = getOutputSize(encodedSize, padding) + FALLBACK_PADDING;
     std::vector<uint8_t> ret(outputSize);
     auto* out = ret.data();
 
@@ -151,9 +149,7 @@ namespace fastgltf::base64 {
     const auto alignedSize = encodedSize - (encodedSize % dataSetSize);
     const auto padding = getPadding(encoded);
 
-    // We have to allocate more than we actually use because _mm_storeu_si128 will write 16 bytes,
-    // regardless if we only use 12 of those.
-    const auto outputSize = (alignedSize / dataSetSize) * dataOutputSize + (dataSetSize - dataOutputSize);
+    const auto outputSize = getOutputSize(encodedSize, padding) + FALLBACK_PADDING;
     std::vector<uint8_t> ret(outputSize);
     auto* out = ret.data();
 
@@ -234,9 +230,7 @@ std::vector<uint8_t> fg::base64::neon_decode(std::string_view encoded) {
     const auto alignedSize = encodedSize - (encodedSize % dataSetSize);
     const auto padding = getPadding(encoded);
 
-    // We have to allocate more than we actually use because vst1q_u8 will write 16 bytes,
-    // regardless if we only use 12 of those.
-    const auto outputSize = (alignedSize / dataSetSize) * dataOutputSize + (dataSetSize - dataOutputSize);
+    const auto outputSize = getOutputSize(encodedSize, padding) + FALLBACK_PADDING;
     std::vector<uint8_t> ret(outputSize);
     auto* out = ret.data();
 
