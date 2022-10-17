@@ -646,7 +646,7 @@ fg::Error fg::glTF::parse(Category categories) {
 
 void fg::glTF::parseAccessors(simdjson::ondemand::array accessors) {
     using namespace simdjson;
-    // parsedAsset->accessors.reserve(accessors.count_elements());
+    parsedAsset->accessors.reserve(accessors.count_elements());
 
     for (auto accessorValue : accessors) {
         // Required fields: "componentType", "count"
@@ -759,7 +759,7 @@ void fg::glTF::parseAccessors(simdjson::ondemand::array accessors) {
 
 void fg::glTF::parseAnimations(simdjson::ondemand::array animations) {
     using namespace simdjson;
-    // parsedAsset->animations.reserve(animations.count_elements());
+    parsedAsset->animations.reserve(animations.count_elements());
 
     for (auto animationValue : animations) {
         ondemand::object animationObject;
@@ -774,7 +774,7 @@ void fg::glTF::parseAnimations(simdjson::ondemand::array animations) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        //  animation.channels.reserve(channels.count_elements());
+        animation.channels.reserve(channels.count_elements());
         for (auto channelValue : channels) {
             ondemand::object channelObject;
             AnimationChannel channel = {};
@@ -824,7 +824,7 @@ void fg::glTF::parseAnimations(simdjson::ondemand::array animations) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        // animation.samplers.reserve(samplers.count_elements());
+        animation.samplers.reserve(samplers.count_elements());
         for (auto samplerValue : samplers) {
             ondemand::object samplerObject;
             AnimationSampler sampler = {};
@@ -876,7 +876,7 @@ void fg::glTF::parseAnimations(simdjson::ondemand::array animations) {
 
 void fg::glTF::parseBuffers(simdjson::ondemand::array buffers) {
     using namespace simdjson;
-    // parsedAsset->buffers.reserve(buffers.count_elements());
+    parsedAsset->buffers.reserve(buffers.count_elements());
 
     size_t bufferIndex = 0;
     for (auto bufferValue : buffers) {
@@ -944,7 +944,7 @@ void fg::glTF::parseBuffers(simdjson::ondemand::array buffers) {
 
 void fg::glTF::parseBufferViews(simdjson::ondemand::array bufferViews) {
     using namespace simdjson;
-    // parsedAsset->bufferViews.reserve(bufferViews.count_elements());
+    parsedAsset->bufferViews.reserve(bufferViews.count_elements());
 
     for (auto bufferViewValue : bufferViews) {
         // Required fields: "bufferIndex", "byteLength"
@@ -1049,7 +1049,7 @@ void fg::glTF::parseBufferViews(simdjson::ondemand::array bufferViews) {
 
 void fg::glTF::parseCameras(simdjson::ondemand::array cameras) {
     using namespace simdjson;
-    // parsedAsset->cameras.reserve(cameras.count_elements());
+    parsedAsset->cameras.reserve(cameras.count_elements());
 
     for (auto cameraValue : cameras) {
         Camera camera = {};
@@ -1139,7 +1139,7 @@ void fg::glTF::parseCameras(simdjson::ondemand::array cameras) {
 
 void fg::glTF::parseImages(simdjson::ondemand::array images) {
     using namespace simdjson;
-    // parsedAsset->images.reserve(images.count_elements());
+    parsedAsset->images.reserve(images.count_elements());
 
     for (auto imageValue : images) {
         Image image = {};
@@ -1197,7 +1197,7 @@ void fg::glTF::parseImages(simdjson::ondemand::array images) {
 
 void fg::glTF::parseMaterials(simdjson::ondemand::array materials) {
     using namespace simdjson;
-    // parsedAsset->materials.reserve(materials.count_elements());
+    parsedAsset->materials.reserve(materials.count_elements());
 
     for (auto materialValue : materials) {
         ondemand::object materialObject;
@@ -1334,7 +1334,7 @@ void fg::glTF::parseMaterials(simdjson::ondemand::array materials) {
 
 void fg::glTF::parseMeshes(simdjson::ondemand::array meshes) {
     using namespace simdjson;
-    // parsedAsset->meshes.reserve(meshes.count_elements());
+    parsedAsset->meshes.reserve(meshes.count_elements());
 
     for (auto meshValue : meshes) {
         // Required fields: "primitives"
@@ -1351,7 +1351,7 @@ void fg::glTF::parseMeshes(simdjson::ondemand::array meshes) {
         } else if (meshError != Error::None) {
             SET_ERROR_RETURN(meshError)
         } else {
-            // mesh.primitives.reserve(array.count_elements());
+            mesh.primitives.reserve(array.count_elements());
             for (auto primitiveValue : array) {
                 // Required fields: "attributes"
                 Primitive primitive = {};
@@ -1441,7 +1441,7 @@ void fg::glTF::parseMeshes(simdjson::ondemand::array meshes) {
 
 void fg::glTF::parseNodes(simdjson::ondemand::array nodes) {
     using namespace simdjson;
-    // parsedAsset->nodes.reserve(nodes.count_elements());
+    parsedAsset->nodes.reserve(nodes.count_elements());
 
     for (auto nodeValue : nodes) {
         Node node = {};
@@ -1570,7 +1570,7 @@ void fg::glTF::parseNodes(simdjson::ondemand::array nodes) {
 void fg::glTF::parseSamplers(simdjson::ondemand::array samplers) {
     using namespace simdjson;
     uint64_t number;
-    // parsedAsset->samplers.reserve(samplers.count_elements());
+    parsedAsset->samplers.reserve(samplers.count_elements());
 
     for (auto samplerValue : samplers) {
         Sampler sampler = {};
@@ -1609,7 +1609,7 @@ void fg::glTF::parseSamplers(simdjson::ondemand::array samplers) {
 
 void fg::glTF::parseScenes(simdjson::ondemand::array scenes) {
     using namespace simdjson;
-    // parsedAsset->scenes.reserve(scenes.count_elements());
+    parsedAsset->scenes.reserve(scenes.count_elements());
     for (auto sceneValue : scenes) {
         // The scene object can be completely empty
         Scene scene = {};
@@ -1628,7 +1628,7 @@ void fg::glTF::parseScenes(simdjson::ondemand::array scenes) {
         ondemand::array nodes;
         auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
         if (nodeError == Error::None) {
-            // scene.nodeIndices.reserve(nodes.count_elements());
+            scene.nodeIndices.reserve(nodes.count_elements());
             for (auto nodeValue : nodes) {
                 uint64_t index;
                 if (nodeValue.get_uint64().get(index) != SUCCESS) {
@@ -1647,7 +1647,7 @@ void fg::glTF::parseScenes(simdjson::ondemand::array scenes) {
 
 void fg::glTF::parseSkins(simdjson::ondemand::array skins) {
     using namespace simdjson;
-    // parsedAsset->skins.reserve(skins.count_elements());
+    parsedAsset->skins.reserve(skins.count_elements());
 
     for (auto skinValue : skins) {
         Skin skin = {};
@@ -1668,7 +1668,7 @@ void fg::glTF::parseSkins(simdjson::ondemand::array skins) {
         if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
-        // skin.joints.reserve(jointsArray.count_elements());
+        skin.joints.reserve(jointsArray.count_elements());
         for (auto jointValue : jointsArray) {
             if (jointValue.get_uint64().get(index) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
@@ -1767,7 +1767,7 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
 
 void fg::glTF::parseTextures(simdjson::ondemand::array textures) {
     using namespace simdjson;
-    // parsedAsset->textures.reserve(textures.count_elements());
+    parsedAsset->textures.reserve(textures.count_elements());
 
     for (auto textureValue : textures) {
         Texture texture;
