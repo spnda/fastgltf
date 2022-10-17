@@ -240,11 +240,11 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
         DataSource source = {};
         source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
         source.bytes = std::move(uriData);
-        return std::make_tuple(Error::None, source, DataLocation::VectorWithMime);
+        return std::make_tuple(Error::None, std::move(source), DataLocation::VectorWithMime);
     } else {
         DataSource source = {};
         source.path = directory / uri;
-        return std::make_tuple(Error::None, source, DataLocation::FilePathWithByteRange);
+        return std::make_tuple(Error::None, std::move(source), DataLocation::FilePathWithByteRange);
     }
 }
 
@@ -752,7 +752,7 @@ fg::Error fg::glTF::parseBuffers() {
             if (error != Error::None)
                 return returnError(error);
 
-            buffer.data = source;
+            buffer.data = std::move(source);
             buffer.location = location;
         } else if (bufferIndex == 0 && glb != nullptr) {
             if (hasBit(options, Options::LoadGLBBuffers)) {
