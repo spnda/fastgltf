@@ -1,3 +1,6 @@
+#include <fstream>
+#include <sstream>
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
@@ -7,30 +10,50 @@
 
 extern std::filesystem::path path;
 
+constexpr std::string_view testBase64 = "SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLiBIZWxsbyBXb3JsZC4=";
+
 TEST_CASE("Check base64 decoding", "[base64]") {
     // This is "Hello World. Hello World.". The decode function
     // uses the best possible SIMD version of the algorithm.
-    auto bytes = fastgltf::base64::decode("SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLg==");
+    auto bytes = fastgltf::base64::decode(testBase64);
     std::string strings(bytes.begin(), bytes.end());
-    REQUIRE(strings == "Hello World. Hello World.");
+    REQUIRE(strings == "Hello World. Hello World. Hello World.");
 };
 
 TEST_CASE("Check all base64 decoders", "[base64]") {
     // Checks that the base64 decoders return the same.
-    constexpr std::string_view test = "SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLg==";
-
-    auto bytes = fastgltf::base64::fallback_decode("SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLg==");
+    auto bytes = fastgltf::base64::fallback_decode(testBase64);
     std::string strings(bytes.begin(), bytes.end());
-    REQUIRE(strings == "Hello World. Hello World.");
+    REQUIRE(strings == "Hello World. Hello World. Hello World.");
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-    REQUIRE(fastgltf::base64::fallback_decode(test) == fastgltf::base64::avx2_decode(test));
-    REQUIRE(fastgltf::base64::fallback_decode(test) == fastgltf::base64::sse4_decode(test));
+    REQUIRE(bytes == fastgltf::base64::avx2_decode(testBase64));
+    REQUIRE(bytes == fastgltf::base64::sse4_decode(testBase64));
 #endif
 #if defined(__aarch64__)
-    REQUIRE(fastgltf::base64::fallback_decode(test) == fastgltf::base64::neon_decode(test));
+    REQUIRE(bytes == fastgltf::base64::neon_decode(testBase64));
 #endif
 };
+
+TEST_CASE("Check big base64 data decoding", "[base64]") {
+    std::ifstream file(path / "base64.txt");
+    REQUIRE(file.is_open());
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+
+    auto encodedBytes = buffer.str();
+    auto bytes = fastgltf::base64::decode(encodedBytes);
+    REQUIRE(!bytes.empty());
+
+    std::ifstream output(path / "base64.txt.out", std::ios::binary | std::ios::ate);
+    REQUIRE(output.is_open());
+    std::vector<uint8_t> decodedBytes(output.tellg());
+    output.seekg(0);
+    output.read(reinterpret_cast<char*>(decodedBytes.data()), decodedBytes.size());
+
+    REQUIRE(bytes == decodedBytes);
+}
 
 TEST_CASE("Test base64 buffer decoding", "[base64]") {
     fastgltf::Parser parser;

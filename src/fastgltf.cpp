@@ -1742,15 +1742,6 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path dire
     return gltf;
 }
 
-std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, std::string_view directory, Options options) {
-    fs::path parsed = { directory };
-    if (parsed.empty() || !fs::is_directory(parsed)) {
-        errorCode = Error::InvalidPath;
-        return nullptr;
-    }
-    return loadGLTF(jsonData, parsed, options);
-}
-
 std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Options options) {
     using namespace simdjson;
 
@@ -1853,15 +1844,6 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
         return nullptr;
     }
     return gltf;
-}
-
-std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(std::string_view file, Options options) {
-    fs::path parsed = { file };
-    if (parsed.empty() || !fs::is_regular_file(parsed)) {
-        errorCode = Error::InvalidPath;
-        return nullptr;
-    }
-    return loadBinaryGLTF(parsed, options);
 }
 #pragma endregion
 

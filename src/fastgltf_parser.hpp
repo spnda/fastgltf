@@ -51,6 +51,7 @@ namespace fastgltf {
         MSFT_texture_dds = 1 << 3,
         KHR_mesh_quantization = 1 << 4,
     };
+    // clang-format on
 
     constexpr Extensions operator&(Extensions a, Extensions b) noexcept {
         return static_cast<Extensions>(to_underlying(a) & to_underlying(b));
@@ -60,6 +61,7 @@ namespace fastgltf {
         return static_cast<Extensions>(to_underlying(a) | to_underlying(b));
     }
 
+    // clang-format off
     enum class Options : uint64_t {
         None                            = 0,
         /**
@@ -210,12 +212,8 @@ namespace fastgltf {
          * @return A glTF instance or nullptr if an error occurred.
          */
         [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::filesystem::path directory, Options options = Options::None);
-
-        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::string_view directory, Options options = Options::None);
-
         [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(const std::filesystem::path& file, Options options = Options::None);
 
-        [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(std::string_view file, Options options = Options::None);
     };
 }
 
