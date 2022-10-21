@@ -125,6 +125,20 @@ namespace fastgltf {
         Mask,
         Blend,
     };
+
+    enum class MeshoptCompressionMode : uint8_t {
+        None = 0,
+        Attributes,
+        Triangles,
+        Indices,
+    };
+
+    enum class MeshoptCompressionFilter : uint8_t {
+        None = 0,
+        Octahedral,
+        Quaternion,
+        Exponential,
+    };
     // clang-format on
 #pragma endregion
 
@@ -424,6 +438,13 @@ namespace fastgltf {
 
         std::optional<size_t> byteStride;
         std::optional<BufferTarget> target;
+
+        // From EXT_meshopt_compression
+        std::optional<size_t> count;
+        // From EXT_meshopt_compression
+        std::optional<MeshoptCompressionMode> mode;
+        // From EXT_meshopt_compression
+        std::optional<MeshoptCompressionFilter> filter;
 
         std::string name;
     };

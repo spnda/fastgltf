@@ -48,10 +48,21 @@ namespace fastgltf {
     // clang-format off
     enum class Extensions : uint64_t {
         None = 0,
+
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_texture_transform/README.md
         KHR_texture_transform = 1 << 1,
+
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_texture_basisu/README.md
         KHR_texture_basisu = 1 << 2,
+
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Vendor/MSFT_texture_dds/README.md
         MSFT_texture_dds = 1 << 3,
+
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_mesh_quantization/README.md
         KHR_mesh_quantization = 1 << 4,
+
+        // See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Vendor/EXT_meshopt_compression/README.md
+        EXT_meshopt_compression = 1 << 5,
     };
     // clang-format on
 
@@ -103,6 +114,17 @@ namespace fastgltf {
 
     constexpr Options operator|(Options a, Options b) noexcept {
         return static_cast<Options>(to_underlying(a) | to_underlying(b));
+    }
+
+    // String representations of glTF 2.0 extension identifiers.
+    namespace extensions {
+        constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
+        constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
+        constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
+        constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
+        constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
+        constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";
+        constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
     }
 
     struct BufferInfo {

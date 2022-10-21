@@ -101,7 +101,7 @@ fg::Error fg::getJsonArray(simdjson::dom::object& parent, std::string_view array
 
 bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags) {
     if (hasBit(extensionFlags, Extensions::KHR_texture_basisu)) {
-        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "KHR_texture_basisu");
+        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::KHR_texture_basisu);
         if (invalidGltf) {
             return false;
         }
@@ -113,7 +113,7 @@ bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensi
     }
 
     if (hasBit(extensionFlags, Extensions::MSFT_texture_dds)) {
-        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, "MSFT_texture_dds");
+        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::MSFT_texture_dds);
         if (invalidGltf) {
             return false;
         }
@@ -156,11 +156,15 @@ bool fg::glTF::checkAssetField() {
 }
 
 // clang-format off
-constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 4> extensionStrings = {{
-    { "KHR_texture_basisu",     fastgltf::Extensions::KHR_texture_basisu },
-    { "KHR_texture_transform",  fastgltf::Extensions::KHR_texture_transform },
-    { "MSFT_texture_dds",       fastgltf::Extensions::MSFT_texture_dds },
-    { "KHR_mesh_quantization",  fastgltf::Extensions::KHR_mesh_quantization },
+// An array of pairs of string representations of extension identifiers and their respective enum
+// value used for enabling/disabling the loading of it. This also represents all extensions that
+// fastgltf supports and understands.
+constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 5> extensionStrings = {{
+    { fg::extensions::KHR_texture_basisu,                 fg::Extensions::KHR_texture_basisu },
+    { fg::extensions::KHR_texture_transform,              fg::Extensions::KHR_texture_transform },
+    { fg::extensions::MSFT_texture_dds,                   fg::Extensions::MSFT_texture_dds },
+    { fg::extensions::KHR_mesh_quantization,              fg::Extensions::KHR_mesh_quantization },
+    { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression }
 }};
 // clang-format on
 
@@ -363,6 +367,35 @@ fg::Error fg::glTF::validate() {
             return Error::InvalidGltf;
         if (bufferView.bufferIndex >= parsedAsset->buffers.size())
             return Error::InvalidGltf;
+
+        if (bufferView.mode.has_value()) {
+            // If mode has a value, this must be a buffer view that is using the meshoptimizer's
+            // compression. We therefore have to assume that everything but byteOffset and filter
+            // are present. Otherwise, the parse stage would have already failed.
+            if (!bufferView.count.has_value())
+                return Error::InvalidGltf;
+            if (!bufferView.filter.has_value())
+                return Error::InvalidGltf;
+            if (!bufferView.byteStride.has_value())
+                return Error::InvalidGltf;
+
+            switch (bufferView.mode.value()) {
+                case MeshoptCompressionMode::Attributes:
+                    if (*bufferView.byteStride % 4 != 0 || *bufferView.byteStride > 256)
+                        return Error::InvalidGltf;
+                    break;
+                case MeshoptCompressionMode::Triangles:
+                    if (*bufferView.count % 3 != 0)
+                        return Error::InvalidGltf;
+                    [[fallthrough]];
+                case MeshoptCompressionMode::Indices:
+                    if (*bufferView.byteStride != 2 && *bufferView.byteStride != 4)
+                        return Error::InvalidGltf;
+                    break;
+                case MeshoptCompressionMode::None:
+                    break;
+            }
+        }
     }
 
     for (const auto& camera : parsedAsset->cameras) {
@@ -844,53 +877,104 @@ fg::Error fg::glTF::parseBufferViews() {
     parsedAsset->bufferViews.reserve(bufferViews.size());
     for (auto bufferViewValue : bufferViews) {
         // Required fields: "bufferIndex", "byteLength"
-        BufferView view = {};
         dom::object bufferViewObject;
         if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) {
             return returnError(Error::InvalidGltf);
         }
 
-        // Required with normal glTF, not necessary with GLB files.
-        uint64_t bufferIndex;
-        if (bufferViewObject["buffer"].get_uint64().get(bufferIndex) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
-        } else {
-            view.bufferIndex = static_cast<size_t>(bufferIndex);
+        auto parseBufferViewObject = [&views = parsedAsset->bufferViews, this](dom::object& object, bool fromMeshoptCompression) {
+            BufferView view = {};
+
+            uint64_t number;
+            if (object["buffer"].get_uint64().get(number) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            } else {
+                view.bufferIndex = static_cast<size_t>(number);
+            }
+
+            if (object["byteLength"].get_uint64().get(number) != SUCCESS) {
+                return returnError(Error::InvalidGltf);
+            } else {
+                view.byteLength = static_cast<size_t>(number);
+            }
+
+            // byteOffset is optional, but defaults to 0
+            if (object["byteOffset"].get_uint64().get(number) != SUCCESS) {
+                view.byteOffset = 0;
+            } else {
+                view.byteOffset = static_cast<size_t>(number);
+            }
+
+            if (object["byteStride"].get_uint64().get(number) == SUCCESS) {
+                view.byteStride = static_cast<size_t>(number);
+            } else if (fromMeshoptCompression) {
+                return returnError(Error::InvalidGltf);
+            }
+
+            if (object["count"].get_uint64().get(number) == SUCCESS) {
+                view.count = number;
+            } else if (fromMeshoptCompression) {
+                return returnError(Error::InvalidGltf);
+            }
+
+            // target is optional
+            if (!fromMeshoptCompression && object["target"].get_uint64().get(number) == SUCCESS) {
+                view.target = static_cast<BufferTarget>(number);
+            }
+
+            // name is optional. With EXT_meshopt_compression it seems to be entirely omitted, but
+            // the spec is not fully clear on this.
+            std::string_view string;
+            if (object["name"].get_string().get(string) == SUCCESS) {
+                view.name = std::string { string };
+            }
+
+            if (object["mode"].get_string().get(string) == SUCCESS) {
+                if (string == "ATTRIBUTES") {
+                    view.mode = MeshoptCompressionMode::Attributes;
+                } else if (string == "TRIANGLES") {
+                    view.mode = MeshoptCompressionMode::Triangles;
+                } else if (string == "INDICES") {
+                    view.mode = MeshoptCompressionMode::Indices;
+                } else {
+                    return returnError(Error::InvalidGltf);
+                }
+            } else if (fromMeshoptCompression) {
+                return returnError(Error::InvalidGltf);
+            }
+
+            if (object["filter"].get_string().get(string) == SUCCESS) {
+                if (string == "NONE") {
+                    view.filter = MeshoptCompressionFilter::None;
+                } else if (string == "OCTAHEDRAL") {
+                    view.filter = MeshoptCompressionFilter::Octahedral;
+                } else if (string == "QUATERNION") {
+                    view.filter = MeshoptCompressionFilter::Quaternion;
+                } else if (string == "EXPONENTIAL") {
+                    view.filter = MeshoptCompressionFilter::Exponential;
+                } else {
+                    return returnError(Error::InvalidGltf);
+                }
+            } else if (fromMeshoptCompression) {
+                view.filter = MeshoptCompressionFilter::None;
+            }
+
+            views.emplace_back(std::move(view));
+            return errorCode;
+        };
+
+        dom::object extensionObject;
+        if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) {
+            dom::object meshoptCompression;
+            if (hasBit(this->extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
+                if (parseBufferViewObject(meshoptCompression, true) != Error::None)
+                    return errorCode;
+                continue;
+            }
         }
 
-        uint64_t byteLength;
-        if (bufferViewObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
-        } else {
-            view.byteLength = static_cast<size_t>(byteLength);
-        }
-
-        // byteOffset is optional, but defaults to 0
-        uint64_t byteOffset;
-        if (bufferViewObject["byteOffset"].get_uint64().get(byteOffset) != SUCCESS) {
-            view.byteOffset = 0;
-        } else {
-            view.byteOffset = static_cast<size_t>(byteOffset);
-        }
-
-        uint64_t byteStride;
-        if (bufferViewObject["byteStride"].get_uint64().get(byteStride) == SUCCESS) {
-            view.byteStride = static_cast<size_t>(byteStride);
-        }
-
-        // target is optional
-        uint64_t target;
-        if (bufferViewObject["target"].get_uint64().get(target) == SUCCESS) {
-            view.target = static_cast<BufferTarget>(target);
-        }
-
-        // name is optional.
-        std::string_view name;
-        if (bufferViewObject["name"].get_string().get(name) == SUCCESS) {
-            view.name = std::string { name };
-        }
-
-        parsedAsset->bufferViews.emplace_back(std::move(view));
+        if (parseBufferViewObject(bufferViewObject, false) != Error::None)
+            return errorCode;
     }
 
     return errorCode;
@@ -1623,7 +1707,7 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
         dom::object textureTransform;
-        if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject["KHR_texture_transform"].get_object().get(textureTransform) == SUCCESS) {
+        if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) {
             if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
                 info->texCoordIndex = index;
             }
