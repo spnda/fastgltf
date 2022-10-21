@@ -193,6 +193,7 @@ namespace fastgltf {
         VectorWithMime,
         BufferViewWithMime,
         FilePathWithByteRange,
+        CustomBufferWithId,
     };
 
     struct DataSource {
@@ -208,6 +209,9 @@ namespace fastgltf {
 
         // Defined if DataLocation::BufferViewWithMime or VectorWithMime
         MimeType mimeType;
+
+        // Defined if DataLocation::CustomBufferWithId
+        uint64_t bufferId;
     };
 
     struct AnimationChannel {

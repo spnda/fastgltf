@@ -40,6 +40,10 @@ namespace fastgltf {
         std::vector<uint8_t> bytes;
         simdjson::dom::document doc;
         simdjson::dom::object root;
+
+        BufferMapCallback* mapCallback = nullptr;
+        BufferUnmapCallback* unmapCallback = nullptr;
+        void* userPointer = nullptr;
     };
 
     // ASCII for "glTF".
@@ -129,21 +133,6 @@ fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options opt
     glb = nullptr;
 }
 
-fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, std::vector<uint8_t>&& glbData, Options options, Extensions extensions) : data(std::move(data)), directory(file.parent_path()), options(options), extensions(extensions) {
-    parsedAsset = std::make_unique<Asset>();
-    glb = std::make_unique<GLBBuffer>();
-    glb->buffer = std::move(glbData);
-    glb->file = std::move(file);
-}
-
-fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path file, size_t fileOffset, size_t fileSize, Options options, Extensions extensions) : data(std::move(data)), directory(file.parent_path()), options(options), extensions(extensions) {
-    parsedAsset = std::make_unique<Asset>();
-    glb = std::make_unique<GLBBuffer>();
-    glb->file = std::move(file);
-    glb->fileOffset = fileOffset;
-    glb->fileSize = fileSize;
-}
-
 // We define the destructor here as otherwise the definition would be generated in other cpp files
 // in which the definition for ParserData is not available.
 fg::glTF::~glTF() = default;
@@ -214,7 +203,7 @@ bool fg::glTF::checkExtensions() {
     return true;
 }
 
-std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std::string_view uri) const {
+std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std::string_view uri) const noexcept {
     if (uri.substr(0, 4) == "data") {
         // This is a data URI.
         auto index =  uri.find(';');
@@ -228,18 +217,66 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
             return std::make_tuple(Error::InvalidGltf, DataSource {}, DataLocation::None);
         }
 
-        // Decode the base64 data.
         auto encodedData = uri.substr(encodingEnd + 1);
+        if (data->mapCallback != nullptr) {
+            // If a map callback is specified, we use a pointer to memory specified by it.
+            auto padding = base64::getPadding(encodedData);
+            auto size = base64::getOutputSize(encodedData.size(), padding);
+            auto info = data->mapCallback(size, data->userPointer);
+            if (info.mappedMemory != nullptr) {
+                base64::decode(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding);
+                if (data->unmapCallback != nullptr) {
+                    data->unmapCallback(&info, data->userPointer);
+                }
+
+                DataSource source = {};
+                source.bufferId = info.customId;
+                source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
+                return std::make_tuple(Error::None, std::move(source), DataLocation::CustomBufferWithId);
+            }
+        }
+
+        // Decode the base64 data into a traditional vector
         std::vector<uint8_t> uriData;
         if (hasBit(options, Options::DontUseSIMD)) {
-            uriData = base64::fallback_decode(encodedData);
+            uriData = std::move(base64::fallback_decode(encodedData));
         } else {
-            uriData = base64::decode(encodedData);
+            uriData = std::move(base64::decode(encodedData));
         }
 
         DataSource source = {};
         source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
         source.bytes = std::move(uriData);
+        return std::make_tuple(Error::None, std::move(source), DataLocation::VectorWithMime);
+    } else if (hasBit(options, Options::LoadExternalBuffers)) {
+        auto path = directory / uri;
+        std::error_code error;
+        DataSource source = {};
+        // If we were instructed to load external buffers and the files don't exist, we'll return an error.
+        if (!fs::exists(path, error) || error) {
+            return std::make_tuple(Error::MissingExternalBuffer, std::move(source), DataLocation::None);
+        }
+
+        std::ifstream file(path, std::ios::ate | std::ios::binary);
+        auto length = static_cast<int64_t>(file.tellg());
+        file.seekg(0);
+
+        if (data->mapCallback != nullptr) {
+            auto info = data->mapCallback(length, data->userPointer);
+            if (info.mappedMemory != nullptr) {
+                source.bufferId = info.customId;
+                file.read(reinterpret_cast<char*>(info.mappedMemory), length);
+                if (data->unmapCallback != nullptr) {
+                    data->unmapCallback(&info, data->userPointer);
+                }
+
+                return std::make_tuple(Error::None, std::move(source), DataLocation::CustomBufferWithId);
+            }
+        }
+
+        source.mimeType = MimeType::GltfBuffer;
+        source.bytes.resize(length);
+        file.read(reinterpret_cast<char*>(source.bytes.data()), length);
         return std::make_tuple(Error::None, std::move(source), DataLocation::VectorWithMime);
     } else {
         DataSource source = {};
@@ -727,6 +764,7 @@ fg::Error fg::glTF::parseBuffers() {
         return returnError(bufferError);
     }
 
+    parsedAsset->buffers = {};
     parsedAsset->buffers.reserve(buffers.size());
     size_t bufferIndex = 0;
     for (auto bufferValue : buffers) {
@@ -756,9 +794,14 @@ fg::Error fg::glTF::parseBuffers() {
             buffer.location = location;
         } else if (bufferIndex == 0 && glb != nullptr) {
             if (hasBit(options, Options::LoadGLBBuffers)) {
-                // We've loaded the GLB chunk already.
-                buffer.data.bytes = std::move(glb->buffer);
-                buffer.location = DataLocation::VectorWithMime;
+                if (glb->customBufferId.has_value()) {
+                    buffer.data.bufferId = glb->customBufferId.value();
+                    buffer.location = DataLocation::CustomBufferWithId;
+                } else {
+                    // We've loaded the GLB chunk already.
+                    buffer.data.bytes = std::move(glb->buffer);
+                    buffer.location = DataLocation::VectorWithMime;
+                }
             } else if (!hasBit(options, Options::LoadGLBBuffers)) {
                 // The GLB chunk has not been loaded.
                 buffer.location = DataLocation::FilePathWithByteRange;
@@ -1729,6 +1772,9 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path dire
         errorCode = Error::InvalidJson;
         return nullptr;
     }
+    data->mapCallback = mapCallback;
+    data->unmapCallback = unmapCallback;
+    data->userPointer = userPointer;
 
     auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
     if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
@@ -1802,6 +1848,11 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
         errorCode = Error::InvalidJson;
         return nullptr;
     }
+    data->mapCallback = mapCallback;
+    data->unmapCallback = unmapCallback;
+    data->userPointer = userPointer;
+
+    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file.parent_path(), options, extensions));
 
     // Is there enough room for another chunk header?
     if (header.length > (static_cast<uint32_t>(gltfFile.tellg()) + sizeof(BinaryGltfChunk))) {
@@ -1813,28 +1864,31 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
             return nullptr;
         }
 
-        std::unique_ptr<glTF> gltf;
-        if (hasBit(options, Options::LoadGLBBuffers)) {
-            std::vector<uint8_t> binary(binaryChunk.chunkLength);
-            read(binary.data(), binaryChunk.chunkLength);
-            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, std::move(binary), options, extensions));
-        } else {
-            gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, static_cast<size_t>(gltfFile.tellg()), binaryChunk.chunkLength, options, extensions));
-        }
+        auto& glb = gltf->glb;
+        glb = std::make_unique<glTF::GLBBuffer>();
+        glb->file = file;
 
-        if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
-            errorCode = Error::InvalidOrMissingAssetField;
-            return nullptr;
+        if (hasBit(options, Options::LoadGLBBuffers)) {
+            if (gltf->data->mapCallback != nullptr) {
+                const auto& gdata = gltf->data;
+                auto info = gdata->mapCallback(binaryChunk.chunkLength, gdata->userPointer);
+                if (info.mappedMemory != nullptr) {
+                    read(info.mappedMemory, binaryChunk.chunkLength);
+                    if (gdata->unmapCallback != nullptr) {
+                        gdata->unmapCallback(&info, gdata->userPointer);
+                    }
+                    glb->customBufferId = info.customId;
+                }
+            } else {
+                glb->buffer.resize(binaryChunk.chunkLength);
+                read(glb->buffer.data(), binaryChunk.chunkLength);
+            }
+        } else {
+            glb->fileOffset = static_cast<size_t>(gltfFile.tellg());
+            glb->fileSize = binaryChunk.chunkLength;
         }
-        if (!gltf->checkExtensions()) {
-            errorCode = gltf->errorCode;
-            return nullptr;
-        }
-        return gltf;
     }
 
-    // We're not loading the GLB buffer or there's none.
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file, options, extensions));
     if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
         errorCode = Error::InvalidOrMissingAssetField;
         return nullptr;
@@ -1844,6 +1898,17 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
         return nullptr;
     }
     return gltf;
+}
+
+void fg::Parser::setBufferAllocationCallback(BufferMapCallback* newMapCallback, BufferUnmapCallback* newUnmapCallback) noexcept {
+    if (newMapCallback == nullptr)
+        return;
+    mapCallback = newMapCallback;
+    unmapCallback = newUnmapCallback;
+}
+
+void fg::Parser::setUserPointer(void* pointer) noexcept {
+    userPointer = pointer;
 }
 #pragma endregion
 

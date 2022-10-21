@@ -303,3 +303,37 @@ TEST_CASE("Validate whole glTF", "[gltf-loader]") {
     REQUIRE(model->parseAll() == fastgltf::Error::None);
     REQUIRE(model->validate() == fastgltf::Error::None);
 }
+
+TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
+    auto boxPath = path / "sample-models" / "2.0" / "Box" / "glTF-Embedded";
+    auto jsonData = std::make_unique<fastgltf::JsonData>(boxPath / "Box.gltf");
+
+    std::vector<void*> allocations;
+
+    auto mapCallback = [](uint64_t bufferSize, void* userPointer) -> fastgltf::BufferInfo {
+        REQUIRE(userPointer != nullptr);
+        auto* allocations = static_cast<std::vector<void*>*>(userPointer);
+        allocations->emplace_back(std::malloc(bufferSize));
+        return {
+            .mappedMemory = allocations->back(),
+            .customId = allocations->size() - 1,
+        };
+    };
+
+    fastgltf::Parser parser;
+    parser.setUserPointer(&allocations);
+    parser.setBufferAllocationCallback(mapCallback, nullptr);
+    auto model = parser.loadGLTF(jsonData.get(), boxPath);
+    REQUIRE(model->parseBuffers() == fastgltf::Error::None);
+    REQUIRE(allocations.size() == 1);
+
+    auto* asset = model->getParsedAssetPointer();
+    REQUIRE(asset->buffers.size() == 1);
+    REQUIRE(asset->buffers.front().location == fastgltf::DataLocation::CustomBufferWithId);
+    REQUIRE(asset->buffers.front().data.bufferId == 0);
+
+    for (auto& allocation : allocations) {
+        REQUIRE(allocation != nullptr);
+        std::free(allocation);
+    }
+}

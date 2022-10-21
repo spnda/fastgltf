@@ -39,7 +39,11 @@ constexpr std::string_view fragmentShaderSource = R"(
 )";
 
 void glMessageCallback(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam) {
-    std::cout << message << std::endl;
+    if (severity == GL_DEBUG_SEVERITY_HIGH) {
+        std::cerr << message << std::endl;
+    } else {
+        std::cout << message << std::endl;
+    }
 }
 
 bool checkGlCompileErrors(GLuint shader) {
@@ -98,6 +102,7 @@ struct Viewer {
     std::unique_ptr<fastgltf::Asset> asset;
 
     std::vector<GLuint> buffers;
+    std::vector<GLuint> bufferAllocations;
     std::vector<Mesh> meshes;
 
     glm::mat4 viewMatrix = glm::mat4(1.0f);
@@ -194,6 +199,23 @@ glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
     }
 }
 
+fastgltf::BufferInfo gltfBufferMapCallback(uint64_t bufferSize, void* userPointer) {
+    assert(userPointer != nullptr);
+    auto* viewer = static_cast<Viewer*>(userPointer);
+    viewer->bufferAllocations.resize(viewer->bufferAllocations.size() + 1);
+    glCreateBuffers(1, &viewer->bufferAllocations.back());
+    auto& buffer = viewer->bufferAllocations.back();
+    glNamedBufferStorage(buffer, static_cast<GLsizeiptr>(bufferSize), nullptr, GL_MAP_WRITE_BIT);
+    return {
+        glMapNamedBufferRange(buffer, 0, static_cast<GLsizeiptr>(bufferSize), GL_MAP_WRITE_BIT),
+        buffer,
+    };
+}
+
+void gltfBufferUnmapCallback(fastgltf::BufferInfo* bufferInfo, void* userPointer) {
+    glUnmapNamedBuffer(static_cast<GLuint>(bufferInfo->customId));
+}
+
 bool loadGltf(Viewer* viewer, std::string_view cPath) {
     std::cout << "Loading " << cPath << std::endl;
 
@@ -201,14 +223,18 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
     {
         fastgltf::Parser parser;
 
+        parser.setUserPointer(viewer);
+        parser.setBufferAllocationCallback(gltfBufferMapCallback, gltfBufferUnmapCallback);
+
         auto path = std::filesystem::path{cPath};
         std::unique_ptr<fastgltf::glTF> gltf;
 
+        constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
         if (path.extension() == ".gltf") {
             auto data = fastgltf::JsonData(path);
-            gltf = parser.loadGLTF(&data, path.parent_path(), fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble);
+            gltf = parser.loadGLTF(&data, path.parent_path(), gltfOptions);
         } else if (path.extension() == ".glb") {
-            gltf = parser.loadBinaryGLTF(path, fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers);
+            gltf = parser.loadBinaryGLTF(path, gltfOptions);
         }
 
         if (parser.getError() != fastgltf::Error::None) {
@@ -224,43 +250,41 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         auto error = gltf->parseBuffers();
         if (error != fastgltf::Error::None) {
             std::cerr << "Failed to parse glTF: " << fastgltf::to_underlying(error) << std::endl;
+            return false;
         }
 
         viewer->asset = gltf->getParsedAsset();
     }
 
+    // Some buffers are already allocated during parsing of the glTF, like e.g. base64 buffers
+    // through our callback functions. Therefore, we only resize our output buffer vector, but
+    // create our buffer handles later on.
     auto& buffers = viewer->asset->buffers;
-    auto bufferCount = buffers.size();
-    viewer->buffers.resize(bufferCount);
-    glCreateBuffers(static_cast<GLsizei>(bufferCount), viewer->buffers.data());
+    viewer->buffers.reserve(buffers.size());
 
     for (auto it = buffers.begin(); it != buffers.end(); ++it) {
         auto index = std::distance(buffers.begin(), it);
         constexpr GLuint bufferUsage = GL_STATIC_DRAW;
 
         switch (it->location) {
-            case fastgltf::DataLocation::FilePathWithByteRange: {
-                std::ifstream file(it->data.path, std::ios::ate | std::ios::binary);
-                auto length = static_cast<int64_t>(file.tellg());
-                auto minLength = (static_cast<int64_t>(it->byteLength) < length)
-                    ? static_cast<int64_t>(it->byteLength)
-                    : length;
-
-                char* data = new char[minLength];
-                file.seekg(0, std::istream::beg);
-                file.read(data, minLength);
-                glNamedBufferData(viewer->buffers[index], minLength, data, bufferUsage);
-                delete[] data;
-                break;
-            }
             case fastgltf::DataLocation::VectorWithMime: {
+                GLuint glBuffer;
+                glCreateBuffers(1, &glBuffer);
                 glNamedBufferData(viewer->buffers[index], static_cast<int64_t>(it->byteLength),
                                   it->data.bytes.data(), bufferUsage);
+                viewer->buffers.emplace_back(glBuffer);
                 break;
             }
-            // TODO
-            case fastgltf::DataLocation::None:
+            case fastgltf::DataLocation::CustomBufferWithId: {
+                // We don't need to do anything special here, the buffer has already been created.
+                viewer->buffers.emplace_back(static_cast<GLuint>(it->data.bufferId));
+                break;
+            }
+            case fastgltf::DataLocation::FilePathWithByteRange:
+                // This won't happen because we ask fastgltf to load external buffers for us.
             case fastgltf::DataLocation::BufferViewWithMime:
+                // Only applies to images.
+            case fastgltf::DataLocation::None:
                 break;
         }
     }

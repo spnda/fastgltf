@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <memory>
 #include <string_view>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -41,6 +42,7 @@ namespace fastgltf {
         InvalidOrMissingAssetField = 6,
         InvalidGLB = 6,
         MissingField = 7,
+        MissingExternalBuffer = 8,
     };
 
     // clang-format off
@@ -85,6 +87,13 @@ namespace fastgltf {
          * DirectStorage or Metal IO.
          */
         LoadGLBBuffers                  = 1 << 3,
+
+        /**
+         * Loads all external buffers into CPU memory. If disabled, fastgltf will only provide
+         * a full file path to the file holding the buffer, which can be useful when using APIs
+         * like DirectStorage or Metal IO.
+         */
+        LoadExternalBuffers             = 1 << 4,
     };
     // clang-format on
 
@@ -96,17 +105,28 @@ namespace fastgltf {
         return static_cast<Options>(to_underlying(a) | to_underlying(b));
     }
 
+    struct BufferInfo {
+        void* mappedMemory;
+        uint64_t customId;
+    };
+
+    using BufferMapCallback = BufferInfo(uint64_t bufferSize, void* userPointer);
+    using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
+
     class glTF {
         friend class Parser;
 
+        // TODO: Should this (internal) struct be redesigned?
         struct GLBBuffer {
             size_t fileOffset;
             size_t fileSize;
             std::filesystem::path file;
 
             std::vector<uint8_t> buffer;
+
+            std::optional<uint64_t> customBufferId;
         };
-        std::unique_ptr<GLBBuffer> glb;
+        std::unique_ptr<GLBBuffer> glb = nullptr;
 
         std::unique_ptr<ParserData> data;
         std::unique_ptr<Asset> parsedAsset;
@@ -116,14 +136,12 @@ namespace fastgltf {
         Error errorCode = Error::None;
 
         explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options, Extensions extension);
-        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, std::vector<uint8_t>&& glbData, Options options, Extensions extension);
-        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path file, size_t fileOffset, size_t fileSize, Options options, Extensions extension);
 
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 
         [[nodiscard]] bool checkAssetField();
         [[nodiscard]] bool checkExtensions();
-        [[nodiscard]] auto decodeUri(std::string_view uri) const -> std::tuple<Error, DataSource, DataLocation>;
+        [[nodiscard]] auto decodeUri(std::string_view uri) const noexcept -> std::tuple<Error, DataSource, DataLocation>;
         [[nodiscard, gnu::always_inline]] inline Error returnError(Error error) noexcept;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
@@ -191,8 +209,13 @@ namespace fastgltf {
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
         std::unique_ptr<simdjson::dom::parser> jsonParser;
-        Extensions extensions;
 
+        // Callbacks
+        BufferMapCallback* mapCallback = nullptr;
+        BufferUnmapCallback* unmapCallback = nullptr;
+
+        void* userPointer = nullptr;
+        Extensions extensions;
         Error errorCode = Error::None;
 
     public:
@@ -214,6 +237,21 @@ namespace fastgltf {
         [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::filesystem::path directory, Options options = Options::None);
         [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(const std::filesystem::path& file, Options options = Options::None);
 
+        /**
+         * This function can be used to set callbacks so that you can control memory allocation for
+         * large buffers and images that are loaded from a glTF file. For example, one could use
+         * the callbacks to map a GPU buffer through Vulkan or DirectX so that fastgltf can write
+         * the buffer directly to the GPU to avoid a copy into RAM first. To remove the callbacks
+         * for a specific load, call this method with both parameters as nullptr before load*GLTF.
+         *
+         * @param mapCallback function called when the parser requires a buffer to write data
+         * embedded in a GLB file or decoded from a base64 URI, cannot be nullptr.
+         * @param unmapCallback function called when the parser is done with writing into a
+         * buffer, can be nullptr.
+         * @note For advanced users
+         */
+        void setBufferAllocationCallback(BufferMapCallback* mapCallback, BufferUnmapCallback* unmapCallback = nullptr) noexcept;
+        void setUserPointer(void* pointer) noexcept;
     };
 }
 

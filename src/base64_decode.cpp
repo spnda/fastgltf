@@ -316,6 +316,29 @@ std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
     return ret;
 }
 
+void fg::base64::decode(std::string_view encoded, uint8_t* output, size_t padding) {
+    assert(encoded.size() % 4 == 0);
+
+#if defined(__x86_64__) || defined(_M_AMD64)
+    auto* avx2 = simdjson::get_available_implementations()["haswell"];
+    auto* sse4 = simdjson::get_available_implementations()["westmere"];
+    if (avx2 != nullptr && avx2->supported_by_runtime_system()) {
+        return avx2_decode(encoded, output, padding);
+    } else if (sse4 != nullptr && sse4->supported_by_runtime_system()) {
+        return sse4_decode(encoded, output, padding);
+    }
+#endif
+
+#if defined(__aarch64__)
+    auto* neon = simdjson::get_available_implementations()["arm64"];
+    if (neon != nullptr && neon->supported_by_runtime_system()) {
+        return neon_decode(encoded, output, padding);
+    }
+#endif
+
+    return fallback_decode(encoded, output, padding);
+}
+
 std::vector<uint8_t> fg::base64::decode(std::string_view encoded) {
     assert(encoded.size() % 4 == 0);
 
