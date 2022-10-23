@@ -17,12 +17,12 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
 
     BENCHMARK("Parse NewSponza with SIMD") {
         auto sponza = parser.loadGLTF(data.get(), intel.parent_path(), fastgltf::Options::None);
-        return sponza->parseAll();
+        return sponza->parse();
     };
 
     BENCHMARK("Parse NewSponza without SIMD") {
         auto sponza = parser.loadGLTF(data.get(), intel.parent_path(), fastgltf::Options::DontUseSIMD);
-        return sponza->parseAll();
+        return sponza->parse();
     };
 }
 
@@ -38,12 +38,12 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
 
     BENCHMARK("Parse 2CylinderEngine and decode base64 with SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::None);
-        return engine->parseAll();
+        return engine->parse();
     };
 
     BENCHMARK("Parse 2CylinderEngine and decode base64 without SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::DontUseSIMD);
-        return engine->parseAll();
+        return engine->parse();
     };
 };
 
@@ -58,11 +58,11 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
 
     BENCHMARK("Parse Buggy.gltf with SIMD") {
         auto buggy = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::None);
-        return buggy->parseAll();
+        return buggy->parse();
     };
 
     BENCHMARK("Parse Buggy.gltf without SIMD") {
         auto buggy = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::DontUseSIMD);
-        return buggy->parseAll();
+        return buggy->parse();
     };
 }

@@ -56,13 +56,17 @@ void load(std::filesystem::path path) {
         // File doesn't exist, couldn't be read, or is not a valid JSON document.
     }
 
-    // With this call to parseAll you let fastgltf serialize the whole JSON document into the
-    // glTF data structures. If desired, you can call different parse functions to parse
-    // individual parts of the glTF.
-    if (gltf->parseAll() != fastgltf::Error::None) {
+    // With this call to parse you let fastgltf serialize the whole JSON document into the
+    // glTF data structures. If desired, you can pass OR'd category enums that will exclude
+    // certain glTF aspects from being loaded.
+    if (gltf->parse() != fastgltf::Error::None) {
         // Most likely the asset does not follow the glTF spec. Though perhaps fastgltf doesn't
         // handle something correctly, so please let me know.
     }
+    
+    // Optionally, you can now also call the glTF::validate method. This will more strictly
+    // enforce the glTF spec and is not needed most of the time, though I would certainly
+    // recommend it in a development environment or when debugging to avoid mishaps.
 
     // You obtain the asset with this call. This can only be done once.
     std::unique_ptr<fastgltf::Asset> asset = gltf->getParsedAsset();

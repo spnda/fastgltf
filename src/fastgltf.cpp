@@ -22,6 +22,7 @@ static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == STRX(SIMDJSON_VERS
 
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
+#include "fastgltf_util.hpp"
 #include "base64_decode.hpp"
 
 namespace fg = fastgltf;
@@ -34,6 +35,24 @@ namespace fastgltf {
     constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
     constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
     constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+
+    constexpr auto hashAccessors = crc32("accessors");
+    constexpr auto hashAnimations = crc32("animations");
+    constexpr auto hashAsset = crc32("asset");
+    constexpr auto hashBuffers = crc32("buffers");
+    constexpr auto hashBufferViews = crc32("bufferViews");
+    constexpr auto hashCameras = crc32("cameras");
+    constexpr auto hashExtensions = crc32("extensions");
+    constexpr auto hashExtras = crc32("extras");
+    constexpr auto hashImages = crc32("images");
+    constexpr auto hashMaterials = crc32("materials");
+    constexpr auto hashMeshes = crc32("meshes");
+    constexpr auto hashNodes = crc32("nodes");
+    constexpr auto hashSamplers = crc32("samplers");
+    constexpr auto hashScenes = crc32("scenes");
+    constexpr auto hashScene = crc32("scene");
+    constexpr auto hashSkins = crc32("skins");
+    constexpr auto hashTextures = crc32("textures");
 
     struct ParserData {
         // Can simdjson not store this data itself?
@@ -137,24 +156,6 @@ fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options opt
 // in which the definition for ParserData is not available.
 fg::glTF::~glTF() = default;
 
-bool fg::glTF::checkAssetField() {
-    using namespace simdjson;
-
-    dom::object asset;
-    if (data->root["asset"].get_object().get(asset) != SUCCESS) {
-        errorCode = Error::InvalidOrMissingAssetField;
-        return false;
-    }
-
-    std::string_view version;
-    if (asset["version"].get_string().get(version) != SUCCESS) {
-        errorCode = Error::InvalidOrMissingAssetField;
-        return false;
-    }
-
-    return true;
-}
-
 // clang-format off
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
@@ -168,44 +169,10 @@ constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 5> exten
 }};
 // clang-format on
 
-bool fg::glTF::checkExtensions() {
-    using namespace simdjson;
-
-    dom::array extensionsRequired;
-    if (data->root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) {
-        for (auto extension : extensionsRequired) {
-            std::string_view string;
-            if (extension.get_string().get(string) != SUCCESS) {
-                errorCode = Error::InvalidGltf;
-                return false;
-            }
-
-            // Check if the extension is known and listed in the parser.
-            bool known = false;
-            bool listed = false;
-            for (auto& [extensionString, extensionEnum] : extensionStrings) {
-                if (!known) {
-                    known = extensionString == string;
-                }
-                if (!listed) {
-                    listed = hasBit(extensions, extensionEnum);
-                }
-                if (known && listed)
-                    break;
-            }
-            if (!known) {
-                errorCode = Error::UnsupportedExtensions;
-                return false;
-            }
-            if (!listed) {
-                errorCode = Error::MissingExtensions;
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
+#define SET_ERROR_RETURN(error) errorCode = error; \
+    return;
+#define SET_ERROR_RETURN_ERROR(error) errorCode = error; \
+    return errorCode;
 
 std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std::string_view uri) const noexcept {
     if (uri.substr(0, 4) == "data") {
@@ -287,11 +254,6 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
         source.path = directory / uri;
         return std::make_tuple(Error::None, std::move(source), DataLocation::FilePathWithByteRange);
     }
-}
-
-fg::Error fg::glTF::returnError(Error error) noexcept {
-    errorCode = error;
-    return error;
 }
 
 fg::MimeType fg::glTF::getMimeTypeFromString(std::string_view mime) {
@@ -572,32 +534,112 @@ fg::Error fg::glTF::validate() {
     return Error::None;
 }
 
-fg::Error fg::glTF::parseAll() {
-    parseAccessors();
-    parseAnimations();
-    parseBuffers();
-    parseBufferViews();
-    parseCameras();
-    parseImages();
-    parseMaterials();
-    parseMeshes();
-    parseNodes();
-    parseSamplers();
-    parseScenes();
-    parseSkins();
-    parseTextures();
+fg::Error fg::glTF::parse(Category categories) {
+    using namespace simdjson;
+
+    dom::object asset;
+    if (!hasBit(options, Options::DontRequireValidAssetMember)) {
+        auto error = data->root["asset"].get_object().get(asset);
+        if (error == NO_SUCH_FIELD) {
+            SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
+        } else if (error == SUCCESS) {
+            std::string_view version;
+            if (asset["version"].get_string().get(version) != SUCCESS) {
+                SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
+            } else if (version != "2.0") {
+                SET_ERROR_RETURN_ERROR(Error::UnsupportedVersion)
+            }
+        } else {
+            SET_ERROR_RETURN_ERROR(Error::InvalidJson)
+        }
+    }
+
+    dom::array extensionsRequired;
+    if (data->root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) {
+        for (auto extension : extensionsRequired) {
+            std::string_view string;
+            if (extension.get_string().get(string) != SUCCESS) {
+                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
+            }
+
+            // Check if the extension is known and listed in the parser.
+            bool known = false;
+            bool listed = false;
+            for (auto& [extensionString, extensionEnum] : extensionStrings) {
+                if (!known) {
+                    known = extensionString == string;
+                }
+                if (!listed) {
+                    listed = hasBit(extensions, extensionEnum);
+                }
+                if (known && listed)
+                    break;
+            }
+            if (!known) {
+                SET_ERROR_RETURN_ERROR(Error::UnknownRequiredExtension)
+            }
+            if (!listed) {
+                SET_ERROR_RETURN_ERROR(Error::MissingExtensions)
+            }
+        }
+    }
+
+    Category readCategories = Category::None;
+    for (const auto& object : data->root) {
+        // We've read everything the user asked for, we can safely exit the loop.
+        if (readCategories == categories) {
+            break;
+        }
+
+        auto hashedKey = crc32(object.key);
+
+        if (hashedKey == hashScene) {
+            uint64_t defaultScene;
+            if (object.value.get_uint64().get(defaultScene) != SUCCESS) {
+                errorCode = Error::InvalidGltf;
+            }
+            parsedAsset->defaultScene = static_cast<size_t>(defaultScene);
+            continue;
+        } else if (hashedKey == hashAsset || hashedKey == hashExtensions || hashedKey == hashExtras) {
+            continue;
+        }
+
+        dom::array array;
+        if (object.value.get_array().get(array) != SUCCESS) {
+            errorCode = Error::InvalidGltf;
+            return errorCode;
+        }
+
+#define KEY_SWITCH_CASE(name) case hash##name:       \
+                if (hasBit(categories, Category::name))   \
+                    parse##name(array);                     \
+                readCategories |= Category::name;         \
+                break;
+
+        switch (hashedKey) {
+            KEY_SWITCH_CASE(Accessors)
+            KEY_SWITCH_CASE(Animations)
+            KEY_SWITCH_CASE(Buffers)
+            KEY_SWITCH_CASE(BufferViews)
+            KEY_SWITCH_CASE(Cameras)
+            KEY_SWITCH_CASE(Images)
+            KEY_SWITCH_CASE(Materials)
+            KEY_SWITCH_CASE(Meshes)
+            KEY_SWITCH_CASE(Nodes)
+            KEY_SWITCH_CASE(Samplers)
+            KEY_SWITCH_CASE(Scenes)
+            KEY_SWITCH_CASE(Skins)
+            KEY_SWITCH_CASE(Textures)
+            default:
+                break;
+        }
+    }
+
     return errorCode;
 }
 
-fg::Error fg::glTF::parseAccessors() {
+void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
     using namespace simdjson;
-    dom::array accessors;
-    auto accessorError = getJsonArray(data->root, "accessors", &accessors);
-    if (accessorError == Error::MissingField) {
-        return Error::None;
-    } else if (accessorError != Error::None) {
-        return returnError(accessorError);
-    }
 
     parsedAsset->accessors.reserve(accessors.size());
     for (auto accessorValue : accessors) {
@@ -605,29 +647,29 @@ fg::Error fg::glTF::parseAccessors() {
         Accessor accessor = {};
         dom::object accessorObject;
         if (accessorValue.get_object().get(accessorObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         uint64_t componentType;
         if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         } else {
             accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
             if (accessor.componentType == ComponentType::Double && !hasBit(options, Options::AllowDouble)) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
         }
 
         std::string_view accessorType;
         if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         } else {
             accessor.type = getAccessorType(accessorType);
         }
 
         uint64_t accessorCount;
         if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         } else {
             accessor.count = static_cast<size_t>(accessorCount);
         }
@@ -657,32 +699,23 @@ fg::Error fg::glTF::parseAccessors() {
 
         parsedAsset->accessors.emplace_back(std::move(accessor));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseAnimations() {
+void fg::glTF::parseAnimations(simdjson::dom::array& animations) {
     using namespace simdjson;
-    dom::array animations;
-    auto animationError = getJsonArray(data->root, "animations", &animations);
-    if (animationError == Error::MissingField) {
-        return Error::None;
-    } else if (animationError != Error::None) {
-        return returnError(animationError);
-    }
 
     parsedAsset->animations.reserve(animations.size());
     for (auto animationValue : animations) {
         dom::object animationObject;
         Animation animation = {};
         if (animationValue.get_object().get(animationObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         dom::array channels;
         auto channelError = getJsonArray(animationObject, "channels", &channels);
         if (channelError != Error::None) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         animation.channels.reserve(channels.size());
@@ -690,29 +723,29 @@ fg::Error fg::glTF::parseAnimations() {
             dom::object channelObject;
             AnimationChannel channel = {};
             if (channelValue.get_object().get(channelObject) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             uint64_t sampler;
             if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
             channel.samplerIndex = static_cast<size_t>(sampler);
 
             dom::object targetObject;
             if (channelObject["target"].get_object().get(targetObject) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             } else {
                 uint64_t node;
                 if (targetObject["node"].get_uint64().get(node) != SUCCESS) {
                     // We don't support any extensions for animations, so it is required.
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
                 channel.nodeIndex = static_cast<size_t>(node);
 
                 std::string_view path;
                 if (targetObject["path"].get_string().get(path) != SUCCESS) {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
                 if (path == "translation") {
@@ -732,7 +765,7 @@ fg::Error fg::glTF::parseAnimations() {
         dom::array samplers;
         auto samplerError = getJsonArray(animationObject, "samplers", &samplers);
         if (samplerError != Error::None) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         animation.samplers.reserve(samplers.size());
@@ -740,18 +773,18 @@ fg::Error fg::glTF::parseAnimations() {
             dom::object samplerObject;
             AnimationSampler sampler = {};
             if (samplerValue.get_object().get(samplerObject) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             uint64_t input;
             if (samplerObject["input"].get_uint64().get(input) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
             sampler.inputAccessor = static_cast<size_t>(input);
 
             uint64_t output;
             if (samplerObject["output"].get_uint64().get(output) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
             sampler.outputAccessor = static_cast<size_t>(output);
 
@@ -766,7 +799,7 @@ fg::Error fg::glTF::parseAnimations() {
                 } else if (interpolation == "CUBICSPLINE") {
                     sampler.interpolation = AnimationInterpolation::CubicSpline;
                 } else {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
             }
 
@@ -783,21 +816,11 @@ fg::Error fg::glTF::parseAnimations() {
 
         parsedAsset->animations.emplace_back(std::move(animation));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseBuffers() {
+void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
     using namespace simdjson;
-    dom::array buffers;
-    auto bufferError = getJsonArray(data->root, "buffers", &buffers);
-    if (bufferError == Error::MissingField) {
-        return Error::None;
-    } else if (bufferError != Error::None) {
-        return returnError(bufferError);
-    }
 
-    parsedAsset->buffers = {};
     parsedAsset->buffers.reserve(buffers.size());
     size_t bufferIndex = 0;
     for (auto bufferValue : buffers) {
@@ -805,12 +828,12 @@ fg::Error fg::glTF::parseBuffers() {
         Buffer buffer = {};
         dom::object bufferObject;
         if (bufferValue.get_object().get(bufferObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         uint64_t byteLength;
         if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         } else {
             buffer.byteLength = static_cast<size_t>(byteLength);
         }
@@ -820,8 +843,9 @@ fg::Error fg::glTF::parseBuffers() {
         std::string_view uri;
         if (bufferObject["uri"].get_string().get(uri) == SUCCESS) {
             auto [error, source, location] = decodeUri(uri);
-            if (error != Error::None)
-                return returnError(error);
+            if (error != Error::None) {
+                SET_ERROR_RETURN(error)
+            }
 
             buffer.data = std::move(source);
             buffer.location = location;
@@ -844,11 +868,11 @@ fg::Error fg::glTF::parseBuffers() {
             }
         } else {
             // All other buffers have to contain an uri field.
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         if (buffer.location == DataLocation::None) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         // name is optional.
@@ -860,40 +884,31 @@ fg::Error fg::glTF::parseBuffers() {
         ++bufferIndex;
         parsedAsset->buffers.emplace_back(std::move(buffer));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseBufferViews() {
+void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
     using namespace simdjson;
-    dom::array bufferViews;
-    auto bufferViewError = getJsonArray(data->root, "bufferViews", &bufferViews);
-    if (bufferViewError == Error::MissingField) {
-        return Error::None;
-    } else if (bufferViewError != Error::None) {
-        return returnError(bufferViewError);
-    }
 
     parsedAsset->bufferViews.reserve(bufferViews.size());
     for (auto bufferViewValue : bufferViews) {
         // Required fields: "bufferIndex", "byteLength"
         dom::object bufferViewObject;
         if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        auto parseBufferViewObject = [&views = parsedAsset->bufferViews, this](dom::object& object, bool fromMeshoptCompression) {
+        auto parseBufferViewObject = [&views = parsedAsset->bufferViews, this](dom::object& object, bool fromMeshoptCompression) -> fg::Error {
             BufferView view = {};
 
             uint64_t number;
             if (object["buffer"].get_uint64().get(number) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             } else {
                 view.bufferIndex = static_cast<size_t>(number);
             }
 
             if (object["byteLength"].get_uint64().get(number) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             } else {
                 view.byteLength = static_cast<size_t>(number);
             }
@@ -908,13 +923,13 @@ fg::Error fg::glTF::parseBufferViews() {
             if (object["byteStride"].get_uint64().get(number) == SUCCESS) {
                 view.byteStride = static_cast<size_t>(number);
             } else if (fromMeshoptCompression) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             }
 
             if (object["count"].get_uint64().get(number) == SUCCESS) {
                 view.count = number;
             } else if (fromMeshoptCompression) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             }
 
             // target is optional
@@ -937,10 +952,10 @@ fg::Error fg::glTF::parseBufferViews() {
                 } else if (string == "INDICES") {
                     view.mode = MeshoptCompressionMode::Indices;
                 } else {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
                 }
             } else if (fromMeshoptCompression) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             }
 
             if (object["filter"].get_string().get(string) == SUCCESS) {
@@ -953,7 +968,7 @@ fg::Error fg::glTF::parseBufferViews() {
                 } else if (string == "EXPONENTIAL") {
                     view.filter = MeshoptCompressionFilter::Exponential;
                 } else {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
                 }
             } else if (fromMeshoptCompression) {
                 view.filter = MeshoptCompressionFilter::None;
@@ -967,35 +982,24 @@ fg::Error fg::glTF::parseBufferViews() {
         if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) {
             dom::object meshoptCompression;
             if (hasBit(this->extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
-                if (parseBufferViewObject(meshoptCompression, true) != Error::None)
-                    return errorCode;
+                parseBufferViewObject(meshoptCompression, true);
                 continue;
             }
         }
 
-        if (parseBufferViewObject(bufferViewObject, false) != Error::None)
-            return errorCode;
+        parseBufferViewObject(bufferViewObject, false);
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseCameras() {
+void fg::glTF::parseCameras(simdjson::dom::array& cameras) {
     using namespace simdjson;
-    dom::array cameras;
-    auto cameraError = getJsonArray(data->root, "cameras", &cameras);
-    if (cameraError == Error::MissingField) {
-        return Error::None;
-    } else if (cameraError != Error::None) {
-        return returnError(cameraError);
-    }
 
     parsedAsset->cameras.reserve(cameras.size());
     for (auto cameraValue : cameras) {
         Camera camera = {};
         dom::object cameraObject;
         if (cameraValue.get_object().get(cameraObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         std::string_view name;
@@ -1005,7 +1009,7 @@ fg::Error fg::glTF::parseCameras() {
 
         std::string_view type;
         if (cameraObject["type"].get_string().get(type) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         if (type == "perspective") {
@@ -1013,7 +1017,7 @@ fg::Error fg::glTF::parseCameras() {
 
             dom::object perspectiveCamera;
             if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             auto& perspective = camera.camera.perspective;
@@ -1028,20 +1032,20 @@ fg::Error fg::glTF::parseCameras() {
             if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) {
                 perspective.yfov = static_cast<float>(value);
             } else {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) {
                 perspective.znear = static_cast<float>(value);
             } else {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
         } else if (type == "orthographic") {
             camera.type = CameraType::Orthographic;
 
             dom::object orthographicCamera;
             if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             auto& orthographic = camera.camera.orthographic;
@@ -1049,63 +1053,55 @@ fg::Error fg::glTF::parseCameras() {
             if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) {
                 orthographic.xmag = static_cast<float>(value);
             } else {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) {
                 orthographic.ymag = static_cast<float>(value);
             } else {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) {
                 orthographic.zfar = static_cast<float>(value);
             } else {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) {
                 orthographic.znear = static_cast<float>(value);
             } else {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
         } else {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         parsedAsset->cameras.emplace_back(std::move(camera));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseImages() {
+void fg::glTF::parseImages(simdjson::dom::array& images) {
     using namespace simdjson;
-    dom::array images;
-    auto imageError = getJsonArray(data->root, "images", &images);
-    if (imageError == Error::MissingField) {
-        return Error::None;
-    } else if (imageError != Error::None) {
-        return returnError(imageError);
-    }
 
     parsedAsset->images.reserve(images.size());
     for (auto imageValue : images) {
         Image image = {};
         dom::object imageObject;
         if (imageValue.get_object().get(imageObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         std::string_view uri;
         if (imageObject["uri"].get_string().get(uri) == SUCCESS) {
             if (imageObject["bufferView"].error() == SUCCESS) {
                 // If uri is declared, bufferView cannot be declared.
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
             auto [error, source, location] = decodeUri(uri);
-            if (error != Error::None)
-                return returnError(error);
+            if (error != Error::None) {
+                SET_ERROR_RETURN(error)
+            }
 
             image.data = source;
             image.location = location;
@@ -1121,7 +1117,7 @@ fg::Error fg::glTF::parseImages() {
             std::string_view mimeType;
             if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) {
                 // If bufferView is defined, mimeType needs to also be defined.
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
             image.location = DataLocation::BufferViewWithMime;
@@ -1130,7 +1126,7 @@ fg::Error fg::glTF::parseImages() {
         }
 
         if (image.location == DataLocation::None) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         // name is optional.
@@ -1141,36 +1137,29 @@ fg::Error fg::glTF::parseImages() {
 
         parsedAsset->images.emplace_back(std::move(image));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseMaterials() {
+void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
     using namespace simdjson;
-    dom::array materials;
-    auto materialError = getJsonArray(data->root, "materials", &materials);
-    if (materialError == Error::MissingField) {
-        return Error::None;
-    } else if (materialError != Error::None) {
-        return returnError(materialError);
-    }
 
     parsedAsset->materials.reserve(materials.size());
     for (auto materialValue : materials) {
         dom::object materialObject;
         if (materialValue.get_object().get(materialObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
         Material material = {};
 
         dom::array emissiveFactor;
         if (materialObject["emissiveFactor"].get_array().get(emissiveFactor) == SUCCESS) {
-            if (emissiveFactor.size() != 3)
-                return returnError(Error::InvalidGltf);
+            if (emissiveFactor.size() != 3) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
             for (auto i = 0U; i < 3; ++i) {
                 double val;
-                if (emissiveFactor.at(i).get_double().get(val) != SUCCESS)
-                    return returnError(Error::InvalidGltf);
+                if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) {
+                    SET_ERROR_RETURN(Error::InvalidGltf)
+                }
                 material.emissiveFactor[i] = static_cast<float>(val);
             }
         } else {
@@ -1183,7 +1172,7 @@ fg::Error fg::glTF::parseMaterials() {
             if (error == Error::None) {
                 material.normalTexture = normalTexture;
             } else if (error != Error::MissingField) {
-                return returnError(error);
+                SET_ERROR_RETURN(error)
             }
         }
         {
@@ -1192,7 +1181,7 @@ fg::Error fg::glTF::parseMaterials() {
             if (error == Error::None) {
                 material.occlusionTexture = occlusionTexture;
             } else if (error != Error::MissingField) {
-                return returnError(error);
+                SET_ERROR_RETURN(error)
             }
         }
         {
@@ -1201,7 +1190,7 @@ fg::Error fg::glTF::parseMaterials() {
             if (error == Error::None) {
                 material.emissiveTexture = emissiveTexture;
             } else if (error != Error::MissingField) {
-                return returnError(error);
+                SET_ERROR_RETURN(error)
             }
         }
 
@@ -1214,7 +1203,7 @@ fg::Error fg::glTF::parseMaterials() {
                 for (auto i = 0U; i < 4; ++i) {
                     double val;
                     if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) {
-                        return returnError(Error::InvalidGltf);
+                        SET_ERROR_RETURN(Error::InvalidGltf)
                     }
                     pbr.baseColorFactor[i] = static_cast<float>(val);
                 }
@@ -1240,7 +1229,7 @@ fg::Error fg::glTF::parseMaterials() {
                 if (error == Error::None) {
                    pbr.baseColorTexture = baseColorTexture;
                 } else if (error != Error::MissingField) {
-                    return returnError(error);
+                    SET_ERROR_RETURN(error)
                 }
             }
             {
@@ -1249,7 +1238,7 @@ fg::Error fg::glTF::parseMaterials() {
                 if (error == Error::None) {
                    pbr.metallicRoughnessTexture = metallicRoughnessTexture;
                 } else if (error != Error::MissingField) {
-                    return returnError(error);
+                    SET_ERROR_RETURN(error)
                 }
             }
 
@@ -1265,7 +1254,7 @@ fg::Error fg::glTF::parseMaterials() {
             } else if (alphaMode == "BLEND") {
                 material.alphaMode = AlphaMode::Blend;
             } else {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
         } else {
             material.alphaMode = AlphaMode::Opaque;
@@ -1293,35 +1282,26 @@ fg::Error fg::glTF::parseMaterials() {
 
         parsedAsset->materials.emplace_back(std::move(material));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseMeshes() {
+void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
     using namespace simdjson;
-    dom::array meshes;
-    auto meshError = getJsonArray(data->root, "meshes", &meshes);
-    if (meshError == Error::MissingField) {
-        return Error::None;
-    } else if (meshError != Error::None) {
-        return returnError(meshError);
-    }
 
     parsedAsset->meshes.reserve(meshes.size());
     for (auto meshValue : meshes) {
         // Required fields: "primitives"
         dom::object meshObject;
         if (meshValue.get_object().get(meshObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
         Mesh mesh = {};
 
         dom::array primitives;
-        meshError = getJsonArray(meshObject, "primitives", &primitives);
+        auto meshError = getJsonArray(meshObject, "primitives", &primitives);
         if (meshError == Error::MissingField) {
             continue;
         } else if (meshError != Error::None) {
-            return returnError(meshError);
+            SET_ERROR_RETURN(meshError)
         } else {
             mesh.primitives.reserve(primitives.size());
             for (auto primitiveValue : primitives) {
@@ -1329,13 +1309,13 @@ fg::Error fg::glTF::parseMeshes() {
                 Primitive primitive = {};
                 dom::object primitiveObject;
                 if (primitiveValue.get_object().get(primitiveObject) != SUCCESS) {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
                 {
                     dom::object attributesObject;
                     if (primitiveObject["attributes"].get_object().get(attributesObject) != SUCCESS) {
-                        return returnError(Error::InvalidGltf);
+                        SET_ERROR_RETURN(Error::InvalidGltf)
                     }
 
                     // We iterate through the JSON object and write each key/pair value into the
@@ -1345,7 +1325,7 @@ fg::Error fg::glTF::parseMeshes() {
 
                         uint64_t attributeIndex;
                         if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
-                            return returnError(Error::InvalidGltf);
+                            SET_ERROR_RETURN(Error::InvalidGltf)
                         } else {
                             primitive.attributes[std::string { key }] = static_cast<size_t>(attributeIndex);
                         }
@@ -1383,26 +1363,17 @@ fg::Error fg::glTF::parseMeshes() {
 
         parsedAsset->meshes.emplace_back(std::move(mesh));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseNodes() {
+void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
     using namespace simdjson;
-    dom::array nodes;
-    auto nodeError = getJsonArray(data->root, "nodes", &nodes);
-    if (nodeError == Error::MissingField) {
-        return Error::None;
-    } else if (nodeError != Error::None) {
-        return returnError(nodeError);
-    }
 
     parsedAsset->nodes.reserve(nodes.size());
     for (auto nodeValue : nodes) {
         Node node = {};
         dom::object nodeObject;
         if (nodeValue.get_object().get(nodeObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         uint64_t index;
@@ -1423,13 +1394,13 @@ fg::Error fg::glTF::parseNodes() {
                 node.children.reserve(children.size());
                 for (auto childValue : children) {
                     if (childValue.get_uint64().get(index) != SUCCESS) {
-                        return returnError(Error::InvalidGltf);
+                        SET_ERROR_RETURN(Error::InvalidGltf)
                     }
 
                     node.children.emplace_back(static_cast<size_t>(index));
                 }
             } else if (childError != Error::None && childError != Error::MissingField) {
-                return returnError(childError);
+                SET_ERROR_RETURN(childError)
             }
         }
 
@@ -1463,7 +1434,7 @@ fg::Error fg::glTF::parseNodes() {
             for (auto num : scale) {
                 double val;
                 if (num.get_double().get(val) != SUCCESS) {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
                 node.scale[i] = static_cast<float>(val);
                 ++i;
@@ -1478,7 +1449,7 @@ fg::Error fg::glTF::parseNodes() {
             for (auto num : translation) {
                 double val;
                 if (num.get_double().get(val) != SUCCESS) {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
                 node.translation[i] = static_cast<float>(val);
                 ++i;
@@ -1493,7 +1464,7 @@ fg::Error fg::glTF::parseNodes() {
             for (auto num : rotation) {
                 double val;
                 if (num.get_double().get(val) != SUCCESS) {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
                 node.rotation[i] = static_cast<float>(val);
                 ++i;
@@ -1512,19 +1483,10 @@ fg::Error fg::glTF::parseNodes() {
 
         parsedAsset->nodes.emplace_back(std::move(node));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseSamplers() {
+void fg::glTF::parseSamplers(simdjson::dom::array& samplers) {
     using namespace simdjson;
-    dom::array samplers;
-    auto samplerError = getJsonArray(data->root, "samplers", &samplers);
-    if (samplerError == Error::MissingField) {
-        return Error::None;
-    } else if (samplerError != Error::None) {
-        return returnError(samplerError);
-    }
 
     uint64_t number;
     parsedAsset->samplers.reserve(samplers.size());
@@ -1532,7 +1494,7 @@ fg::Error fg::glTF::parseSamplers() {
         Sampler sampler = {};
         dom::object samplerObject;
         if (samplerValue.get_object().get(samplerObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         // name is optional.
@@ -1561,24 +1523,10 @@ fg::Error fg::glTF::parseSamplers() {
 
         parsedAsset->samplers.emplace_back(std::move(sampler));
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseScenes() {
+void fg::glTF::parseScenes(simdjson::dom::array& scenes) {
     using namespace simdjson;
-    dom::array scenes;
-    auto sceneError = getJsonArray(data->root, "scenes", &scenes);
-    if (sceneError == Error::MissingField) {
-        return Error::None;
-    } else if (sceneError != Error::None) {
-        return returnError(sceneError);
-    }
-
-    uint64_t defaultScene;
-    if (data->root["scene"].get_uint64().get(defaultScene) == SUCCESS) {
-        parsedAsset->defaultScene = static_cast<size_t>(defaultScene);
-    }
 
     parsedAsset->scenes.reserve(scenes.size());
     for (auto sceneValue : scenes) {
@@ -1586,7 +1534,7 @@ fg::Error fg::glTF::parseScenes() {
         Scene scene = {};
         dom::object sceneObject;
         if (sceneValue.get_object().get(sceneObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         // name is optional.
@@ -1603,7 +1551,7 @@ fg::Error fg::glTF::parseScenes() {
             for (auto nodeValue : nodes) {
                 uint64_t index;
                 if (nodeValue.get_uint64().get(index) != SUCCESS) {
-                    return returnError(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
                 scene.nodeIndices.emplace_back(static_cast<size_t>(index));
@@ -1611,29 +1559,20 @@ fg::Error fg::glTF::parseScenes() {
 
             parsedAsset->scenes.emplace_back(std::move(scene));
         } else if (nodeError != Error::None && nodeError != Error::MissingField) {
-            return returnError(nodeError);
+            SET_ERROR_RETURN(nodeError);
         }
     }
-
-    return errorCode;
 }
 
-fg::Error fg::glTF::parseSkins() {
+void fg::glTF::parseSkins(simdjson::dom::array& skins) {
     using namespace simdjson;
-    dom::array skins;
-    auto skinsError = getJsonArray(data->root, "skins", &skins);
-    if (skinsError == Error::MissingField) {
-        return errorCode;
-    } else if (skinsError != Error::None) {
-        return returnError(skinsError);
-    }
 
     parsedAsset->skins.reserve(skins.size());
     for (auto skinValue : skins) {
         Skin skin = {};
         dom::object skinObject;
         if (skinValue.get_object().get(skinObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         uint64_t index;
@@ -1646,12 +1585,12 @@ fg::Error fg::glTF::parseSkins() {
 
         dom::array jointsArray;
         if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
         skin.joints.reserve(jointsArray.size());
         for (auto jointValue : jointsArray) {
             if (jointValue.get_uint64().get(index) != SUCCESS) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
             skin.joints.emplace_back(index);
         }
@@ -1663,8 +1602,6 @@ fg::Error fg::glTF::parseSkins() {
         }
         parsedAsset->skins.emplace_back(std::move(skin));
     }
-
-    return errorCode;
 }
 
 fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept {
@@ -1674,16 +1611,16 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     dom::object child;
     const auto childErr = obj[key].get_object().get(child);
     if (childErr == NO_SUCH_FIELD) {
-        return Error::MissingField;
+        return Error::MissingField; // Don't set errorCode.
     } else if (childErr != SUCCESS) {
-        return Error::InvalidGltf;
+        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
     }
 
     uint64_t index;
     if (child["index"].get_uint64().get(index) == SUCCESS) {
         info->textureIndex = static_cast<size_t>(index);
     } else {
-        return Error::InvalidGltf;
+        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
     }
 
     if (child["texCoord"].get_uint64().get(index) == SUCCESS) {
@@ -1743,22 +1680,15 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     return Error::None;
 }
 
-fg::Error fg::glTF::parseTextures() {
+void fg::glTF::parseTextures(simdjson::dom::array& textures) {
     using namespace simdjson;
-    dom::array textures;
-    auto textureError = getJsonArray(data->root, "textures", &textures);
-    if (textureError == Error::MissingField) {
-        return Error::None;
-    } else if (textureError != Error::None) {
-        return returnError(textureError);
-    }
 
     parsedAsset->textures.reserve(textures.size());
     for (auto textureValue : textures) {
         Texture texture;
         dom::object textureObject;
         if (textureValue.get_object().get(textureObject) != SUCCESS) {
-            return returnError(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         uint64_t sourceIndex;
@@ -1780,7 +1710,7 @@ fg::Error fg::glTF::parseTextures() {
                 texture.fallbackImageIndex = texture.imageIndex;
             }
             if (!parseTextureExtensions(texture, extensionsObject, extensions)) {
-                return returnError(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
         }
 
@@ -1799,8 +1729,6 @@ fg::Error fg::glTF::parseTextures() {
 
         parsedAsset->textures.emplace_back(std::move(texture));
     }
-
-    return errorCode;
 }
 
 #pragma endregion
@@ -1860,16 +1788,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path dire
     data->unmapCallback = unmapCallback;
     data->userPointer = userPointer;
 
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
-    if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
-        errorCode = Error::InvalidOrMissingAssetField;
-        return nullptr;
-    }
-    if (!gltf->checkExtensions()) {
-        errorCode = gltf->errorCode;
-        return nullptr;
-    }
-    return gltf;
+    return std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
 }
 
 std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Options options) {
@@ -1973,14 +1892,6 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
         }
     }
 
-    if (!hasBit(options, Options::DontRequireValidAssetMember) && !gltf->checkAssetField()) {
-        errorCode = Error::InvalidOrMissingAssetField;
-        return nullptr;
-    }
-    if (!gltf->checkExtensions()) {
-        errorCode = gltf->errorCode;
-        return nullptr;
-    }
     return gltf;
 }
 

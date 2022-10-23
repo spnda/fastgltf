@@ -19,6 +19,7 @@
 namespace simdjson {
     struct padded_string;
     namespace dom {
+        class array;
         class parser;
     }
 }
@@ -35,14 +36,18 @@ namespace fastgltf {
     enum class Error : uint64_t {
         None = 0,
         InvalidPath = 1,
+        // One or more extensions were not marked as supported by the client application but are
+        // required by the glTF.
         MissingExtensions = 2,
-        UnsupportedExtensions = 3,
+        // A required extensions is not supported by fastgltf.
+        UnknownRequiredExtension = 3,
         InvalidJson = 4,
         InvalidGltf = 5,
         InvalidOrMissingAssetField = 6,
         InvalidGLB = 6,
         MissingField = 7,
         MissingExternalBuffer = 8,
+        UnsupportedVersion = 9,
     };
 
     // clang-format off
@@ -116,6 +121,40 @@ namespace fastgltf {
         return static_cast<Options>(to_underlying(a) | to_underlying(b));
     }
 
+    // clang-format off
+    enum class Category : uint32_t {
+        None        = 0,
+        Buffers     = 1 <<  0,
+        BufferViews = 1 <<  1 | Buffers,
+        Accessors   = 1 <<  2 | BufferViews,
+        Images      = 1 <<  3 | BufferViews,
+        Samplers    = 1 <<  4,
+        Textures    = 1 <<  5 | Images | Samplers,
+        Animations  = 1 <<  6 | Accessors,
+        Cameras     = 1 <<  7,
+        Materials   = 1 <<  8 | Textures,
+        Meshes      = 1 <<  9 | Accessors | Materials,
+        Skins       = 1 << 10 | Accessors | (1 << 11), // Also depends on Nodes
+        Nodes       = 1 << 11 | Cameras | Meshes | Skins,
+        Scenes      = 1 << 12 | Nodes,
+        Asset       = 1 << 13,
+
+        All = Asset | Scenes,
+    };
+    // clang-format on
+
+    constexpr Category operator&(Category a, Category b) noexcept {
+        return static_cast<Category>(to_underlying(a) & to_underlying(b));
+    }
+
+    constexpr Category operator|(Category a, Category b) noexcept {
+        return static_cast<Category>(to_underlying(a) | to_underlying(b));
+    }
+
+    constexpr Category operator|=(Category a, Category b) noexcept {
+        return static_cast<Category>(to_underlying(a) | to_underlying(b));
+    }
+
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {
         constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
@@ -161,11 +200,22 @@ namespace fastgltf {
 
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 
-        [[nodiscard]] bool checkAssetField();
-        [[nodiscard]] bool checkExtensions();
         [[nodiscard]] auto decodeUri(std::string_view uri) const noexcept -> std::tuple<Error, DataSource, DataLocation>;
-        [[nodiscard, gnu::always_inline]] inline Error returnError(Error error) noexcept;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
+
+        void parseAccessors(simdjson::dom::array& array);
+        void parseAnimations(simdjson::dom::array& array);
+        void parseBuffers(simdjson::dom::array& array);
+        void parseBufferViews(simdjson::dom::array& array);
+        void parseCameras(simdjson::dom::array& array);
+        void parseImages(simdjson::dom::array& array);
+        void parseMaterials(simdjson::dom::array& array);
+        void parseMeshes(simdjson::dom::array& array);
+        void parseNodes(simdjson::dom::array& array);
+        void parseSamplers(simdjson::dom::array& array);
+        void parseScenes(simdjson::dom::array& array);
+        void parseSkins(simdjson::dom::array& array);
+        void parseTextures(simdjson::dom::array& array);
 
     public:
         explicit glTF(const glTF& scene) = delete;
@@ -185,20 +235,10 @@ namespace fastgltf {
          */
         [[nodiscard]] Error validate();
 
-        [[nodiscard]] Error parseAll();
-        Error parseAccessors();
-        Error parseAnimations();
-        Error parseBuffers();
-        Error parseBufferViews();
-        Error parseCameras();
-        Error parseImages();
-        Error parseMaterials();
-        Error parseMeshes();
-        Error parseNodes();
-        Error parseSamplers();
-        Error parseScenes();
-        Error parseSkins();
-        Error parseTextures();
+        /**
+         * Parses all of the specified categories. Parses everything by default.
+         */
+        [[nodiscard]] Error parse(Category categories = Category::All);
     };
 
     /**
