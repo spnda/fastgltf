@@ -242,12 +242,7 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
             return false;
         }
 
-        gltf->parseScenes();
-        gltf->parseNodes();
-        gltf->parseMeshes();
-        gltf->parseAccessors();
-        gltf->parseBufferViews();
-        auto error = gltf->parseBuffers();
+        auto error = gltf->parse(fastgltf::Category::Scenes);
         if (error != fastgltf::Error::None) {
             std::cerr << "Failed to parse glTF: " << fastgltf::to_underlying(error) << std::endl;
             return false;
