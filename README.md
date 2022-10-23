@@ -1,9 +1,9 @@
 # fastgltf
 
 A superfast SIMD powered glTF 2.0 parser written in C++17 with minimal dependencies. Unlike other
-glTF parsers, it does not automatically load textures and load GLB binaries to allow the user to
+glTF parsers, it does not automatically load textures and external buffers to allow the user to
 optimise to their liking. It does, however, load embedded data and also decodes base64 encoded
-buffers.
+buffers using high speed SIMD algorithms.
 
 By utilising simdjson, this library can take advantage of SSE4, AVX2, AVX512, and ARM Neon.
 
@@ -21,14 +21,19 @@ fastgltf supports glTF 2.0:
 - [ ] Morph targets
 - [ ] Extra data
 
-fastgltf supports a number of extensions:
+fastgltf supports a number of glTF extensions:
+- [x] EXT_meshopt_compression
 - [x] KHR_texture_basisu
 - [x] KHR_texture_transform
+- [x] KHR_mesh_quantization
 - [x] MSFT_texture_dds
 
 ## Usage
 
-The project uses a fairly simple CMake 3.11 script, which you can simply add as a subdirectory.
+fastgltf is built using C++17 and only depends on simdjson, which is downloaded automatically in
+the CMake script. The library is tested on GCC 9, GCC 10, Clang 12, and MSVC 14 (Visual Studio 2022)
+using CI. The project uses a simple CMake 3.11, and can be simply used by adding fastgltf as a
+subdirectory. Also, fastgltf is available from [vcpkg](https://github.com/microsoft/vcpkg).
 
 ```cpp
 #include <fastgltf_parser.hpp>
@@ -79,23 +84,23 @@ These numbers were tested using Catch2's benchmark tool on a Ryzen 5800X with 32
 First of I compared the performance with embedded buffers that are encoded with base64. This uses
 the [2CylinderEngine asset](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/2CylinderEngine)
 which contains a 1.7MB embedded buffer. fastgltf includes an optimised base64 decoding algorithm
-that can take advantage of SSE4 and AVX2. With this asset, fastlgtf is **2.1 times faster** than
-cgltf and **7.3 times faster** than tinygltf using RapidJSON.
+that can take advantage of AVX2, SSE4, and Neon. With this asset, fastlgtf is **7.33 times faster**
+than tinygltf using RapidJSON and **2 times faster** than cgltf.
 
-![](https://cdn.discordapp.com/attachments/1019965526434394173/1025559451241021490/Mean_time_parsing_2CylinderEngine_ms_6.png)
+![](https://cdn.discordapp.com/attachments/442748131898032138/1033801846621478942/Mean_time_parsing_2CylinderEngine_ms_7.png)
 
 [Buggy.gltf](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Buggy) is another
 excellent test subject, as it's a 15k line long JSON. This shows the raw serialization speed of
-all the parsers. In this case fastgltf is **2.5 times faster** than tinygltf and **1.9** times faster
+all the parsers. In this case fastgltf is **2.3 times faster** than tinygltf and **1.7 times faster**
 than cgltf.
 
-![](https://cdn.discordapp.com/attachments/442748131898032138/1025556349465145405/Mean_time_parsing_Buggy.gltf_ms_2.png)
+![](https://cdn.discordapp.com/attachments/442748131898032138/1033801845203812352/Mean_time_parsing_Buggy.gltf_ms_3.png)
 
 ## Acknowledgments
 
-The major speedup comes from the awesome [`simdjson`](https://github.com/simdjson/simdjson) JSON
+**The major speedup comes from the awesome [`simdjson`](https://github.com/simdjson/simdjson) JSON
 library which can use a multitude of different SIMD intrinsics to increase JSON decoding speed. The
-library really shows off at massive JSON files, by parsing around 8GB/s.
+library really shows off at massive JSON files, by parsing around 8GB/s.**
 
 The SIMD-based base64 decoding algorithms come from
 [Wojciech Muła](http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html#avx2-version), which can
