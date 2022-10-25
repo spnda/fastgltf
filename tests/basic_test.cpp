@@ -317,7 +317,7 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     REQUIRE(model->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
     REQUIRE(allocations.size() == 1);
 
-    auto* asset = model->getParsedAssetPointer();
+    auto asset = model->getParsedAsset();
     REQUIRE(asset->buffers.size() == 1);
     REQUIRE(asset->buffers.front().location == fastgltf::DataLocation::CustomBufferWithId);
     REQUIRE(asset->buffers.front().data.bufferId == 0);

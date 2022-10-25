@@ -204,6 +204,16 @@ namespace fg = fastgltf;
     return vpaddq_s32(pl, ph);
 }
 
+// clang-format off
+[[gnu::aligned(16)]] static constexpr std::array<int8_t, 16> shuffleData = {
+        2,  1,  0,
+        6,  5,  4,
+        10,  9,  8,
+        14, 13, 12,
+        char(0xff), char(0xff), char(0xff), char(0xff)
+};
+// clang-fomat on
+
 void fg::base64::neon_decode(std::string_view encoded, uint8_t* output, size_t padding) {
     constexpr auto dataSetSize = 16;
     constexpr auto dataOutputSize = 12;
@@ -214,16 +224,6 @@ void fg::base64::neon_decode(std::string_view encoded, uint8_t* output, size_t p
     const auto encodedSize = encoded.size();
     const auto alignedSize = encodedSize - (encodedSize % dataSetSize);
     auto* out = output;
-
-    // clang-format off
-    [[gnu::aligned(16)]] constexpr std::array<int8_t, 16> shuffleData = {
-            2,  1,  0,
-            6,  5,  4,
-            10,  9,  8,
-            14, 13, 12,
-            char(0xff), char(0xff), char(0xff), char(0xff)
-    };
-    // clang-fomat on
 
     // Decode the first 16 long chunks with Neon intrinsics
     const auto shuffle = vreinterpretq_u8_s8(vld1q_s8(shuffleData.data()));
@@ -260,7 +260,7 @@ std::vector<uint8_t> fg::base64::neon_decode(std::string_view encoded) {
 
 // clang-format off
 // ASCII value -> base64 value LUT
-constexpr std::array<uint8_t, 128> base64lut = {
+static constexpr std::array<uint8_t, 128> base64lut = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,62,0,0,0,63,
     52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
     0,0,0,0,0,0,0,

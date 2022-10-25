@@ -34,8 +34,8 @@ namespace fastgltf {
         Mat4    = (16 << 8) | 7,
     };
 
-    // We use the top 32-bits to encode the amount of bits this component type needs.
-    // The lower 32-bits are used to store the glTF ID for the type.
+    // We use the top 16-bits to encode the amount of bits this component type needs.
+    // The lower 16-bits are used to store the glTF ID for the type.
     enum class ComponentType : uint32_t {
         Invalid         = 0,
         Byte            = ( 8 << 16) | 5120,
@@ -44,7 +44,10 @@ namespace fastgltf {
         UnsignedShort   = (16 << 16) | 5123,
         UnsignedInt     = (32 << 16) | 5125,
         Float           = (32 << 16) | 5126,
-        // Not officially in the glTF spec.
+        /**
+         * Doubles are not officially allowed by the glTF spec, but can be enabled by passing
+         * Options::AllowDouble if you require it.
+         */
         Double          = (64 << 16) | 5130,
     };
 
@@ -63,7 +66,9 @@ namespace fastgltf {
         Repeat = 10497,
     };
 
-    // Represents the intended GPU buffer type to use with this buffer view.
+    /**
+     * Represents the intended OpenGL GPU buffer type to use with this buffer view.
+     */
     enum class BufferTarget : uint16_t {
         ArrayBuffer = 34962,
         ElementArrayBuffer = 34963,
@@ -143,6 +148,10 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region ConversionFunctions
+    /**
+     * Gets the number of components for each element for the given accessor type. For example, with
+     * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
+     */
     constexpr uint32_t getNumComponents(AccessorType type) noexcept {
         return static_cast<uint32_t>((static_cast<uint16_t>(type) >> 8) & 0xFF);
     }
@@ -160,42 +169,63 @@ namespace fastgltf {
         return to_underlying(type) & 0xFFFF;
     }
 
+    /**
+     * Don't use this, use getComponenType instead.
+     * This order matters as we assume that their glTF constant is ascending to index it.
+     */
+    static constexpr std::array<ComponentType, 11> components = {
+        ComponentType::Byte,
+        ComponentType::UnsignedByte,
+        ComponentType::Short,
+        ComponentType::UnsignedShort,
+        ComponentType::Invalid, // glTF doesn't support signed 32-bit ints.
+        ComponentType::UnsignedInt,
+        ComponentType::Float,
+        ComponentType::Invalid,
+        ComponentType::Invalid,
+        ComponentType::Invalid,
+        ComponentType::Double,
+    };
+
     constexpr ComponentType getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
-        constexpr std::array<ComponentType, 7> components = {
-            ComponentType::Byte,
-            ComponentType::UnsignedByte,
-            ComponentType::Short,
-            ComponentType::UnsignedShort,
-            ComponentType::UnsignedInt,
-            ComponentType::Float,
-            ComponentType::Double
-        };
-        // This shouldn't bee too slow if called multiple times when parsing...
-        for (auto component : components) {
-            if ((to_underlying(component) & 0xFFFF) == componentType) {
-                return component;
-            }
-        }
-        return ComponentType::Invalid;
+        auto index = componentType - 5120;
+        if (index >= components.size())
+            return ComponentType::Invalid;
+        return components[index];
     }
 
+    // This order matters as we assume that their glTF constant is ascending to index it.
+    static constexpr std::array<AccessorType, 7> accessorTypes = {
+        AccessorType::Scalar,
+        AccessorType::Vec2,
+        AccessorType::Vec3,
+        AccessorType::Vec4,
+        AccessorType::Mat2,
+        AccessorType::Mat3,
+        AccessorType::Mat4,
+    };
+
+    /**
+     * Gets the AccessorType by its string representation found in glTF files.
+     */
     constexpr AccessorType getAccessorType(std::string_view accessorTypeName) noexcept {
-        constexpr std::array<std::pair<std::string_view, AccessorType>, 7> accessorPairs = {
-            {
-                {"SCALAR", AccessorType::Scalar},
-                {"VEC2", AccessorType::Vec2},
-                {"VEC3", AccessorType::Vec3},
-                {"VEC4", AccessorType::Vec4},
-                {"MAT2", AccessorType::Mat2},
-                {"MAT3", AccessorType::Mat3},
-                {"MAT4", AccessorType::Mat4},
-            },
-        };
-        for (auto [key, value] : accessorPairs) {
-            if (key == accessorTypeName) {
-                return value;
+        assert(!accessorTypeName.empty());
+        switch (accessorTypeName[0]) {
+            case 'S': return AccessorType::Scalar;
+            case 'V': {
+                auto componentCount = accessorTypeName[3] - '2';
+                if (1ULL + componentCount >= accessorTypes.size())
+                    return AccessorType::Invalid;
+                return accessorTypes[1ULL + componentCount];
+            }
+            case 'M': {
+                auto componentCount = accessorTypeName[3] - '2';
+                if (1ULL + componentCount >= accessorTypes.size())
+                    return AccessorType::Invalid;
+                return accessorTypes[4ULL + componentCount];
             }
         }
+
         return AccessorType::Invalid;
     }
 #pragma endregion
@@ -258,7 +288,7 @@ namespace fastgltf {
             struct Perspective {
                 std::optional<float> aspectRatio;
                 float yfov;
-                // If omitted, use a infinite projection matrix.
+                // If omitted, use an infinite projection matrix.
                 std::optional<float> zfar;
                 float znear;
             } perspective;

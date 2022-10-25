@@ -73,7 +73,7 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
 
         REQUIRE(gltf->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
 
-        auto* asset = gltf->getParsedAssetPointer();
+        auto asset = gltf->getParsedAsset();
         REQUIRE(asset != nullptr);
         REQUIRE(asset->buffers.size() == 1);
 
@@ -92,7 +92,7 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
 
         REQUIRE(gltf->parse(fastgltf::Category::Images | fastgltf::Category::Buffers) == fastgltf::Error::None);
 
-        auto* asset = gltf->getParsedAssetPointer();
+        auto asset = gltf->getParsedAsset();
         REQUIRE(asset != nullptr);
         REQUIRE(asset->buffers.size() == 1);
         REQUIRE(asset->images.size() == 1);

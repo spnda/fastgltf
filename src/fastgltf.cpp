@@ -12,12 +12,10 @@
 #include "simdjson.h"
 
 #ifdef SIMDJSON_TARGET_VERSION
-#define STR(x) #x
-#define STRX(x) STR(x)
+#define FASTGLTF_STRINGIFY(x) #x
+#define FASTGLTF_STRINGIFYX(x) FASTGLTF_STRINGIFY(x)
 // Make sure that SIMDJSON_TARGET_VERSION is equal to SIMDJSON_VERSION.
-static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == STRX(SIMDJSON_VERSION), "Outdated version of simdjson. Reconfigure project to update.");
-#undef STRX
-#undef STR
+static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == FASTGLTF_STRINGIFYX(SIMDJSON_VERSION), "Outdated version of simdjson. Reconfigure project to update.");
 #endif
 
 #include "fastgltf_parser.hpp"
@@ -114,7 +112,7 @@ fg::Error fg::getJsonArray(simdjson::dom::object& parent, std::string_view array
     } else if (error == SUCCESS) {
         return Error::None;
     } else {
-        return Error::InvalidGltf;
+        return Error::InvalidJson;
     }
 }
 
@@ -160,7 +158,7 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 5> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 5> extensionStrings = {{
     { fg::extensions::KHR_texture_basisu,                 fg::Extensions::KHR_texture_basisu },
     { fg::extensions::KHR_texture_transform,              fg::Extensions::KHR_texture_transform },
     { fg::extensions::MSFT_texture_dds,                   fg::Extensions::MSFT_texture_dds },
@@ -280,13 +278,6 @@ std::unique_ptr<fg::Asset> fg::glTF::getParsedAsset() {
         return nullptr;
     }
     return std::move(parsedAsset);
-}
-
-fg::Asset* fg::glTF::getParsedAssetPointer() {
-    if (errorCode != Error::None) {
-        return nullptr;
-    }
-    return parsedAsset.get();
 }
 
 fg::Error fg::glTF::validate() {
@@ -1166,32 +1157,24 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
             material.emissiveFactor = { 0, 0, 0 };
         }
 
-        {
-            TextureInfo normalTexture = {};
-            auto error = parseTextureObject(&materialObject, "normalTexture", &normalTexture);
-            if (error == Error::None) {
-                material.normalTexture = normalTexture;
-            } else if (error != Error::MissingField) {
-                SET_ERROR_RETURN(error)
-            }
+        TextureInfo textureObject = {};
+        auto error = parseTextureObject(&materialObject, "normalTexture", &textureObject);
+        if (error == Error::None) {
+            material.normalTexture = textureObject;
+        } else if (error != Error::MissingField) {
+            SET_ERROR_RETURN(error)
         }
-        {
-            TextureInfo occlusionTexture = {};
-            auto error = parseTextureObject(&materialObject, "occlusionTexture", &occlusionTexture);
-            if (error == Error::None) {
-                material.occlusionTexture = occlusionTexture;
-            } else if (error != Error::MissingField) {
-                SET_ERROR_RETURN(error)
-            }
+        error = parseTextureObject(&materialObject, "occlusionTexture", &textureObject);
+        if (error == Error::None) {
+            material.occlusionTexture = textureObject;
+        } else if (error != Error::MissingField) {
+            SET_ERROR_RETURN(error)
         }
-        {
-            TextureInfo emissiveTexture = {};
-            auto error = parseTextureObject(&materialObject, "emissiveTexture", &emissiveTexture);
-            if (error == Error::None) {
-                material.emissiveTexture = emissiveTexture;
-            } else if (error != Error::MissingField) {
-                SET_ERROR_RETURN(error)
-            }
+        error = parseTextureObject(&materialObject, "emissiveTexture", &textureObject);
+        if (error == Error::None) {
+            material.emissiveTexture = textureObject;
+        } else if (error != Error::MissingField) {
+            SET_ERROR_RETURN(error)
         }
 
         dom::object pbrMetallicRoughness;
@@ -1223,23 +1206,17 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                 pbr.roughnessFactor = 1.0f;
             }
 
-            {
-                TextureInfo baseColorTexture = {};
-                auto error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &baseColorTexture);
-                if (error == Error::None) {
-                   pbr.baseColorTexture = baseColorTexture;
-                } else if (error != Error::MissingField) {
-                    SET_ERROR_RETURN(error)
-                }
+            error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &textureObject);
+            if (error == Error::None) {
+                pbr.baseColorTexture = textureObject;
+            } else if (error != Error::MissingField) {
+                SET_ERROR_RETURN(error)
             }
-            {
-                TextureInfo metallicRoughnessTexture = {};
-                auto error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &metallicRoughnessTexture);
-                if (error == Error::None) {
-                   pbr.metallicRoughnessTexture = metallicRoughnessTexture;
-                } else if (error != Error::MissingField) {
-                    SET_ERROR_RETURN(error)
-                }
+            error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &textureObject);
+            if (error == Error::None) {
+                pbr.metallicRoughnessTexture = textureObject;
+            } else if (error != Error::MissingField) {
+                SET_ERROR_RETURN(error)
             }
 
             material.pbrData = pbr;
@@ -1320,7 +1297,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
 
                     // We iterate through the JSON object and write each key/pair value into the
                     // attributes map. This is not filtered for actual values. TODO?
-                    for (auto field : attributesObject) {
+                    for (const auto& field : attributesObject) {
                         std::string_view key = field.key;
 
                         uint64_t attributeIndex;
@@ -1399,7 +1376,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
 
                     node.children.emplace_back(static_cast<size_t>(index));
                 }
-            } else if (childError != Error::None && childError != Error::MissingField) {
+            } else if (childError != Error::MissingField) {
                 SET_ERROR_RETURN(childError)
             }
         }
@@ -1558,7 +1535,7 @@ void fg::glTF::parseScenes(simdjson::dom::array& scenes) {
             }
 
             parsedAsset->scenes.emplace_back(std::move(scene));
-        } else if (nodeError != Error::None && nodeError != Error::MissingField) {
+        } else if (nodeError != Error::MissingField) {
             SET_ERROR_RETURN(nodeError);
         }
     }

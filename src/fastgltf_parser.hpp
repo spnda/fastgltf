@@ -83,7 +83,11 @@ namespace fastgltf {
     enum class Options : uint64_t {
         None                            = 0,
         /**
-         * This allows 5130 as an accessor component type, a 64-bit double precision float.
+         * This allows 5130 as an accessor component type. 5130 is the OpenGL constant GL_DOUBLE,
+         * which is by default not listed as an allowed component type in the glTF spec.
+         *
+         * The glTF normally only allows these component types:
+         * https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#accessor-data-types
          */
         AllowDouble                     = 1 << 0,
 
@@ -179,8 +183,8 @@ namespace fastgltf {
 
         // TODO: Should this (internal) struct be redesigned?
         struct GLBBuffer {
-            size_t fileOffset;
-            size_t fileSize;
+            size_t fileOffset = 0;
+            size_t fileSize = 0;
             std::filesystem::path file;
 
             std::vector<uint8_t> buffer;
@@ -224,7 +228,6 @@ namespace fastgltf {
         ~glTF();
 
         [[nodiscard]] std::unique_ptr<Asset> getParsedAsset();
-        [[nodiscard]] Asset* getParsedAssetPointer();
 
         /**
          * This function further validates all the input that is parsed from the glTF. Note that
