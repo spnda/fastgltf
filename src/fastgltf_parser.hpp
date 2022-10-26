@@ -143,7 +143,7 @@ namespace fastgltf {
         Scenes      = 1 << 12 | Nodes,
         Asset       = 1 << 13,
 
-        All = Asset | Scenes,
+        All = Asset | Scenes | Animations,
     };
     // clang-format on
 
