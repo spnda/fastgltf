@@ -28,6 +28,11 @@ fastgltf supports a number of glTF extensions:
 - [x] KHR_mesh_quantization
 - [x] MSFT_texture_dds
 
+fastgltf brings many utilities:
+- [x] SIMD powered base64 buffer decoder
+- [x] Can decompose transform matrices, so you only ever have translation, rotation, and scale.
+- [x] Allows writing directly to mapped GPU buffers for direct uploads, reducing copies.
+
 ## Usage
 
 fastgltf is built using C++17 and only depends on simdjson, which is downloaded automatically in
@@ -83,7 +88,8 @@ In the following chapter I'll show some graphs on how fastgltf compares to the t
 libraries, cgltf and tinygltf. I've disabled loading of images and buffers to only compare the
 JSON parsing and serialization of the glTF data. I create these graphs using a spreadsheet that you
 can find [here](https://docs.google.com/spreadsheets/d/1ocdHGoty-rF0N46ZlAlswzcPHVRsqG_tncy8paD3iMY/edit?usp=sharing).
-These numbers were tested using Catch2's benchmark tool on a Ryzen 5800X with 32GB of RAM.
+These numbers were tested using Catch2's benchmark tool on a Ryzen 5800X with 32GB of RAM using
+VS 2022.
 
 First of I compared the performance with embedded buffers that are encoded with base64. This uses
 the [2CylinderEngine asset](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/2CylinderEngine)
