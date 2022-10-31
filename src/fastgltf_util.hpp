@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <type_traits>
 
 namespace fastgltf {
@@ -24,6 +25,47 @@ namespace fastgltf {
     template <typename T>
     constexpr T alignDown(T base, T alignment) {
         return base - (base % alignment);
+    }
+
+    /**
+     * Decomposes a transform matrix into the translation, rotation, and scale components. This
+     * function does not support skew, shear, or perspective. This currently uses a quick algorithm
+     * to calculate the quaternion from the rotation matrix, which might occasionally loose some
+     * precision, though we try to use doubles here.
+     */
+    inline void decomposeTransformMatrix(std::array<float, 16> matrix, std::array<float, 3>& scale, std::array<float, 4>& rotation, std::array<float, 3>& translation) {
+        // Extract the translation. We zero the translation out, as we reuse the matrix as
+        // the rotation matrix at the end.
+        translation = {matrix[12], matrix[13], matrix[14]};
+        matrix[12] = matrix[13] = matrix[14] = 0;
+
+        // Extract the scale. We calculate the euclidean length of the columns. We then
+        // construct a vector with those lengths. My gcc's stdlib doesn't include std::sqrtf
+        // for some reason...
+        auto s1 = sqrtf(matrix[0] * matrix[0] + matrix[1] * matrix[1] +  matrix[2] * matrix[2]);
+        auto s2 = sqrtf(matrix[4] * matrix[4] + matrix[5] * matrix[5] +  matrix[6] * matrix[6]);
+        auto s3 = sqrtf(matrix[8] * matrix[8] + matrix[9] * matrix[9] + matrix[10] * matrix[10]);
+        scale = {s1, s2, s3};
+
+        // Remove the scaling from the matrix, leaving only the rotation. matrix is now the
+        // rotation matrix.
+        matrix[0] /= s1; matrix[1] /= s1;  matrix[2] /= s1;
+        matrix[4] /= s2; matrix[5] /= s2;  matrix[6] /= s2;
+        matrix[8] /= s3; matrix[9] /= s3; matrix[10] /= s3;
+
+        // Construct the quaternion. This algo is copied from here:
+        // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/christian.htm.
+        // glTF orders the components as x,y,z,w
+        auto max = [](float a, float b) -> double { return (a > b) ? a : b; };
+        rotation = {
+            static_cast<float>(std::sqrt(max(0, 1 + matrix[0] - matrix[5] - matrix[10])) / 2),
+            static_cast<float>(std::sqrt(max(0, 1 - matrix[0] + matrix[5] - matrix[10])) / 2),
+            static_cast<float>(std::sqrt(max(0, 1 - matrix[0] - matrix[5] + matrix[10])) / 2),
+            static_cast<float>(std::sqrt(max(0, 1 + matrix[0] + matrix[5] + matrix[10])) / 2),
+        };
+        rotation[0] = std::copysignf(rotation[0], matrix[6] - matrix[9]);
+        rotation[1] = std::copysignf(rotation[1], matrix[8] - matrix[2]);
+        rotation[2] = std::copysignf(rotation[2], matrix[1] - matrix[4]);
     }
 
     static constexpr std::array<uint32_t, 256> crcHashTable = {

@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <fstream>
 #include <functional>
 #include <utility>
@@ -495,6 +496,12 @@ fg::Error fg::glTF::validate() {
             return Error::InvalidGltf;
         if (node.meshIndex.has_value() && parsedAsset->meshes.size() <= node.meshIndex.value())
             return Error::InvalidGltf;
+
+        if (!node.hasMatrix) {
+            for (auto& x : node.transform.trs.rotation)
+                if (x > 1.0 || x < -1.0)
+                    return Error::InvalidGltf;
+        }
     }
 
     for (const auto& scene : parsedAsset->scenes) {
@@ -1381,73 +1388,71 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
             }
         }
 
-        dom::array matrix;
-        if (nodeObject["matrix"].get_array().get(matrix) == SUCCESS) {
+        dom::array array;
+        auto error = nodeObject["matrix"].get_array().get(array);
+        if (error == SUCCESS) {
             node.hasMatrix = true;
             auto i = 0U;
-            for (auto num : matrix) {
+            for (auto num : array) {
                 double val;
                 if (num.get_double().get(val) != SUCCESS) {
                     node.hasMatrix = false;
                     break;
                 }
-                node.matrix[i] = static_cast<float>(val);
+                node.transform.matrix[i] = static_cast<float>(val);
                 ++i;
             }
-        } else {
-            // clang-format off
-            node.matrix = {
-                1.0f, 0.0f, 0.0f, 0.0f,
-                0.0f, 1.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 1.0f, 0.0f,
-                0.0f, 0.0f, 0.0f, 1.0f,
-            };
-            // clang-format on
-        }
 
-        dom::array scale;
-        if (nodeObject["scale"].get_array().get(scale) == SUCCESS) {
-            auto i = 0U;
-            for (auto num : scale) {
-                double val;
-                if (num.get_double().get(val) != SUCCESS) {
-                    SET_ERROR_RETURN(Error::InvalidGltf)
-                }
-                node.scale[i] = static_cast<float>(val);
-                ++i;
+            if (hasBit(options, Options::DecomposeNodeMatrices)) {
+                node.hasMatrix = false;
+                // Create a copy of the matrix, as we store the transform in a union.
+                auto matrix = node.transform.matrix;
+                decomposeTransformMatrix(matrix, node.transform.trs.scale, node.transform.trs.rotation, node.transform.trs.translation);
             }
-        } else {
-            node.scale = {1.0f, 1.0f, 1.0f};
-        }
+        } else if (error == NO_SUCH_FIELD) {
+            node.hasMatrix = false;
+            // There's no matrix, let's see if there's scale, rotation, or rotation fields.
+            if (nodeObject["scale"].get_array().get(array) == SUCCESS) {
+                auto i = 0U;
+                for (auto num : array) {
+                    double val;
+                    if (num.get_double().get(val) != SUCCESS) {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+                    node.transform.trs.scale[i] = static_cast<float>(val);
+                    ++i;
+                }
+            } else {
+                node.transform.trs.scale = {1.0f, 1.0f, 1.0f};
+            }
 
-        dom::array translation;
-        if (nodeObject["translation"].get_array().get(translation) == SUCCESS) {
-            auto i = 0U;
-            for (auto num : translation) {
-                double val;
-                if (num.get_double().get(val) != SUCCESS) {
-                    SET_ERROR_RETURN(Error::InvalidGltf)
+            if (nodeObject["translation"].get_array().get(array) == SUCCESS) {
+                auto i = 0U;
+                for (auto num : array) {
+                    double val;
+                    if (num.get_double().get(val) != SUCCESS) {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+                    node.transform.trs.translation[i] = static_cast<float>(val);
+                    ++i;
                 }
-                node.translation[i] = static_cast<float>(val);
-                ++i;
+            } else {
+                node.transform.trs.translation = {0.0f, 0.0f, 0.0f};
             }
-        } else {
-            node.translation = {0.0f, 0.0f, 0.0f};
-        }
 
-        dom::array rotation;
-        if (nodeObject["rotation"].get_array().get(rotation) == SUCCESS) {
-            auto i = 0U;
-            for (auto num : rotation) {
-                double val;
-                if (num.get_double().get(val) != SUCCESS) {
-                    SET_ERROR_RETURN(Error::InvalidGltf)
+            if (nodeObject["rotation"].get_array().get(array) == SUCCESS) {
+                auto i = 0U;
+                for (auto num : array) {
+                    double val;
+                    if (num.get_double().get(val) != SUCCESS) {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+                    node.transform.trs.rotation[i] = static_cast<float>(val);
+                    ++i;
                 }
-                node.rotation[i] = static_cast<float>(val);
-                ++i;
+            } else {
+                node.transform.trs.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
             }
-        } else {
-            node.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
         }
 
         // name is optional.

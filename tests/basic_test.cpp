@@ -2,6 +2,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
 
@@ -325,5 +330,89 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     for (auto& allocation : allocations) {
         REQUIRE(allocation != nullptr);
         std::free(allocation);
+    }
+}
+
+TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
+    SECTION("Test decomposition on glTF asset") {
+        auto jsonData = std::make_unique<fastgltf::JsonData>(path / "transform_matrices.gltf");
+
+        // Parse once without decomposing, once with decomposing the matrix.
+        fastgltf::Parser parser;
+        auto modelWithMatrix = parser.loadGLTF(jsonData.get(), path);
+        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(modelWithMatrix != nullptr);
+
+        REQUIRE(modelWithMatrix->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
+        auto assetWithMatrix = modelWithMatrix->getParsedAsset();
+
+        auto modelDecomposed = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DecomposeNodeMatrices);
+        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(modelWithMatrix != nullptr);
+
+        REQUIRE(modelDecomposed->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
+        auto assetDecomposed = modelDecomposed->getParsedAsset();
+
+        REQUIRE(assetWithMatrix->cameras.size() == 1);
+        REQUIRE(assetDecomposed->cameras.size() == 1);
+        REQUIRE(assetWithMatrix->nodes.size() == 2);
+        REQUIRE(assetDecomposed->nodes.size() == 2);
+        REQUIRE(assetWithMatrix->nodes.back().hasMatrix);
+        REQUIRE(!assetDecomposed->nodes.back().hasMatrix);
+
+        // Get the TRS components from the first node and use them as the test data for decomposing.
+        auto translation = glm::make_vec3(assetWithMatrix->nodes.front().transform.trs.translation.data());
+        auto rotation = glm::make_quat(assetWithMatrix->nodes.front().transform.trs.rotation.data());
+        auto scale = glm::make_vec3(assetWithMatrix->nodes.front().transform.trs.scale.data());
+        auto rotationMatrix = glm::toMat4(rotation);
+        auto transform = glm::translate(glm::mat4(1.0f), translation) * rotationMatrix * glm::scale(glm::mat4(1.0f), scale);
+
+        // Check if the parsed matrix is correct.
+        REQUIRE(glm::make_mat4x4(assetWithMatrix->nodes.back().transform.matrix.data()) == transform);
+
+        // Check if the decomposed components equal the original components.
+        REQUIRE(glm::make_vec3(assetDecomposed->nodes.back().transform.trs.translation.data()) == translation);
+        REQUIRE(glm::make_quat(assetDecomposed->nodes.back().transform.trs.rotation.data()) == rotation);
+        REQUIRE(glm::make_vec3(assetDecomposed->nodes.back().transform.trs.scale.data()) == scale);
+    }
+
+    SECTION("Test decomposition against glm decomposition") {
+        // Some random complex transform matrix from one of the glTF sample models.
+        std::array<float, 16> matrix = {
+            -0.4234085381031037,
+            -0.9059388637542724,
+            -7.575183536001616e-11,
+            0.0,
+            -0.9059388637542724,
+            0.4234085381031037,
+            -4.821281221478735e-11,
+            0.0,
+            7.575183536001616e-11,
+            4.821281221478735e-11,
+            -1.0,
+            0.0,
+            -90.59386444091796,
+            -24.379817962646489,
+            -40.05522918701172,
+            1.0
+        };
+
+        std::array<float, 3> translation = {}, scale = {};
+        std::array<float, 4> rotation = {};
+        fastgltf::decomposeTransformMatrix(matrix, scale, rotation, translation);
+
+        auto glmMatrix = glm::make_mat4x4(matrix.data());
+        glm::vec3 glmScale, glmTranslation, glmSkew;
+        glm::quat glmRotation;
+        glm::vec4 glmPerspective;
+        glm::decompose(glmMatrix, glmScale, glmRotation, glmTranslation, glmSkew, glmPerspective);
+
+        // I use glm::epsilon<float>() * 10 here because some matrices I tested this with resulted
+        // in an error margin greater than the normal epsilon value. I will investigate this in the
+        // future, but I suspect using double in the decompose functions should help mitigate most
+        // of it.
+        REQUIRE(glm::make_vec3(translation.data()) == glmTranslation);
+        REQUIRE(glm::all(glm::epsilonEqual(glm::make_quat(rotation.data()), glmRotation, glm::epsilon<float>() * 10)));
+        REQUIRE(glm::all(glm::epsilonEqual(glm::make_vec3(scale.data()), glmScale, glm::epsilon<float>())));
     }
 }

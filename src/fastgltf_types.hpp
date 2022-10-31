@@ -327,12 +327,20 @@ namespace fastgltf {
         std::optional<size_t> cameraIndex;
         std::vector<size_t> children;
 
+        union {
+            struct {
+                std::array<float, 3> translation;
+                std::array<float, 4> rotation;
+                std::array<float, 3> scale;
+            } trs;
+            /**
+             * Ordinary transformation matrix, which cannot skew or shear. Using
+             * Options::DecomposeNodeMatrices all parsed matrices will be decomposed
+             * into the TRS components found above.
+             */
+            std::array<float, 16> matrix;
+        } transform;
         bool hasMatrix = false;
-        std::array<float, 16> matrix;
-
-        std::array<float, 3> scale;
-        std::array<float, 3> translation;
-        std::array<float, 4> rotation;
 
         std::string name;
     };

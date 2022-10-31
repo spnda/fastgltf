@@ -114,6 +114,14 @@ namespace fastgltf {
          * like DirectStorage or Metal IO.
          */
         LoadExternalBuffers             = 1 << 4,
+
+        /**
+         * This option makes fastgltf automatically decompose the transformation matrices of nodes
+         * into the translation, rotation, and scale components. This might be useful to have only
+         * TRS components, instead of matrices or TRS, which should simplify working with nodes,
+         * especially with animations.
+         */
+        DecomposeNodeMatrices           = 1 << 5,
     };
     // clang-format on
 
