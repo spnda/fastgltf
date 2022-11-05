@@ -13,7 +13,8 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
 
     fastgltf::Parser parser;
 
-    auto data = std::make_unique<fastgltf::JsonData>(intel);
+    auto data = std::make_unique<fastgltf::GltfDataBuffer>();
+    data->loadFromFile(intel);
 
     BENCHMARK("Parse NewSponza with SIMD") {
         auto sponza = parser.loadGLTF(data.get(), intel.parent_path(), fastgltf::Options::None);
@@ -34,7 +35,8 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
     auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded" / "2CylinderEngine.gltf";
     auto parent = cylinderEngine.parent_path().string();
 
-    auto jsonData = std::make_unique<fastgltf::JsonData>(cylinderEngine);
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(cylinderEngine);
 
     BENCHMARK("Parse 2CylinderEngine and decode base64 with SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine.parent_path(), fastgltf::Options::None);
@@ -50,7 +52,8 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
 TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     auto cylinderEngine = path / "sample-models" / "2.0" / "Buggy" / "glTF" / "Buggy.gltf";
 
-    auto jsonData = std::make_unique<fastgltf::JsonData>(cylinderEngine);
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(cylinderEngine);
 
     fastgltf::Parser parser;
     fastgltf::Image texture;

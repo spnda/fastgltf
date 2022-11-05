@@ -190,12 +190,12 @@ glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
     /** Both a matrix and TRS values are not allowed
      * to exist at the same time according to the spec */
     if (node.hasMatrix) {
-        return base * glm::mat4x4(glm::make_mat4x4(node.matrix.data()));
+        return base * glm::mat4x4(glm::make_mat4x4(node.transform.matrix.data()));
     } else {
         return base
-            * glm::translate(glm::mat4(1.0f), glm::make_vec3(node.translation.data()))
-            * glm::toMat4(glm::make_quat(node.rotation.data()))
-            * glm::scale(glm::mat4(1.0f), glm::make_vec3(node.scale.data()));
+            * glm::translate(glm::mat4(1.0f), glm::make_vec3(node.transform.trs.translation.data()))
+            * glm::toMat4(glm::make_quat(node.transform.trs.rotation.data()))
+            * glm::scale(glm::mat4(1.0f), glm::make_vec3(node.transform.trs.scale.data()));
     }
 }
 
@@ -230,11 +230,13 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         std::unique_ptr<fastgltf::glTF> gltf;
 
         constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
+        fastgltf::GltfDataBuffer data;
+        data.loadFromFile(path);
+
         if (path.extension() == ".gltf") {
-            auto data = fastgltf::JsonData(path);
             gltf = parser.loadGLTF(&data, path.parent_path(), gltfOptions);
         } else if (path.extension() == ".glb") {
-            gltf = parser.loadBinaryGLTF(path, gltfOptions);
+            gltf = parser.loadBinaryGLTF(&data, path.parent_path(), gltfOptions);
         }
 
         if (parser.getError() != fastgltf::Error::None) {

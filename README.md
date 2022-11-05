@@ -49,14 +49,16 @@ void load(std::filesystem::path path) {
     // this across loads, but don't use it across threads.
     fastgltf::Parser parser;
 
-    // The JsonData class is designed for re-usability of the same JSON string. It contains
-    // utility functions to load data from a std::filesystem::path or copy from an existing buffer.
-    // Note that it has to outlive the process of every parsing function you call.
-    auto data = std::make_unique<fastgltf::JsonData>(path);
+    // The GltfDataBuffer class is designed for re-usability of the same JSON string. It contains
+    // utility functions to load data from a std::filesystem::path, copy from an existing buffer,
+    // or re-use an already existing allocation. Note that it has to outlive the process of every
+    // parsing function you call.
+    fastgltf::GltfDataBuffer data;
+    data.loadFromFile(path);
 
     // This loads the glTF file into the gltf object and parses the JSON. For GLB files, use
     // fastgltf::Parser::loadBinaryGLTF instead.
-    auto gltf = parser.loadGLTF(data.get(), path.parent_path(), fastgltf::Options::None);
+    auto gltf = parser.loadGLTF(&data, path.parent_path(), fastgltf::Options::None);
     if (parser.getError() != fastgltf::Error::None) {
         // File doesn't exist, couldn't be read, or is not a valid JSON document.
     }
@@ -84,10 +86,12 @@ the various vectors in the asset.
 
 ## Performance
 
+[spreadsheet-link]: https://docs.google.com/spreadsheets/d/1ocdHGoty-rF0N46ZlAlswzcPHVRsqG_tncy8paD3iMY/edit?usp=sharing
+
 In the following chapter I'll show some graphs on how fastgltf compares to the two most used glTF
 libraries, cgltf and tinygltf. I've disabled loading of images and buffers to only compare the
 JSON parsing and serialization of the glTF data. I create these graphs using a spreadsheet that you
-can find [here](https://docs.google.com/spreadsheets/d/1ocdHGoty-rF0N46ZlAlswzcPHVRsqG_tncy8paD3iMY/edit?usp=sharing).
+can find [here][spreadsheet-link].
 These numbers were tested using Catch2's benchmark tool on a Ryzen 5800X with 32GB of RAM using
 VS 2022.
 
@@ -97,14 +101,14 @@ which contains a 1.7MB embedded buffer. fastgltf includes an optimised base64 de
 that can take advantage of AVX2, SSE4, and Neon. With this asset, fastlgtf is **7.33 times faster**
 than tinygltf using RapidJSON and **2 times faster** than cgltf.
 
-![](https://cdn.discordapp.com/attachments/442748131898032138/1033801846621478942/Mean_time_parsing_2CylinderEngine_ms_7.png)
+![spreadsheet-link](https://cdn.discordapp.com/attachments/442748131898032138/1033801846621478942/Mean_time_parsing_2CylinderEngine_ms_7.png)
 
 [Buggy.gltf](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Buggy) is another
 excellent test subject, as it's a 15k line long JSON. This shows the raw serialization speed of
 all the parsers. In this case fastgltf is **2.3 times faster** than tinygltf and **1.7 times faster**
 than cgltf.
 
-![](https://cdn.discordapp.com/attachments/442748131898032138/1033801845203812352/Mean_time_parsing_Buggy.gltf_ms_3.png)
+![spreadsheet-link](https://cdn.discordapp.com/attachments/442748131898032138/1033801845203812352/Mean_time_parsing_Buggy.gltf_ms_3.png)
 
 ## Acknowledgments
 

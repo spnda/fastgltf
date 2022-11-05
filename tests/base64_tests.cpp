@@ -63,8 +63,10 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded";
     auto boxTextured = path / "sample-models" / "2.0" / "BoxTextured" / "glTF-Embedded";
 
-    auto tceJsonData = std::make_unique<fastgltf::JsonData>(cylinderEngine / "2CylinderEngine.gltf");
-    auto btJsonData = std::make_unique<fastgltf::JsonData>(boxTextured / "BoxTextured.gltf");
+    auto tceJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    tceJsonData->loadFromFile(cylinderEngine / "2CylinderEngine.gltf");
+    auto btJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    btJsonData->loadFromFile(boxTextured / "BoxTextured.gltf");
 
     SECTION("Validate large buffer load from glTF") {
         auto gltf = parser.loadGLTF(tceJsonData.get(), cylinderEngine);

@@ -1715,24 +1715,69 @@ void fg::glTF::parseTextures(simdjson::dom::array& textures) {
 
 #pragma endregion
 
-#pragma region JsonData
-fg::JsonData::JsonData(uint8_t* bytes, size_t byteCount) noexcept {
-    using namespace simdjson;
-    data = std::make_unique<padded_string>(reinterpret_cast<char*>(bytes), byteCount);
+#pragma region GltfDataBuffer
+size_t fg::getGltfBufferPadding() noexcept {
+    return simdjson::SIMDJSON_PADDING;
 }
 
-fg::JsonData::JsonData(const fs::path& path) noexcept {
+fg::GltfDataBuffer::GltfDataBuffer() noexcept = default;
+fg::GltfDataBuffer::~GltfDataBuffer() noexcept = default;
+
+bool fg::GltfDataBuffer::fromByteView(uint8_t* bytes, size_t byteCount, size_t capacity) noexcept {
     using namespace simdjson;
-    data = std::make_unique<padded_string>();
-    if (padded_string::load(path.string()).get(*data) != SUCCESS) {
-        // Not sure?
-    }
+    if (bytes == nullptr || byteCount == 0 || capacity == 0)
+        return false;
+
+    if (capacity - byteCount < simdjson::SIMDJSON_PADDING)
+        return copyBytes(bytes, byteCount);
+
+    bufferPointer = bytes;
+    allocatedSize = capacity;
+    std::memset(bufferPointer + byteCount, 0, allocatedSize - byteCount);
+    return true;
 }
 
-fg::JsonData::~JsonData() = default;
+bool fg::GltfDataBuffer::copyBytes(uint8_t* bytes, size_t byteCount) noexcept {
+    using namespace simdjson;
+    if (bytes == nullptr || byteCount == 0)
+        return false;
 
-const uint8_t* fg::JsonData::getData() const {
-    return data->u8data();
+    // Allocate a byte array with a bit of padding.
+    allocatedSize = byteCount + simdjson::SIMDJSON_PADDING;
+    buffer = std::make_unique<uint8_t[]>(allocatedSize);
+    bufferPointer = buffer.get();
+
+    // Copy the data and fill the padding region with zeros.
+    std::memcpy(bufferPointer, bytes, byteCount);
+    std::memset(bufferPointer + byteCount, 0, allocatedSize - byteCount);
+    return true;
+}
+
+bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, uint64_t byteOffset) noexcept {
+    using namespace simdjson;
+    // Open the file and determine the size.
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file.is_open() || file.bad())
+        return false;
+
+    filePath = path;
+
+    auto length = file.tellg();
+    file.seekg(static_cast<int64_t>(byteOffset), std::ifstream::beg);
+
+    auto targetSize = static_cast<uint64_t>(length) - byteOffset;
+    allocatedSize = targetSize + simdjson::SIMDJSON_PADDING;
+    buffer = std::make_unique<uint8_t[]>(allocatedSize);
+    bufferPointer = buffer.get();
+
+    // Copy the data and fill the padding region with zeros.
+    file.read(reinterpret_cast<char*>(bufferPointer), static_cast<int64_t>(targetSize));
+    std::memset(bufferPointer + targetSize, 0, allocatedSize - targetSize);
+    return true;
+}
+
+size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
+    return allocatedSize - simdjson::SIMDJSON_PADDING;
 }
 #pragma endregion
 
@@ -1747,7 +1792,7 @@ fg::Error fg::Parser::getError() const {
     return errorCode;
 }
 
-std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path directory, Options options) {
+std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
     using namespace simdjson;
 
     if (!fs::is_directory(directory)) {
@@ -1762,7 +1807,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path dire
     }
 
     auto data = std::make_unique<ParserData>();
-    if (jsonParser->parse(*jsonData->data).get(data->root) != SUCCESS) {
+    if (jsonParser->parse(padded_string_view(buffer->bufferPointer, buffer->getBufferSize(), buffer->allocatedSize)).get(data->root) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }
@@ -1773,26 +1818,20 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(JsonData* jsonData, fs::path dire
     return std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
 }
 
-std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Options options) {
+std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
     using namespace simdjson;
 
-    if (!fs::is_regular_file(file)) {
+    if (!fs::is_directory(directory)) {
         errorCode = Error::InvalidPath;
         return nullptr;
     }
 
     errorCode = Error::None;
 
-#if defined(DEBUG) || defined(_DEBUG)
-    std::ifstream gltfFile(file, std::ios::ate | std::ios::binary);
-    auto length = gltfFile.tellg();
-    gltfFile.seekg(0, std::ifstream::beg);
-#else
-    std::ifstream gltfFile(file, std::ios::binary);
-#endif
-
-    auto read = [&gltfFile](void* dst, size_t size) mutable {
-        gltfFile.read(static_cast<char*>(dst), static_cast<int64_t>(size));
+    size_t offset = 0UL;
+    auto read = [&buffer, &offset](void* dst, size_t size) mutable {
+        std::memcpy(dst, buffer->bufferPointer + offset, size);
+        offset += size;
     };
 
     BinaryGltfHeader header = {};
@@ -1801,12 +1840,10 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
         errorCode = Error::InvalidGLB;
         return nullptr;
     }
-#if defined(DEBUG) || defined(_DEBUG)
-    if (header.length != length) {
+    if (header.length >= buffer->allocatedSize) {
         errorCode = Error::InvalidGLB;
         return nullptr;
     }
-#endif
 
     // The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
     //  1. JSON chunk
@@ -1837,10 +1874,10 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
     data->unmapCallback = unmapCallback;
     data->userPointer = userPointer;
 
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), file.parent_path(), options, extensions));
+    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), directory, options, extensions));
 
     // Is there enough room for another chunk header?
-    if (header.length > (static_cast<uint32_t>(gltfFile.tellg()) + sizeof(BinaryGltfChunk))) {
+    if (header.length > (offset + sizeof(BinaryGltfChunk))) {
         BinaryGltfChunk binaryChunk = {};
         read(&binaryChunk, sizeof binaryChunk);
 
@@ -1851,7 +1888,8 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
 
         auto& glb = gltf->glb;
         glb = std::make_unique<glTF::GLBBuffer>();
-        glb->file = file;
+        if (!buffer->filePath.empty())
+            glb->file = buffer->filePath;
 
         if (hasBit(options, Options::LoadGLBBuffers)) {
             if (gltf->data->mapCallback != nullptr) {
@@ -1869,7 +1907,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(const fs::path& file, Optio
                 read(glb->buffer.data(), binaryChunk.chunkLength);
             }
         } else {
-            glb->fileOffset = static_cast<size_t>(gltfFile.tellg());
+            glb->fileOffset = offset;
             glb->fileSize = binaryChunk.chunkLength;
         }
     }

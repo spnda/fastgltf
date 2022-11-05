@@ -53,13 +53,15 @@ TEST_CASE("Component type tests", "[gltf-loader]") {
 TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
     fastgltf::Parser parser;
     SECTION("Loading basic invalid glTF files") {
-        auto jsonData = std::make_unique<fastgltf::JsonData>(path / "empty_json.gltf");
+        auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+        jsonData->loadFromFile(path / "empty_json.gltf");
         auto emptyGltf = parser.loadGLTF(jsonData.get(), path);
         REQUIRE(emptyGltf->parse() == fastgltf::Error::InvalidOrMissingAssetField);
     }
 
     SECTION("Load basic glTF file") {
-        auto basicJsonData = std::make_unique<fastgltf::JsonData>(path / "basic_gltf.gltf");
+        auto basicJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+        basicJsonData->loadFromFile(path / "basic_gltf.gltf");
         auto basicGltf = parser.loadGLTF(basicJsonData.get(), path);
         REQUIRE(basicGltf != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
@@ -67,7 +69,8 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
     SECTION("Loading basic Cube.gltf") {
         auto cubePath = path / "sample-models" / "2.0" / "Cube" / "glTF";
-        auto cubeJsonData = std::make_unique<fastgltf::JsonData>(cubePath / "Cube.gltf");
+        auto cubeJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+        cubeJsonData->loadFromFile(cubePath / "Cube.gltf");
         auto cubeGltf = parser.loadGLTF(cubeJsonData.get(), cubePath);
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(cubeGltf != nullptr);
@@ -107,7 +110,8 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
     SECTION("Loading basic Box.gltf") {
         auto boxPath = path / "sample-models" / "2.0" / "Box" / "glTF";
-        auto boxJsonData = std::make_unique<fastgltf::JsonData>(boxPath / "Box.gltf");
+        auto boxJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+        boxJsonData->loadFromFile(boxPath / "Box.gltf");
         auto boxGltf = parser.loadGLTF(boxJsonData.get(), boxPath);
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(boxGltf != nullptr);
@@ -136,7 +140,8 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU";
 
-    auto jsonData = std::make_unique<fastgltf::JsonData>(stainedLamp / "StainedGlassLamp.gltf");
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(stainedLamp / "StainedGlassLamp.gltf");
 
     SECTION("Loading KHR_texture_basisu") {
         fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_basisu);
@@ -171,7 +176,8 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
 TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
     auto transformTest = path / "sample-models" / "2.0" / "TextureTransformMultiTest" / "glTF";
 
-    auto jsonData = std::make_unique<fastgltf::JsonData>(transformTest / "TextureTransformMultiTest.gltf");
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(transformTest / "TextureTransformMultiTest.gltf");
 
     fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_transform);
     auto test = parser.loadGLTF(jsonData.get(), transformTest, fastgltf::Options::DontRequireValidAssetMember);
@@ -193,7 +199,8 @@ TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
 TEST_CASE("Loading glTF animation", "[gltf-loader]") {
     auto animatedCube = path / "sample-models" / "2.0" / "AnimatedCube" / "glTF";
 
-    auto jsonData = std::make_unique<fastgltf::JsonData>(animatedCube / "AnimatedCube.gltf");
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(animatedCube / "AnimatedCube.gltf");
 
     fastgltf::Parser parser;
     auto cube = parser.loadGLTF(jsonData.get(), animatedCube);
@@ -222,7 +229,8 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
 TEST_CASE("Loading glTF skins", "[gltf-loader]") {
     auto simpleSkin = path / "sample-models" / "2.0" / "SimpleSkin" / "glTF";
 
-    auto jsonData = std::make_unique<fastgltf::JsonData>(simpleSkin / "SimpleSkin.gltf");
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(simpleSkin / "SimpleSkin.gltf");
 
     fastgltf::Parser parser;
     auto model = parser.loadGLTF(jsonData.get(), simpleSkin);
@@ -250,7 +258,8 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
 
 TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
     auto cameras = path / "sample-models" / "2.0" / "Cameras" / "glTF";
-    auto jsonData = std::make_unique<fastgltf::JsonData>(cameras / "Cameras.gltf");
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(cameras / "Cameras.gltf");
 
     fastgltf::Parser parser;
     auto model = parser.loadGLTF(jsonData.get(), cameras);
@@ -278,7 +287,8 @@ TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
 
 TEST_CASE("Validate whole glTF", "[gltf-loader]") {
     auto sponza = path / "sample-models" / "2.0" / "Sponza" / "glTF";
-    auto jsonData = std::make_unique<fastgltf::JsonData>(sponza / "Sponza.gltf");
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(sponza / "Sponza.gltf");
 
     fastgltf::Parser parser;
     auto model = parser.loadGLTF(jsonData.get(), sponza);
@@ -289,7 +299,8 @@ TEST_CASE("Validate whole glTF", "[gltf-loader]") {
     REQUIRE(model->validate() == fastgltf::Error::None);
 
     auto brainStem = path / "sample-models" / "2.0" / "BrainStem" / "glTF";
-    jsonData = std::make_unique<fastgltf::JsonData>(brainStem / "BrainStem.gltf");
+    jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(brainStem / "BrainStem.gltf");
 
     model = parser.loadGLTF(jsonData.get(), brainStem);
     REQUIRE(parser.getError() == fastgltf::Error::None);
@@ -301,7 +312,8 @@ TEST_CASE("Validate whole glTF", "[gltf-loader]") {
 
 TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     auto boxPath = path / "sample-models" / "2.0" / "Box" / "glTF-Embedded";
-    auto jsonData = std::make_unique<fastgltf::JsonData>(boxPath / "Box.gltf");
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(boxPath / "Box.gltf");
 
     std::vector<void*> allocations;
 
@@ -335,7 +347,8 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
 
 TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
     SECTION("Test decomposition on glTF asset") {
-        auto jsonData = std::make_unique<fastgltf::JsonData>(path / "transform_matrices.gltf");
+        auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(path / "transform_matrices.gltf");
 
         // Parse once without decomposing, once with decomposing the matrix.
         fastgltf::Parser parser;

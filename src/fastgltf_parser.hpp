@@ -17,7 +17,6 @@
 
 // fwd
 namespace simdjson {
-    struct padded_string;
     namespace dom {
         class array;
         class parser;
@@ -253,23 +252,53 @@ namespace fastgltf {
     };
 
     /**
-     * This class represents a chunk of data that makes up a JSON string. It is reusable to
-     * reduce memory allocations though has to outlive the glTF object that is created from this.
-     * It is not needed when loading GLB files.
+     * Gets the amount of byte padding required on the GltfDataBuffer, as simdjson requires to be
+     * able to overflow as it uses SIMD to load N bytes at a time.
      */
-    class JsonData {
+    size_t getGltfBufferPadding() noexcept;
+
+    /**
+     * This class holds a chunk of data that makes up a JSON string that the glTF parser will use
+     * and read from.
+     */
+    class GltfDataBuffer {
         friend class Parser;
 
-        std::unique_ptr<simdjson::padded_string> data;
+        size_t allocatedSize = 0;
+        uint8_t* bufferPointer = nullptr;
+
+        std::unique_ptr<uint8_t[]> buffer;
+
+        std::filesystem::path filePath = {};
 
     public:
-        explicit JsonData(uint8_t* bytes, size_t byteCount) noexcept;
-        // If this constructor fails, getData will return nullptr.
-        explicit JsonData(const std::filesystem::path& path) noexcept;
+        explicit GltfDataBuffer() noexcept;
+        ~GltfDataBuffer() noexcept;
 
-        ~JsonData();
+        /**
+         * Saves the pointer including its range. Does not copy any data. This requires the
+         * original allocation to outlive the parsing of the glTF, so after the last relevant
+         * call to fastgltf::glTF::parse. However, this function asks for a capacity size, as
+         * the JSON parsing requires some padding. See getGltfBufferPadding for more information.
+         * If the capacity does not have enough padding, the function will instead copy the bytes
+         * with the copyBytes method. Also, it will set the padding bytes all to 0, so be sure to
+         * not use that for any other data.
+         */
+        bool fromByteView(uint8_t* bytes, size_t byteCount, size_t capacity) noexcept;
+        /**
+         * This will create a copy of the passed bytes and allocate a adequately sized buffer.
+         */
+        bool copyBytes(uint8_t* bytes, size_t byteCount) noexcept;
+        /**
+         * Loads the file with a optional byte offset into a memory buffer.
+         */
+        bool loadFromFile(const std::filesystem::path& path, uint64_t byteOffset = 0) noexcept;
 
-        [[nodiscard, gnu::const]] const uint8_t* getData() const;
+        /**
+         * Returns the size, in bytes,
+         * @return
+         */
+        [[nodiscard]] inline size_t getBufferSize() const noexcept;
     };
 
     /**
@@ -307,8 +336,8 @@ namespace fastgltf {
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
          * @return A glTF instance or nullptr if an error occurred.
          */
-        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(JsonData* jsonData, std::filesystem::path directory, Options options = Options::None);
-        [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(const std::filesystem::path& file, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None);
+        [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None);
 
         /**
          * This function can be used to set callbacks so that you can control memory allocation for
