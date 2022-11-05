@@ -2,6 +2,7 @@ add_library(fastgltf)
 add_library(fastgltf::fastgltf ALIAS fastgltf)
 target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> $<INSTALL_INTERFACE:include>)
 target_compile_features(fastgltf PUBLIC cxx_std_17)
+set_property(TARGET fastgltf PROPERTY C_STANDARD 90) #C89/90
 compiler_flags(TARGET fastgltf)
 
 set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
@@ -19,7 +20,7 @@ endif()
 add_source_directory(TARGET fastgltf FOLDER ".")
 
 install(
-    FILES "base64_decode.hpp" "fastgltf_parser.hpp" "fastgltf_types.hpp" "fastgltf_util.hpp"
+    FILES "base64_decode.hpp" "fastgltf_parser.hpp" "fastgltf_types.hpp" "fastgltf_util.hpp" "fastgltf_c.h"
     TYPE INCLUDE
 )
 

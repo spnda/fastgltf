@@ -54,8 +54,6 @@ namespace fastgltf {
     constexpr auto hashTextures = crc32("textures");
 
     struct ParserData {
-        // Can simdjson not store this data itself?
-        std::vector<uint8_t> bytes;
         simdjson::dom::document doc;
         simdjson::dom::object root;
 
@@ -1815,7 +1813,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
     data->unmapCallback = unmapCallback;
     data->userPointer = userPointer;
 
-    return std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
+    return std::unique_ptr<glTF>(new (std::nothrow) glTF(std::move(data), std::move(directory), options, extensions));
 }
 
 std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
@@ -1874,7 +1872,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
     data->unmapCallback = unmapCallback;
     data->userPointer = userPointer;
 
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), directory, options, extensions));
+    auto gltf = std::unique_ptr<glTF>(new (std::nothrow) glTF(std::move(data), directory, options, extensions));
 
     // Is there enough room for another chunk header?
     if (header.length > (offset + sizeof(BinaryGltfChunk))) {
