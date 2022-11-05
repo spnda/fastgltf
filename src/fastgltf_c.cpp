@@ -3,9 +3,18 @@
 #include <fastgltf_parser.hpp>
 #include <fastgltf_types.hpp>
 
+fastgltf_component_type fastgltf_get_component_type(unsigned int componentType) {
+    return static_cast<fastgltf_component_type>(fastgltf::getComponentType(
+        static_cast<std::underlying_type_t<fastgltf::ComponentType>>(componentType)));
+}
+
+fastgltf_accessor_type fastgltf_get_accessor_type(const char* string) {
+    return static_cast<fastgltf_accessor_type>(fastgltf::getAccessorType(std::string_view { string }));
+}
+
 fastgltf_parser* fastgltf_create_parser(fastgltf_extensions extensions) {
     return reinterpret_cast<fastgltf_parser*>(
-        new fastgltf::Parser(static_cast<fastgltf::Extensions>(extensions)));
+        new (std::nothrow) fastgltf::Parser(static_cast<fastgltf::Extensions>(extensions)));
 }
 
 void fastgltf_destroy_parser(fastgltf_parser* parser) {
@@ -50,7 +59,8 @@ void fastgltf_destroy_gltf(fastgltf_gltf* gltf) {
 }
 
 fastgltf_error fastgltf_parse(fastgltf_gltf* gltf, fastgltf_category categories) {
-    return static_cast<fastgltf_error>(reinterpret_cast<fastgltf::glTF*>(gltf)->parse(static_cast<fastgltf::Category>(categories)));
+    return static_cast<fastgltf_error>(
+        reinterpret_cast<fastgltf::glTF*>(gltf)->parse(static_cast<fastgltf::Category>(categories)));
 }
 
 fastgltf_asset* fastgltf_get_parsed_asset(fastgltf_gltf* gltf) {

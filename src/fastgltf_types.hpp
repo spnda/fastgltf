@@ -122,28 +122,28 @@ namespace fastgltf {
     };
 
     enum class CameraType : uint8_t {
-        Perspective,
-        Orthographic,
+        Perspective = 0,
+        Orthographic = 1,
     };
 
     enum class AlphaMode : uint8_t {
-        Opaque,
-        Mask,
-        Blend,
+        Opaque = 0,
+        Mask = 1,
+        Blend = 2,
     };
 
     enum class MeshoptCompressionMode : uint8_t {
         None = 0,
-        Attributes,
-        Triangles,
-        Indices,
+        Attributes = 1,
+        Triangles = 2,
+        Indices = 3,
     };
 
     enum class MeshoptCompressionFilter : uint8_t {
         None = 0,
-        Octahedral,
-        Quaternion,
-        Exponential,
+        Octahedral = 1,
+        Quaternion = 2,
+        Exponential = 3,
     };
     // clang-format on
 #pragma endregion
@@ -154,11 +154,11 @@ namespace fastgltf {
      * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
      */
     constexpr uint32_t getNumComponents(AccessorType type) noexcept {
-        return static_cast<uint32_t>((static_cast<uint16_t>(type) >> 8) & 0xFF);
+        return static_cast<uint32_t>((to_underlying(type) >> 8) & 0xFF);
     }
 
     constexpr uint32_t getComponentBitSize(ComponentType componentType) noexcept {
-        auto masked = static_cast<uint32_t>(componentType) & 0xFFFF0000;
+        auto masked = to_underlying(componentType) & 0xFFFF0000;
         return (masked >> 16);
     }
 
