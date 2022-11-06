@@ -15,7 +15,7 @@ namespace fastgltf::base64 {
      * points to the original string that has a size that is a multiple of 4 and is at least
      * 4 chars long.
      */
-    [[gnu::always_inline]] inline size_t getPadding(std::string_view string) {
+    [[gnu::always_inline]] constexpr size_t getPadding(std::string_view string) {
         assert(string.size() >= 4 && string.size() % 4 == 0);
         size_t padding = 0;
         const auto size = string.size();
@@ -31,7 +31,7 @@ namespace fastgltf::base64 {
      * Calculates the size of the decoded string based on the size of the base64 encoded string and
      * the amount of padding the encoded data contains.
      */
-    [[gnu::always_inline]] inline size_t getOutputSize(size_t encodedSize, size_t padding) noexcept {
+    [[gnu::always_inline]] constexpr size_t getOutputSize(size_t encodedSize, size_t padding) noexcept {
         assert(encodedSize % 4 == 0);
         return (encodedSize / 4) * 3 - padding;
     }
