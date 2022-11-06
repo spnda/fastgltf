@@ -353,23 +353,18 @@ fg::Error fg::glTF::validate() {
     }
 
     for (const auto& camera : parsedAsset->cameras) {
-        switch (camera.type) {
-            case CameraType::Orthographic: {
-                if (camera.camera.orthographic.zfar == 0)
-                    return Error::InvalidGltf;
-                break;
-            }
-            case CameraType::Perspective: {
-                if (camera.camera.perspective.aspectRatio.has_value() && camera.camera.perspective.aspectRatio == 0)
-                    return Error::InvalidGltf;
-                if (camera.camera.perspective.yfov == 0)
-                    return Error::InvalidGltf;
-                if (camera.camera.perspective.zfar.has_value() && camera.camera.perspective.zfar == 0)
-                    return Error::InvalidGltf;
-                if (camera.camera.perspective.znear == 0.0f)
-                    return Error::InvalidGltf;
-                break;
-            }
+        if (const auto* pOrthographic = std::get_if<Camera::Orthographic>(&camera.camera)) {
+            if (pOrthographic->zfar == 0)
+                return Error::InvalidGltf;
+        } else if (const auto* pPerspective = std::get_if<Camera::Perspective>(&camera.camera)) {
+            if (pPerspective->aspectRatio.has_value() && pPerspective->aspectRatio == 0)
+                return Error::InvalidGltf;
+            if (pPerspective->yfov == 0)
+                return Error::InvalidGltf;
+            if (pPerspective->zfar.has_value() && pPerspective->zfar == 0)
+                return Error::InvalidGltf;
+            if (pPerspective->znear == 0.0f)
+                return Error::InvalidGltf;
         }
     }
 
@@ -497,8 +492,8 @@ fg::Error fg::glTF::validate() {
         if (node.meshIndex.has_value() && parsedAsset->meshes.size() <= node.meshIndex.value())
             return Error::InvalidGltf;
 
-        if (!node.hasMatrix) {
-            for (auto& x : node.transform.trs.rotation)
+        if (const auto* pTRS = std::get_if<Node::TRS>(&node.transform)) {
+            for (auto& x : pTRS->rotation)
                 if (x > 1.0 || x < -1.0)
                     return Error::InvalidGltf;
         }
@@ -1011,14 +1006,12 @@ void fg::glTF::parseCameras(simdjson::dom::array& cameras) {
         }
 
         if (type == "perspective") {
-            camera.type = CameraType::Perspective;
-
             dom::object perspectiveCamera;
             if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
-            auto& perspective = camera.camera.perspective;
+            Camera::Perspective perspective = {};
             double value;
             if (perspectiveCamera["aspectRatio"].get_double().get(value) == SUCCESS) {
                 perspective.aspectRatio = static_cast<float>(value);
@@ -1038,15 +1031,15 @@ void fg::glTF::parseCameras(simdjson::dom::array& cameras) {
             } else {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-        } else if (type == "orthographic") {
-            camera.type = CameraType::Orthographic;
 
+            camera.camera = perspective;
+        } else if (type == "orthographic") {
             dom::object orthographicCamera;
             if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
-            auto& orthographic = camera.camera.orthographic;
+            Camera::Orthographic orthographic = {};
             double value;
             if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) {
                 orthographic.xmag = static_cast<float>(value);
@@ -1071,6 +1064,8 @@ void fg::glTF::parseCameras(simdjson::dom::array& cameras) {
             } else {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
+
+            camera.camera = orthographic;
         } else {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
@@ -1391,26 +1386,27 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
         dom::array array;
         auto error = nodeObject["matrix"].get_array().get(array);
         if (error == SUCCESS) {
-            node.hasMatrix = true;
+            Node::TransformMatrix transformMatrix = {};
             auto i = 0U;
             for (auto num : array) {
                 double val;
                 if (num.get_double().get(val) != SUCCESS) {
-                    node.hasMatrix = false;
                     break;
                 }
-                node.transform.matrix[i] = static_cast<float>(val);
+                transformMatrix[i] = static_cast<float>(val);
                 ++i;
             }
 
             if (hasBit(options, Options::DecomposeNodeMatrices)) {
-                node.hasMatrix = false;
-                // Create a copy of the matrix, as we store the transform in a union.
-                auto matrix = node.transform.matrix;
-                decomposeTransformMatrix(matrix, node.transform.trs.scale, node.transform.trs.rotation, node.transform.trs.translation);
+                Node::TRS trs = {};
+                decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
+                node.transform = trs;
+            } else {
+                node.transform = transformMatrix;
             }
         } else if (error == NO_SUCH_FIELD) {
-            node.hasMatrix = false;
+            Node::TRS trs = {};
+
             // There's no matrix, let's see if there's scale, rotation, or rotation fields.
             if (nodeObject["scale"].get_array().get(array) == SUCCESS) {
                 auto i = 0U;
@@ -1419,11 +1415,11 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     if (num.get_double().get(val) != SUCCESS) {
                         SET_ERROR_RETURN(Error::InvalidGltf)
                     }
-                    node.transform.trs.scale[i] = static_cast<float>(val);
+                    trs.scale[i] = static_cast<float>(val);
                     ++i;
                 }
             } else {
-                node.transform.trs.scale = {1.0f, 1.0f, 1.0f};
+                trs.scale = {1.0f, 1.0f, 1.0f};
             }
 
             if (nodeObject["translation"].get_array().get(array) == SUCCESS) {
@@ -1433,11 +1429,11 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     if (num.get_double().get(val) != SUCCESS) {
                         SET_ERROR_RETURN(Error::InvalidGltf)
                     }
-                    node.transform.trs.translation[i] = static_cast<float>(val);
+                    trs.translation[i] = static_cast<float>(val);
                     ++i;
                 }
             } else {
-                node.transform.trs.translation = {0.0f, 0.0f, 0.0f};
+                trs.translation = {0.0f, 0.0f, 0.0f};
             }
 
             if (nodeObject["rotation"].get_array().get(array) == SUCCESS) {
@@ -1447,12 +1443,14 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     if (num.get_double().get(val) != SUCCESS) {
                         SET_ERROR_RETURN(Error::InvalidGltf)
                     }
-                    node.transform.trs.rotation[i] = static_cast<float>(val);
+                    trs.rotation[i] = static_cast<float>(val);
                     ++i;
                 }
             } else {
-                node.transform.trs.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
+                trs.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
             }
+
+            node.transform = trs;
         }
 
         // name is optional.

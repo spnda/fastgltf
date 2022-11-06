@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
+#include <variant>
 
 #include "fastgltf_util.hpp"
 
@@ -121,8 +122,8 @@ namespace fastgltf {
     };
 
     enum class CameraType : uint8_t {
-        Perspective,
-        Orthographic,
+        Perspective = 0,
+        Orthographic = 1,
     };
 
     enum class AlphaMode : uint8_t {
@@ -278,23 +279,25 @@ namespace fastgltf {
     };
 
     struct Camera {
-        union {
-            struct Orthographic {
-                float xmag;
-                float ymag;
-                float zfar;
-                float znear;
-            } orthographic;
-            struct Perspective {
-                std::optional<float> aspectRatio;
-                float yfov;
-                // If omitted, use an infinite projection matrix.
-                std::optional<float> zfar;
-                float znear;
-            } perspective;
-        } camera;
+        struct Orthographic {
+            float xmag;
+            float ymag;
+            float zfar;
+            float znear;
+        };
+        struct Perspective {
+            std::optional<float> aspectRatio;
+            float yfov;
+            // If omitted, use an infinite projection matrix.
+            std::optional<float> zfar;
+            float znear;
+        };
 
-        CameraType type;
+        /**
+         * Variant holding either a perspective or a orthographic camera. Use std::holds_alternative
+         * and/or std::get_if to figure out which camera type is being used.
+         */
+        std::variant<Perspective, Orthographic> camera;
         std::string name;
     };
 
@@ -327,20 +330,19 @@ namespace fastgltf {
         std::optional<size_t> cameraIndex;
         std::vector<size_t> children;
 
-        union {
-            struct {
-                std::array<float, 3> translation;
-                std::array<float, 4> rotation;
-                std::array<float, 3> scale;
-            } trs;
-            /**
-             * Ordinary transformation matrix, which cannot skew or shear. Using
-             * Options::DecomposeNodeMatrices all parsed matrices will be decomposed
-             * into the TRS components found above.
-             */
-            std::array<float, 16> matrix;
-        } transform;
-        bool hasMatrix = false;
+        struct TRS {
+            std::array<float, 3> translation;
+            std::array<float, 4> rotation;
+            std::array<float, 3> scale;
+        };
+        using TransformMatrix = std::array<float, 16>;
+
+        /**
+         * Variant holding either the three TRS components; transform, rotation, and scale, or a
+         * transformation matrix, which cannot skew or shear. The latter can be decomposed into
+         * the TRS components by specifying Options::DecomposeNodeMatrices.
+         */
+        std::variant<TRS, TransformMatrix> transform;
 
         std::string name;
     };

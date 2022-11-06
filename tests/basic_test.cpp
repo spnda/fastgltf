@@ -84,7 +84,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
         REQUIRE(cube->nodes.size() == 1);
         REQUIRE(cube->nodes.front().name == "Cube");
-        REQUIRE(!cube->nodes.front().hasMatrix);
+        REQUIRE(std::holds_alternative<fastgltf::Node::TRS>(cube->nodes.front().transform));
 
         REQUIRE(cube->accessors.size() == 5);
         REQUIRE(cube->accessors[0].type == fastgltf::AccessorType::Scalar);
@@ -271,18 +271,22 @@ TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
     auto asset = model->getParsedAsset();
     REQUIRE(asset->cameras.size() == 2);
 
-    REQUIRE(asset->cameras[0].type == fastgltf::CameraType::Perspective);
-    REQUIRE(asset->cameras[1].type == fastgltf::CameraType::Orthographic);
+    REQUIRE(std::holds_alternative<fastgltf::Camera::Perspective>(asset->cameras[0].camera));
+    REQUIRE(std::holds_alternative<fastgltf::Camera::Orthographic>(asset->cameras[1].camera));
 
-    REQUIRE(asset->cameras[0].camera.perspective.aspectRatio == 1.0f);
-    REQUIRE(asset->cameras[0].camera.perspective.yfov == 0.7f);
-    REQUIRE(asset->cameras[0].camera.perspective.zfar == 100);
-    REQUIRE(asset->cameras[0].camera.perspective.znear == 0.01f);
+    const auto* pPerspective = std::get_if<fastgltf::Camera::Perspective>(&asset->cameras[0].camera);
+    REQUIRE(pPerspective != nullptr);
+    REQUIRE(pPerspective->aspectRatio == 1.0f);
+    REQUIRE(pPerspective->yfov == 0.7f);
+    REQUIRE(pPerspective->zfar == 100);
+    REQUIRE(pPerspective->znear == 0.01f);
 
-    REQUIRE(asset->cameras[1].camera.orthographic.xmag == 1.0f);
-    REQUIRE(asset->cameras[1].camera.orthographic.ymag == 1.0f);
-    REQUIRE(asset->cameras[1].camera.orthographic.zfar == 100);
-    REQUIRE(asset->cameras[1].camera.orthographic.znear == 0.01f);
+    const auto* pOrthographic = std::get_if<fastgltf::Camera::Orthographic>(&asset->cameras[1].camera);
+    REQUIRE(pOrthographic != nullptr);
+    REQUIRE(pOrthographic->xmag == 1.0f);
+    REQUIRE(pOrthographic->ymag == 1.0f);
+    REQUIRE(pOrthographic->zfar == 100);
+    REQUIRE(pOrthographic->znear == 0.01f);
 }
 
 TEST_CASE("Validate whole glTF", "[gltf-loader]") {
@@ -370,23 +374,28 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
         REQUIRE(assetDecomposed->cameras.size() == 1);
         REQUIRE(assetWithMatrix->nodes.size() == 2);
         REQUIRE(assetDecomposed->nodes.size() == 2);
-        REQUIRE(assetWithMatrix->nodes.back().hasMatrix);
-        REQUIRE(!assetDecomposed->nodes.back().hasMatrix);
+        REQUIRE(std::holds_alternative<fastgltf::Node::TransformMatrix>(assetWithMatrix->nodes.back().transform));
+        REQUIRE(std::holds_alternative<fastgltf::Node::TRS>(assetDecomposed->nodes.back().transform));
 
         // Get the TRS components from the first node and use them as the test data for decomposing.
-        auto translation = glm::make_vec3(assetWithMatrix->nodes.front().transform.trs.translation.data());
-        auto rotation = glm::make_quat(assetWithMatrix->nodes.front().transform.trs.rotation.data());
-        auto scale = glm::make_vec3(assetWithMatrix->nodes.front().transform.trs.scale.data());
+        const auto* pDefaultTRS = std::get_if<fastgltf::Node::TRS>(&assetWithMatrix->nodes.front().transform);
+        REQUIRE(pDefaultTRS != nullptr);
+        auto translation = glm::make_vec3(pDefaultTRS->translation.data());
+        auto rotation = glm::make_quat(pDefaultTRS->rotation.data());
+        auto scale = glm::make_vec3(pDefaultTRS->scale.data());
         auto rotationMatrix = glm::toMat4(rotation);
         auto transform = glm::translate(glm::mat4(1.0f), translation) * rotationMatrix * glm::scale(glm::mat4(1.0f), scale);
 
         // Check if the parsed matrix is correct.
-        REQUIRE(glm::make_mat4x4(assetWithMatrix->nodes.back().transform.matrix.data()) == transform);
+        const auto* pMatrix = std::get_if<fastgltf::Node::TransformMatrix>(&assetWithMatrix->nodes.back().transform);
+        REQUIRE(pMatrix != nullptr);
+        REQUIRE(glm::make_mat4x4(pMatrix->data()) == transform);
 
         // Check if the decomposed components equal the original components.
-        REQUIRE(glm::make_vec3(assetDecomposed->nodes.back().transform.trs.translation.data()) == translation);
-        REQUIRE(glm::make_quat(assetDecomposed->nodes.back().transform.trs.rotation.data()) == rotation);
-        REQUIRE(glm::make_vec3(assetDecomposed->nodes.back().transform.trs.scale.data()) == scale);
+        const auto* pDecomposedTRS = std::get_if<fastgltf::Node::TRS>(&assetDecomposed->nodes.back().transform);
+        REQUIRE(glm::make_vec3(pDecomposedTRS->translation.data()) == translation);
+        REQUIRE(glm::make_quat(pDecomposedTRS->rotation.data()) == rotation);
+        REQUIRE(glm::make_vec3(pDecomposedTRS->scale.data()) == scale);
     }
 
     SECTION("Test decomposition against glm decomposition") {
