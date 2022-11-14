@@ -9,6 +9,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <fastgltf_parser.hpp>
 #include <fastgltf_types.hpp>
 
@@ -16,25 +19,47 @@ constexpr std::string_view vertexShaderSource = R"(
     #version 460 core
 
     layout(location = 0) in vec3 position;
+    layout(location = 1) in vec2 inTexCoord;
 
     uniform mat4 modelMatrix;
     uniform mat4 viewProjectionMatrix;
 
-    out vec3 colour;
+    out vec2 texCoord;
 
     void main() {
         gl_Position = viewProjectionMatrix * modelMatrix * vec4(position, 1.0);
-        colour = vec3(0.5, 0.5, 0.5);
+        texCoord = inTexCoord;
     }
 )";
 
 constexpr std::string_view fragmentShaderSource = R"(
     #version 460 core
 
-    in vec3 colour;
+    in vec2 texCoord;
     out vec4 finalColor;
+
+    const uint HAS_BASE_COLOR_TEXTURE = 1;
+
+    layout(location = 0) uniform sampler2D albedoTexture;
+    layout(location = 0, std140) uniform MaterialUniforms {
+        vec4 baseColorFactor;
+        float alphaCutoff;
+        uint flags;
+    } material;
+
+    float rand(vec2 co){
+        return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+
     void main() {
-        finalColor = vec4(colour, 1.0);
+        vec4 color = material.baseColorFactor;
+        if ((material.flags & HAS_BASE_COLOR_TEXTURE) == HAS_BASE_COLOR_TEXTURE) {
+            color *= texture(albedoTexture, texCoord);
+        }
+        float factor = (rand(gl_FragCoord.xy) - 0.5) / 8;
+        if (color.a < material.alphaCutoff + factor)
+            discard;
+        finalColor = color;
     }
 )";
 
@@ -88,14 +113,28 @@ struct Primitive {
     GLenum indexType;
     GLuint vertexArray;
 
-    // GL names we already constructed previously.
-    GLuint vertexBuffer;
-    GLuint indexBuffer;
+    size_t materialUniformsIndex;
+    GLuint albedoTexture;
 };
 
 struct Mesh {
     GLuint drawsBuffer;
     std::vector<Primitive> primitives;
+};
+
+struct Texture {
+    GLuint texture;
+};
+
+enum MaterialUniformFlags : uint32_t {
+    None = 0 << 0,
+    HasBaseColorTexture = 1 << 0,
+};
+
+struct MaterialUniforms {
+    glm::fvec4 baseColorFactor;
+    float alphaCutoff;
+    uint32_t flags;
 };
 
 struct Viewer {
@@ -104,6 +143,10 @@ struct Viewer {
     std::vector<GLuint> buffers;
     std::vector<GLuint> bufferAllocations;
     std::vector<Mesh> meshes;
+    std::vector<Texture> textures;
+
+    std::vector<MaterialUniforms> materials;
+    std::vector<GLuint> materialBuffers;
 
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
@@ -114,10 +157,10 @@ struct Viewer {
     float deltaTime = 0.0f;
     glm::vec3 accelerationVector = glm::vec3(0.0f);
     glm::vec3 velocity = glm::vec3(0.0f);
-    glm::vec3 position = glm::vec3(3.0f, 3.0f, 3.0f);
+    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
 
     glm::dvec2 lastCursorPosition = glm::dvec2(0.0f);
-    glm::vec3 direction = glm::vec3(0.0f);
+    glm::vec3 direction = glm::vec3(0.0f, 0.0f, -1.0f);
     float yaw = -90.0f;
     float pitch = 0.0f;
     bool firstMouse = true;
@@ -134,7 +177,7 @@ void windowSizeCallback(GLFWwindow* window, int width, int height) {
 
     viewer->projectionMatrix = glm::perspective(glm::radians(75.0f),
                                                 static_cast<float>(width) / static_cast<float>(height),
-                                                0.1f, 1000.0f);
+                                                0.01f, 1000.0f);
 
     glViewport(0, 0, width, height);
 }
@@ -189,31 +232,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
     /** Both a matrix and TRS values are not allowed
      * to exist at the same time according to the spec */
-    if (node.hasMatrix) {
-        return base * glm::mat4x4(glm::make_mat4x4(node.transform.matrix.data()));
-    } else {
+    if (const auto* pMatrix = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
+        return base * glm::mat4x4(glm::make_mat4x4(pMatrix->data()));
+    } else if (const auto* pTransform = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
         return base
-            * glm::translate(glm::mat4(1.0f), glm::make_vec3(node.transform.trs.translation.data()))
-            * glm::toMat4(glm::make_quat(node.transform.trs.rotation.data()))
-            * glm::scale(glm::mat4(1.0f), glm::make_vec3(node.transform.trs.scale.data()));
+            * glm::translate(glm::mat4(1.0f), glm::make_vec3(pTransform->translation.data()))
+            * glm::toMat4(glm::make_quat(pTransform->rotation.data()))
+            * glm::scale(glm::mat4(1.0f), glm::make_vec3(pTransform->scale.data()));
+    } else {
+        return base;
     }
-}
-
-fastgltf::BufferInfo gltfBufferMapCallback(uint64_t bufferSize, void* userPointer) {
-    assert(userPointer != nullptr);
-    auto* viewer = static_cast<Viewer*>(userPointer);
-    viewer->bufferAllocations.resize(viewer->bufferAllocations.size() + 1);
-    glCreateBuffers(1, &viewer->bufferAllocations.back());
-    auto& buffer = viewer->bufferAllocations.back();
-    glNamedBufferStorage(buffer, static_cast<GLsizeiptr>(bufferSize), nullptr, GL_MAP_WRITE_BIT);
-    return {
-        glMapNamedBufferRange(buffer, 0, static_cast<GLsizeiptr>(bufferSize), GL_MAP_WRITE_BIT),
-        buffer,
-    };
-}
-
-void gltfBufferUnmapCallback(fastgltf::BufferInfo* bufferInfo, void* userPointer) {
-    glUnmapNamedBuffer(static_cast<GLuint>(bufferInfo->customId));
 }
 
 bool loadGltf(Viewer* viewer, std::string_view cPath) {
@@ -222,9 +250,6 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
     // Parse the glTF file and get the constructed asset
     {
         fastgltf::Parser parser;
-
-        parser.setUserPointer(viewer);
-        parser.setBufferAllocationCallback(gltfBufferMapCallback, gltfBufferUnmapCallback);
 
         auto path = std::filesystem::path{cPath};
         std::unique_ptr<fastgltf::glTF> gltf;
@@ -259,22 +284,21 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
     auto& buffers = viewer->asset->buffers;
     viewer->buffers.reserve(buffers.size());
 
-    for (auto it = buffers.begin(); it != buffers.end(); ++it) {
-        auto index = std::distance(buffers.begin(), it);
+    for (auto& buffer : buffers) {
         constexpr GLuint bufferUsage = GL_STATIC_DRAW;
 
-        switch (it->location) {
+        switch (buffer.location) {
             case fastgltf::DataLocation::VectorWithMime: {
                 GLuint glBuffer;
                 glCreateBuffers(1, &glBuffer);
-                glNamedBufferData(viewer->buffers[index], static_cast<int64_t>(it->byteLength),
-                                  it->data.bytes.data(), bufferUsage);
+                glNamedBufferData(glBuffer, static_cast<int64_t>(buffer.byteLength),
+                                  buffer.data.bytes.data(), bufferUsage);
                 viewer->buffers.emplace_back(glBuffer);
                 break;
             }
             case fastgltf::DataLocation::CustomBufferWithId: {
                 // We don't need to do anything special here, the buffer has already been created.
-                viewer->buffers.emplace_back(static_cast<GLuint>(it->data.bufferId));
+                viewer->buffers.emplace_back(static_cast<GLuint>(buffer.data.bufferId));
                 break;
             }
             case fastgltf::DataLocation::FilePathWithByteRange:
@@ -302,42 +326,76 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
             return false;
         }
 
-        auto& positionAccessor = asset->accessors[it->attributes["POSITION"]];
-        if (!positionAccessor.bufferViewIndex.has_value())
-            continue;
-
-        auto& positionView = asset->bufferViews[positionAccessor.bufferViewIndex.value()];
+        // Generate the VAO
+        GLuint vao = GL_NONE;
+        glCreateVertexArrays(1, &vao);
 
         // Get the output primitive
         auto index = std::distance(mesh.primitives.begin(), it);
         auto& primitive = outMesh.primitives[index];
         primitive.primitiveType = fastgltf::to_underlying(it->type);
-
-        // Generate the VAO
-        GLuint vao = GL_NONE;
-        glCreateVertexArrays(1, &vao);
         primitive.vertexArray = vao;
-        primitive.vertexBuffer = viewer->buffers[positionView.bufferIndex];
-        primitive.indexBuffer = viewer->buffers[positionView.bufferIndex];
-
-        glEnableVertexArrayAttrib(vao, 0);
-        glVertexArrayAttribFormat(vao, 0,
-                                  static_cast<GLint>(fastgltf::getNumComponents(positionAccessor.type)),
-                                  fastgltf::getGLComponentType(positionAccessor.componentType),
-                                  GL_FALSE, 0);
-        glVertexArrayAttribBinding(vao, 0, 0);
-
-        if (positionView.byteStride.has_value()) {
-            glVertexArrayVertexBuffer(vao, 0, primitive.vertexBuffer,
-                                      static_cast<GLintptr>(positionView.byteOffset + positionAccessor.byteOffset),
-                                      static_cast<GLsizei>(positionView.byteStride.value()));
-        } else {
-            auto offset = positionView.byteOffset + positionAccessor.byteOffset;
-            glVertexArrayVertexBuffer(vao, 0, primitive.vertexBuffer,
-                                      static_cast<GLintptr>(offset),
-                                      static_cast<GLsizei>(fastgltf::getElementByteSize(positionAccessor.type, positionAccessor.componentType)));
+        if (it->materialIndex.has_value()) {
+            primitive.materialUniformsIndex = it->materialIndex.value();
+            auto& material = viewer->asset->materials[it->materialIndex.value()];
+            if (material.pbrData.has_value() && material.pbrData->baseColorTexture.has_value()) {
+                auto& texture = viewer->asset->textures[material.pbrData->baseColorTexture->textureIndex];
+                if (!texture.imageIndex.has_value())
+                    return false;
+                primitive.albedoTexture = viewer->textures[texture.imageIndex.value()].texture;
+            }
         }
-        glVertexArrayElementBuffer(vao, primitive.indexBuffer);
+
+        {
+            // Position
+            auto& positionAccessor = asset->accessors[it->attributes["POSITION"]];
+            if (!positionAccessor.bufferViewIndex.has_value())
+                continue;
+
+            glEnableVertexArrayAttrib(vao, 0);
+            glVertexArrayAttribFormat(vao, 0,
+                                      static_cast<GLint>(fastgltf::getNumComponents(positionAccessor.type)),
+                                      fastgltf::getGLComponentType(positionAccessor.componentType),
+                                      GL_FALSE, 0);
+            glVertexArrayAttribBinding(vao, 0, 0);
+
+            auto& positionView = asset->bufferViews[positionAccessor.bufferViewIndex.value()];
+            auto offset = positionView.byteOffset + positionAccessor.byteOffset;
+            if (positionView.byteStride.has_value()) {
+                glVertexArrayVertexBuffer(vao, 0, viewer->buffers[positionView.bufferIndex],
+                                          static_cast<GLintptr>(offset),
+                                          static_cast<GLsizei>(positionView.byteStride.value()));
+            } else {
+                glVertexArrayVertexBuffer(vao, 0, viewer->buffers[positionView.bufferIndex],
+                                          static_cast<GLintptr>(offset),
+                                          static_cast<GLsizei>(fastgltf::getElementByteSize(positionAccessor.type, positionAccessor.componentType)));
+            }
+        }
+
+        {
+            // Tex coord
+            auto& texCoordAccessor = asset->accessors[it->attributes["TEXCOORD_0"]];
+            if (!texCoordAccessor.bufferViewIndex.has_value())
+                continue;
+
+            glEnableVertexArrayAttrib(vao, 1);
+            glVertexArrayAttribFormat(vao, 1, static_cast<GLint>(fastgltf::getNumComponents(texCoordAccessor.type)),
+                                      fastgltf::getGLComponentType(texCoordAccessor.componentType),
+                                      GL_FALSE, 0);
+            glVertexArrayAttribBinding(vao, 1, 1);
+
+            auto& texCoordView = asset->bufferViews[texCoordAccessor.bufferViewIndex.value()];
+            auto offset = texCoordView.byteOffset + texCoordAccessor.byteOffset;
+            if (texCoordView.byteStride.has_value()) {
+                glVertexArrayVertexBuffer(vao, 1, viewer->buffers[texCoordView.bufferIndex],
+                                          static_cast<GLintptr>(offset),
+                                          static_cast<GLsizei>(texCoordView.byteStride.value()));
+            } else {
+                glVertexArrayVertexBuffer(vao, 1, viewer->buffers[texCoordView.bufferIndex],
+                                          static_cast<GLintptr>(offset),
+                                          static_cast<GLsizei>(fastgltf::getElementByteSize(texCoordAccessor.type, texCoordAccessor.componentType)));
+            }
+        }
 
         // Generate the indirect draw command
         auto& draw = primitive.draw;
@@ -353,6 +411,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         auto& indicesView = asset->bufferViews[indices.bufferViewIndex.value()];
         draw.firstIndex = static_cast<uint32_t>(indices.byteOffset + indicesView.byteOffset) / fastgltf::getElementByteSize(indices.type, indices.componentType);
         primitive.indexType = getGLComponentType(indices.componentType);
+        glVertexArrayElementBuffer(vao, viewer->buffers[indicesView.bufferIndex]);
     }
 
     // Create the buffer holding all of our primitive structs.
@@ -362,6 +421,91 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 
     viewer->meshes.emplace_back(outMesh);
 
+    return true;
+}
+
+bool loadImage(Viewer* viewer, fastgltf::Image& image) {
+    auto getInternalFormat = [](int channels) {
+        switch (channels) {
+            case 2: return GL_RG;
+            case 3: return GL_RGB;
+            case 4: return GL_RGBA;
+            default: return GL_RGB;
+        }
+    };
+    auto getSizedInternalFormat = [](int channels) {
+        // This assumes that stb always returns GL_UNSIGNED_BYTE data
+        switch (channels) {
+            case 2: return GL_RG8;
+            case 3: return GL_RGB8;
+            case 4: return GL_RGBA8;
+            default: return GL_RGB8;
+        }
+    };
+    auto getLevelCount = [](int width, int height) -> GLsizei {
+        return static_cast<GLsizei>(1 + floor(log2(width > height ? width : height)));
+    };
+
+    GLuint texture;
+    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    switch (image.location) {
+        case fastgltf::DataLocation::FilePathWithByteRange: {
+            int width, height, nrChannels;
+            auto path = image.data.path.string();
+            unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+            glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
+            glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+            break;
+        }
+        case fastgltf::DataLocation::VectorWithMime: {
+            int width, height, nrChannels;
+            unsigned char *data = stbi_load_from_memory(image.data.bytes.data(), static_cast<int>(image.data.bytes.size()), &width, &height, &nrChannels, 0);
+            glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
+            glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+            break;
+        }
+        case fastgltf::DataLocation::BufferViewWithMime: {
+            auto& bufferView = viewer->asset->bufferViews[image.data.bufferViewIndex];
+            auto& buffer = viewer->asset->buffers[bufferView.bufferIndex];
+            switch (buffer.location) {
+                case fastgltf::DataLocation::VectorWithMime: {
+                    int width, height, nrChannels;
+                    unsigned char *data = stbi_load_from_memory(buffer.data.bytes.data() + bufferView.byteOffset, static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 0);
+                    glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
+                    glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
+                    stbi_image_free(data);
+                    break;
+                }
+            }
+            break;
+        }
+        case fastgltf::DataLocation::None: {
+            break;
+        }
+    }
+
+    glGenerateTextureMipmap(texture);
+
+    viewer->textures.emplace_back(Texture { texture });
+    return true;
+}
+
+bool loadMaterial(Viewer* viewer, fastgltf::Material& material) {
+    MaterialUniforms uniforms = {};
+    uniforms.alphaCutoff = material.alphaCutoff;
+
+    if (material.pbrData.has_value()) {
+        uniforms.baseColorFactor = glm::make_vec4(material.pbrData->baseColorFactor.data());
+        if (material.pbrData->baseColorTexture.has_value()) {
+            uniforms.flags |= MaterialUniformFlags::HasBaseColorTexture;
+        }
+    } else {
+        uniforms.baseColorFactor = glm::fvec4(1.0f);
+    }
+
+    viewer->materials.emplace_back(uniforms);
     return true;
 }
 
@@ -375,6 +519,9 @@ void drawMesh(Viewer* viewer, size_t meshIndex, glm::mat4 matrix) {
     for (auto i = 0U; i < mesh.primitives.size(); ++i) {
         auto& prim = mesh.primitives[i];
 
+        auto& material = viewer->materialBuffers[prim.materialUniformsIndex];
+        glBindTextureUnit(0, prim.albedoTexture);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, material);
         glBindVertexArray(prim.vertexArray);
 
         glDrawElementsIndirect(prim.primitiveType, prim.indexType,
@@ -410,6 +557,8 @@ int main(int argc, char* argv[]) {
 
     auto* mainMonitor = glfwGetPrimaryMonitor();
     auto* vidMode = glfwGetVideoMode(mainMonitor);
+
+    glfwWindowHint(GLFW_SAMPLES, 4);
 
     GLFWwindow* window = glfwCreateWindow(static_cast<int>(static_cast<float>(vidMode->width) * 0.9f), static_cast<int>(static_cast<float>(vidMode->height) * 0.9f), "gl_viewer", nullptr, nullptr);
     if (window == nullptr) {
@@ -480,12 +629,27 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // We load images first.
     auto& asset = viewer.asset;
+    for (auto& image : asset->images) {
+        loadImage(&viewer, image);
+    }
+    for (auto& material : asset->materials) {
+        loadMaterial(&viewer, material);
+    }
     for (auto& mesh : asset->meshes) {
         loadMesh(&viewer, mesh);
     }
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
     std::cout << "Loaded glTF file in " << diff.count() << "ms." << std::endl;
+
+    // Create the material uniform buffer
+    viewer.materialBuffers.resize(viewer.materials.size(), GL_NONE);
+    glCreateBuffers(static_cast<GLsizei>(viewer.materials.size()), viewer.materialBuffers.data());
+    for (auto i = 0UL; i < viewer.materialBuffers.size(); ++i) {
+        glNamedBufferStorage(viewer.materialBuffers[i], static_cast<GLsizeiptr>(sizeof(MaterialUniforms)),
+                             &viewer.materials[i], GL_MAP_WRITE_BIT);
+    }
 
     viewer.modelMatrixUniform = glGetUniformLocation(program, "modelMatrix");
     viewer.viewProjectionMatrixUniform = glGetUniformLocation(program, "viewProjectionMatrix");
@@ -497,6 +661,10 @@ int main(int argc, char* argv[]) {
         glfwGetWindowSize(window, &width, &height);
         windowSizeCallback(window, width, height);
     }
+
+    glEnable(GL_BLEND);
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_DEPTH_TEST);
 
     viewer.lastFrame = static_cast<float>(glfwGetTime());
     while (!glfwWindowShouldClose(window)) {
@@ -522,7 +690,7 @@ int main(int argc, char* argv[]) {
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glEnable(GL_DEPTH_TEST);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         auto& scene = viewer.asset->scenes[0];
         for (auto& node : scene.nodeIndices) {
