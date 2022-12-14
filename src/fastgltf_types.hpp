@@ -22,8 +22,13 @@ namespace fastgltf {
         TriangleFan = 6,
     };
 
-    // We encode these values with the number of components in their top 8 bits for fast
-    // access & storage
+    /**
+     * Represents the type of element in the buffer pointed to by the accessor.
+     *
+     * We encode these values with the number of components in their top 8 bits for fast
+     * access & storage. Therefore, use the fastgltf::getNumComponents and fastgltf::getElementByteSize
+     * functions to extract data from this enum.
+     */
     enum class AccessorType : uint16_t {
         Invalid = 0,
         Scalar  = ( 1 << 8) | 1,
@@ -35,14 +40,25 @@ namespace fastgltf {
         Mat4    = (16 << 8) | 7,
     };
 
-    // We use the top 16-bits to encode the amount of bits this component type needs.
-    // The lower 16-bits are used to store the glTF ID for the type.
+    /**
+     * Represents the various types of components an accessor could point at. This describes the
+     * format each component of the structure, which in return is described by fastgltf::AccessorType, is in.
+     *
+     * We use the top 16-bits to encode the amount of bits this component type needs.
+     * The lower 16-bits are used to store the glTF ID for the type. Therefore, use the fastgltf::getComponentBitSize
+     * and fastgltf::getGLComponentType functions should be used to extract data from this enum.
+     */
     enum class ComponentType : uint32_t {
         Invalid         = 0,
         Byte            = ( 8 << 16) | 5120,
         UnsignedByte    = ( 8 << 16) | 5121,
         Short           = (16 << 16) | 5122,
         UnsignedShort   = (16 << 16) | 5123,
+        /**
+         * Signed integers are not officially allowed by the glTF spec, but are placed here for
+         * the sake of completeness.
+         */
+        Int             = (32 << 16) | 5124,
         UnsignedInt     = (32 << 16) | 5125,
         Float           = (32 << 16) | 5126,
         /**
@@ -154,11 +170,13 @@ namespace fastgltf {
      * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
      */
     constexpr uint32_t getNumComponents(AccessorType type) noexcept {
-        return static_cast<uint32_t>((static_cast<uint16_t>(type) >> 8) & 0xFF);
+        return static_cast<uint32_t>(
+            (static_cast<decltype(std::underlying_type_t<AccessorType>())>(type) >> 8) & 0xFF);
     }
 
     constexpr uint32_t getComponentBitSize(ComponentType componentType) noexcept {
-        auto masked = static_cast<uint32_t>(componentType) & 0xFFFF0000;
+        auto masked =
+            static_cast<decltype(std::underlying_type_t<ComponentType>())>(componentType) & 0xFFFF0000;
         return (masked >> 16);
     }
 
@@ -179,7 +197,7 @@ namespace fastgltf {
         ComponentType::UnsignedByte,
         ComponentType::Short,
         ComponentType::UnsignedShort,
-        ComponentType::Invalid, // glTF doesn't support signed 32-bit ints.
+        ComponentType::Int,
         ComponentType::UnsignedInt,
         ComponentType::Float,
         ComponentType::Invalid,
@@ -189,7 +207,7 @@ namespace fastgltf {
     };
 
     constexpr ComponentType getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
-        auto index = componentType - 5120;
+        size_t index = componentType - 5120;
         if (index >= components.size())
             return ComponentType::Invalid;
         return components[index];
@@ -441,11 +459,15 @@ namespace fastgltf {
     struct Texture {
         std::optional<size_t> imageIndex;
 
-        // If the imageIndex is specified by the KTX2 or DDS glTF extensions, this is supposed to
-        // be used as a fallback if those file containers are not supported.
+        /**
+         * If the imageIndex is specified by the KTX2 or DDS glTF extensions, this is supposed to
+         * be used as a fallback if those file containers are not supported.
+         */
         std::optional<size_t> fallbackImageIndex;
 
-        // if a value not present, use a default sampler with repeat wrap and auto filter.
+        /**
+         * If no sampler is specified, use a default sampler with repeat wrap and auto filter.
+         */
         std::optional<size_t> samplerIndex;
 
         std::string name;
@@ -499,7 +521,6 @@ namespace fastgltf {
     };
 
     struct Asset {
-        // A value of std::numeric_limits<size_t>::max() indicates no default scene.
         std::optional<size_t> defaultScene;
         std::vector<Accessor> accessors;
         std::vector<Animation> animations;
