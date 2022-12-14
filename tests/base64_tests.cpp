@@ -7,8 +7,7 @@
 #include "base64_decode.hpp"
 #include "fastgltf_types.hpp"
 #include "fastgltf_parser.hpp"
-
-extern std::filesystem::path path;
+#include "gltf_path.hpp"
 
 constexpr std::string_view testBase64 = "SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLiBIZWxsbyBXb3JsZC4=";
 
@@ -60,8 +59,8 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     fastgltf::Image texture;
     std::string bufferData;
 
-    auto cylinderEngine = path / "sample-models" / "2.0" / "2CylinderEngine" / "glTF-Embedded";
-    auto boxTextured = path / "sample-models" / "2.0" / "BoxTextured" / "glTF-Embedded";
+    auto cylinderEngine = sampleModels / "2.0" / "2CylinderEngine" / "glTF-Embedded";
+    auto boxTextured = sampleModels / "2.0" / "BoxTextured" / "glTF-Embedded";
 
     auto tceJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     tceJsonData->loadFromFile(cylinderEngine / "2CylinderEngine.gltf");

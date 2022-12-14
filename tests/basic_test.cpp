@@ -9,10 +9,7 @@
 
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
-
-// We need to use the __FILE__ macro so that we have access to test glTF files in this
-// directory. As Clang does not yet fully support std::source_location, we cannot use that.
-auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
+#include "gltf_path.hpp"
 
 TEST_CASE("Component type tests", "[gltf-loader]") {
     using namespace fastgltf;
@@ -68,7 +65,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
     }
 
     SECTION("Loading basic Cube.gltf") {
-        auto cubePath = path / "sample-models" / "2.0" / "Cube" / "glTF";
+        auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
         auto cubeJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
         cubeJsonData->loadFromFile(cubePath / "Cube.gltf");
         auto cubeGltf = parser.loadGLTF(cubeJsonData.get(), cubePath);
@@ -109,7 +106,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
     }
 
     SECTION("Loading basic Box.gltf") {
-        auto boxPath = path / "sample-models" / "2.0" / "Box" / "glTF";
+        auto boxPath = sampleModels / "2.0" / "Box" / "glTF";
         auto boxJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
         boxJsonData->loadFromFile(boxPath / "Box.gltf");
         auto boxGltf = parser.loadGLTF(boxJsonData.get(), boxPath);
@@ -138,7 +135,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 };
 
 TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
-    auto stainedLamp = path / "sample-models" / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU";
+    auto stainedLamp = sampleModels / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU";
 
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(stainedLamp / "StainedGlassLamp.gltf");
@@ -174,7 +171,7 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
 };
 
 TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
-    auto transformTest = path / "sample-models" / "2.0" / "TextureTransformMultiTest" / "glTF";
+    auto transformTest = sampleModels / "2.0" / "TextureTransformMultiTest" / "glTF";
 
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(transformTest / "TextureTransformMultiTest.gltf");
@@ -197,7 +194,7 @@ TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
 }
 
 TEST_CASE("Loading glTF animation", "[gltf-loader]") {
-    auto animatedCube = path / "sample-models" / "2.0" / "AnimatedCube" / "glTF";
+    auto animatedCube = sampleModels / "2.0" / "AnimatedCube" / "glTF";
 
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(animatedCube / "AnimatedCube.gltf");
@@ -227,7 +224,7 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
 }
 
 TEST_CASE("Loading glTF skins", "[gltf-loader]") {
-    auto simpleSkin = path / "sample-models" / "2.0" / "SimpleSkin" / "glTF";
+    auto simpleSkin = sampleModels / "2.0" / "SimpleSkin" / "glTF";
 
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(simpleSkin / "SimpleSkin.gltf");
@@ -257,7 +254,7 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
 }
 
 TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
-    auto cameras = path / "sample-models" / "2.0" / "Cameras" / "glTF";
+    auto cameras = sampleModels / "2.0" / "Cameras" / "glTF";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(cameras / "Cameras.gltf");
 
@@ -290,7 +287,7 @@ TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
 }
 
 TEST_CASE("Validate whole glTF", "[gltf-loader]") {
-    auto sponza = path / "sample-models" / "2.0" / "Sponza" / "glTF";
+    auto sponza = sampleModels / "2.0" / "Sponza" / "glTF";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(sponza / "Sponza.gltf");
 
@@ -302,7 +299,7 @@ TEST_CASE("Validate whole glTF", "[gltf-loader]") {
     REQUIRE(model->parse() == fastgltf::Error::None);
     REQUIRE(model->validate() == fastgltf::Error::None);
 
-    auto brainStem = path / "sample-models" / "2.0" / "BrainStem" / "glTF";
+    auto brainStem = sampleModels / "2.0" / "BrainStem" / "glTF";
     jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(brainStem / "BrainStem.gltf");
 
@@ -315,7 +312,7 @@ TEST_CASE("Validate whole glTF", "[gltf-loader]") {
 }
 
 TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
-    auto boxPath = path / "sample-models" / "2.0" / "Box" / "glTF-Embedded";
+    auto boxPath = sampleModels / "2.0" / "Box" / "glTF-Embedded";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     jsonData->loadFromFile(boxPath / "Box.gltf");
 

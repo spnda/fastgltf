@@ -4,12 +4,11 @@
 
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
-
-extern std::filesystem::path path;
+#include "gltf_path.hpp"
 
 TEST_CASE("Load basic GLB file", "[gltf-loader]") {
     fastgltf::Parser parser;
-    auto folder = path / "sample-models" / "2.0" / "Box" / "glTF-Binary";
+    auto folder = sampleModels / "2.0" / "Box" / "glTF-Binary";
     fastgltf::GltfDataBuffer buffer;
     REQUIRE(buffer.loadFromFile(folder / "Box.glb"));
 
