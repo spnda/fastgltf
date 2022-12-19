@@ -12,7 +12,7 @@ example_deps_urls = {
     'stb': "https://github.com/nothings/stb/archive/refs/heads/master.zip"
 }
 test_deps_urls = {
-    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.1.0.zip"
+    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.2.1.zip"
 }
 
 example_deps_folder = "examples/deps/"
