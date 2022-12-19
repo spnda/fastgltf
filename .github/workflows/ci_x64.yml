@@ -13,6 +13,7 @@ on:
 
 env:
   BUILD_TYPE: Release
+  SAMPLE_MODELS_LOCATION: tests/gltf/glTF-Sample-Models
 
 jobs:
   build_windows:
@@ -23,7 +24,7 @@ jobs:
       - uses: actions/cache@v3
         id: sample-models-cache
         with:
-          path: ${{ github.workspace }}/tests/gltf/sample-models
+          path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
 
       - name: Download dependencies
@@ -31,7 +32,7 @@ jobs:
 
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/tests/gltf/sample-models
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
@@ -64,7 +65,7 @@ jobs:
       - uses: actions/cache@v3
         id: sample-models-cache
         with:
-          path: ${{ github.workspace }}/tests/gltf/sample-models
+          path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
 
       - name: Download dependencies
@@ -72,7 +73,7 @@ jobs:
 
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/tests/gltf/sample-models
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
 
       # GLFW requires these libs to be present so that configuring succeeds.
       - name: Install libxandr
