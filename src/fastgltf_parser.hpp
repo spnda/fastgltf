@@ -16,11 +16,9 @@
 #endif
 
 // fwd
-namespace simdjson {
-    namespace dom {
-        class array;
-        class parser;
-    }
+namespace simdjson::dom {
+    class array;
+    class parser;
 }
 
 namespace fastgltf {

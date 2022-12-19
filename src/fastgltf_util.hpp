@@ -4,13 +4,16 @@
 #include <cmath>
 #include <type_traits>
 
-#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#if defined(__cpp_concepts) && __cpp_concepts >= 201507
+#define FASTGLTF_HAS_CONCEPTS 1
 #include <concepts>
+#else
+#define FASTGLTF_HAS_CONCEPTS 0
 #endif
 
 namespace fastgltf {
     template<typename T>
-#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#if FASTGLTF_HAS_CONCEPTS
     requires std::is_enum_v<T>
 #endif
     constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
@@ -19,7 +22,7 @@ namespace fastgltf {
     }
 
     template <typename T, typename U>
-#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#if FASTGLTF_HAS_CONCEPTS
     requires ((std::is_enum_v<T> && std::integral<std::underlying_type<T>>) || std::integral<T>) && requires (T t, U u) {
         { t & u } -> std::same_as<U>;
     }
