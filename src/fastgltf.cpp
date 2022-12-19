@@ -684,6 +684,56 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             accessor.normalized = false;
         }
 
+        dom::object sparseAccessorObject;
+        if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) {
+            SparseAccessor sparse = {};
+            uint64_t value;
+            dom::object child;
+            if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+            sparse.count = static_cast<size_t>(value);
+
+            // Accessor Sparce Indices
+            if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+
+            if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+            sparse.bufferViewIndices = static_cast<size_t>(value);
+
+            if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
+                sparse.byteOffsetIndices = 0;
+            } else {
+                sparse.byteOffsetIndices = static_cast<size_t>(value);
+            }
+
+            if (child["componentType"].get_uint64().get(value) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+            sparse.indexComponentType = getComponentType(value);
+
+            // Accessor Sparse Values
+            if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+
+            if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+            sparse.bufferViewValues = static_cast<size_t>(value);
+
+            if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
+                sparse.byteOffsetValues = 0;
+            } else {
+                sparse.byteOffsetValues = static_cast<size_t>(value);
+            }
+
+            accessor.sparse = sparse;
+        }
+
         // name is optional.
         std::string_view name;
         if (accessorObject["name"].get_string().get(name) == SUCCESS) {
@@ -1275,15 +1325,15 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
         }
         Mesh mesh = {};
 
-        dom::array primitives;
-        auto meshError = getJsonArray(meshObject, "primitives", &primitives);
+        dom::array array;
+        auto meshError = getJsonArray(meshObject, "primitives", &array);
         if (meshError == Error::MissingField) {
-            continue;
+            SET_ERROR_RETURN(Error::InvalidGltf)
         } else if (meshError != Error::None) {
             SET_ERROR_RETURN(meshError)
         } else {
-            mesh.primitives.reserve(primitives.size());
-            for (auto primitiveValue : primitives) {
+            mesh.primitives.reserve(array.size());
+            for (auto primitiveValue : array) {
                 // Required fields: "attributes"
                 Primitive primitive = {};
                 dom::object primitiveObject;
@@ -1291,47 +1341,70 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                     SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
-                {
-                    dom::object attributesObject;
-                    if (primitiveObject["attributes"].get_object().get(attributesObject) != SUCCESS) {
-                        SET_ERROR_RETURN(Error::InvalidGltf)
-                    }
-
+                auto parseAttributes = [](dom::object& object, std::unordered_map<std::string, size_t>& map) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
                     // attributes map. This is not filtered for actual values. TODO?
-                    for (const auto& field : attributesObject) {
+                    for (const auto& field : object) {
                         std::string_view key = field.key;
 
                         uint64_t attributeIndex;
                         if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
-                            SET_ERROR_RETURN(Error::InvalidGltf)
+                            return Error::InvalidGltf;
                         } else {
-                            primitive.attributes[std::string { key }] = static_cast<size_t>(attributeIndex);
+                            map[std::string { key }] = static_cast<size_t>(attributeIndex);
                         }
                     }
-                }
+                    return Error::None;
+                };
 
-                {
-                    // Mode shall default to 4.
-                    uint64_t mode;
-                    if (primitiveObject["mode"].get_uint64().get(mode) != SUCCESS) {
-                        mode = 4;
+                dom::object attributesObject;
+                if (primitiveObject["attributes"].get_object().get(attributesObject) != SUCCESS) {
+                    SET_ERROR_RETURN(Error::InvalidGltf)
+                }
+                parseAttributes(attributesObject, primitive.attributes);
+
+                dom::array targets;
+                if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) {
+                    for (auto targetValue : targets) {
+                        if (targetValue.get_object().get(attributesObject) != SUCCESS) {
+                            SET_ERROR_RETURN(Error::InvalidGltf);
+                        }
+                        auto& map = primitive.targets.emplace_back();
+                        parseAttributes(attributesObject, map);
                     }
-                    primitive.type = static_cast<PrimitiveType>(mode);
                 }
 
-                uint64_t indicesAccessor;
-                if (primitiveObject["indices"].get_uint64().get(indicesAccessor) == SUCCESS) {
-                    primitive.indicesAccessor = static_cast<size_t>(indicesAccessor);
+                // Mode shall default to 4.
+                uint64_t value;
+                if (primitiveObject["mode"].get_uint64().get(value) != SUCCESS) {
+                    primitive.type = PrimitiveType::Triangles;
+                } else {
+                    primitive.type = static_cast<PrimitiveType>(value);
                 }
 
-                uint64_t materialIndex;
-                if (primitiveObject["material"].get_uint64().get(materialIndex) == SUCCESS) {
-                    primitive.materialIndex = static_cast<size_t>(materialIndex);
+                if (primitiveObject["indices"].get_uint64().get(value) == SUCCESS) {
+                    primitive.indicesAccessor = static_cast<size_t>(value);
+                }
+
+                if (primitiveObject["material"].get_uint64().get(value) == SUCCESS) {
+                    primitive.materialIndex = static_cast<size_t>(value);
                 }
 
                 mesh.primitives.emplace_back(std::move(primitive));
             }
+        }
+
+        if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) {
+            mesh.weights.reserve(array.size());
+            for (auto weightValue : array) {
+                double val;
+                if (weightValue.get_double().get(val) != SUCCESS) {
+                    SET_ERROR_RETURN(Error::InvalidGltf);
+                }
+                mesh.weights.emplace_back(static_cast<float>(val));
+            }
+        } else if (meshError != Error::MissingField && meshError != Error::None) {
+            SET_ERROR_RETURN(Error::InvalidGltf);
         }
 
         // name is optional.
@@ -1366,24 +1439,37 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
             node.cameraIndex = static_cast<size_t>(index);
         }
 
-        {
-            dom::array children;
-            auto childError = getJsonArray(nodeObject, "children", &children);
-            if (childError == Error::None) {
-                node.children.reserve(children.size());
-                for (auto childValue : children) {
-                    if (childValue.get_uint64().get(index) != SUCCESS) {
-                        SET_ERROR_RETURN(Error::InvalidGltf)
-                    }
-
-                    node.children.emplace_back(static_cast<size_t>(index));
+        dom::array array;
+        auto childError = getJsonArray(nodeObject, "children", &array);
+        if (childError == Error::None) {
+            node.children.reserve(array.size());
+            for (auto childValue : array) {
+                if (childValue.get_uint64().get(index) != SUCCESS) {
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
-            } else if (childError != Error::MissingField) {
-                SET_ERROR_RETURN(childError)
+
+                node.children.emplace_back(static_cast<size_t>(index));
+            }
+        } else if (childError != Error::MissingField) {
+            SET_ERROR_RETURN(childError)
+        }
+
+        auto weightsError = getJsonArray(nodeObject, "weights", &array);
+        if (weightsError != Error::MissingField) {
+            if (weightsError != Error::None) {
+                node.weights.reserve(array.size());
+                for (auto weightValue : array) {
+                    double val;
+                    if (weightValue.get_double().get(val) != SUCCESS) {
+                        SET_ERROR_RETURN(Error::InvalidGltf);
+                    }
+                    node.weights.emplace_back(static_cast<float>(val));
+                }
+            } else {
+                SET_ERROR_RETURN(Error::InvalidGltf);
             }
         }
 
-        dom::array array;
         auto error = nodeObject["matrix"].get_array().get(array);
         if (error == SUCCESS) {
             Node::TransformMatrix transformMatrix = {};

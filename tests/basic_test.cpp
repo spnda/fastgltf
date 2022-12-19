@@ -138,7 +138,7 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
     auto stainedLamp = sampleModels / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU";
 
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(stainedLamp / "StainedGlassLamp.gltf");
+    REQUIRE(jsonData->loadFromFile(stainedLamp / "StainedGlassLamp.gltf"));
 
     SECTION("Loading KHR_texture_basisu") {
         fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_basisu);
@@ -349,7 +349,7 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
 TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
     SECTION("Test decomposition on glTF asset") {
         auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(path / "transform_matrices.gltf");
+        jsonData->loadFromFile(path / "transform_matrices.gltf");
 
         // Parse once without decomposing, once with decomposing the matrix.
         fastgltf::Parser parser;
@@ -434,4 +434,53 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
         REQUIRE(glm::all(glm::epsilonEqual(glm::make_quat(rotation.data()), glmRotation, glm::epsilon<float>() * 10)));
         REQUIRE(glm::all(glm::epsilonEqual(glm::make_vec3(scale.data()), glmScale, glm::epsilon<float>())));
     }
+}
+
+TEST_CASE("Validate sparse accessor parsing", "[gltf-loader]") {
+    auto simpleSparseAccessor = sampleModels / "2.0" / "SimpleSparseAccessor" / "glTF";
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(simpleSparseAccessor / "SimpleSparseAccessor.gltf");
+
+    fastgltf::Parser parser;
+    auto model = parser.loadGLTF(jsonData.get(), simpleSparseAccessor);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model->parse(fastgltf::Category::Accessors) == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->accessors.size() == 2);
+    REQUIRE(!asset->accessors[0].sparse.has_value());
+    REQUIRE(asset->accessors[1].sparse.has_value());
+    auto& sparse = asset->accessors[1].sparse.value();
+    REQUIRE(sparse.count == 3);
+    REQUIRE(sparse.bufferViewIndices == 2);
+    REQUIRE(sparse.byteOffsetIndices == 0);
+    REQUIRE(sparse.bufferViewValues == 3);
+    REQUIRE(sparse.byteOffsetValues == 0);
+    REQUIRE(sparse.indexComponentType == fastgltf::ComponentType::UnsignedShort);
+}
+
+TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
+    auto simpleMorph = sampleModels / "2.0" / "SimpleMorph" / "glTF";
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(simpleMorph / "SimpleMorph.gltf");
+
+    fastgltf::Parser parser;
+    auto model = parser.loadGLTF(jsonData.get(), simpleMorph);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->meshes.size() == 1);
+    REQUIRE(asset->meshes.front().weights.size() == 2);
+    REQUIRE(asset->meshes.front().primitives.size() == 1);
+
+    auto& primitive = asset->meshes.front().primitives.front();
+    REQUIRE(primitive.attributes.contains("POSITION"));
+    REQUIRE(primitive.attributes["POSITION"] == 1);
+
+    REQUIRE(primitive.targets.size() == 2);
+    REQUIRE(primitive.targets[0].contains("POSITION"));
+    REQUIRE(primitive.targets[0]["POSITION"] == 2);
+    REQUIRE(primitive.targets[1].contains("POSITION"));
+    REQUIRE(primitive.targets[1]["POSITION"] == 3);
 }

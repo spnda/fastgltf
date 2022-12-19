@@ -348,6 +348,7 @@ namespace fastgltf {
         std::optional<size_t> skinIndex;
         std::optional<size_t> cameraIndex;
         std::vector<size_t> children;
+        std::vector<float> weights;
 
         struct TRS {
             std::array<float, 3> translation;
@@ -370,12 +371,15 @@ namespace fastgltf {
         std::unordered_map<std::string, size_t> attributes;
         PrimitiveType type;
 
+        std::vector<std::unordered_map<std::string, size_t>> targets;
+
         std::optional<size_t> indicesAccessor;
         std::optional<size_t> materialIndex;
     };
 
     struct Mesh {
         std::vector<Primitive> primitives;
+        std::vector<float> weights;
 
         std::string name;
     };
@@ -481,6 +485,15 @@ namespace fastgltf {
         std::string name;
     };
 
+    struct SparseAccessor {
+        size_t count;
+        size_t bufferViewIndices;
+        size_t byteOffsetIndices;
+        size_t bufferViewValues;
+        size_t byteOffsetValues;
+        ComponentType indexComponentType;
+    };
+
     struct Accessor {
         size_t byteOffset;
         size_t count;
@@ -490,6 +503,8 @@ namespace fastgltf {
 
         // Could have no value for sparse morph targets
         std::optional<size_t> bufferViewIndex;
+
+        std::optional<SparseAccessor> sparse;
 
         std::string name;
     };

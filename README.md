@@ -18,7 +18,7 @@ fastgltf supports glTF 2.0:
 - [x] Animations
 - [x] Skins
 - [x] Cameras
-- [ ] Morph targets
+- [x] Morph targets, sparse accessors
 - [ ] Extra data
 
 fastgltf supports a number of glTF extensions:
