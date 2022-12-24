@@ -1,3 +1,4 @@
+#pragma once
 #include <filesystem>
 
 // We need to use the __FILE__ macro so that we have access to test glTF files in this
