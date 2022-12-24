@@ -3,6 +3,7 @@ add_library(fastgltf::fastgltf ALIAS fastgltf)
 target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> $<INSTALL_INTERFACE:include>)
 target_compile_features(fastgltf PUBLIC cxx_std_17)
 compiler_flags(TARGET fastgltf)
+enable_debug_inlining(TARGET fastgltf_simdjson)
 
 set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
 

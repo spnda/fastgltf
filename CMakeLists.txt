@@ -46,6 +46,7 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
     target_compile_features(fastgltf_simdjson PUBLIC cxx_std_17)
     target_include_directories(fastgltf_simdjson PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/simdjson> $<INSTALL_INTERFACE:include>)
     compiler_flags(TARGET fastgltf_simdjson)
+    enable_debug_inlining(TARGET fastgltf_simdjson)
 
     install(
         FILES simdjson/simdjson.h
