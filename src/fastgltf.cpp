@@ -54,8 +54,7 @@ namespace fastgltf {
     constexpr auto hashTextures = crc32("textures");
 
     struct ParserData {
-        // Can simdjson not store this data itself?
-        std::vector<uint8_t> bytes;
+        simdjson::padded_string json; // Only used to keep the copied json data with GLBs alive.
         simdjson::ondemand::document doc;
         simdjson::ondemand::object root;
 
@@ -64,8 +63,9 @@ namespace fastgltf {
         void* userPointer = nullptr;
     };
 
-    // ASCII for "glTF".
-    constexpr uint32_t binaryGltfHeaderMagic = 0x46546C67;
+    constexpr uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
+    constexpr uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
+    constexpr uint32_t binaryGltfDataChunkMagic = 0x004E4942;
 
     struct BinaryGltfHeader {
         uint32_t magic;
@@ -1957,22 +1957,24 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
     //  2. BIN chunk (optional)
     BinaryGltfChunk jsonChunk = {};
     read(&jsonChunk, sizeof jsonChunk);
-    if (jsonChunk.chunkType != 0x4E4F534A) {
+    if (jsonChunk.chunkType != binaryGltfJsonChunkMagic) {
         errorCode = Error::InvalidGLB;
         return nullptr;
     }
-
-    // TODO: Keep this alive somehow
-    simdjson::padded_string jsonString(jsonChunk.chunkLength); // This adds the padding itself.
-    read(jsonString.data(), jsonChunk.chunkLength);
 
     if (hasBit(options, Options::DontUseSIMD)) {
         simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
     }
 
-    // The 'false' indicates that simdjson doesn't have to copy the data internally.
     auto data = std::make_unique<ParserData>();
-    if (jsonParser->iterate(jsonString).get(data->doc) != SUCCESS) {
+
+    {
+        simdjson::padded_string glbJson(jsonChunk.chunkLength); // This adds the padding itself.
+        read(glbJson.data(), jsonChunk.chunkLength);
+        data->json = std::move(glbJson);
+    }
+
+    if (jsonParser->iterate(simdjson::padded_string_view(data->json)).get(data->doc) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }
@@ -1991,7 +1993,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
         BinaryGltfChunk binaryChunk = {};
         read(&binaryChunk, sizeof binaryChunk);
 
-        if (binaryChunk.chunkType != 0x004E4942) {
+        if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
             errorCode = Error::InvalidGLB;
             return nullptr;
         }

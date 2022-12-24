@@ -230,6 +230,7 @@ namespace fastgltf {
         void parseScenes(simdjson::fallback::ondemand::array array);
         void parseSkins(simdjson::fallback::ondemand::array array);
         void parseTextures(simdjson::fallback::ondemand::array array);
+
     public:
         explicit glTF(const glTF& scene) = delete;
         glTF& operator=(const glTF& scene) = delete;
