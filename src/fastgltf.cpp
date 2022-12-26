@@ -1802,9 +1802,10 @@ bool fg::GltfDataBuffer::fromByteView(uint8_t* bytes, size_t byteCount, size_t c
     if (capacity - byteCount < simdjson::SIMDJSON_PADDING)
         return copyBytes(bytes, byteCount);
 
+    dataSize = byteCount;
     bufferPointer = bytes;
     allocatedSize = capacity;
-    std::memset(bufferPointer + byteCount, 0, allocatedSize - byteCount);
+    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
 }
 
@@ -1814,13 +1815,14 @@ bool fg::GltfDataBuffer::copyBytes(uint8_t* bytes, size_t byteCount) noexcept {
         return false;
 
     // Allocate a byte array with a bit of padding.
+    dataSize = byteCount;
     allocatedSize = byteCount + simdjson::SIMDJSON_PADDING;
     buffer = std::make_unique<uint8_t[]>(allocatedSize);
     bufferPointer = buffer.get();
 
     // Copy the data and fill the padding region with zeros.
-    std::memcpy(bufferPointer, bytes, byteCount);
-    std::memset(bufferPointer + byteCount, 0, allocatedSize - byteCount);
+    std::memcpy(bufferPointer, bytes, dataSize);
+    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
 }
 
@@ -1836,19 +1838,19 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, uint64_t byteOffset)
     auto length = file.tellg();
     file.seekg(static_cast<int64_t>(byteOffset), std::ifstream::beg);
 
-    auto targetSize = static_cast<uint64_t>(length) - byteOffset;
-    allocatedSize = targetSize + simdjson::SIMDJSON_PADDING;
+    dataSize = static_cast<uint64_t>(length) - byteOffset;
+    allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
     buffer = std::make_unique<uint8_t[]>(allocatedSize);
     bufferPointer = buffer.get();
 
     // Copy the data and fill the padding region with zeros.
-    file.read(reinterpret_cast<char*>(bufferPointer), static_cast<int64_t>(targetSize));
-    std::memset(bufferPointer + targetSize, 0, allocatedSize - targetSize);
+    file.read(reinterpret_cast<char*>(bufferPointer), static_cast<int64_t>(dataSize));
+    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
 }
 
 size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
-    return allocatedSize - simdjson::SIMDJSON_PADDING;
+    return dataSize;
 }
 #pragma endregion
 
@@ -1877,8 +1879,22 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
         simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
     }
 
+    // If we own the allocation of the JSON data, we'll try to minify the JSON, which, in most cases,
+    // will speed up the parsing by a small amount.
+    size_t jsonLength = buffer->getBufferSize();
+    if (buffer->buffer != nullptr && hasBit(options, Options::MinimiseJsonBeforeParsing)) {
+        size_t newLength = 0;
+        auto result = simdjson::minify(reinterpret_cast<const char*>(buffer->bufferPointer), buffer->getBufferSize(),
+                                       reinterpret_cast<char*>(buffer->bufferPointer), newLength);
+        if (result != SUCCESS || newLength == 0) {
+            errorCode = Error::InvalidJson;
+            return nullptr;
+        }
+        buffer->dataSize = jsonLength = newLength;
+    }
+
     auto data = std::make_unique<ParserData>();
-    if (jsonParser->parse(padded_string_view(buffer->bufferPointer, buffer->getBufferSize(), buffer->allocatedSize)).get(data->root) != SUCCESS) {
+    if (jsonParser->parse(padded_string_view(buffer->bufferPointer, jsonLength, buffer->allocatedSize)).get(data->root) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }

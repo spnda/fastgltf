@@ -119,6 +119,16 @@ namespace fastgltf {
          * especially with animations.
          */
         DecomposeNodeMatrices           = 1 << 5,
+
+        /**
+         * This option makes fastgltf minimise the JSON file before parsing. In most cases,
+         * minimising it beforehand actually reduces the time spent. However, there are plenty
+         * of cases where this option slows down parsing drastically, which from my testing seem
+         * to all be glTFs which contain embedded buffers and/or are already minimised. Note that
+         * fastgltf only minimises the string if the data was loaded using GltfDataBuffer::loadFromFile
+         * or GltfDataBuffer::copyBytes, and that the bytes will also be overwritten.
+         */
+        MinimiseJsonBeforeParsing       = 1 << 6,
     };
     // clang-format on
 
@@ -263,6 +273,7 @@ namespace fastgltf {
         friend class Parser;
 
         size_t allocatedSize = 0;
+        size_t dataSize = 0;
         uint8_t* bufferPointer = nullptr;
 
         std::unique_ptr<uint8_t[]> buffer;
