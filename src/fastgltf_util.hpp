@@ -11,6 +11,11 @@
 #define FASTGLTF_HAS_CONCEPTS 0
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 5030) // attribute 'x' is not recognized
+#endif
+
 namespace fastgltf {
     template<typename T>
 #if FASTGLTF_HAS_CONCEPTS
@@ -129,10 +134,22 @@ namespace fastgltf {
         0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
     };
 
-    constexpr uint32_t crc32(std::string_view str) noexcept {
+    [[gnu::hot]] constexpr uint32_t crc32(std::string_view str) noexcept {
         uint32_t crc = 0xffffffff;
         for (auto c : str)
             crc = (crc >> 8) ^ crcHashTable[(crc ^ c) & 0xff];
         return crc ^ 0xffffffff;
     }
+
+    /**
+     * Helper to force evaluation of constexpr functions at compile-time in C++17. One example of
+     * this is with crc32: force_consteval<crc32("string")>. No matter the context, this will
+     * always be evaluated to a constant.
+     */
+    template <auto V>
+    static constexpr auto force_consteval = V;
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

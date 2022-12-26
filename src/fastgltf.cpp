@@ -35,24 +35,6 @@ namespace fastgltf {
     constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
     constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
 
-    constexpr auto hashAccessors = crc32("accessors");
-    constexpr auto hashAnimations = crc32("animations");
-    constexpr auto hashAsset = crc32("asset");
-    constexpr auto hashBuffers = crc32("buffers");
-    constexpr auto hashBufferViews = crc32("bufferViews");
-    constexpr auto hashCameras = crc32("cameras");
-    constexpr auto hashExtensions = crc32("extensions");
-    constexpr auto hashExtras = crc32("extras");
-    constexpr auto hashImages = crc32("images");
-    constexpr auto hashMaterials = crc32("materials");
-    constexpr auto hashMeshes = crc32("meshes");
-    constexpr auto hashNodes = crc32("nodes");
-    constexpr auto hashSamplers = crc32("samplers");
-    constexpr auto hashScenes = crc32("scenes");
-    constexpr auto hashScene = crc32("scene");
-    constexpr auto hashSkins = crc32("skins");
-    constexpr auto hashTextures = crc32("textures");
-
     struct ParserData {
         // Can simdjson not store this data itself?
         std::vector<uint8_t> bytes;
@@ -586,14 +568,14 @@ fg::Error fg::glTF::parse(Category categories) {
 
         auto hashedKey = crc32(object.key);
 
-        if (hashedKey == hashScene) {
+        if (hashedKey == force_consteval<crc32("scene")>) {
             uint64_t defaultScene;
             if (object.value.get_uint64().get(defaultScene) != SUCCESS) {
                 errorCode = Error::InvalidGltf;
             }
             parsedAsset->defaultScene = static_cast<size_t>(defaultScene);
             continue;
-        } else if (hashedKey == hashAsset || hashedKey == hashExtensions || hashedKey == hashExtras) {
+        } else if (hashedKey == force_consteval<crc32("asset")> || hashedKey == force_consteval<crc32("extensions")> || hashedKey == force_consteval<crc32("extras")>) {
             continue;
         }
 
@@ -603,29 +585,34 @@ fg::Error fg::glTF::parse(Category categories) {
             return errorCode;
         }
 
-#define KEY_SWITCH_CASE(name) case hash##name:       \
+#define FASTGLTF_QUOTE_Q(x) #x
+#define FASTGLTF_QUOTE(x) FASTGLTF_QUOTE_Q(x)
+
+#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32(FASTGLTF_QUOTE(id))>:       \
                 if (hasBit(categories, Category::name))   \
                     parse##name(array);                     \
                 readCategories |= Category::name;         \
                 break;
 
         switch (hashedKey) {
-            KEY_SWITCH_CASE(Accessors)
-            KEY_SWITCH_CASE(Animations)
-            KEY_SWITCH_CASE(Buffers)
-            KEY_SWITCH_CASE(BufferViews)
-            KEY_SWITCH_CASE(Cameras)
-            KEY_SWITCH_CASE(Images)
-            KEY_SWITCH_CASE(Materials)
-            KEY_SWITCH_CASE(Meshes)
-            KEY_SWITCH_CASE(Nodes)
-            KEY_SWITCH_CASE(Samplers)
-            KEY_SWITCH_CASE(Scenes)
-            KEY_SWITCH_CASE(Skins)
-            KEY_SWITCH_CASE(Textures)
+            KEY_SWITCH_CASE(Accessors, accessors)
+            KEY_SWITCH_CASE(Animations, animations)
+            KEY_SWITCH_CASE(Buffers, buffers)
+            KEY_SWITCH_CASE(BufferViews, bufferViews)
+            KEY_SWITCH_CASE(Cameras, cameras)
+            KEY_SWITCH_CASE(Images, images)
+            KEY_SWITCH_CASE(Materials, materials)
+            KEY_SWITCH_CASE(Meshes, meshes)
+            KEY_SWITCH_CASE(Nodes, nodes)
+            KEY_SWITCH_CASE(Samplers, samplers)
+            KEY_SWITCH_CASE(Scenes, scenes)
+            KEY_SWITCH_CASE(Skins, skins)
+            KEY_SWITCH_CASE(Textures, textures)
             default:
                 break;
         }
+
+#undef KEY_SWITCH_CASE
     }
 
     return errorCode;
