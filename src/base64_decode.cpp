@@ -343,19 +343,21 @@ std::vector<uint8_t> fg::base64::decode(std::string_view encoded) {
     assert(encoded.size() % 4 == 0);
 
     // We use simdjson's helper functions to determine which SIMD intrinsics are available at runtime.
+    // The different implementations, because they're SIMD based, require a minimum amount of chars, as
+    // they load multiple at once.
 #if defined(__x86_64__) || defined(_M_AMD64)
     auto* avx2 = simdjson::get_available_implementations()["haswell"];
     auto* sse4 = simdjson::get_available_implementations()["westmere"];
-    if (avx2 != nullptr && avx2->supported_by_runtime_system()) {
+    if (avx2 != nullptr && avx2->supported_by_runtime_system() && encoded.size() >= 32) {
         return avx2_decode(encoded);
-    } else if (sse4 != nullptr && sse4->supported_by_runtime_system()) {
+    } else if (sse4 != nullptr && sse4->supported_by_runtime_system() && encoded.size() >= 16) {
         return sse4_decode(encoded);
     }
 #endif
 
 #if defined(__aarch64__)
     auto* neon = simdjson::get_available_implementations()["arm64"];
-    if (neon != nullptr && neon->supported_by_runtime_system()) {
+    if (neon != nullptr && neon->supported_by_runtime_system() && encoded.size() >= 16) {
         return neon_decode(encoded);
     }
 #endif
