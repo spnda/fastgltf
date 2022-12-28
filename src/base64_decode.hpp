@@ -17,14 +17,11 @@ namespace fastgltf::base64 {
      */
     [[gnu::always_inline]] constexpr size_t getPadding(std::string_view string) {
         assert(string.size() >= 4 && string.size() % 4 == 0);
-        size_t padding = 0;
         const auto size = string.size();
-        for (auto i = size - 1; i >= (size - 3); --i) {
-            if (string[i] != '=')
-                break;
-            ++padding;
-        }
-        return padding;
+        for (auto i = 1; i < 4; ++i)
+            if (string[size - i] != '=')
+                return i - 1;
+        return 0;
     }
 
     /**

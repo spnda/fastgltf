@@ -11,6 +11,16 @@
 
 constexpr std::string_view testBase64 = "SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLiBIZWxsbyBXb3JsZC4=";
 
+TEST_CASE("Check base64 utility functions", "[base64]") {
+    REQUIRE(fastgltf::base64::getPadding("Li==") == 2);
+    REQUIRE(fastgltf::base64::getPadding("Li4=") == 1);
+    REQUIRE(fastgltf::base64::getPadding("Li4u") == 0);
+
+    REQUIRE(fastgltf::base64::getOutputSize(4, 0) == 3); // Li4u
+    REQUIRE(fastgltf::base64::getOutputSize(4, 1) == 2); // Li4=
+    REQUIRE(fastgltf::base64::getOutputSize(4, 2) == 1); // Li==
+};
+
 TEST_CASE("Check base64 decoding", "[base64]") {
     // This is "Hello World. Hello World.". The decode function
     // uses the best possible SIMD version of the algorithm.
@@ -63,9 +73,9 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     auto boxTextured = sampleModels / "2.0" / "BoxTextured" / "glTF-Embedded";
 
     auto tceJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    tceJsonData->loadFromFile(cylinderEngine / "2CylinderEngine.gltf");
+    REQUIRE(tceJsonData->loadFromFile(cylinderEngine / "2CylinderEngine.gltf"));
     auto btJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    btJsonData->loadFromFile(boxTextured / "BoxTextured.gltf");
+    REQUIRE(btJsonData->loadFromFile(boxTextured / "BoxTextured.gltf"));
 
     SECTION("Validate large buffer load from glTF") {
         auto gltf = parser.loadGLTF(tceJsonData.get(), cylinderEngine);
