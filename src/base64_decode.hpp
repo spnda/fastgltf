@@ -40,7 +40,7 @@ namespace fastgltf::base64 {
     [[nodiscard]] std::vector<uint8_t> sse4_decode(std::string_view encoded);
     [[nodiscard]] std::vector<uint8_t> avx2_decode(std::string_view encoded);
 #endif
-#if defined(__aarch64__)
+#if defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
     void neon_decode(std::string_view encoded, uint8_t* output, size_t padding);
     [[nodiscard]] std::vector<uint8_t> neon_decode(std::string_view encoded);
 #endif

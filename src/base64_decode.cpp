@@ -7,8 +7,8 @@
 #include <avxintrin.h>
 #include <avx2intrin.h>
 #endif
-#elif defined(__aarch64__)
-#include <arm_neon.h>
+#elif defined(__aarch64__) || defined(__ARM_NEON) || defined(_M_ARM64)
+#include <arm_neon.h> // Includes arm64_neon.h on MSVC
 #endif
 
 #ifdef _MSC_VER
@@ -169,7 +169,7 @@ namespace fg = fastgltf;
 
     return ret;
 }
-#elif defined(__aarch64__)
+#elif defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
 [[gnu::always_inline]] inline int8x16_t neon_lookup_pshufb_bitmask(const uint8x16_t input) {
     // clang-format off
     constexpr std::array<int8_t, 16> shiftLUTdata = {
@@ -346,8 +346,9 @@ std::vector<uint8_t> fg::base64::decode(std::string_view encoded) {
     // The different implementations, because they're SIMD based, require a minimum amount of chars, as
     // they load multiple at once.
 #if defined(__x86_64__) || defined(_M_AMD64)
-    auto* avx2 = simdjson::get_available_implementations()["haswell"];
-    auto* sse4 = simdjson::get_available_implementations()["westmere"];
+    auto& impls = simdjson::get_available_implementations();
+    auto* avx2 = impls["haswell"];
+    auto* sse4 = impls["westmere"];
     if (avx2 != nullptr && avx2->supported_by_runtime_system() && encoded.size() >= 32) {
         return avx2_decode(encoded);
     } else if (sse4 != nullptr && sse4->supported_by_runtime_system() && encoded.size() >= 16) {
@@ -355,9 +356,11 @@ std::vector<uint8_t> fg::base64::decode(std::string_view encoded) {
     }
 #endif
 
-#if defined(__aarch64__)
-    auto* neon = simdjson::get_available_implementations()["arm64"];
-    if (neon != nullptr && neon->supported_by_runtime_system() && encoded.size() >= 16) {
+#if defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
+    // _M_ARM64 always guarantees 64-bit ARM processors that support NEON, defined by MSVC.
+    // __aarch64__ always guarantees 64-bit ARMv8 processors that support NEON, defined by Clang.
+    // __ARM_NEON always guarantees NEON support, defined by Clang and GCC.
+    if (encoded.size() >= 16) {
         return neon_decode(encoded);
     }
 #endif
