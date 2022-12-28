@@ -38,7 +38,7 @@ jobs:
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
       - name: Build (Windows)
-        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/tests
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/tests --verbose
 
       - name: Run tests
         run: ${{ github.workspace }}\build\tests\Release\tests.exe -d yes --order lex [base64],[gltf-loader]
@@ -57,7 +57,7 @@ jobs:
 
     runs-on: ubuntu-latest
     env:
-      C: ${{ matrix.c_compiler }}
+      CC: ${{ matrix.c_compiler }}
       CXX: ${{ matrix.cxx_compiler }}
     steps:
       - uses: actions/checkout@v3
@@ -83,7 +83,7 @@ jobs:
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
       - name: Build
-        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests
+        run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests --verbose
 
       - name: Run tests
         run: ${{ github.workspace }}/build/tests/tests -d yes --order lex [base64],[gltf-loader]
