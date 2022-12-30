@@ -28,7 +28,7 @@ namespace fastgltf {
 
     template <typename T, typename U>
 #if FASTGLTF_HAS_CONCEPTS
-    requires ((std::is_enum_v<T> && std::integral<std::underlying_type<T>>) || std::integral<T>) && requires (T t, U u) {
+    requires ((std::is_enum_v<T> && std::integral<std::underlying_type_t<T>>) || std::integral<T>) && requires (T t, U u) {
         { t & u } -> std::same_as<U>;
     }
 #endif
