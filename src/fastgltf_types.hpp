@@ -297,6 +297,12 @@ namespace fastgltf {
         std::string name;
     };
 
+    struct AssetInfo {
+        std::string gltfVersion;
+        std::string copyright;
+        std::string generator;
+    };
+
     struct Camera {
         struct Orthographic {
             float xmag;
@@ -537,6 +543,10 @@ namespace fastgltf {
     };
 
     struct Asset {
+        /**
+         * This will only ever have no value if Options::DontRequireValidAssetMember was specified.
+         */
+        std::optional<AssetInfo> assetInfo;
         std::optional<size_t> defaultScene;
         std::vector<Accessor> accessors;
         std::vector<Animation> animations;

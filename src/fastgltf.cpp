@@ -512,21 +512,39 @@ fg::Error fg::glTF::validate() {
 fg::Error fg::glTF::parse(Category categories) {
     using namespace simdjson;
 
-    dom::object asset;
     if (!hasBit(options, Options::DontRequireValidAssetMember)) {
+        dom::object asset;
+        AssetInfo info = {};
         auto error = data->root["asset"].get_object().get(asset);
         if (error == NO_SUCH_FIELD) {
             SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
-        } else if (error == SUCCESS) {
-            std::string_view version;
-            if (asset["version"].get_string().get(version) != SUCCESS) {
-                SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
-            } else if (version != "2.0") {
-                SET_ERROR_RETURN_ERROR(Error::UnsupportedVersion)
-            }
-        } else {
+        } else if (error != SUCCESS) {
             SET_ERROR_RETURN_ERROR(Error::InvalidJson)
         }
+
+        std::string_view version;
+        if (asset["version"].get_string().get(version) != SUCCESS) {
+            SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
+        } else {
+            uint32_t major = version.substr(0, 1)[0] - '0';
+            uint32_t minor = version.substr(2, 3)[0] - '0';
+            if (major != 2) {
+                SET_ERROR_RETURN_ERROR(Error::UnsupportedVersion)
+            }
+        }
+        info.gltfVersion = std::string { version };
+
+        std::string_view copyright;
+        if (asset["copyright"].get_string().get(copyright) == SUCCESS) {
+            info.copyright = std::string { copyright };
+        }
+
+        std::string_view generator;
+        if (asset["generator"].get_string().get(generator) == SUCCESS) {
+            info.generator = std::string { generator };
+        }
+
+        parsedAsset->assetInfo = std::move(info);
     }
 
     dom::array extensionsRequired;
