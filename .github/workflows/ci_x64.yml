@@ -41,7 +41,7 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}\build\tests\Release\tests.exe -d yes --order lex [base64],[gltf-loader]
+        run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex [base64],[gltf-loader]
 
   build_linux:
     strategy:
@@ -86,4 +86,4 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}/build/tests/tests -d yes --order lex [base64],[gltf-loader]
+        run: ${{ github.workspace }}/build/tests/fastgltf_tests -d yes --order lex [base64],[gltf-loader]
