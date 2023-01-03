@@ -75,6 +75,26 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     };
 }
 
+TEST_CASE("Benchmark massive gltf file", "[base64-benchmark]") {
+    if (!std::filesystem::exists(bistroPath / "bistro.gltf")) {
+        return;
+    }
+
+    fastgltf::Parser parser;
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(bistroPath / "bistro.gltf");
+
+    BENCHMARK("Parse Bistro and decode base64 with SIMD") {
+        auto engine = parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);
+        return engine->parse();
+    };
+
+    BENCHMARK("Parse Bistro and decode base64 without SIMD") {
+        auto engine = parser.loadGLTF(jsonData.get(), bistroPath, noSimdBenchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);
+        return engine->parse();
+    };
+};
+
 TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmark]") {
     auto buggyPath = sampleModels / "2.0" / "Buggy" / "glTF";
     auto bytes = readFileAsBytes(buggyPath / "Buggy.gltf");
