@@ -1835,7 +1835,7 @@ bool fg::GltfDataBuffer::copyBytes(uint8_t* bytes, size_t byteCount) noexcept {
     // Allocate a byte array with a bit of padding.
     dataSize = byteCount;
     allocatedSize = byteCount + simdjson::SIMDJSON_PADDING;
-    buffer = std::make_unique<uint8_t[]>(allocatedSize);
+    buffer = std::unique_ptr<uint8_t[]>(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     bufferPointer = buffer.get();
 
     // Copy the data and fill the padding region with zeros.
@@ -1847,22 +1847,30 @@ bool fg::GltfDataBuffer::copyBytes(uint8_t* bytes, size_t byteCount) noexcept {
 bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, uint64_t byteOffset) noexcept {
     using namespace simdjson;
     // Open the file and determine the size.
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open() || file.bad())
         return false;
 
     filePath = path;
 
-    auto length = file.tellg();
-    file.seekg(static_cast<int64_t>(byteOffset), std::ifstream::beg);
+    // Skip over as many characters as possible until EOF, then get how many characters were skipped.
+    file.ignore(std::numeric_limits<std::streamsize>::max());
+    auto length = file.gcount() - byteOffset;
+    if (length == 0 || file.bad())
+        return false;
+
+    file.clear();
+    file.seekg(static_cast<std::streamsize>(byteOffset), std::ifstream::beg);
 
     dataSize = static_cast<uint64_t>(length) - byteOffset;
     allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = std::make_unique<uint8_t[]>(allocatedSize);
+    buffer = std::unique_ptr<uint8_t[]>(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+    if (!buffer)
+        return false;
     bufferPointer = buffer.get();
 
     // Copy the data and fill the padding region with zeros.
-    file.read(reinterpret_cast<char*>(bufferPointer), static_cast<int64_t>(dataSize));
+    file.read(reinterpret_cast<char*>(bufferPointer), static_cast<std::streamsize>(dataSize));
     std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
 }
