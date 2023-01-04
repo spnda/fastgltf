@@ -13,10 +13,8 @@
 #include "simdjson.h"
 
 #ifdef SIMDJSON_TARGET_VERSION
-#define FASTGLTF_STRINGIFY(x) #x
-#define FASTGLTF_STRINGIFYX(x) FASTGLTF_STRINGIFY(x)
 // Make sure that SIMDJSON_TARGET_VERSION is equal to SIMDJSON_VERSION.
-static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == FASTGLTF_STRINGIFYX(SIMDJSON_VERSION), "Outdated version of simdjson. Reconfigure project to update.");
+static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_STRINGIFY(SIMDJSON_VERSION), "Outdated version of simdjson. Reconfigure project to update.");
 #endif
 
 #include "fastgltf_parser.hpp"
@@ -718,7 +716,7 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             if (child["componentType"].get_uint64().get(value) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sparse.indexComponentType = getComponentType(value);
+            sparse.indexComponentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
 
             // Accessor Sparse Values
             if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) {
