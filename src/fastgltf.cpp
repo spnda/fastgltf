@@ -174,7 +174,7 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
             auto size = base64::getOutputSize(encodedData.size(), padding);
             auto info = data->mapCallback(size, data->userPointer);
             if (info.mappedMemory != nullptr) {
-                base64::decode(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding);
+                base64::decode_inplace(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding);
                 if (data->unmapCallback != nullptr) {
                     data->unmapCallback(&info, data->userPointer);
                 }

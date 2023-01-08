@@ -28,7 +28,7 @@ std::vector<uint8_t> readFileAsBytes(std::filesystem::path path) {
 TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
     fastgltf::Parser parser;
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(intelSponza / "NewSponza_Main_glTF_002.gltf");
+    REQUIRE(jsonData->loadFromFile(intelSponza / "NewSponza_Main_glTF_002.gltf"));
 
     BENCHMARK("Parse NewSponza with SIMD") {
         auto sponza = parser.loadGLTF(jsonData.get(), intelSponza, benchmarkOptions);
@@ -45,7 +45,7 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
     fastgltf::Parser parser;
     auto cylinderEngine = sampleModels / "2.0" / "2CylinderEngine" / "glTF-Embedded";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(cylinderEngine / "2CylinderEngine.gltf");
+    REQUIRE(jsonData->loadFromFile(cylinderEngine / "2CylinderEngine.gltf"));
 
     BENCHMARK("Parse 2CylinderEngine and decode base64 with SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine, benchmarkOptions);
@@ -62,7 +62,7 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     fastgltf::Parser parser;
     auto buggyPath = sampleModels / "2.0" / "Buggy" / "glTF";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(buggyPath / "Buggy.gltf");
+    REQUIRE(jsonData->loadFromFile(buggyPath / "Buggy.gltf"));
 
     BENCHMARK("Parse Buggy.gltf with SIMD") {
         auto buggy = parser.loadGLTF(jsonData.get(), buggyPath, benchmarkOptions);
@@ -82,7 +82,7 @@ TEST_CASE("Benchmark massive gltf file", "[base64-benchmark]") {
 
     fastgltf::Parser parser;
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(bistroPath / "bistro.gltf");
+    REQUIRE(jsonData->loadFromFile(bistroPath / "bistro.gltf"));
 
     BENCHMARK("Parse Bistro and decode base64 with SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);

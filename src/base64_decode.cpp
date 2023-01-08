@@ -1,12 +1,9 @@
 #include <array>
 #include <cmath>
+#include <functional>
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
 #include <immintrin.h>
-#if defined(__clang__) || defined(__GNUC__)
-#include <avxintrin.h>
-#include <avx2intrin.h>
-#endif
 #elif defined(__aarch64__) || defined(__ARM_NEON) || defined(_M_ARM64)
 #include <arm_neon.h> // Includes arm64_neon.h on MSVC
 #endif
@@ -22,12 +19,63 @@
 
 namespace fg = fastgltf;
 
+#if defined(_MSC_VER)
+#define FORCEINLINE __forceinline
+#else
+#define FORCEINLINE inline
+#endif
+
+namespace fastgltf::base64 {
+    using DecodeFunctionInplace = std::function<void(std::string_view, uint8_t*, size_t)>;
+    using DecodeFunction = std::function<std::vector<uint8_t>(std::string_view)>;
+
+    struct DecodeFunctionGetter {
+        DecodeFunction func;
+        DecodeFunctionInplace inplace;
+
+        explicit DecodeFunctionGetter() {
+            // We use simdjson's helper functions to determine which SIMD intrinsics are available at runtime.
+            // The different implementations, because they're SIMD based, require a minimum amount of chars, as
+            // they load multiple at once.
+            auto& impls = simdjson::get_available_implementations();
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+            if (const auto* avx2 = impls["haswell"]; avx2 && avx2->supported_by_runtime_system()) {
+                func = avx2_decode;
+                inplace = avx2_decode_inplace;
+            } else if (const auto* sse4 = impls["westmere"]; sse4 && sse4->supported_by_runtime_system()) {
+                func = sse4_decode;
+                inplace = sse4_decode_inplace;
+            }
+#elif defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
+            // _M_ARM64 always guarantees 64-bit ARM processors that support NEON, defined by MSVC.
+            // __aarch64__ always guarantees 64-bit ARMv8 processors that support NEON, defined by Clang.
+            // __ARM_NEON always guarantees NEON support, defined by Clang and GCC.
+            if (const auto* neon = impls["arm64"]; neon && neon->supported_by_runtime_system()) {
+                func = neon_decode;
+                inplace = neon_decode_inplace;
+            }
+#else
+            if (false) {}
+#endif
+            else {
+                func = fallback_decode;
+                inplace = fallback_decode_inplace;
+            }
+        }
+
+        static DecodeFunctionGetter* get() {
+            static DecodeFunctionGetter getter;
+            return &getter;
+        }
+    };
+};
+
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
 // The AVX and SSE decoding functions are based on http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html.
 // It covers various methods of en-/decoding base64 using SSE and AVX and also shows their
 // performance metrics.
 // TODO: Mark these functions with msvc::forceinline which is available from C++20
-[[gnu::target("avx2"), gnu::always_inline]] inline auto avx2_lookup_pshufb_bitmask(const __m256i input) {
+[[gnu::target("avx2"), gnu::always_inline]] FORCEINLINE auto avx2_lookup_pshufb_bitmask(const __m256i input) {
     const auto higher_nibble = _mm256_and_si256(_mm256_srli_epi32(input, 4), _mm256_set1_epi8(0x0f));
 
     const auto shiftLUT = _mm256_setr_epi8(
@@ -44,14 +92,19 @@ namespace fg = fastgltf;
     return _mm256_add_epi8(input, shift);
 }
 
-[[gnu::target("avx2"), gnu::always_inline]] inline auto avx2_pack_ints(__m256i input) {
+[[gnu::target("avx2"), gnu::always_inline]] FORCEINLINE auto avx2_pack_ints(__m256i input) {
     const auto merge = _mm256_maddubs_epi16(input, _mm256_set1_epi32(0x01400140));
     return _mm256_madd_epi16(merge, _mm256_set1_epi32(0x00011000));
 }
 
-[[gnu::target("avx2")]] void fg::base64::avx2_decode(std::string_view encoded, uint8_t* output, size_t padding) {
+[[gnu::target("avx2")]] void fg::base64::avx2_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding) {
     constexpr auto dataSetSize = 32;
     constexpr auto dataOutputSize = 24;
+
+    if (encoded.size() < dataSetSize) {
+        fallback_decode_inplace(encoded, output, padding);
+        return;
+    }
 
     // We align the size to the highest size divisible by 32. By doing this, we don't need to
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
@@ -90,7 +143,7 @@ namespace fg = fastgltf;
     }
 
     // Decode the last chunk traditionally
-    fallback_decode(encoded.substr(pos, encodedSize), out, padding);
+    fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
 }
 
 [[gnu::target("avx2")]] std::vector<uint8_t> fg::base64::avx2_decode(std::string_view encoded) {
@@ -98,12 +151,12 @@ namespace fg = fastgltf;
     const auto padding = getPadding(encoded);
 
     std::vector<uint8_t> ret(getOutputSize(encodedSize, padding));
-    avx2_decode(encoded, ret.data(), padding);
+    avx2_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
 }
 
-[[gnu::target("sse4.1"), gnu::always_inline]] inline auto sse4_lookup_pshufb_bitmask(const __m128i input) {
+[[gnu::target("sse4.1"), gnu::always_inline]] FORCEINLINE auto sse4_lookup_pshufb_bitmask(const __m128i input) {
     const auto higher_nibble = _mm_and_si128(_mm_srli_epi32(input, 4), _mm_set1_epi8(0x0f));
 
     const auto shiftLUT = _mm_setr_epi8(
@@ -117,14 +170,19 @@ namespace fg = fastgltf;
     return _mm_add_epi8(input, shift);
 }
 
-[[gnu::target("sse4.1"), gnu::always_inline]] inline auto sse4_pack_ints(__m128i input) {
+[[gnu::target("sse4.1"), gnu::always_inline]] FORCEINLINE auto sse4_pack_ints(__m128i input) {
     const auto merge = _mm_maddubs_epi16(input, _mm_set1_epi32(0x01400140));
     return _mm_madd_epi16(merge, _mm_set1_epi32(0x00011000));
 }
 
-[[gnu::target("sse4.1")]] void fg::base64::sse4_decode(std::string_view encoded, uint8_t* output, size_t padding) {
+[[gnu::target("sse4.1")]] void fg::base64::sse4_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding) {
     constexpr auto dataSetSize = 16;
     constexpr auto dataOutputSize = 12;
+
+    if (encoded.size() < dataSetSize) {
+        fallback_decode_inplace(encoded, output, padding);
+        return;
+    }
 
     // We align the size to the highest size divisible by 16. By doing this, we don't need to
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
@@ -157,7 +215,7 @@ namespace fg = fastgltf;
     }
 
     // Decode the last chunk traditionally
-    fallback_decode(encoded.substr(pos, encodedSize), out, padding);
+    fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
 }
 
 [[gnu::target("sse4.1")]] std::vector<uint8_t> fg::base64::sse4_decode(std::string_view encoded) {
@@ -165,12 +223,12 @@ namespace fg = fastgltf;
     const auto padding = getPadding(encoded);
 
     std::vector<uint8_t> ret(getOutputSize(encodedSize, padding));
-    sse4_decode(encoded, ret.data(), padding);
+    sse4_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
 }
 #elif defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
-[[gnu::always_inline]] inline int8x16_t neon_lookup_pshufb_bitmask(const uint8x16_t input) {
+[[gnu::always_inline]] FORCEINLINE int8x16_t neon_lookup_pshufb_bitmask(const uint8x16_t input) {
     // clang-format off
     constexpr std::array<int8_t, 16> shiftLUTdata = {
         0,   0,  19,   4, -65, -65, -71, -71,
@@ -189,7 +247,7 @@ namespace fg = fastgltf;
     return vaddq_s8(input, shift);
 }
 
-[[gnu::always_inline]] inline int16x8_t neon_pack_ints(const int8x16_t input) {
+[[gnu::always_inline]] FORCEINLINE int16x8_t neon_pack_ints(const int8x16_t input) {
     const uint32x4_t mask = vdupq_n_u32(0x01400140);
 
     const int16x8_t tl = vmulq_s16(vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(input))), vmovl_s8(vget_low_s8(mask)));
@@ -214,9 +272,14 @@ namespace fg = fastgltf;
 };
 // clang-fomat on
 
-void fg::base64::neon_decode(std::string_view encoded, uint8_t* output, size_t padding) {
+void fg::base64::neon_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding) {
     constexpr auto dataSetSize = 16;
     constexpr auto dataOutputSize = 12;
+
+    if (encoded.size() < dataSetSize) {
+        fallback_decode_inplace(encoded, output, padding);
+        return;
+    }
 
     // We align the size to the highest size divisible by 16. By doing this, we don't need to
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
@@ -271,7 +334,7 @@ static constexpr std::array<uint8_t, 128> base64lut = {
 };
 // clang-format on
 
-void fg::base64::fallback_decode(std::string_view encoded, uint8_t* output, size_t padding) {
+void fg::base64::fallback_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding) {
     std::array<uint8_t, 4> sixBitChars = {};
     std::array<uint8_t, 3> eightBitChars = {};
 
@@ -311,61 +374,21 @@ std::vector<uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
     const auto padding = getPadding(encoded);
 
     std::vector<uint8_t> ret(getOutputSize(encodedSize, padding));
-    fallback_decode(encoded, ret.data(), padding);
+    fallback_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
 }
 
-void fg::base64::decode(std::string_view encoded, uint8_t* output, size_t padding) {
+void fg::base64::decode_inplace(std::string_view encoded, uint8_t* output, size_t padding) {
     assert(encoded.size() % 4 == 0);
 
-#if defined(__x86_64__) || defined(_M_AMD64)
-    auto* avx2 = simdjson::get_available_implementations()["haswell"];
-    auto* sse4 = simdjson::get_available_implementations()["westmere"];
-    if (avx2 != nullptr && avx2->supported_by_runtime_system()) {
-        return avx2_decode(encoded, output, padding);
-    } else if (sse4 != nullptr && sse4->supported_by_runtime_system()) {
-        return sse4_decode(encoded, output, padding);
-    }
-#endif
-
-#if defined(__aarch64__)
-    auto* neon = simdjson::get_available_implementations()["arm64"];
-    if (neon != nullptr && neon->supported_by_runtime_system()) {
-        return neon_decode(encoded, output, padding);
-    }
-#endif
-
-    return fallback_decode(encoded, output, padding);
+    return DecodeFunctionGetter::get()->inplace(encoded, output, padding);
 }
 
 std::vector<uint8_t> fg::base64::decode(std::string_view encoded) {
     assert(encoded.size() % 4 == 0);
 
-    // We use simdjson's helper functions to determine which SIMD intrinsics are available at runtime.
-    // The different implementations, because they're SIMD based, require a minimum amount of chars, as
-    // they load multiple at once.
-#if defined(__x86_64__) || defined(_M_AMD64)
-    auto& impls = simdjson::get_available_implementations();
-    auto* avx2 = impls["haswell"];
-    auto* sse4 = impls["westmere"];
-    if (avx2 != nullptr && avx2->supported_by_runtime_system() && encoded.size() >= 32) {
-        return avx2_decode(encoded);
-    } else if (sse4 != nullptr && sse4->supported_by_runtime_system() && encoded.size() >= 16) {
-        return sse4_decode(encoded);
-    }
-#endif
-
-#if defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
-    // _M_ARM64 always guarantees 64-bit ARM processors that support NEON, defined by MSVC.
-    // __aarch64__ always guarantees 64-bit ARMv8 processors that support NEON, defined by Clang.
-    // __ARM_NEON always guarantees NEON support, defined by Clang and GCC.
-    if (encoded.size() >= 16) {
-        return neon_decode(encoded);
-    }
-#endif
-
-    return fallback_decode(encoded);
+    return DecodeFunctionGetter::get()->func(encoded);
 }
 
 #ifdef _MSC_VER

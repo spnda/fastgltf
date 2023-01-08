@@ -34,18 +34,17 @@ namespace fastgltf::base64 {
     }
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-    void sse4_decode(std::string_view encoded, uint8_t* output, size_t padding);
-    void avx2_decode(std::string_view encoded, uint8_t* output, size_t padding);
+    void sse4_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding);
+    void avx2_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding);
 
     [[nodiscard]] std::vector<uint8_t> sse4_decode(std::string_view encoded);
     [[nodiscard]] std::vector<uint8_t> avx2_decode(std::string_view encoded);
-#endif
-#if defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
-    void neon_decode(std::string_view encoded, uint8_t* output, size_t padding);
+#elif defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
+    void neon_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding);
     [[nodiscard]] std::vector<uint8_t> neon_decode(std::string_view encoded);
 #endif
-    void fallback_decode(std::string_view encoded, uint8_t* output, size_t padding);
-    void decode(std::string_view encoded, uint8_t* output, size_t padding);
+    void fallback_decode_inplace(std::string_view encoded, uint8_t* output, size_t padding);
+    void decode_inplace(std::string_view encoded, uint8_t* output, size_t padding);
 
     [[nodiscard]] std::vector<uint8_t> fallback_decode(std::string_view encoded);
     [[nodiscard]] std::vector<uint8_t> decode(std::string_view encoded);
