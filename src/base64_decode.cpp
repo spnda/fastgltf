@@ -307,7 +307,7 @@ void fg::base64::neon_decode_inplace(std::string_view encoded, uint8_t* output, 
     }
 
     // Decode the last chunk traditionally
-    fallback_decode(encoded.substr(pos, encodedSize), out, padding);
+    fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
 }
 
 std::vector<uint8_t> fg::base64::neon_decode(std::string_view encoded) {
@@ -315,7 +315,7 @@ std::vector<uint8_t> fg::base64::neon_decode(std::string_view encoded) {
     const auto padding = getPadding(encoded);
 
     std::vector<uint8_t> ret(getOutputSize(encodedSize, padding));
-    neon_decode(encoded, ret.data(), padding);
+    neon_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
 }
