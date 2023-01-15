@@ -14,6 +14,7 @@
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
+#pragma warning(disable : 4514) // unreferenced inline function has been removed
 #endif
 
 namespace fastgltf {
@@ -21,7 +22,7 @@ namespace fastgltf {
 #if FASTGLTF_HAS_CONCEPTS
     requires std::is_enum_v<T>
 #endif
-    constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
+    [[nodiscard]] constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
         static_assert(std::is_enum_v<T>, "to_underlying only works with enum types.");
         return static_cast<std::underlying_type_t<T>>(t);
     }
@@ -32,18 +33,19 @@ namespace fastgltf {
         { t & u } -> std::same_as<U>;
     }
 #endif
-    constexpr bool hasBit(T flags, U bit) {
+    [[nodiscard]] constexpr bool hasBit(T flags, U bit) {
         static_assert((std::is_enum_v<T> && std::is_integral_v<std::underlying_type_t<T>>) || std::is_integral_v<T>);
         return (flags & bit) == bit;
     }
 
     template <typename T>
-    constexpr T alignUp(T base, T alignment) {
+    [[nodiscard]] constexpr T alignUp(T base, T alignment) {
+        static_assert(std::is_signed_v<T>, "alignUp requires type T to be signed.");
         return (base + alignment - 1) & -alignment;
     }
 
     template <typename T>
-    constexpr T alignDown(T base, T alignment) {
+    [[nodiscard]] constexpr T alignDown(T base, T alignment) {
         return base - (base % alignment);
     }
 

@@ -189,9 +189,9 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
         // Decode the base64 data into a traditional vector
         std::vector<uint8_t> uriData;
         if (hasBit(options, Options::DontUseSIMD)) {
-            uriData = std::move(base64::fallback_decode(encodedData));
+            uriData = base64::fallback_decode(encodedData);
         } else {
-            uriData = std::move(base64::decode(encodedData));
+            uriData = base64::decode(encodedData);
         }
 
         DataSource source = {};
@@ -991,30 +991,50 @@ void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
             }
 
             if (object["mode"].get_string().get(string) == SUCCESS) {
-                if (string == "ATTRIBUTES") {
-                    view.mode = MeshoptCompressionMode::Attributes;
-                } else if (string == "TRIANGLES") {
-                    view.mode = MeshoptCompressionMode::Triangles;
-                } else if (string == "INDICES") {
-                    view.mode = MeshoptCompressionMode::Indices;
-                } else {
-                    SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
+                const auto key = crc32(string);
+                switch (key) {
+                    case force_consteval<crc32("ATTRIBUTES")>: {
+                        view.mode = MeshoptCompressionMode::Attributes;
+                        break;
+                    }
+                    case force_consteval<crc32("TRIANGLES")>: {
+                        view.mode = MeshoptCompressionMode::Triangles;
+                        break;
+                    }
+                    case force_consteval<crc32("INDICES")>: {
+                        view.mode = MeshoptCompressionMode::Indices;
+                        break;
+                    }
+                    default: {
+                        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
+                    }
                 }
             } else if (fromMeshoptCompression) {
                 SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             }
 
             if (object["filter"].get_string().get(string) == SUCCESS) {
-                if (string == "NONE") {
-                    view.filter = MeshoptCompressionFilter::None;
-                } else if (string == "OCTAHEDRAL") {
-                    view.filter = MeshoptCompressionFilter::Octahedral;
-                } else if (string == "QUATERNION") {
-                    view.filter = MeshoptCompressionFilter::Quaternion;
-                } else if (string == "EXPONENTIAL") {
-                    view.filter = MeshoptCompressionFilter::Exponential;
-                } else {
-                    SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
+                const auto key = crc32(string);
+                switch (key) {
+                    case force_consteval<crc32("NONE")>: {
+                        view.filter = MeshoptCompressionFilter::None;
+                        break;
+                    }
+                    case force_consteval<crc32("OCTAHEDRAL")>: {
+                        view.filter = MeshoptCompressionFilter::Octahedral;
+                        break;
+                    }
+                    case force_consteval<crc32("QUATERNION")>: {
+                        view.filter = MeshoptCompressionFilter::Quaternion;
+                        break;
+                    }
+                    case force_consteval<crc32("EXPONENTIAL")>: {
+                        view.filter = MeshoptCompressionFilter::Exponential;
+                        break;
+                    }
+                    default: {
+                        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
+                    }
                 }
             } else if (fromMeshoptCompression) {
                 view.filter = MeshoptCompressionFilter::None;

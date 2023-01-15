@@ -7,8 +7,15 @@
 #include <optional>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include "fastgltf_util.hpp"
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 5030) // attribute 'x' is not recognized
+#pragma warning(disable : 4514) // unreferenced inline function has been removed
+#endif
 
 namespace fastgltf {
 #pragma region Enums
@@ -568,3 +575,7 @@ namespace fastgltf {
     };
 #pragma endregion
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
