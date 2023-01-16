@@ -249,7 +249,7 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
 
     // Parse the glTF file and get the constructed asset
     {
-        fastgltf::Parser parser;
+        fastgltf::Parser parser(fastgltf::Extensions::KHR_mesh_quantization);
 
         auto path = std::filesystem::path{cPath};
         std::unique_ptr<fastgltf::glTF> gltf;

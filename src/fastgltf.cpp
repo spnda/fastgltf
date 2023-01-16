@@ -34,8 +34,6 @@ namespace fastgltf {
     constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
 
     struct ParserData {
-        // Can simdjson not store this data itself?
-        std::vector<uint8_t> bytes;
         simdjson::dom::document doc;
         simdjson::dom::object root;
 
@@ -553,24 +551,19 @@ fg::Error fg::glTF::parse(Category categories) {
                 SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             }
 
-            // Check if the extension is known and listed in the parser.
             bool known = false;
-            bool listed = false;
-            for (auto& [extensionString, extensionEnum] : extensionStrings) {
-                if (!known) {
-                    known = extensionString == string;
-                }
-                if (!listed) {
-                    listed = hasBit(extensions, extensionEnum);
-                }
-                if (known && listed)
+            for (const auto& [extensionString, extensionEnum] : extensionStrings) {
+                if (extensionString == string) {
+                    known = true;
+                    if (!hasBit(extensions, extensionEnum)) {
+                        // The extension is required, but not enabled by the user.
+                        SET_ERROR_RETURN_ERROR(Error::MissingExtensions)
+                    }
                     break;
+                }
             }
             if (!known) {
                 SET_ERROR_RETURN_ERROR(Error::UnknownRequiredExtension)
-            }
-            if (!listed) {
-                SET_ERROR_RETURN_ERROR(Error::MissingExtensions)
             }
         }
     }

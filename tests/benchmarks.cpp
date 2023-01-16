@@ -80,17 +80,12 @@ TEST_CASE("Benchmark massive gltf file", "[base64-benchmark]") {
         return;
     }
 
-    fastgltf::Parser parser;
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_mesh_quantization);
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->loadFromFile(bistroPath / "bistro.gltf"));
 
-    BENCHMARK("Parse Bistro and decode base64 with SIMD") {
+    BENCHMARK("Parse Bistro with SIMD") {
         auto engine = parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);
-        return engine->parse();
-    };
-
-    BENCHMARK("Parse Bistro and decode base64 without SIMD") {
-        auto engine = parser.loadGLTF(jsonData.get(), bistroPath, noSimdBenchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);
         return engine->parse();
     };
 };
