@@ -4,6 +4,10 @@
 #include <cmath>
 #include <type_traits>
 
+#if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
+#include <bit>
+#endif
+
 #if defined(__cpp_concepts) && __cpp_concepts >= 201507
 #define FASTGLTF_HAS_CONCEPTS 1
 #include <concepts>
@@ -136,7 +140,7 @@ namespace fastgltf {
         0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
     };
 
-    [[gnu::hot]] constexpr uint32_t crc32(std::string_view str) noexcept {
+    [[gnu::hot, gnu::const]] constexpr uint32_t crc32(std::string_view str) noexcept {
         uint32_t crc = 0xffffffff;
         for (auto c : str)
             crc = (crc >> 8) ^ crcHashTable[(crc ^ c) & 0xff];
@@ -150,6 +154,42 @@ namespace fastgltf {
      */
     template <auto V>
     static constexpr auto force_consteval = V;
+
+    /**
+     * Counts the leading zeros from starting the most significant bit. By default uses uint64_t, but
+     * returns a uint8_t as there can only ever be 2^6 zeros.
+     */
+    [[gnu::const]] inline uint8_t clz(uint64_t value) {
+#if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
+        return std::countl_zero(value);
+#else
+#ifdef _MSC_VER
+        if (unsigned long zeroes = 0; _BitScanReverse64(&zeroes, value)) {
+            return 63 - static_cast<uint8_t>(zeroes);
+        } else {
+            return 64;
+        }
+#elif defined(__clang__) || defined(__GNUC__)
+        if constexpr (std::is_same_v<uint64_t, unsigned long>) {
+            return __builtin_clzl(value);
+        } else if constexpr (std::is_same_v<uint64_t, unsigned long long>) {
+            return __builtin_clzll(value);
+        }
+#else
+        // Very naive but working implementation of counting zero bits. Any sane compiler will
+        // optimise this away, like instead use the bsr x86 instruction.
+        if (value == 0) return 64;
+        uint8_t count = 0;
+        for (int i = 63ULL; i > 0; --i) {
+            if ((value >> i) == 1) {
+                return count;
+            }
+            ++count;
+        }
+        return count;
+#endif
+#endif
+    }
 }
 
 #ifdef _MSC_VER

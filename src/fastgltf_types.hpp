@@ -257,6 +257,301 @@ namespace fastgltf {
     }
 #pragma endregion
 
+#pragma region Containers
+#ifndef FASTGLTF_USE_CUSTOM_SMALLVECTOR
+#define FASTGLTF_USE_CUSTOM_SMALLVECTOR 0
+#endif
+
+#if FASTGLTF_USE_CUSTOM_SMALLVECTOR
+    /**
+     * A custom small vector class for fastgltf, as there often only are 1-3 node children and mesh
+     * primitives. Therefore, this is a quite basic implementation of a small vector which is mostly
+     * standard (C++17) conforming.
+     */
+    template <typename T, size_t N = 8>
+    class SmallVector final {
+        static_assert(N != 0, "Cannot create a SmallVector with 0 initial capacity");
+
+        alignas(T) std::array<T, N> storage;
+
+        T* _data;
+        std::size_t _size = 0, _capacity = N;
+
+        template<typename Input, typename Output>
+        void copy(Input first, std::size_t count, Output result) {
+            if (count > 0) {
+                *result++ = *first;
+                for (std::size_t i = 1; i < count; ++i) {
+                    *result++ = *++first;
+                }
+            }
+        }
+
+    public:
+        SmallVector() : _data(this->storage.data()) {}
+
+        explicit SmallVector(std::size_t size) : _data(this->storage.data()) {
+            assign(size);
+        }
+
+        explicit SmallVector(std::size_t size, const T& value) : _data(this->storage.data()) {
+            assign(size, value);
+        }
+
+        SmallVector(std::initializer_list<T> init) : _data(this->storage.data()) {
+            assign(init);
+        }
+
+        SmallVector(const SmallVector& other) noexcept : _data(this->storage.data()) {
+            if (!isSmallVector() && _data) {
+                std::free(_data);
+                _data = nullptr;
+                _size = _capacity = 0;
+            }
+            resize(other.size());
+            copy(other.begin(), other.size(), begin());
+        }
+
+        SmallVector(SmallVector&& other) noexcept : _data(this->storage.data()) {
+            if (other.isSmallVector()) {
+                if (!other.empty()) {
+                    resize(other.size());
+                    copy(other.begin(), other.size(), begin());
+                    other._data = other.storage.data(); // Reset pointer
+                    _size = std::exchange(other._size, 0);
+                    _capacity = std::exchange(other._capacity, N);
+                }
+            } else {
+                _data = std::exchange(other._data, nullptr);
+                _size = std::exchange(other._size, 0);
+                _capacity = std::exchange(other._capacity, N);
+            }
+        }
+
+        SmallVector& operator=(const SmallVector& other) {
+            if (std::addressof(other) != this) {
+                if (!isSmallVector() && _data) {
+                    std::free(_data);
+                    _data = nullptr;
+                    _size = _capacity = 0;
+                }
+
+                resize(other.size());
+                copy(other.begin(), other.size(), begin());
+            }
+            return *this;
+        }
+
+        SmallVector& operator=(SmallVector&& other) noexcept {
+            if (std::addressof(other) != this) {
+                if (other.isSmallVector()) {
+                    if (!other.empty()) {
+                        resize(other.size());
+                        copy(other.begin(), other.size(), begin());
+                        other._data = other.storage.data(); // Reset pointer
+                        _size = std::exchange(other._size, 0);
+                        _capacity = std::exchange(other._capacity, N);
+                    }
+                } else {
+                    _data = std::exchange(other._data, nullptr);
+                    _size = std::exchange(other._size, 0);
+                    _capacity = std::exchange(other._capacity, N);
+                }
+            }
+            return *this;
+        }
+
+        ~SmallVector() {
+            if (!isSmallVector() && _data) {
+                // The stack data gets destructed automatically, but the heap data does not.
+                for (auto it = begin(); it != end(); ++it) {
+                    it->~T();
+                }
+
+                // Not using the stack, we'll have to free.
+                std::free(_data);
+                _data = nullptr;
+            }
+        }
+
+        inline T* begin() noexcept { return _data; }
+        inline const T* begin() const noexcept { return _data; }
+        inline const T* cbegin() const noexcept { return _data; }
+        inline T* end() noexcept { return begin() + size(); }
+        inline const T* end() const noexcept { return begin() + size(); }
+        inline const T* cend() const noexcept { return begin() + size(); }
+
+        [[nodiscard]] inline std::reverse_iterator<T*> rbegin() { return end(); }
+        [[nodiscard]] inline std::reverse_iterator<const T*> rbegin() const { return end(); }
+        [[nodiscard]] inline std::reverse_iterator<const T*> crbegin() const { return end(); }
+        [[nodiscard]] inline std::reverse_iterator<T*> rend() { return begin(); }
+        [[nodiscard]] inline std::reverse_iterator<const T*> rend() const { return begin(); }
+        [[nodiscard]] inline std::reverse_iterator<const T*> crend() const { return begin(); }
+
+        [[nodiscard]] inline T* data() noexcept { return _data; }
+        [[nodiscard]] inline const T* data() const noexcept { return _data; }
+        [[nodiscard]] inline std::size_t size() const noexcept { return _size; }
+        [[nodiscard]] inline std::size_t size_in_bytes() const noexcept { return _size * sizeof(T); }
+        [[nodiscard]] inline std::size_t capacity() const noexcept { return _capacity; }
+
+        [[nodiscard]] inline bool empty() const noexcept { return _size == 0; }
+        [[nodiscard]] inline bool isSmallVector() const noexcept { return data() == this->storage.data(); }
+
+        inline void reserve(std::size_t newCapacity) {
+            // We don't want to reduce capacity with reserve, only with shrink_to_fit.
+            if (newCapacity <= capacity()) {
+                return;
+            }
+
+            // If the new capacity is lower than what we can hold on the stack, we ignore this request.
+            if (newCapacity <= N) {
+                _capacity = newCapacity;
+                if (_size > _capacity) {
+                    _size = _capacity;
+                }
+                return;
+            }
+
+            // We use geometric growth, similarly to std::vector.
+            newCapacity = std::size_t(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
+
+            // If we don't hold any items yet, we can use realloc to expand. If we do hold any
+            // items, we can't use realloc because it'll invalidate the previous allocation and we
+            // can't copy the data into the new allocation.
+            T* alloc;
+            if (size() == 0 && !isSmallVector()) {
+                alloc = static_cast<T*>(std::realloc(_data, newCapacity * sizeof(T)));
+            } else {
+                alloc = static_cast<T*>(std::malloc(newCapacity * sizeof(T)));
+                copy(begin(), size(), alloc);
+            }
+
+            if (!_data) {
+                return;
+            }
+
+            if (!isSmallVector() && _data) {
+                std::free(_data); // Free our previous allocation.
+            }
+
+            _data = alloc;
+            _capacity = newCapacity;
+        }
+
+        inline void resize(std::size_t newSize) {
+            if (newSize == size()) {
+                return;
+            }
+
+            if (newSize > size()) {
+                // Reserve enough capacity and copy the new value over.
+                auto oldSize = _size;
+                reserve(newSize);
+                for (auto it = begin() + oldSize; it != begin() + newSize; ++it) {
+                    new (it) T();
+                }
+            }
+            // Else, the user wants the vector to be smaller. We'll not reallocate but just change the size.
+            _size = newSize;
+        }
+
+        inline void resize(std::size_t newSize, const T& value) {
+            if (newSize == size()) {
+                return;
+            }
+
+            if (newSize > size()) {
+                // Reserve enough capacity and copy the new value over.
+                auto oldSize = _size;
+                reserve(newSize);
+                for (auto it = begin() + oldSize; it != begin() + newSize; ++it) {
+                    if (it == nullptr)
+                        break;
+                    if constexpr (std::is_nothrow_move_constructible_v<T>) {
+                        new (it) T(std::move(value));
+                    } else {
+                        new (it) T(value);
+                    }
+                }
+            }
+            // Else, the user wants the vector to be smaller. We'll not reallocate but just change the size.
+            _size = newSize;
+        }
+
+        inline void assign(std::size_t count) {
+            resize(count);
+            for (auto it = begin(); it != end(); ++it) {
+                new (it) T();
+            }
+        }
+
+        inline void assign(std::size_t count, const T& value) {
+            resize(count);
+            for (auto it = begin(); it != end(); ++it) {
+                *it = value;
+            }
+        }
+
+        inline void assign(std::initializer_list<T> init) {
+            resize(init.size());
+            for (auto it = init.begin(); it != init.end(); ++it) {
+                at(std::distance(init.begin(), it)) = *it;
+            }
+        }
+
+        template <typename... Args>
+        inline decltype(auto) emplace_back(Args&&... args) {
+            resize(_size + 1);
+            T& result = *(new (std::addressof(back())) T(std::forward<Args>(args)...));
+            return (result);
+        }
+
+        [[nodiscard]] inline T& at(std::size_t idx) {
+            if (idx >= size()) {
+                throw std::out_of_range("Index is out of range for SmallVector");
+            }
+            return begin()[idx];
+        }
+        [[nodiscard]] inline const T& at(std::size_t idx) const {
+            if (idx >= size()) {
+                throw std::out_of_range("Index is out of range for SmallVector");
+            }
+            return begin()[idx];
+        }
+
+        [[nodiscard]] inline T& operator[](std::size_t idx) {
+            assert(idx < size());
+            return begin()[idx];
+        }
+        [[nodiscard]] inline const T& operator[](std::size_t idx) const {
+            assert(idx < size());
+            return begin()[idx];
+        }
+
+        [[nodiscard]]  inline T& front() {
+            assert(!empty());
+            return begin()[0];
+        }
+        [[nodiscard]] inline const T& front() const {
+            assert(!empty());
+            return begin()[0];
+        }
+
+        [[nodiscard]] inline T& back() {
+            assert(!empty());
+            return end()[-1];
+        }
+        [[nodiscard]] inline const T& back() const {
+            assert(!empty());
+            return end()[-1];
+        }
+    };
+#else
+    template <typename T, size_t N = 0>
+    using SmallVector = std::vector<T>;
+#endif
+#pragma endregion
+
 #pragma region Structs
     enum class DataLocation : uint8_t {
         // This should never occur.
@@ -298,8 +593,8 @@ namespace fastgltf {
     };
 
     struct Animation {
-        std::vector<AnimationChannel> channels;
-        std::vector<AnimationSampler> samplers;
+        SmallVector<AnimationChannel> channels;
+        SmallVector<AnimationSampler> samplers;
 
         std::string name;
     };
@@ -334,7 +629,7 @@ namespace fastgltf {
     };
 
     struct Skin {
-        std::vector<size_t> joints;
+        SmallVector<size_t> joints;
         std::optional<size_t> skeleton;
         std::optional<size_t> inverseBindMatrices;
 
@@ -351,7 +646,7 @@ namespace fastgltf {
     };
 
     struct Scene {
-        std::vector<size_t> nodeIndices;
+        SmallVector<size_t> nodeIndices;
 
         std::string name;
     };
@@ -360,8 +655,8 @@ namespace fastgltf {
         std::optional<size_t> meshIndex;
         std::optional<size_t> skinIndex;
         std::optional<size_t> cameraIndex;
-        std::vector<size_t> children;
-        std::vector<float> weights;
+        SmallVector<size_t> children;
+        SmallVector<float> weights;
 
         struct TRS {
             std::array<float, 3> translation;
@@ -391,8 +686,8 @@ namespace fastgltf {
     };
 
     struct Mesh {
-        std::vector<Primitive> primitives;
-        std::vector<float> weights;
+        SmallVector<Primitive, 2> primitives;
+        SmallVector<float> weights;
 
         std::string name;
     };

@@ -17,6 +17,8 @@ if (SIMDJSON_TARGET_VERSION)
     target_compile_definitions(fastgltf PRIVATE SIMDJSON_TARGET_VERSION="${SIMDJSON_TARGET_VERSION}")
 endif()
 
+target_compile_definitions(fastgltf PRIVATE "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
+
 add_source_directory(TARGET fastgltf FOLDER ".")
 
 install(

@@ -523,7 +523,7 @@ fg::Error fg::glTF::parse(Category categories) {
             SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
         } else {
             uint32_t major = version.substr(0, 1)[0] - '0';
-            uint32_t minor = version.substr(2, 3)[0] - '0';
+            // uint32_t minor = version.substr(2, 3)[0] - '0';
             if (major != 2) {
                 SET_ERROR_RETURN_ERROR(Error::UnsupportedVersion)
             }
