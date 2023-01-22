@@ -284,10 +284,14 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         fastgltf::GltfDataBuffer data;
         data.loadFromFile(path);
 
-        if (path.extension() == ".gltf") {
+        auto type = fastgltf::determineGltfFileType(&data);
+        if (type == fastgltf::GltfType::glTF) {
             gltf = parser.loadGLTF(&data, path.parent_path(), gltfOptions);
-        } else if (path.extension() == ".glb") {
+        } else if (type == fastgltf::GltfType::GLB) {
             gltf = parser.loadBinaryGLTF(&data, path.parent_path(), gltfOptions);
+        } else {
+            std::cerr << "Failed to determine glTF container" << std::endl;
+            return false;
         }
 
         if (parser.getError() != fastgltf::Error::None) {
