@@ -1,4 +1,7 @@
-add_library(fastgltf)
+add_library(fastgltf
+    "fastgltf.cpp" "fastgltf_util.hpp" "fastgltf_types.hpp" "fastgltf_parser.hpp"
+    "base64_decode.cpp" "base64_decode.hpp")
+
 add_library(fastgltf::fastgltf ALIAS fastgltf)
 target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> $<INSTALL_INTERFACE:include>)
 target_compile_features(fastgltf PUBLIC cxx_std_17)
@@ -18,8 +21,6 @@ if (SIMDJSON_TARGET_VERSION)
 endif()
 
 target_compile_definitions(fastgltf PRIVATE "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
-
-add_source_directory(TARGET fastgltf FOLDER ".")
 
 install(
     FILES "base64_decode.hpp" "fastgltf_parser.hpp" "fastgltf_types.hpp" "fastgltf_util.hpp"
