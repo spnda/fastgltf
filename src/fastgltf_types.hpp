@@ -43,6 +43,12 @@
 #pragma warning(disable : 4514) // unreferenced inline function has been removed
 #endif
 
+#define FASTGLTF_QUOTE_Q(x) #x
+#define FASTGLTF_QUOTE(x) FASTGLTF_QUOTE_Q(x)
+
+// fastgltf version string. Use FASTGLTF_QUOTE to stringify.
+#define FASTGLTF_VERSION 0.3.0
+
 namespace fastgltf {
 #pragma region Enums
     // clang-format off

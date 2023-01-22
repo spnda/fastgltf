@@ -645,9 +645,6 @@ fg::Error fg::glTF::parse(Category categories) {
             return errorCode;
         }
 
-#define FASTGLTF_QUOTE_Q(x) #x
-#define FASTGLTF_QUOTE(x) FASTGLTF_QUOTE_Q(x)
-
 #define KEY_SWITCH_CASE(name, id) case force_consteval<crc32(FASTGLTF_QUOTE(id))>:       \
                 if (hasBit(categories, Category::name))   \
                     parse##name(array);                     \
