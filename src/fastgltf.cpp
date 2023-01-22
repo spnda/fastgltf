@@ -70,14 +70,11 @@ namespace fastgltf {
 std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
     using namespace simdjson;
 
-    // Both KHR_texture_basisu and MSFT_texture_dds allow specifying an alternative
-    // image source index.
     dom::object sourceExtensionObject;
     if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) {
         return std::make_tuple(false, true, 0U);
     }
 
-    // Check if the extension object provides a source index.
     uint64_t imageIndex;
     if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
         return std::make_tuple(true, false, 0U);
@@ -124,6 +121,18 @@ bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensi
         }
     }
 
+    if (hasBit(extensionFlags, Extensions::EXT_texture_webp)) {
+        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::EXT_texture_webp);
+        if (invalidGltf) {
+            return false;
+        }
+
+        if (!extensionNotPresent) {
+            texture.imageIndex = imageIndex;
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -141,12 +150,14 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 5> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 8> extensionStrings = {{
+    { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
+    { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
+    { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
+    { fg::extensions::KHR_mesh_quantization,              fg::Extensions::KHR_mesh_quantization },
     { fg::extensions::KHR_texture_basisu,                 fg::Extensions::KHR_texture_basisu },
     { fg::extensions::KHR_texture_transform,              fg::Extensions::KHR_texture_transform },
     { fg::extensions::MSFT_texture_dds,                   fg::Extensions::MSFT_texture_dds },
-    { fg::extensions::KHR_mesh_quantization,              fg::Extensions::KHR_mesh_quantization },
-    { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression }
 }};
 // clang-format on
 
