@@ -47,8 +47,8 @@ subdirectory. Also, fastgltf is available from [vcpkg](https://github.com/micros
 #include <fastgltf_types.hpp>
 
 void load(std::filesystem::path path) {
-    // Creates a Parser instance. Optimally, you should reuse
-    // this across loads, but don't use it across threads.
+    // Creates a Parser instance. Optimally, you should reuse this across loads, but don't use it
+    // across threads. To enable extensions you have to pass them into the parser's constructor.
     fastgltf::Parser parser;
 
     // The GltfDataBuffer class is designed for re-usability of the same JSON string. It contains
