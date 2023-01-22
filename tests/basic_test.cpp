@@ -47,6 +47,42 @@ TEST_CASE("Component type tests", "[gltf-loader]") {
     // clang-format on
 };
 
+TEST_CASE("Test if glTF type detection works", "[gltf-loader]") {
+    fastgltf::Parser parser;
+
+    SECTION("glTF") {
+        auto gltfPath = sampleModels / "2.0" / "ABeautifulGame" / "glTF";
+        REQUIRE(std::filesystem::exists(gltfPath));
+        fastgltf::GltfDataBuffer jsonData;
+        jsonData.loadFromFile(gltfPath / "ABeautifulGame.gltf");
+        REQUIRE(fastgltf::determineGltfFileType(&jsonData) == fastgltf::GltfType::glTF);
+
+        auto model = parser.loadGLTF(&jsonData, gltfPath);
+        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(model != nullptr);
+    }
+
+    SECTION("GLB") {
+        auto glbPath = sampleModels / "2.0" / "BoomBox" / "glTF-Binary";
+        REQUIRE(std::filesystem::exists(glbPath));
+        fastgltf::GltfDataBuffer jsonData;
+        jsonData.loadFromFile(glbPath / "BoomBox.glb");
+        REQUIRE(fastgltf::determineGltfFileType(&jsonData) == fastgltf::GltfType::GLB);
+
+        auto model = parser.loadBinaryGLTF(&jsonData, glbPath);
+        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(model != nullptr);
+    }
+
+    SECTION("Invalid") {
+        auto gltfPath = path / "base64.txt"; // Random file in the test directory that's not a glTF file.
+        REQUIRE(std::filesystem::exists(gltfPath));
+        fastgltf::GltfDataBuffer jsonData;
+        jsonData.loadFromFile(gltfPath);
+        REQUIRE(fastgltf::determineGltfFileType(&jsonData) == fastgltf::GltfType::Invalid);
+    }
+};
+
 TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
     fastgltf::Parser parser;
     SECTION("Loading basic invalid glTF files") {

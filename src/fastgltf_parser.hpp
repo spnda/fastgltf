@@ -25,6 +25,7 @@ namespace fastgltf {
     struct Asset;
     struct BinaryGltfChunk;
     struct DataSource;
+    class GltfDataBuffer;
     struct ParserData;
     struct TextureInfo;
     enum class DataLocation : uint8_t;
@@ -260,6 +261,20 @@ namespace fastgltf {
     };
 
     /**
+     * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
+     * paths to buffers or with a base64 embedded buffers, or they can be in a so called GLB
+     * container format which has two or more chunks of binary data, where one represents buffers
+     * and the other contains the JSON string.
+     */
+    enum class GltfType {
+        glTF,
+        GLB,
+        Invalid,
+    };
+
+    GltfType determineGltfFileType(GltfDataBuffer* buffer);
+
+    /**
      * Gets the amount of byte padding required on the GltfDataBuffer, as simdjson requires to be
      * able to overflow as it uses SIMD to load N bytes at a time.
      */
@@ -271,6 +286,7 @@ namespace fastgltf {
      */
     class GltfDataBuffer {
         friend class Parser;
+        friend GltfType determineGltfFileType(GltfDataBuffer* buffer);
 
         size_t allocatedSize = 0;
         size_t dataSize = 0;

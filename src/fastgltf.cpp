@@ -1896,6 +1896,25 @@ size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
 #pragma endregion
 
 #pragma region Parser
+fastgltf::GltfType fg::determineGltfFileType(GltfDataBuffer* buffer) {
+    // First, check if any of the first four characters is a '{'.
+    char begin[4];
+    std::memcpy(&begin[0], buffer->bufferPointer, sizeof begin);
+    for (char i : begin) {
+        if (i == '{')
+            return GltfType::glTF;
+    }
+
+    // We'll try and read a BinaryGltfHeader from the buffer to see if the magic is correct.
+    BinaryGltfHeader header = {};
+    std::memcpy(&header, buffer->bufferPointer, sizeof header);
+    if (header.magic == binaryGltfHeaderMagic) {
+        return GltfType::GLB;
+    }
+
+    return GltfType::Invalid;
+}
+
 fg::Parser::Parser(Extensions extensionsToLoad) noexcept : extensions(extensionsToLoad) {
     jsonParser = std::make_unique<simdjson::dom::parser>();
 }
