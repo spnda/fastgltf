@@ -1,4 +1,4 @@
-#if !defined(__cplusplus) || (__cplusplus < 201703L || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L))
+#if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L)
 #error "fastgltf requires C++17"
 #endif
 
