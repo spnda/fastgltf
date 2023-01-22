@@ -18,6 +18,7 @@
 // fwd
 namespace simdjson::dom {
     class array;
+    class object;
     class parser;
 }
 
@@ -66,6 +67,9 @@ namespace fastgltf {
 
         // See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Vendor/EXT_meshopt_compression/README.md
         EXT_meshopt_compression = 1 << 5,
+
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_lights_punctual/README.md
+        KHR_lights_punctual = 1 << 6,
 
         // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Vendor/EXT_mesh_gpu_instancing/README.md
         EXT_mesh_gpu_instancing = 1 << 7,
@@ -186,6 +190,7 @@ namespace fastgltf {
         constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
         constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
         constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
+        constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
         constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";
         constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
         constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
@@ -234,7 +239,9 @@ namespace fastgltf {
         void parseBuffers(simdjson::dom::array& array);
         void parseBufferViews(simdjson::dom::array& array);
         void parseCameras(simdjson::dom::array& array);
+        void parseExtensions(simdjson::dom::object& extensionsObject);
         void parseImages(simdjson::dom::array& array);
+        void parseLights(simdjson::dom::array& array);
         void parseMaterials(simdjson::dom::array& array);
         void parseMeshes(simdjson::dom::array& array);
         void parseNodes(simdjson::dom::array& array);

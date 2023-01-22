@@ -24,11 +24,12 @@ fastgltf supports glTF 2.0:
 fastgltf supports a number of glTF extensions:
 - [x] EXT_meshopt_compression
 - [x] EXT_texture_webp
+- [x] KHR_lights_punctual
 - [x] KHR_texture_basisu
 - [x] KHR_texture_transform
 - [x] KHR_mesh_quantization
 - [x] MSFT_texture_dds
-
+ 
 fastgltf brings many utilities:
 - [x] SIMD powered base64 buffer decoder
 - [x] Can decompose transform matrices, so you only ever have translation, rotation, and scale.

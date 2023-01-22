@@ -520,3 +520,30 @@ TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
     REQUIRE(primitive.targets[1].contains("POSITION"));
     REQUIRE(primitive.targets[1]["POSITION"] == 3);
 }
+
+TEST_CASE("Test KHR_lights_punctual", "[gltf-loader]") {
+    auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
+    fastgltf::GltfDataBuffer jsonData;
+    jsonData.loadFromFile(lightsLamp / "LightsPunctualLamp.gltf");
+
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
+    auto model = parser.loadGLTF(&jsonData, lightsLamp);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model->parse(fastgltf::Category::All) == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->lights.size() == 5);
+    REQUIRE(asset->nodes.size() > 4);
+
+    auto& nodes = asset->nodes;
+    REQUIRE(nodes[3].lightsIndex.has_value());
+    REQUIRE(nodes[3].lightsIndex.value() == 0);
+
+    auto& lights = asset->lights;
+    REQUIRE(lights[0].name == "Point");
+    REQUIRE(lights[0].type == fastgltf::LightType::Point);
+    REQUIRE(lights[0].intensity == 15.0f);
+    REQUIRE(glm::epsilonEqual(lights[0].color[0], 1.0f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(lights[0].color[1], 0.63187497854232788f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(lights[0].color[2], 0.23909975588321689f, glm::epsilon<float>()));
+}

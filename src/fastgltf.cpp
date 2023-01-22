@@ -154,6 +154,7 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 8
     { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
+    { fg::extensions::KHR_lights_punctual,                fg::Extensions::KHR_lights_punctual },
     { fg::extensions::KHR_mesh_quantization,              fg::Extensions::KHR_mesh_quantization },
     { fg::extensions::KHR_texture_basisu,                 fg::Extensions::KHR_texture_basisu },
     { fg::extensions::KHR_texture_transform,              fg::Extensions::KHR_texture_transform },
@@ -599,7 +600,16 @@ fg::Error fg::glTF::parse(Category categories) {
             }
             parsedAsset->defaultScene = static_cast<size_t>(defaultScene);
             continue;
-        } else if (hashedKey == force_consteval<crc32("asset")> || hashedKey == force_consteval<crc32("extensions")> || hashedKey == force_consteval<crc32("extras")>) {
+        } else if (hashedKey == force_consteval<crc32("extensions")>) {
+            dom::object extensionsObject;
+            if (object.value.get_object().get(extensionsObject) != SUCCESS) {
+                errorCode = Error::InvalidGltf;
+                return errorCode;
+            }
+
+            parseExtensions(extensionsObject);
+            continue;
+        } else if (hashedKey == force_consteval<crc32("asset")> || hashedKey == force_consteval<crc32("extras")>) {
             continue;
         }
 
@@ -1155,6 +1165,37 @@ void fg::glTF::parseCameras(simdjson::dom::array& cameras) {
     }
 }
 
+void fg::glTF::parseExtensions(simdjson::dom::object& extensionsObject) {
+    using namespace simdjson;
+
+    for (auto extensionValue : extensionsObject) {
+        dom::object extensionObject;
+        if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) {
+            if (error == INCORRECT_TYPE) {
+                continue; // We want to ignore
+            } else {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+        }
+
+        auto hash = crc32(extensionValue.key);
+        switch (hash) {
+            case force_consteval<crc32(extensions::KHR_lights_punctual)>: {
+                if (!hasBit(extensions, Extensions::KHR_lights_punctual))
+                    break;
+
+                dom::array lightsArray;
+                if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) {
+                    parseLights(lightsArray);
+                } else if (error != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidGltf)
+                }
+                break;
+            }
+        }
+    }
+}
+
 void fg::glTF::parseImages(simdjson::dom::array& images) {
     using namespace simdjson;
 
@@ -1210,6 +1251,95 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
         }
 
         parsedAsset->images.emplace_back(std::move(image));
+    }
+}
+
+void fg::glTF::parseLights(simdjson::dom::array& lights) {
+    using namespace simdjson;
+
+    parsedAsset->lights.reserve(lights.size());
+    for (auto lightValue : lights) {
+        dom::object lightObject;
+        if (lightValue.get_object().get(lightObject) != SUCCESS) {
+            SET_ERROR_RETURN(Error::InvalidGltf);
+        }
+        Light light = {};
+
+        std::string_view type;
+        if (lightObject["type"].get_string().get(type) == SUCCESS) {
+            switch (crc32(type)) {
+                case force_consteval<crc32("directional")>: {
+                    light.type = LightType::Directional;
+                    break;
+                }
+                case force_consteval<crc32("spot")>: {
+                    light.type = LightType::Spot;
+                    break;
+                }
+                case force_consteval<crc32("point")>: {
+                    light.type = LightType::Point;
+                    break;
+                }
+                default: {
+                    SET_ERROR_RETURN(Error::InvalidGltf)
+                }
+            }
+        } else {
+            SET_ERROR_RETURN(Error::InvalidGltf)
+        }
+
+        if (light.type == LightType::Spot) {
+            dom::object spotObject;
+            if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+
+            double innerConeAngle;
+            if (lightObject["innerConeAngle"].get_double().get(innerConeAngle) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+            light.innerConeAngle = static_cast<float>(innerConeAngle);
+
+            double outerConeAngle;
+            if (lightObject["outerConeAngle"].get_double().get(outerConeAngle) != SUCCESS) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+            light.outerConeAngle = static_cast<float>(outerConeAngle);
+        }
+
+        dom::array colorArray;
+        if (lightObject["color"].get_array().get(colorArray) == SUCCESS) {
+            if (colorArray.size() != 3) {
+                SET_ERROR_RETURN(Error::InvalidGltf)
+            }
+            for (auto i = 0; i < colorArray.size(); ++i) {
+                double color;
+                if (colorArray.at(i).get_double().get(color) == SUCCESS) {
+                    light.color[i] = static_cast<float>(color);
+                } else {
+                    SET_ERROR_RETURN(Error::InvalidGltf)
+                }
+            }
+        }
+
+        double intensity;
+        if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) {
+            light.intensity = static_cast<float>(intensity);
+        } else {
+            light.intensity = 0.0;
+        }
+
+        double range;
+        if (lightObject["range"].get_double().get(range) == SUCCESS) {
+            light.range = static_cast<float>(range);
+        }
+
+        std::string_view name;
+        if (lightObject["name"].get_string().get(name) == SUCCESS) {
+            light.name = std::string { name };
+        }
+
+        parsedAsset->lights.emplace_back(std::move(light));
     }
 }
 
@@ -1570,12 +1700,20 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
             node.transform = trs;
         }
 
-        // name is optional.
-        {
-            std::string_view name;
-            if (nodeObject["name"].get_string().get(name) == SUCCESS) {
-                node.name = std::string { name };
+        dom::object extensionsObject;
+        if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
+            dom::object lightsObject;
+            if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) {
+                uint64_t light;
+                if (lightsObject["light"].get_uint64().get(light) == SUCCESS) {
+                    node.lightsIndex = static_cast<size_t>(light);
+                }
             }
+        }
+
+        std::string_view name;
+        if (nodeObject["name"].get_string().get(name) == SUCCESS) {
+            node.name = std::string { name };
         }
 
         parsedAsset->nodes.emplace_back(std::move(node));

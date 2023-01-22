@@ -169,6 +169,12 @@ namespace fastgltf {
         Quaternion,
         Exponential,
     };
+
+    enum class LightType : uint8_t {
+        Directional,
+        Spot,
+        Point,
+    };
     // clang-format on
 #pragma endregion
 
@@ -655,6 +661,7 @@ namespace fastgltf {
         std::optional<size_t> meshIndex;
         std::optional<size_t> skinIndex;
         std::optional<size_t> cameraIndex;
+        std::optional<size_t> lightsIndex;
         SmallVector<size_t> children;
         SmallVector<float> weights;
 
@@ -844,6 +851,22 @@ namespace fastgltf {
         std::string name;
     };
 
+    struct Light {
+        LightType type;
+        /** RGB light color in linear space. */
+        std::array<float, 3> color;
+
+        /** Point and spot lights use candela (lm/sr) while directional use lux (lm/m^2) */
+        float intensity;
+        /** Range for point and spot lights. If not present, range is infinite. */
+        std::optional<float> range;
+
+        std::optional<float> innerConeAngle;
+        std::optional<float> outerConeAngle;
+
+        std::string name;
+    };
+
     struct Asset {
         /**
          * This will only ever have no value if Options::DontRequireValidAssetMember was specified.
@@ -856,6 +879,7 @@ namespace fastgltf {
         std::vector<BufferView> bufferViews;
         std::vector<Camera> cameras;
         std::vector<Image> images;
+        std::vector<Light> lights;
         std::vector<Material> materials;
         std::vector<Mesh> meshes;
         std::vector<Node> nodes;
