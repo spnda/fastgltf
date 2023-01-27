@@ -69,6 +69,7 @@ namespace fastgltf {
 
         BufferMapCallback* mapCallback = nullptr;
         BufferUnmapCallback* unmapCallback = nullptr;
+        Base64DecodeCallback* decodeCallback = nullptr;
         void* userPointer = nullptr;
     };
 
@@ -214,7 +215,12 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
             auto size = base64::getOutputSize(encodedData.size(), padding);
             auto info = data->mapCallback(size, data->userPointer);
             if (info.mappedMemory != nullptr) {
-                base64::decode_inplace(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding);
+                if (data->decodeCallback != nullptr) {
+                    data->decodeCallback(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding, size, data->userPointer);
+                } else {
+                    base64::decode_inplace(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding);
+                }
+
                 if (data->unmapCallback != nullptr) {
                     data->unmapCallback(&info, data->userPointer);
                 }
@@ -228,7 +234,11 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
 
         // Decode the base64 data into a traditional vector
         std::vector<uint8_t> uriData;
-        if (hasBit(options, Options::DontUseSIMD)) {
+        if (data->decodeCallback != nullptr) {
+            auto padding = base64::getPadding(encodedData);
+            uriData.resize(base64::getOutputSize(encodedData.size(), padding));
+            data->decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->userPointer);
+        } else if (hasBit(options, Options::DontUseSIMD)) {
             uriData = base64::fallback_decode(encodedData);
         } else {
             uriData = base64::decode(encodedData);
@@ -2132,6 +2142,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
     }
     data->mapCallback = mapCallback;
     data->unmapCallback = unmapCallback;
+    data->decodeCallback = decodeCallback;
     data->userPointer = userPointer;
 
     return std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
@@ -2191,6 +2202,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
     }
     data->mapCallback = mapCallback;
     data->unmapCallback = unmapCallback;
+    data->decodeCallback = decodeCallback;
     data->userPointer = userPointer;
 
     auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), directory, options, extensions));
@@ -2239,6 +2251,12 @@ void fg::Parser::setBufferAllocationCallback(BufferMapCallback* newMapCallback, 
         return;
     mapCallback = newMapCallback;
     unmapCallback = newUnmapCallback;
+}
+
+void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* newDecodeCallback) noexcept {
+    if (newDecodeCallback == nullptr)
+        return;
+    decodeCallback = newDecodeCallback;
 }
 
 void fg::Parser::setUserPointer(void* pointer) noexcept {

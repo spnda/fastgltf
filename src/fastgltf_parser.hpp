@@ -230,6 +230,7 @@ namespace fastgltf {
 
     using BufferMapCallback = BufferInfo(uint64_t bufferSize, void* userPointer);
     using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
+    using Base64DecodeCallback = void(std::string_view base64, uint8_t* dataOutput, size_t padding, size_t dataOutputSize, void* userPointer);
 
     class glTF {
         friend class Parser;
@@ -379,6 +380,7 @@ namespace fastgltf {
         // Callbacks
         BufferMapCallback* mapCallback = nullptr;
         BufferUnmapCallback* unmapCallback = nullptr;
+        Base64DecodeCallback* decodeCallback = nullptr;
 
         void* userPointer = nullptr;
         Extensions extensions;
@@ -409,6 +411,8 @@ namespace fastgltf {
          * the callbacks to map a GPU buffer through Vulkan or DirectX so that fastgltf can write
          * the buffer directly to the GPU to avoid a copy into RAM first. To remove the callbacks
          * for a specific load, call this method with both parameters as nullptr before load*GLTF.
+         * Using fastgltf::Parser::setUserPointer you can also set a user pointer to access your
+         * own class or other data you may need.
          *
          * @param mapCallback function called when the parser requires a buffer to write data
          * embedded in a GLB file or decoded from a base64 URI, cannot be nullptr.
@@ -417,6 +421,17 @@ namespace fastgltf {
          * @note For advanced users
          */
         void setBufferAllocationCallback(BufferMapCallback* mapCallback, BufferUnmapCallback* unmapCallback = nullptr) noexcept;
+
+        /**
+         * Allows setting callbacks for base64 decoding. This can be useful if you have another
+         * base64 decoder optimised for a certain platform or architecture, or want to use your own
+         * scheduler to schedule multiple threads for working on decoding the data.
+         * Using fastgltf::Parser::setUserPointer you can also set a user pointer to access your
+         * own class or other data you may need.
+         *
+         * @param decodeCallback function called when the parser tries to decode a base64 buffer
+         */
+        void setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept;
         void setUserPointer(void* pointer) noexcept;
     };
 }

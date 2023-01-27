@@ -7,6 +7,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
+#include "base64_decode.hpp"
 #include "fastgltf_parser.hpp"
 #include "fastgltf_types.hpp"
 #include "gltf_path.hpp"
@@ -380,6 +381,27 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
         REQUIRE(allocation != nullptr);
         std::free(allocation);
     }
+}
+
+TEST_CASE("Test base64 decoding callbacks", "[gltf-loader]") {
+    auto boxPath = sampleModels / "2.0" / "Box" / "glTF-Embedded";
+    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
+    jsonData->loadFromFile(boxPath / "Box.gltf");
+
+    size_t decodeCounter = 0;
+    auto decodeCallback = [](std::string_view encodedData, uint8_t* outputData, size_t padding, size_t outputSize, void* userPointer) {
+        (*static_cast<size_t*>(userPointer))++;
+        fastgltf::base64::decode_inplace(encodedData, outputData, padding);
+    };
+
+    fastgltf::Parser parser;
+    parser.setUserPointer(&decodeCounter);
+    parser.setBase64DecodeCallback(decodeCallback);
+    auto model = parser.loadGLTF(jsonData.get(), boxPath);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model != nullptr);
+    REQUIRE(model->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
+    REQUIRE(decodeCounter != 0);
 }
 
 TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {

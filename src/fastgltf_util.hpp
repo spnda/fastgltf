@@ -53,7 +53,9 @@ namespace fastgltf {
     requires std::is_enum_v<T>
 #endif
     [[nodiscard]] constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
+#if !FASTGLTF_HAS_CONCEPTS
         static_assert(std::is_enum_v<T>, "to_underlying only works with enum types.");
+#endif
         return static_cast<std::underlying_type_t<T>>(t);
     }
 
@@ -64,7 +66,9 @@ namespace fastgltf {
     }
 #endif
     [[nodiscard]] constexpr bool hasBit(T flags, U bit) {
+#if !FASTGLTF_HAS_CONCEPTS
         static_assert((std::is_enum_v<T> && std::is_integral_v<std::underlying_type_t<T>>) || std::is_integral_v<T>);
+#endif
         return (flags & bit) == bit;
     }
 
