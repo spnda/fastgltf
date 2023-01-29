@@ -102,6 +102,9 @@ namespace fastgltf {
 
         // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Vendor/EXT_texture_webp/README.md
         EXT_texture_webp = 1 << 8,
+
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Vendor/EXT_texture_qoi/README.md
+        EXT_texture_qoi = 1 << 9,
     };
     // clang-format on
 
@@ -215,6 +218,7 @@ namespace fastgltf {
     namespace extensions {
         constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
         constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
+        constexpr std::string_view EXT_texture_qoi = "EXT_texture_qoi";
         constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
         constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
         constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";

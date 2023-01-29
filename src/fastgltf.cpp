@@ -160,6 +160,18 @@ bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensi
         }
     }
 
+    if (hasBit(extensionFlags, Extensions::EXT_texture_qoi)) {
+        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::EXT_texture_qoi);
+        if (invalidGltf) {
+            return false;
+        }
+
+        if (!extensionNotPresent) {
+            texture.imageIndex = imageIndex;
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -177,9 +189,10 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 8> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 9> extensionStrings = {{
     { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
+    { fg::extensions::EXT_texture_qoi,                    fg::Extensions::EXT_texture_qoi },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
     { fg::extensions::KHR_lights_punctual,                fg::Extensions::KHR_lights_punctual },
     { fg::extensions::KHR_mesh_quantization,              fg::Extensions::KHR_mesh_quantization },

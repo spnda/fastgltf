@@ -23,6 +23,7 @@ fastgltf supports glTF 2.0:
 
 fastgltf supports a number of glTF extensions:
 - [x] EXT_meshopt_compression
+- [x] EXT_texture_qoi
 - [x] EXT_texture_webp
 - [x] KHR_lights_punctual
 - [x] KHR_texture_basisu
