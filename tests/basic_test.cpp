@@ -195,8 +195,9 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
         REQUIRE(!texture.fallbackImageIndex.has_value());
 
         auto& image = asset->images.front();
-        REQUIRE(image.location == fastgltf::DataLocation::FilePathWithByteRange);
-        REQUIRE(image.data.mimeType == fastgltf::MimeType::KTX2);
+        auto filePath = std::get_if<fastgltf::sources::FilePath>(&image.data);
+        REQUIRE(filePath != nullptr);
+        REQUIRE(filePath->mimeType == fastgltf::MimeType::KTX2);
     }
 
     SECTION("Testing requiredExtensions") {
@@ -374,8 +375,11 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
 
     auto asset = model->getParsedAsset();
     REQUIRE(asset->buffers.size() == 1);
-    REQUIRE(asset->buffers.front().location == fastgltf::DataLocation::CustomBufferWithId);
-    REQUIRE(asset->buffers.front().data.bufferId == 0);
+
+    auto& buffer = asset->buffers.front();
+    auto customBuffer = std::get_if<fastgltf::sources::CustomBuffer>(&buffer.data);
+    REQUIRE(customBuffer != nullptr);
+    REQUIRE(customBuffer->id == 0);
 
     for (auto& allocation : allocations) {
         REQUIRE(allocation != nullptr);

@@ -9,23 +9,26 @@
 TEST_CASE("Load basic GLB file", "[gltf-loader]") {
     fastgltf::Parser parser;
     auto folder = sampleModels / "2.0" / "Box" / "glTF-Binary";
-    fastgltf::GltfDataBuffer buffer;
-    REQUIRE(buffer.loadFromFile(folder / "Box.glb"));
+    fastgltf::GltfDataBuffer jsonData;
+    REQUIRE(jsonData.loadFromFile(folder / "Box.glb"));
 
     SECTION("Load basic Box.glb") {
-        auto box = parser.loadBinaryGLTF(&buffer, folder, fastgltf::Options::None);
+        auto box = parser.loadBinaryGLTF(&jsonData, folder, fastgltf::Options::None);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
         REQUIRE(box->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
 
         auto asset = box->getParsedAsset();
         REQUIRE(asset->buffers.size() == 1);
-        REQUIRE(asset->buffers.front().location == fastgltf::DataLocation::FilePathWithByteRange);
-        REQUIRE(asset->buffers.front().data.fileByteOffset == 1016);
+
+        auto& buffer = asset->buffers.front();
+        auto* bufferFile = std::get_if<fastgltf::sources::FilePath>(&buffer.data);
+        REQUIRE(bufferFile != nullptr);
+        REQUIRE(bufferFile->fileByteOffset == 1016);
     }
 
     SECTION("Load basic Box.glb and load buffers") {
-        auto box = parser.loadBinaryGLTF(&buffer, folder, fastgltf::Options::LoadGLBBuffers);
+        auto box = parser.loadBinaryGLTF(&jsonData, folder, fastgltf::Options::LoadGLBBuffers);
         REQUIRE(parser.getError() == fastgltf::Error::None);
 
         REQUIRE(box->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
@@ -33,10 +36,11 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         auto asset = box->getParsedAsset();
         REQUIRE(asset->buffers.size() == 1);
 
-        auto& buffer1 = asset->buffers.front();
-        REQUIRE(buffer1.location == fastgltf::DataLocation::VectorWithMime);
-        REQUIRE(!buffer1.data.bytes.empty());
-        REQUIRE(static_cast<uint64_t>(buffer1.data.bytes.size() - buffer1.byteLength) < 3);
+        auto& buffer = asset->buffers.front();
+        auto* bufferVector = std::get_if<fastgltf::sources::Vector>(&buffer.data);
+        REQUIRE(bufferVector != nullptr);
+        REQUIRE(!bufferVector->bytes.empty());
+        REQUIRE(static_cast<uint64_t>(bufferVector->bytes.size() - buffer.byteLength) < 3);
     }
 
     SECTION("Load GLB by bytes") {
@@ -44,7 +48,7 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         auto length = static_cast<size_t>(file.tellg());
         file.seekg(0, std::ifstream::beg);
         std::vector<uint8_t> bytes(length + fastgltf::getGltfBufferPadding());
-        file.read(reinterpret_cast<char*>(bytes.data()), length);
+        file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(length));
 
         fastgltf::GltfDataBuffer byteBuffer;
         byteBuffer.fromByteView(bytes.data(), length, length + fastgltf::getGltfBufferPadding());

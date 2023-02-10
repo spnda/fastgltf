@@ -591,32 +591,36 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Structs
-    enum class DataLocation : uint8_t {
-        // This should never occur.
-        None = 0,
-        VectorWithMime,
-        BufferViewWithMime,
-        FilePathWithByteRange,
-        CustomBufferWithId,
-    };
+    using CustomBufferId = uint64_t;
 
-    struct DataSource {
-        // Corresponds to DataLocation::BufferViewWithMime
-        size_t bufferViewIndex;
+    /**
+     * Namespace for structs that describe individual sources of data for images and/or buffers.
+     */
+    namespace sources {
+        struct BufferView {
+            size_t bufferViewIndex;
+            MimeType mimeType;
+        };
 
-        // Corresponds to DataLocation::FilePathWithByteRange
-        size_t fileByteOffset;
-        std::filesystem::path path;
+        struct FilePath {
+            size_t fileByteOffset;
+            std::filesystem::path path;
+            MimeType mimeType;
+        };
 
-        // Corresponds to DataLocation::VectorWithMime
-        std::vector<uint8_t> bytes;
+        struct Vector {
+            std::vector<uint8_t> bytes;
+            MimeType mimeType;
+        };
 
-        // Defined if DataLocation::BufferViewWithMime or VectorWithMime
-        MimeType mimeType;
+        struct CustomBuffer {
+            CustomBufferId id;
+            MimeType mimeType;
+        };
+    }
 
-        // Defined if DataLocation::CustomBufferWithId
-        uint64_t bufferId;
-    };
+    // TODO: This definition is duplicated in fastgltf_types.hpp and fastgltf_parser.hpp.
+    using DataSource = std::variant<sources::BufferView, sources::FilePath, sources::Vector, sources::CustomBuffer>;
 
     struct AnimationChannel {
         size_t samplerIndex;
@@ -826,7 +830,6 @@ namespace fastgltf {
     };
 
     struct Image {
-        DataLocation location;
         DataSource data;
 
         std::string name;
@@ -877,7 +880,6 @@ namespace fastgltf {
     struct Buffer {
         size_t byteLength;
 
-        DataLocation location;
         DataSource data;
 
         std::string name;

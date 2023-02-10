@@ -194,18 +194,18 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 8
 #define SET_ERROR_RETURN_ERROR(error) errorCode = error; \
     return errorCode;
 
-std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std::string_view uri) const noexcept {
+std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) const noexcept {
     if (uri.substr(0, 4) == "data") {
         // This is a data URI.
         auto index =  uri.find(';');
         auto encodingEnd = uri.find(',', index + 1);
         if (index == std::string::npos || encodingEnd == std::string::npos) {
-            return std::make_tuple(Error::InvalidGltf, DataSource {}, DataLocation::None);
+            return std::make_pair(Error::InvalidGltf, DataSource {});
         }
 
         auto encoding = uri.substr(index + 1, encodingEnd - index - 1);
         if (encoding != "base64") {
-            return std::make_tuple(Error::InvalidGltf, DataSource {}, DataLocation::None);
+            return std::make_pair(Error::InvalidGltf, DataSource {});
         }
 
         auto encodedData = uri.substr(encodingEnd + 1);
@@ -225,10 +225,10 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
                     data->unmapCallback(&info, data->userPointer);
                 }
 
-                DataSource source = {};
-                source.bufferId = info.customId;
+                sources::CustomBuffer source = {};
+                source.id = info.customId;
                 source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
-                return std::make_tuple(Error::None, std::move(source), DataLocation::CustomBufferWithId);
+                return std::make_pair(Error::None, DataSource { source });
             }
         }
 
@@ -244,17 +244,16 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
             uriData = base64::decode(encodedData);
         }
 
-        DataSource source = {};
+        sources::Vector source = {};
         source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
         source.bytes = std::move(uriData);
-        return std::make_tuple(Error::None, std::move(source), DataLocation::VectorWithMime);
+        return std::make_pair(Error::None, DataSource { std::move(source) });
     } else if (hasBit(options, Options::LoadExternalBuffers)) {
         auto path = directory / uri;
         std::error_code error;
-        DataSource source = {};
         // If we were instructed to load external buffers and the files don't exist, we'll return an error.
         if (!fs::exists(path, error) || error) {
-            return std::make_tuple(Error::MissingExternalBuffer, std::move(source), DataLocation::None);
+            return std::make_pair(Error::MissingExternalBuffer, DataSource {});
         }
 
         std::ifstream file(path, std::ios::ate | std::ios::binary);
@@ -264,24 +263,25 @@ std::tuple<fg::Error, fg::DataSource, fg::DataLocation> fg::glTF::decodeUri(std:
         if (data->mapCallback != nullptr) {
             auto info = data->mapCallback(length, data->userPointer);
             if (info.mappedMemory != nullptr) {
-                source.bufferId = info.customId;
+                sources::CustomBuffer customBufferSource = {info.customId };
                 file.read(reinterpret_cast<char*>(info.mappedMemory), length);
                 if (data->unmapCallback != nullptr) {
                     data->unmapCallback(&info, data->userPointer);
                 }
 
-                return std::make_tuple(Error::None, std::move(source), DataLocation::CustomBufferWithId);
+                return std::make_pair(Error::None, DataSource { customBufferSource });
             }
         }
 
-        source.mimeType = MimeType::GltfBuffer;
-        source.bytes.resize(length);
-        file.read(reinterpret_cast<char*>(source.bytes.data()), length);
-        return std::make_tuple(Error::None, std::move(source), DataLocation::VectorWithMime);
+        sources::Vector vectorSource = {};
+        vectorSource.mimeType = MimeType::GltfBuffer;
+        vectorSource.bytes.resize(length);
+        file.read(reinterpret_cast<char*>(vectorSource.bytes.data()), length);
+        return std::make_pair(Error::None, DataSource { std::move(vectorSource) });
     } else {
-        DataSource source = {};
-        source.path = directory / uri;
-        return std::make_tuple(Error::None, std::move(source), DataLocation::FilePathWithByteRange);
+        // TODO: Actually support decoding URIs.
+        sources::FilePath fileSource = {0, directory / uri };
+        return std::make_pair(Error::None, DataSource { std::move(fileSource) });
     }
 }
 
@@ -399,9 +399,10 @@ fg::Error fg::glTF::validate() {
     }
 
     for (const auto& image : parsedAsset->images) {
-        if (image.location == DataLocation::BufferViewWithMime) {
-            if (image.data.bufferViewIndex >= parsedAsset->bufferViews.size())
+        if (auto* view = std::get_if<sources::BufferView>(&image.data); view != nullptr) {
+            if (view->bufferViewIndex >= parsedAsset->bufferViews.size()) {
                 return Error::InvalidGltf;
+            }
         }
     }
 
@@ -939,36 +940,32 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
         // file. Otherwise, data must be specified in the "uri" field.
         std::string_view uri;
         if (bufferObject["uri"].get_string().get(uri) == SUCCESS) {
-            auto [error, source, location] = decodeUri(uri);
+            auto [error, source] = decodeUri(uri);
             if (error != Error::None) {
                 SET_ERROR_RETURN(error)
             }
 
             buffer.data = std::move(source);
-            buffer.location = location;
         } else if (bufferIndex == 0 && glb != nullptr) {
             if (hasBit(options, Options::LoadGLBBuffers)) {
                 if (glb->customBufferId.has_value()) {
-                    buffer.data.bufferId = glb->customBufferId.value();
-                    buffer.location = DataLocation::CustomBufferWithId;
+                    buffer.data = sources::CustomBuffer { glb->customBufferId.value() };
                 } else {
                     // We've loaded the GLB chunk already.
-                    buffer.data.bytes = std::move(glb->buffer);
-                    buffer.location = DataLocation::VectorWithMime;
+                    buffer.data = sources::Vector {
+                        std::move(glb->buffer), MimeType::GltfBuffer
+                    };
                 }
-            } else if (!hasBit(options, Options::LoadGLBBuffers)) {
+            } else {
                 // The GLB chunk has not been loaded.
-                buffer.location = DataLocation::FilePathWithByteRange;
-                buffer.data.path = glb->file;
-                buffer.data.mimeType = MimeType::GltfBuffer;
-                buffer.data.fileByteOffset = glb->fileOffset;
+                sources::FilePath filePath = {};
+                filePath.fileByteOffset = glb->fileOffset;
+                filePath.path = glb->file;
+                filePath.mimeType = MimeType::GltfBuffer;
+                buffer.data = std::move(filePath);
             }
         } else {
             // All other buffers have to contain an uri field.
-            SET_ERROR_RETURN(Error::InvalidGltf)
-        }
-
-        if (buffer.location == DataLocation::None) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
@@ -1246,17 +1243,23 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
                 // If uri is declared, bufferView cannot be declared.
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            auto [error, source, location] = decodeUri(uri);
+            auto [error, source] = decodeUri(uri);
             if (error != Error::None) {
                 SET_ERROR_RETURN(error)
             }
 
-            image.data = source;
-            image.location = location;
+            image.data = std::move(source);
 
             std::string_view mimeType;
             if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) {
-                image.data.mimeType = getMimeTypeFromString(mimeType);
+                std::visit([&](auto& arg) {
+                    using T = std::decay_t<decltype(arg)>;
+
+                    // This is kinda cursed
+                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::FilePath, sources::Vector>()) {
+                        arg.mimeType = getMimeTypeFromString(mimeType);
+                    }
+                }, image.data);
             }
         }
 
@@ -1268,13 +1271,10 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
-            image.location = DataLocation::BufferViewWithMime;
-            image.data.bufferViewIndex = static_cast<size_t>(bufferViewIndex);
-            image.data.mimeType = getMimeTypeFromString(mimeType);
-        }
-
-        if (image.location == DataLocation::None) {
-            SET_ERROR_RETURN(Error::InvalidGltf)
+            image.data = sources::BufferView {
+                static_cast<size_t>(bufferViewIndex),
+                getMimeTypeFromString(mimeType),
+            };
         }
 
         // name is optional.

@@ -31,6 +31,7 @@
 #include <string_view>
 #include <optional>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "fastgltf_util.hpp"
@@ -51,12 +52,21 @@ namespace simdjson::dom {
 namespace fastgltf {
     struct Asset;
     struct BinaryGltfChunk;
-    struct DataSource;
     class GltfDataBuffer;
     struct ParserData;
     struct TextureInfo;
-    enum class DataLocation : uint8_t;
     enum class MimeType : uint16_t;
+
+    namespace sources {
+        struct BufferView;
+        struct CustomBuffer;
+        struct FilePath;
+        struct Vector;
+    }
+
+    // TODO: This definition is duplicated in fastgltf_types.hpp and fastgltf_parser.hpp.
+    using CustomBufferId = uint64_t;
+    using DataSource = std::variant<sources::BufferView, sources::FilePath, sources::Vector, sources::CustomBuffer>;
 
     enum class Error : uint64_t {
         None = 0,
@@ -225,7 +235,7 @@ namespace fastgltf {
 
     struct BufferInfo {
         void* mappedMemory;
-        uint64_t customId;
+        CustomBufferId customId;
     };
 
     using BufferMapCallback = BufferInfo(uint64_t bufferSize, void* userPointer);
@@ -243,7 +253,7 @@ namespace fastgltf {
 
             std::vector<uint8_t> buffer;
 
-            std::optional<uint64_t> customBufferId;
+            std::optional<CustomBufferId> customBufferId;
         };
         std::unique_ptr<GLBBuffer> glb = nullptr;
 
@@ -258,7 +268,7 @@ namespace fastgltf {
 
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 
-        [[nodiscard]] auto decodeUri(std::string_view uri) const noexcept -> std::tuple<Error, DataSource, DataLocation>;
+        [[nodiscard]] auto decodeUri(std::string_view uri) const noexcept -> std::pair<Error, DataSource>;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
         void parseAccessors(simdjson::dom::array& array);

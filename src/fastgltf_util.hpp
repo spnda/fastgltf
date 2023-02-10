@@ -220,6 +220,13 @@ namespace fastgltf {
 #endif
 #endif
     }
+
+    /**
+     * Essentially the same as std::same<T, U> but it accepts multiple different types for U,
+     * checking if T is any of U...
+     */
+    template <typename T, typename... Ts>
+    using is_any = std::disjunction<std::is_same<T, Ts>...>;
 }
 
 #ifdef _MSC_VER

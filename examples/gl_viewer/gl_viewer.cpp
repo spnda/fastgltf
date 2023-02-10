@@ -41,6 +41,9 @@
 #include <fastgltf_parser.hpp>
 #include <fastgltf_types.hpp>
 
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
 constexpr std::string_view vertexShaderSource = R"(
     #version 460 core
 
@@ -238,20 +241,21 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     constexpr glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
     auto& acceleration = viewer->accelerationVector;
-    if (key == GLFW_KEY_W) {
-        acceleration = viewer->direction;
-    }
-
-    if (key == GLFW_KEY_S) {
-        acceleration -= viewer->direction;
-    }
-
-    if (key == GLFW_KEY_D) {
-        acceleration += glm::normalize(glm::cross(viewer->direction, cameraUp));
-    }
-
-    if (key == GLFW_KEY_A) {
-        acceleration -= glm::normalize(glm::cross(viewer->direction, cameraUp));
+    switch (key) {
+        case GLFW_KEY_W:
+            acceleration += viewer->direction;
+            break;
+        case GLFW_KEY_S:
+            acceleration -= viewer->direction;
+            break;
+        case GLFW_KEY_D:
+            acceleration += glm::normalize(glm::cross(viewer->direction, cameraUp));
+            break;
+        case GLFW_KEY_A:
+            acceleration -= glm::normalize(glm::cross(viewer->direction, cameraUp));
+            break;
+        default:
+            break;
     }
 }
 
@@ -317,27 +321,20 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
     for (auto& buffer : buffers) {
         constexpr GLuint bufferUsage = GL_STATIC_DRAW;
 
-        switch (buffer.location) {
-            case fastgltf::DataLocation::VectorWithMime: {
+        std::visit(overloaded {
+            [](auto& arg) {}, // Covers FilePathWithOffset, BufferView, ... which are all not possible
+            [&](fastgltf::sources::Vector& vector) {
                 GLuint glBuffer;
                 glCreateBuffers(1, &glBuffer);
                 glNamedBufferData(glBuffer, static_cast<int64_t>(buffer.byteLength),
-                                  buffer.data.bytes.data(), bufferUsage);
+                                  vector.bytes.data(), bufferUsage);
                 viewer->buffers.emplace_back(glBuffer);
-                break;
-            }
-            case fastgltf::DataLocation::CustomBufferWithId: {
+            },
+            [&](fastgltf::sources::CustomBuffer& customBuffer) {
                 // We don't need to do anything special here, the buffer has already been created.
-                viewer->buffers.emplace_back(static_cast<GLuint>(buffer.data.bufferId));
-                break;
-            }
-            case fastgltf::DataLocation::FilePathWithByteRange:
-                // This won't happen because we ask fastgltf to load external buffers for us.
-            case fastgltf::DataLocation::BufferViewWithMime:
-                // Only applies to images.
-            case fastgltf::DataLocation::None:
-                break;
-        }
+                viewer->buffers.emplace_back(static_cast<GLuint>(customBuffer.id));
+            },
+        }, buffer.data);
     }
 
     return true;
@@ -478,43 +475,43 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
 
     GLuint texture;
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-    switch (image.location) {
-        case fastgltf::DataLocation::FilePathWithByteRange: {
+    std::visit(overloaded {
+        [](auto& arg) {},
+        [&](fastgltf::sources::FilePath& filePath) {
+            assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
             int width, height, nrChannels;
-            auto path = image.data.path.string();
+            auto path = filePath.path.string();
             unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
             glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
             glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
-            break;
-        }
-        case fastgltf::DataLocation::VectorWithMime: {
+        },
+        [&](fastgltf::sources::Vector& vector) {
             int width, height, nrChannels;
-            unsigned char *data = stbi_load_from_memory(image.data.bytes.data(), static_cast<int>(image.data.bytes.size()), &width, &height, &nrChannels, 0);
+            unsigned char *data = stbi_load_from_memory(vector.bytes.data(), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 0);
             glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
             glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
-            break;
-        }
-        case fastgltf::DataLocation::BufferViewWithMime: {
-            auto& bufferView = viewer->asset->bufferViews[image.data.bufferViewIndex];
+        },
+        [&](fastgltf::sources::BufferView& view) {
+            auto& bufferView = viewer->asset->bufferViews[view.bufferViewIndex];
             auto& buffer = viewer->asset->buffers[bufferView.bufferIndex];
-            switch (buffer.location) {
-                case fastgltf::DataLocation::VectorWithMime: {
+            // Yes, we've already loaded every buffer into some GL buffer. However, with GL it's simpler
+            // to just copy the buffer data again for the texture. Besides, this is just an example.
+            std::visit(overloaded {
+                // We only care about VectorWithMime here, because we specify LoadExternalBuffers, meaning
+                // all buffers are already loaded into a vector.
+                [](auto& arg) {},
+                [&](fastgltf::sources::Vector& vector) {
                     int width, height, nrChannels;
-                    unsigned char *data = stbi_load_from_memory(buffer.data.bytes.data() + bufferView.byteOffset, static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 0);
+                    unsigned char *data = stbi_load_from_memory(vector.bytes.data() + bufferView.byteOffset, static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 0);
                     glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
                     glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
                     stbi_image_free(data);
-                    break;
                 }
-            }
-            break;
-        }
-        case fastgltf::DataLocation::None: {
-            break;
-        }
-    }
+            }, buffer.data);
+        },
+    }, image.data);
 
     glGenerateTextureMipmap(texture);
 
