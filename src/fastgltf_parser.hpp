@@ -34,6 +34,7 @@
 #include <variant>
 #include <vector>
 
+#include "fastgltf_types.hpp"
 #include "fastgltf_util.hpp"
 
 #ifdef _MSC_VER
@@ -50,23 +51,9 @@ namespace simdjson::dom {
 }
 
 namespace fastgltf {
-    struct Asset;
     struct BinaryGltfChunk;
     class GltfDataBuffer;
     struct ParserData;
-    struct TextureInfo;
-    enum class MimeType : uint16_t;
-
-    namespace sources {
-        struct BufferView;
-        struct CustomBuffer;
-        struct FilePath;
-        struct Vector;
-    }
-
-    // TODO: This definition is duplicated in fastgltf_types.hpp and fastgltf_parser.hpp.
-    using CustomBufferId = uint64_t;
-    using DataSource = std::variant<sources::BufferView, sources::FilePath, sources::Vector, sources::CustomBuffer>;
 
     enum class Error : uint64_t {
         None = 0,
@@ -245,20 +232,9 @@ namespace fastgltf {
     class glTF {
         friend class Parser;
 
-        // TODO: Should this (internal) struct be redesigned?
-        struct GLBBuffer {
-            size_t fileOffset = 0;
-            size_t fileSize = 0;
-            std::filesystem::path file;
-
-            std::vector<uint8_t> buffer;
-
-            std::optional<CustomBufferId> customBufferId;
-        };
-        std::unique_ptr<GLBBuffer> glb = nullptr;
-
         std::unique_ptr<ParserData> data;
         std::unique_ptr<Asset> parsedAsset;
+        DataSource glbBuffer;
         std::filesystem::path directory;
         Options options;
         Extensions extensions;

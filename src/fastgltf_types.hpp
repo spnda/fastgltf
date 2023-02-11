@@ -619,8 +619,14 @@ namespace fastgltf {
         };
     }
 
-    // TODO: This definition is duplicated in fastgltf_types.hpp and fastgltf_parser.hpp.
-    using DataSource = std::variant<sources::BufferView, sources::FilePath, sources::Vector, sources::CustomBuffer>;
+    /**
+     * Represents the data source of a buffer or image. These could be a buffer view, a file path
+     * (including offsets), a ordinary vector (if Options::LoadExternalBuffers or Options::LoadGLBBuffers
+     * was specified), or the ID of a custom buffer. Note that you, as a user, should never encounter
+     * this variant holding the std::monostate, as that would be a ill-formed glTF, which fastgltf
+     * already checks for while parsing.
+     */
+    using DataSource = std::variant<std::monostate, sources::BufferView, sources::FilePath, sources::Vector, sources::CustomBuffer>;
 
     struct AnimationChannel {
         size_t samplerIndex;
