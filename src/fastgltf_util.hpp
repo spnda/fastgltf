@@ -128,9 +128,9 @@ namespace fastgltf {
             max(.0f, 1 - matrix[0] - matrix[5] + matrix[10]),
             max(.0f, 1 + matrix[0] + matrix[5] + matrix[10]),
         };
-        std::for_each(rotation.begin(), rotation.end(), [](auto& x) {
+        for (auto& x : rotation) {
             x = static_cast<float>(std::sqrt(static_cast<double>(x)) / 2);
-        });
+        }
         rotation[0] = std::copysignf(rotation[0], matrix[6] - matrix[9]);
         rotation[1] = std::copysignf(rotation[1], matrix[8] - matrix[2]);
         rotation[2] = std::copysignf(rotation[2], matrix[1] - matrix[4]);
