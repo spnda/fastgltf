@@ -10,7 +10,6 @@
 #include "gltf_path.hpp"
 
 constexpr auto benchmarkOptions = fastgltf::Options::DontRequireValidAssetMember;
-constexpr auto noSimdBenchmarkOptions = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::DontUseSIMD;
 
 std::vector<uint8_t> readFileAsBytes(std::filesystem::path path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
@@ -30,13 +29,8 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->loadFromFile(intelSponza / "NewSponza_Main_glTF_002.gltf"));
 
-    BENCHMARK("Parse NewSponza with SIMD") {
+    BENCHMARK("Parse NewSponza") {
         auto sponza = parser.loadGLTF(jsonData.get(), intelSponza, benchmarkOptions);
-        return sponza->parse();
-    };
-
-    BENCHMARK("Parse NewSponza without SIMD") {
-        auto sponza = parser.loadGLTF(jsonData.get(), intelSponza, noSimdBenchmarkOptions);
         return sponza->parse();
     };
 }
@@ -47,13 +41,8 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->loadFromFile(cylinderEngine / "2CylinderEngine.gltf"));
 
-    BENCHMARK("Parse 2CylinderEngine and decode base64 with SIMD") {
+    BENCHMARK("Parse 2CylinderEngine and decode base64") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine, benchmarkOptions);
-        return engine->parse();
-    };
-
-    BENCHMARK("Parse 2CylinderEngine and decode base64 without SIMD") {
-        auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine, noSimdBenchmarkOptions);
         return engine->parse();
     };
 };
@@ -64,13 +53,8 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->loadFromFile(buggyPath / "Buggy.gltf"));
 
-    BENCHMARK("Parse Buggy.gltf with SIMD") {
+    BENCHMARK("Parse Buggy.gltf") {
         auto buggy = parser.loadGLTF(jsonData.get(), buggyPath, benchmarkOptions);
-        return buggy->parse();
-    };
-
-    BENCHMARK("Parse Buggy.gltf without SIMD") {
-        auto buggy = parser.loadGLTF(jsonData.get(), buggyPath, noSimdBenchmarkOptions);
         return buggy->parse();
     };
 }
@@ -84,7 +68,7 @@ TEST_CASE("Benchmark massive gltf file", "[base64-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->loadFromFile(bistroPath / "bistro.gltf"));
 
-    BENCHMARK("Parse Bistro with SIMD") {
+    BENCHMARK("Parse Bistro") {
         auto engine = parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);
         return engine->parse();
     };

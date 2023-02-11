@@ -128,11 +128,6 @@ namespace fastgltf {
         DontRequireValidAssetMember     = 1 << 1,
 
         /**
-         * This should only be used for benchmarking
-         */
-        DontUseSIMD                     = 1 << 2,
-
-        /**
          * Loads all the GLB buffers into CPU memory. If disabled, fastgltf will only provide
          * a byte offset and length into the GLB file, which can be useful when using APIs like
          * DirectStorage or Metal IO.

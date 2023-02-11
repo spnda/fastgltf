@@ -237,8 +237,6 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
             auto padding = base64::getPadding(encodedData);
             uriData.resize(base64::getOutputSize(encodedData.size(), padding));
             data->decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->userPointer);
-        } else if (hasBit(options, Options::DontUseSIMD)) {
-            uriData = base64::fallback_decode(encodedData);
         } else {
             uriData = base64::decode(encodedData);
         }
@@ -2125,10 +2123,6 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
 
     errorCode = Error::None;
 
-    if (hasBit(options, Options::DontUseSIMD)) {
-        simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
-    }
-
     // If we own the allocation of the JSON data, we'll try to minify the JSON, which, in most cases,
     // will speed up the parsing by a small amount.
     size_t jsonLength = buffer->getBufferSize();
@@ -2197,10 +2191,6 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
     read(jsonData.data(), jsonChunk.chunkLength);
     // We set the padded region to 0 to avoid simdjson reading garbage
     std::memset(jsonData.data() + jsonChunk.chunkLength, 0, jsonData.size() - jsonChunk.chunkLength);
-
-    if (hasBit(options, Options::DontUseSIMD)) {
-        simdjson::get_active_implementation() = simdjson::get_available_implementations()["fallback"];
-    }
 
     // The 'false' indicates that simdjson doesn't have to copy the data internally.
     auto data = std::make_unique<ParserData>();
