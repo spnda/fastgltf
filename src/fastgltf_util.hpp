@@ -83,6 +83,16 @@ namespace fastgltf {
         return base - (base % alignment);
     }
 
+    template <typename T>
+#if FASTGLTF_HAS_CONCEPTS
+    requires requires (T t) {
+        { t > t } -> std::same_as<bool>;
+    }
+#endif
+    [[nodiscard]] inline T max(T a, T b) noexcept {
+        return (a > b) ? a : b;
+    }
+
     /**
      * Decomposes a transform matrix into the translation, rotation, and scale components. This
      * function does not support skew, shear, or perspective. This currently uses a quick algorithm
@@ -112,13 +122,15 @@ namespace fastgltf {
         // Construct the quaternion. This algo is copied from here:
         // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/christian.htm.
         // glTF orders the components as x,y,z,w
-        auto max = [](float a, float b) -> double { return (a > b) ? a : b; };
         rotation = {
-            static_cast<float>(std::sqrt(max(0, 1 + matrix[0] - matrix[5] - matrix[10])) / 2),
-            static_cast<float>(std::sqrt(max(0, 1 - matrix[0] + matrix[5] - matrix[10])) / 2),
-            static_cast<float>(std::sqrt(max(0, 1 - matrix[0] - matrix[5] + matrix[10])) / 2),
-            static_cast<float>(std::sqrt(max(0, 1 + matrix[0] + matrix[5] + matrix[10])) / 2),
+            max(.0f, 1 + matrix[0] - matrix[5] - matrix[10]),
+            max(.0f, 1 - matrix[0] + matrix[5] - matrix[10]),
+            max(.0f, 1 - matrix[0] - matrix[5] + matrix[10]),
+            max(.0f, 1 + matrix[0] + matrix[5] + matrix[10]),
         };
+        std::for_each(rotation.begin(), rotation.end(), [](auto& x) {
+            x = static_cast<float>(std::sqrt(static_cast<double>(x)) / 2);
+        });
         rotation[0] = std::copysignf(rotation[0], matrix[6] - matrix[9]);
         rotation[1] = std::copysignf(rotation[1], matrix[8] - matrix[2]);
         rotation[2] = std::copysignf(rotation[2], matrix[1] - matrix[4]);
@@ -227,6 +239,13 @@ namespace fastgltf {
      */
     template <typename T, typename... Ts>
     using is_any = std::disjunction<std::is_same<T, Ts>...>;
+
+    /**
+     * Simple function to check if the given string starts with a given set of characters.
+     */
+    inline bool startsWith(std::string_view str, std::string_view search) {
+        return str.rfind(search, 0) == 0;
+    }
 }
 
 #ifdef _MSC_VER

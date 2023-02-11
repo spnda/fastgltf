@@ -432,9 +432,15 @@ fg::Error fg::glTF::validate() {
                 if (parsedAsset->accessors.size() <= index)
                     return Error::InvalidGltf;
 
-                auto startsWith = [](std::string_view str, std::string_view search) {
-                    return str.rfind(search, 0) == 0;
-                };
+                // The spec provides a list of attributes that it accepts and mentions that all
+                // custom attributes have to start with an underscore. We'll enforce this.
+                if (!startsWith(name, "_")) {
+                    if (name != "POSITION" && name != "NORMAL" && name != "TANGENT" &&
+                        !startsWith(name, "TEXCOORD_") && !startsWith(name, "COLOR_") &&
+                        !startsWith(name, "JOINTS_") && !startsWith(name, "WEIGHTS_")) {
+                        return Error::InvalidGltf;
+                    }
+                }
 
                 // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview
                 const auto& accessor = parsedAsset->accessors[index];
@@ -527,6 +533,17 @@ fg::Error fg::glTF::validate() {
             for (auto& x : pTRS->rotation)
                 if (x > 1.0 || x < -1.0)
                     return Error::InvalidGltf;
+        }
+
+        if (node.skinIndex.has_value() && node.meshIndex.has_value()) {
+            // "When the node contains skin, all mesh.primitives MUST contain JOINTS_0 and WEIGHTS_0 attributes."
+            auto& mesh = parsedAsset->meshes[node.meshIndex.value()];
+            for (auto& primitive : mesh.primitives) {
+                auto end = primitive.attributes.end();
+                if (primitive.attributes.find("JOINTS_0") == end || primitive.attributes.find("WEIGHTS_0") == end) {
+                    return Error::InvalidGltf;
+                }
+            }
         }
     }
 
@@ -1537,7 +1554,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
 
                 auto parseAttributes = [](dom::object& object, std::unordered_map<std::string, size_t>& map) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
-                    // attributes map. This is not filtered for actual values. TODO?
+                    // attributes map. The keys are only validated in the validate() method.
                     for (const auto& field : object) {
                         std::string_view key = field.key;
 

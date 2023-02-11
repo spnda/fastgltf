@@ -297,10 +297,9 @@ namespace fastgltf {
 
         /**
          * This function further validates all the input that is parsed from the glTF. Note that
-         * this will only validate data that has been parsed and will not lookup anything from the
-         * JSON. For example, indices are not validated when parsing the glTF. This function might
-         * be useful to call when in Debug, but should not be necessary in Release if you know the
-         * asset.
+         * this function will only validate the data that has already been parsed through calls to
+         * glTF::parse(Category categories). Realistically, this should not be necessary in Release
+         * applications, but could be helpful when debugging an asset related issue.
          */
         [[nodiscard]] Error validate();
 
