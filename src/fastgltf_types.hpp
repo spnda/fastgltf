@@ -26,11 +26,12 @@
 
 #pragma once
 
-#include <array>
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -203,9 +204,9 @@ namespace fastgltf {
     };
 
     enum class LightType : uint8_t {
-        Directional,
-        Spot,
-        Point,
+        Directional = 0,
+        Spot = 1,
+        Point = 2,
     };
     // clang-format on
 #pragma endregion

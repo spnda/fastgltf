@@ -26,13 +26,8 @@
 
 #pragma once
 
-#include <filesystem>
 #include <memory>
-#include <string_view>
-#include <optional>
 #include <utility>
-#include <variant>
-#include <vector>
 
 #include "fastgltf_types.hpp"
 #include "fastgltf_util.hpp"

@@ -1,11 +1,11 @@
 add_library(fastgltf
     "fastgltf.cpp" "fastgltf_util.hpp" "fastgltf_types.hpp" "fastgltf_parser.hpp"
-    "base64_decode.cpp" "base64_decode.hpp")
+    "base64_decode.cpp" "base64_decode.hpp"
+    "fastgltf_c.cpp" "fastgltf_c.h")
 
 add_library(fastgltf::fastgltf ALIAS fastgltf)
 target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> $<INSTALL_INTERFACE:include>)
-target_compile_features(fastgltf PUBLIC cxx_std_17)
-set_property(TARGET fastgltf PROPERTY C_STANDARD 90) #C89/90
+target_compile_features(fastgltf PUBLIC cxx_std_17 c_std_99)
 compiler_flags(TARGET fastgltf)
 enable_debug_inlining(TARGET fastgltf_simdjson)
 

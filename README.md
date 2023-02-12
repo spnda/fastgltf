@@ -5,6 +5,9 @@ glTF parsers, it does not automatically load textures and external buffers to al
 optimise to their liking. It does, however, load embedded data and also decodes base64 encoded
 buffers using high speed SIMD algorithms.
 
+fastgltf also provides a C99 API header which includes all the features of the C++ API so that you
+can use fastgltf with virtually any language you want.
+
 By utilising simdjson, this library can take advantage of SSE4, AVX2, AVX512, and ARM Neon.
 
 ## Features
@@ -88,7 +91,7 @@ All the nodes, meshes, buffers, textures, ... can now be accessed through the `f
 type. References in between objects are done with a single `size_t`, which is used to index into
 the various vectors in the asset.
 
-### C89 API
+### C99 API
 
 ```c
 #include <fastgltf_c.h>
@@ -97,7 +100,7 @@ void load(const char* path, const char* directory) {
     // Creates a parser object
     fastgltf_parser* parser = fastgltf_create_parser(0);
     
-    fastgltf_json_data* data = fastgltf_create_json_data_from_file(path);
+    fastgltf_gltf_data_buffer* data = fastgltf_create_gltf_data_buffer_from_path(path);
     
     // For GLB files, use fastgltf_load_binary_gltf
     fastgltf_gltf* gltf = fastgltf_load_gltf(parser, data, directory, OptionsDontRequireValidAssetMember);
@@ -110,7 +113,7 @@ void load(const char* path, const char* directory) {
     fastgltf_parse_all(gltf);
 
     // You can now destroy the parser and JSON data. It is advised, however, to reuse parsers.
-    fastgltf_destroy_json_data(data);
+    fastgltf_destroy_gltf_data_buffer(data);
     fastgltf_destroy_parser(parser);
     
     // You can now query the parsed asset and destroy the glTF object. 

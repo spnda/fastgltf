@@ -3,8 +3,10 @@
 
 #ifdef __cplusplus
 #include <cstddef>
+#include <cstdint>
 #else
 #include <stddef.h>
+#include <stdint.h>
 #endif
 
 enum fastgltf_extensions {
@@ -13,15 +15,18 @@ enum fastgltf_extensions {
     MSFT_texture_dds = 1 << 3,
     KHR_mesh_quantization = 1 << 4,
     EXT_meshopt_compression = 1 << 5,
+    KHR_lights_punctual = 1 << 6,
+    EXT_mesh_gpu_instancing = 1 << 7,
+    EXT_texture_webp = 1 << 8,
 };
 
 enum fastgltf_options {
     OptionsAllowDouble = 1 << 0,
     OptionsDontRequireValidAssetMember = 1 << 1,
-    OptionsDontUseSIMD = 1 << 2,
     OptionsLoadGLBBuffers = 1 << 3,
     OptionsLoadExternalBuffers = 1 << 4,
     OptionsDecomposeNodeMatrices = 1 << 5,
+    OptionsMinimiseJsonBeforeParsing = 1 << 6,
 };
 
 enum fastgltf_error {
@@ -59,6 +64,18 @@ enum fastgltf_category {
     CategoryAll         = CategoryAsset | CategoryScenes | CategoryAnimations,
 };
 
+// These indices here correlate to the index of the corresponding type in the std::variant
+// declaration of fastgltf::DataSource. These need to be updated accordingly.
+enum fastgltf_data_source {
+    DataSourceNone = 0,
+    DataSourceBufferView = 1,
+    DataSourceFilePath = 2,
+    DataSourceVector = 3,
+    DataSourceCustomBuffer = 4,
+
+    DataSourceCount = 5,
+};
+
 enum fastgltf_primitive_type {
     PrimitiveTypePoints         = 0,
     PrimitiveTypeLines          = 1,
@@ -81,7 +98,7 @@ enum fastgltf_accessor_type {
 };
 
 enum fastgltf_component_type {
-    ComponentTypeInvalid = 0,
+    ComponentTypeInvalid         = 0,
     ComponentTypeByte            = ( 8 << 16) | 5120,
     ComponentTypeUnsignedByte    = ( 8 << 16) | 5121,
     ComponentTypeShort           = (16 << 16) | 5122,
@@ -159,6 +176,12 @@ enum MeshoptCompressionFilter {
     MeshoptCompressionFilterExponential = 3,
 };
 
+enum LighType {
+    LighTypeDirectional = 0,
+    LighTypeSpot = 1,
+    LighTypePoint = 2,
+};
+
 inline unsigned int getNumComponents(fastgltf_accessor_type type) {
     return (type >> 8) & 0xFF;
 }
@@ -186,6 +209,28 @@ typedef struct fastgltf_gltf_data_buffer_s fastgltf_gltf_data_buffer;
 typedef struct fastgltf_gltf_s fastgltf_gltf;
 typedef struct fastgltf_asset_s fastgltf_asset;
 
+typedef uint64_t fastgltf_custom_buffer;
+
+typedef struct fastgltf_accessor_s fastgltf_accessor;
+typedef struct fastgltf_animation_s fastgltf_animation;
+typedef struct fastgltf_buffer_s fastgltf_buffer;
+typedef struct fastgltf_buffer_view_s fastgltf_buffer_view;
+typedef struct fastgltf_camera_s fastgltf_camera;
+typedef struct fastgltf_image_s fastgltf_image;
+typedef struct fastgltf_light_s fastgltf_light;
+typedef struct fastgltf_material_s fastgltf_material;
+typedef struct fastgltf_mesh_s fastgltf_mesh;
+typedef struct fastgltf_node_s fastgltf_node;
+typedef struct fastgltf_sampler_s fastgltf_sampler;
+typedef struct fastgltf_scene_s fastgltf_scene;
+typedef struct fastgltf_skin_s fastgltf_skin;
+typedef struct fastgltf_texture_s fastgltf_texture;
+
+struct fastgltf_array {
+    void* data;
+    size_t size;
+};
+
 FASTGLTF_EXPORT fastgltf_component_type fastgltf_get_component_type(unsigned int componentType);
 FASTGLTF_EXPORT fastgltf_accessor_type fastgltf_get_accessor_type(const char* string);
 
@@ -193,18 +238,36 @@ FASTGLTF_EXPORT fastgltf_parser* fastgltf_create_parser(fastgltf_extensions exte
 FASTGLTF_EXPORT void fastgltf_destroy_parser(fastgltf_parser* parser);
 
 FASTGLTF_EXPORT fastgltf_gltf_data_buffer_s* fastgltf_create_gltf_data_buffer(unsigned char* bytes, size_t size);
-FASTGLTF_EXPORT fastgltf_gltf_data_buffer_s* fastgltf_create_gltf_data_buffer_from_file(const char* filePath);
-FASTGLTF_EXPORT void fastgltf_destroy_json_data(fastgltf_gltf_data_buffer* data);
+FASTGLTF_EXPORT fastgltf_gltf_data_buffer_s* fastgltf_create_gltf_data_buffer_from_path(const char* filePath);
+FASTGLTF_EXPORT fastgltf_gltf_data_buffer_s* fastgltf_create_gltf_data_buffer_from_wpath(const wchar_t* filePath);
+FASTGLTF_EXPORT void fastgltf_destroy_gltf_data_buffer(fastgltf_gltf_data_buffer* data);
 
 FASTGLTF_EXPORT fastgltf_error fastgltf_get_parser_error(fastgltf_parser* parser);
 FASTGLTF_EXPORT fastgltf_gltf* fastgltf_load_gltf(fastgltf_parser* parser, fastgltf_gltf_data_buffer* json, const char* directory, fastgltf_options options);
 FASTGLTF_EXPORT fastgltf_gltf* fastgltf_load_binary_gltf(fastgltf_parser* parser, fastgltf_gltf_data_buffer* data, const char* directory, fastgltf_options options);
+FASTGLTF_EXPORT fastgltf_gltf* fastgltf_load_gltf_w(fastgltf_parser* parser, fastgltf_gltf_data_buffer* json, const wchar_t* directory, fastgltf_options options);
+FASTGLTF_EXPORT fastgltf_gltf* fastgltf_load_binary_gltf_w(fastgltf_parser* parser, fastgltf_gltf_data_buffer* data, const wchar_t* directory, fastgltf_options options);
 FASTGLTF_EXPORT void fastgltf_destroy_gltf(fastgltf_gltf* gltf);
 
+FASTGLTF_EXPORT fastgltf_error fastgltf_parse_all(fastgltf_gltf* gltf);
 FASTGLTF_EXPORT fastgltf_error fastgltf_parse(fastgltf_gltf* gltf, fastgltf_category categories);
 
 FASTGLTF_EXPORT fastgltf_asset* fastgltf_get_parsed_asset(fastgltf_gltf* gltf);
 FASTGLTF_EXPORT void fastgltf_destroy_asset(fastgltf_asset* asset);
+
+FASTGLTF_EXPORT size_t fastgltf_get_buffer_count(fastgltf_asset* asset);
+FASTGLTF_EXPORT fastgltf_buffer* fastgltf_get_buffer(fastgltf_asset* asset, size_t index);
+FASTGLTF_EXPORT size_t fastgltf_get_buffer_length(fastgltf_buffer* buffer);
+FASTGLTF_EXPORT fastgltf_data_source fastgltf_get_buffer_data_source_type(fastgltf_buffer* buffer);
+FASTGLTF_EXPORT MimeType fastgltf_get_buffer_data_mime(fastgltf_buffer* buffer);
+// Only call this when fastgltf_get_buffer_data_source_type returned DataSourceBufferView.
+FASTGLTF_EXPORT void fastgltf_buffer_data_get_buffer_view(fastgltf_buffer* buffer, size_t* bufferView);
+// Only call this when fastgltf_get_buffer_data_source_type returned DataSourceFilePath
+FASTGLTF_EXPORT void fastgltf_buffer_data_get_file_path(fastgltf_buffer* buffer, size_t* offset, const wchar_t** path);
+// Only call this when fastgltf_get_buffer_data_source_type returned DataSourceBufferVector.
+FASTGLTF_EXPORT void fastgltf_buffer_data_get_vector(fastgltf_buffer* buffer, size_t* size, uint8_t** data);
+// Only call this when fastgltf_get_buffer_data_source_type returned DataSourceCustomBuffer.
+FASTGLTF_EXPORT fastgltf_custom_buffer fastgltf_buffer_data_get_custom_buffer(fastgltf_buffer* buffer);
 
 #ifdef __cplusplus
 }
