@@ -13,14 +13,15 @@ option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
-include(ExternalProject)
-include(FetchContent)
 
 if (FASTGLTF_DOWNLOAD_SIMDJSON)
     # Download and configure simdjson
     set(SIMDJSON_TARGET_VERSION "3.1.0")
-    set(SIMDJSON_HEADER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.h")
-    set(SIMDJSON_SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/simdjson/simdjson.cpp")
+    set(SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
+    file(MAKE_DIRECTORY ${SIMDJSON_DL_DIR})
+
+    set(SIMDJSON_HEADER_FILE "${SIMDJSON_DL_DIR}/simdjson.h")
+    set(SIMDJSON_SOURCE_FILE "${SIMDJSON_DL_DIR}/simdjson.cpp")
 
     macro(download_simdjson)
         file(DOWNLOAD "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h" ${SIMDJSON_HEADER_FILE})
@@ -47,12 +48,12 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
 
     add_library(fastgltf_simdjson ${SIMDJSON_HEADER_FILE} ${SIMDJSON_SOURCE_FILE})
     target_compile_features(fastgltf_simdjson PUBLIC cxx_std_17)
-    target_include_directories(fastgltf_simdjson PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/simdjson> $<INSTALL_INTERFACE:include>)
+    target_include_directories(fastgltf_simdjson PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/deps/simdjson> $<INSTALL_INTERFACE:include>)
     compiler_flags(TARGET fastgltf_simdjson)
     enable_debug_inlining(TARGET fastgltf_simdjson)
 
     install(
-        FILES simdjson/simdjson.h
+        FILES deps/simdjson/simdjson.h
         DESTINATION include
     )
 
@@ -76,6 +77,10 @@ else()
 endif()
 
 add_subdirectory(src)
+
+if (FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
+    add_subdirectory(deps)
+endif()
 
 if (FASTGLTF_ENABLE_EXAMPLES)
     add_subdirectory(examples)
