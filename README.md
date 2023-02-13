@@ -29,7 +29,7 @@ fastgltf supports a number of glTF extensions:
 - [x] KHR_texture_transform
 - [x] KHR_mesh_quantization
 - [x] MSFT_texture_dds
- 
+
 fastgltf brings many utilities:
 - [x] SIMD powered base64 buffer decoder
 - [x] Can decompose transform matrices, so you only ever have translation, rotation, and scale.
@@ -38,9 +38,14 @@ fastgltf brings many utilities:
 ## Usage
 
 fastgltf is built using C++17 and only depends on simdjson, which is downloaded automatically in
-the CMake script. The library is tested on GCC 9, GCC 10, Clang 12, and MSVC 14 (Visual Studio 2022)
-using CI. The project uses a simple CMake 3.11, and can be simply used by adding fastgltf as a
-subdirectory. Also, fastgltf is available from [vcpkg](https://github.com/microsoft/vcpkg).
+the CMake script (can be disabled with `FASTGLTF_DOWNLOAD_SIMDJSON=OFF`). The library is tested on
+GCC 9, GCC 10, Clang 12, and MSVC 14 (Visual Studio 2022) using CI. The project uses a simple CMake
+3.11 script, and can be simply used by adding fastgltf as a subdirectory. Also, fastgltf is
+available from [vcpkg](https://github.com/microsoft/vcpkg).
+
+Tests and examples are also available and can be built by enabling the respective options, `FASTGLTF_ENABLE_TESTS`
+and `FASTGLTF_ENABLE_EXAMPLES`. fastgltf will then require a few extra dependencies for the test
+framework, and OpenGL tools, which have to be downloaded by running `fetch_test_deps.py`.
 
 ```cpp
 #include <fastgltf_parser.hpp>
@@ -77,14 +82,17 @@ void load(std::filesystem::path path) {
     // enforce the glTF spec and is not needed most of the time, though I would certainly
     // recommend it in a development environment or when debugging to avoid mishaps.
 
-    // You obtain the asset with this call. This can only be done once.
+    // You obtain the asset with this call. This can only be done once, and all successive
+    // calls will return a nullptr. The parser and glTF object can be destroyed safely after
+    // this call.
     std::unique_ptr<fastgltf::Asset> asset = gltf->getParsedAsset();
 }
 ```
 
 All the nodes, meshes, buffers, textures, ... can now be accessed through the `fastgltf::Asset`
 type. References in between objects are done with a single `size_t`, which is used to index into
-the various vectors in the asset.
+the various vectors in the asset. fastgltf heavily utilizes standard containers like std::variant
+and std::optional to enforce safety for the user.
 
 ## Performance
 
@@ -100,7 +108,7 @@ VS 2022.
 First of I compared the performance with embedded buffers that are encoded with base64. This uses
 the [2CylinderEngine asset](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/2CylinderEngine)
 which contains a 1.7MB embedded buffer. fastgltf includes an optimised base64 decoding algorithm
-that can take advantage of AVX2, SSE4, and Neon. With this asset, fastlgtf is **7.33 times faster**
+that can take advantage of AVX2, SSE4, and Neon. With this asset, fastgltf is **7.33 times faster**
 than tinygltf using RapidJSON and **2 times faster** than cgltf.
 
 [![](https://cdn.discordapp.com/attachments/442748131898032138/1033801846621478942/Mean_time_parsing_2CylinderEngine_ms_7.png)][spreadsheet-link]
