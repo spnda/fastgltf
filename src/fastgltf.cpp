@@ -1300,7 +1300,7 @@ void fg::glTF::parseLights(simdjson::dom::array& lights) {
     for (auto lightValue : lights) {
         dom::object lightObject;
         if (lightValue.get_object().get(lightObject) != SUCCESS) {
-            SET_ERROR_RETURN(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
         Light light = {};
 
@@ -1567,7 +1567,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                 if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) {
                     for (auto targetValue : targets) {
                         if (targetValue.get_object().get(attributesObject) != SUCCESS) {
-                            SET_ERROR_RETURN(Error::InvalidGltf);
+                            SET_ERROR_RETURN(Error::InvalidGltf)
                         }
                         auto& map = primitive.targets.emplace_back();
                         parseAttributes(attributesObject, map);
@@ -1599,12 +1599,12 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
             for (auto weightValue : array) {
                 double val;
                 if (weightValue.get_double().get(val) != SUCCESS) {
-                    SET_ERROR_RETURN(Error::InvalidGltf);
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
                 mesh.weights.emplace_back(static_cast<float>(val));
             }
         } else if (meshError != Error::MissingField && meshError != Error::None) {
-            SET_ERROR_RETURN(Error::InvalidGltf);
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         // name is optional.
@@ -1661,12 +1661,12 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                 for (auto weightValue : array) {
                     double val;
                     if (weightValue.get_double().get(val) != SUCCESS) {
-                        SET_ERROR_RETURN(Error::InvalidGltf);
+                        SET_ERROR_RETURN(Error::InvalidGltf)
                     }
                     node.weights.emplace_back(static_cast<float>(val));
                 }
             } else {
-                SET_ERROR_RETURN(Error::InvalidGltf);
+                SET_ERROR_RETURN(Error::InvalidGltf)
             }
         }
 
@@ -1833,7 +1833,7 @@ void fg::glTF::parseScenes(simdjson::dom::array& scenes) {
 
             parsedAsset->scenes.emplace_back(std::move(scene));
         } else if (nodeError != Error::MissingField) {
-            SET_ERROR_RETURN(nodeError);
+            SET_ERROR_RETURN(nodeError)
         }
     }
 }

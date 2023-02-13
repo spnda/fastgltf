@@ -359,7 +359,7 @@ TEST_CASE("Validate whole glTF", "[gltf-loader]") {
 TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     auto boxPath = sampleModels / "2.0" / "Box" / "glTF-Embedded";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(boxPath / "Box.gltf");
+    REQUIRE(jsonData->loadFromFile(boxPath / "Box.gltf"));
 
     std::vector<void*> allocations;
 
@@ -377,6 +377,7 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     parser.setUserPointer(&allocations);
     parser.setBufferAllocationCallback(mapCallback, nullptr);
     auto model = parser.loadGLTF(jsonData.get(), boxPath);
+    REQUIRE(model != nullptr);
     REQUIRE(model->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
     REQUIRE(allocations.size() == 1);
 
@@ -419,11 +420,12 @@ TEST_CASE("Test base64 decoding callbacks", "[gltf-loader]") {
 TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
     SECTION("Test decomposition on glTF asset") {
         auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-        jsonData->loadFromFile(path / "transform_matrices.gltf");
+        REQUIRE(jsonData->loadFromFile(path / "transform_matrices.gltf"));
 
         // Parse once without decomposing, once with decomposing the matrix.
         fastgltf::Parser parser;
         auto modelWithMatrix = parser.loadGLTF(jsonData.get(), path);
+        REQUIRE(modelWithMatrix != nullptr);
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(modelWithMatrix != nullptr);
 
@@ -511,10 +513,11 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
 TEST_CASE("Validate sparse accessor parsing", "[gltf-loader]") {
     auto simpleSparseAccessor = sampleModels / "2.0" / "SimpleSparseAccessor" / "glTF";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(simpleSparseAccessor / "SimpleSparseAccessor.gltf");
+    REQUIRE(jsonData->loadFromFile(simpleSparseAccessor / "SimpleSparseAccessor.gltf"));
 
     fastgltf::Parser parser;
     auto model = parser.loadGLTF(jsonData.get(), simpleSparseAccessor);
+    REQUIRE(model != nullptr);
     REQUIRE(parser.getError() == fastgltf::Error::None);
     REQUIRE(model->parse(fastgltf::Category::Accessors) == fastgltf::Error::None);
     REQUIRE(model->validate() == fastgltf::Error::None);
@@ -535,10 +538,11 @@ TEST_CASE("Validate sparse accessor parsing", "[gltf-loader]") {
 TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
     auto simpleMorph = sampleModels / "2.0" / "SimpleMorph" / "glTF";
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->loadFromFile(simpleMorph / "SimpleMorph.gltf");
+    REQUIRE(jsonData->loadFromFile(simpleMorph / "SimpleMorph.gltf"));
 
     fastgltf::Parser parser;
     auto model = parser.loadGLTF(jsonData.get(), simpleMorph);
+    REQUIRE(model != nullptr);
     REQUIRE(parser.getError() == fastgltf::Error::None);
     REQUIRE(model->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
     REQUIRE(model->validate() == fastgltf::Error::None);

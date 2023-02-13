@@ -8,6 +8,8 @@ project(fastgltf VERSION 0.3.0 LANGUAGES C CXX)
 
 option(FASTGLTF_DOWNLOAD_SIMDJSON "Downloads a copy of simdjson itself to satisfy the dependency" ON)
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
+option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastlgtf" OFF)
+option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
@@ -74,5 +76,10 @@ else()
 endif()
 
 add_subdirectory(src)
-add_subdirectory(examples)
-add_subdirectory(tests)
+
+if (FASTGLTF_ENABLE_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+if (FASTGLTF_ENABLE_TESTS)
+    add_subdirectory(tests)
+endif()
