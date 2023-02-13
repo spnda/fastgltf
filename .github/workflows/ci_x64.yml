@@ -27,6 +27,9 @@ jobs:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
 
+      - name: Install Python dependencies
+        run: pip3 install Jinja2
+
       - name: Download dependencies
         run: python3 fetch_test_deps.py
 
@@ -67,6 +70,9 @@ jobs:
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
+
+      - name: Install Python dependencies
+        run: pip3 install Jinja2
 
       - name: Download dependencies
         run: python3 fetch_test_deps.py

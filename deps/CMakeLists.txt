@@ -53,5 +53,5 @@ if (EXISTS "${FASTGLTF_DEPS_DIR}/glad")
     add_subdirectory(${FASTGLTF_DEPS_DIR}/glad/cmake glad_cmake)
 
     # Let the glad script generate the glad headers
-    glad_add_library(fg_glad_gl46 REPRODUCIBLE LOADER API gl:core=4.6)
+    glad_add_library(fg_glad_gl46 REPRODUCIBLE EXCLUDE_FROM_ALL LOADER API gl:core=4.6)
 endif()
