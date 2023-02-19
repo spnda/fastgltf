@@ -5,4 +5,4 @@ add_executable(fastgltf_tests EXCLUDE_FROM_ALL "base64_tests.cpp" "basic_test.cp
 target_compile_features(fastgltf_tests PRIVATE cxx_std_20)
 target_link_libraries(fastgltf_tests PRIVATE fastgltf fastgltf_simdjson)
 target_link_libraries(fastgltf_tests PRIVATE glm::glm Catch2::Catch2WithMain)
-compiler_flags(TARGET fastgltf_tests)
+compiler_flags(fastgltf_tests)

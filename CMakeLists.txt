@@ -49,8 +49,8 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
     add_library(fastgltf_simdjson ${SIMDJSON_HEADER_FILE} ${SIMDJSON_SOURCE_FILE})
     target_compile_features(fastgltf_simdjson PUBLIC cxx_std_17)
     target_include_directories(fastgltf_simdjson PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/deps/simdjson> $<INSTALL_INTERFACE:include>)
-    compiler_flags(TARGET fastgltf_simdjson)
-    enable_debug_inlining(TARGET fastgltf_simdjson)
+    compiler_flags(fastgltf_simdjson)
+    enable_debug_inlining(fastgltf_simdjson)
 
     install(
         FILES deps/simdjson/simdjson.h
