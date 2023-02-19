@@ -5,6 +5,9 @@ glTF parsers, it does not automatically load textures and external buffers to al
 optimise to their liking. It does, however, load embedded data and also decodes base64 encoded
 buffers using high speed SIMD algorithms.
 
+fastgltf also provides a C99 API header which includes all the features of the C++ API so that you
+can use fastgltf with virtually any language you want.
+
 By utilising simdjson, this library can take advantage of SSE4, AVX2, AVX512, and ARM Neon.
 
 ## Features
@@ -46,6 +49,8 @@ available from [vcpkg](https://github.com/microsoft/vcpkg).
 Tests and examples are also available and can be built by enabling the respective options, `FASTGLTF_ENABLE_TESTS`
 and `FASTGLTF_ENABLE_EXAMPLES`. fastgltf will then require a few extra dependencies for the test
 framework, and OpenGL tools, which have to be downloaded by running `fetch_test_deps.py`.
+
+### C++ API
 
 ```cpp
 #include <fastgltf_parser.hpp>
@@ -93,6 +98,41 @@ All the nodes, meshes, buffers, textures, ... can now be accessed through the `f
 type. References in between objects are done with a single `size_t`, which is used to index into
 the various vectors in the asset. fastgltf heavily utilizes standard containers like std::variant
 and std::optional to enforce safety for the user.
+
+### C99 API
+
+```c
+#include <fastgltf_c.h>
+
+void load(const char* path, const char* directory) {
+    // Creates a parser object
+    fastgltf_parser* parser = fastgltf_create_parser(0);
+    
+    fastgltf_gltf_data_buffer* data = fastgltf_create_gltf_data_buffer_from_path(path);
+    
+    // For GLB files, use fastgltf_load_binary_gltf
+    fastgltf_gltf* gltf = fastgltf_load_gltf(parser, data, directory, OptionsDontRequireValidAssetMember);
+    if (fastgltf_get_parser_error(parser) != ErrorNone) {
+        // error
+    }
+    
+    // Tell fastgltf to parse the whole glTF structure. Optionally, you can parse individual
+    // aspects of glTF files by calling the various parse methods.
+    fastgltf_parse_all(gltf);
+
+    // You can now destroy the parser and JSON data. It is advised, however, to reuse parsers.
+    fastgltf_destroy_gltf_data_buffer(data);
+    fastgltf_destroy_parser(parser);
+    
+    // You can now query the parsed asset and destroy the glTF object. 
+    fastgltf_asset* asset = fastgltf_get_parsed_asset(gltf);
+    fastgltf_destroy_gltf(gltf);
+    
+    // Use the parsed asset here.
+    
+    fastgltf_destroy_asset(asset);
+}
+```
 
 ## Performance
 

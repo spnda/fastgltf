@@ -28,11 +28,8 @@
 #error "fastgltf requires C++17"
 #endif
 
-#include <array>
-#include <cmath>
 #include <fstream>
 #include <functional>
-#include <utility>
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -283,20 +280,22 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
 }
 
 fg::MimeType fg::glTF::getMimeTypeFromString(std::string_view mime) {
-    if (mime == mimeTypeJpeg) {
-        return MimeType::JPEG;
-    } else if (mime == mimeTypePng) {
-        return MimeType::PNG;
-    } else if (mime == mimeTypeKtx) {
-        return MimeType::KTX2;
-    } else if (mime == mimeTypeDds) {
-        return MimeType::DDS;
-    } else if (mime == mimeTypeGltfBuffer) {
-        return MimeType::GltfBuffer;
-    } else if (mime == mimeTypeOctetStream) {
-        return MimeType::OctetStream;
-    } else {
-        return MimeType::None;
+    auto hash = crc32(mime);
+    switch (hash) {
+        case force_consteval<crc32(mimeTypeJpeg)>:
+            return MimeType::JPEG;
+        case force_consteval<crc32(mimeTypePng)>:
+            return MimeType::PNG;
+        case force_consteval<crc32(mimeTypeKtx)>:
+            return MimeType::KTX2;
+        case force_consteval<crc32(mimeTypeDds)>:
+            return MimeType::DDS;
+        case force_consteval<crc32(mimeTypeGltfBuffer)>:
+            return MimeType::GltfBuffer;
+        case force_consteval<crc32(mimeTypeOctetStream)>:
+            return MimeType::OctetStream;
+        default:
+            return MimeType::None;
     }
 }
 
@@ -2147,7 +2146,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
     data->decodeCallback = decodeCallback;
     data->userPointer = userPointer;
 
-    return std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
+    return std::unique_ptr<glTF>(new (std::nothrow) glTF(std::move(data), std::move(directory), options, extensions));
 }
 
 std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
@@ -2203,7 +2202,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
     data->decodeCallback = decodeCallback;
     data->userPointer = userPointer;
 
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
+    auto gltf = std::unique_ptr<glTF>(new (std::nothrow) glTF(std::move(data), std::move(directory), options, extensions));
 
     // Is there enough room for another chunk header?
     if (header.length > (offset + sizeof(BinaryGltfChunk))) {
