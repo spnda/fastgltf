@@ -61,7 +61,8 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
 
 TEST_CASE("Benchmark massive gltf file", "[base64-benchmark]") {
     if (!std::filesystem::exists(bistroPath / "bistro.gltf")) {
-        return;
+        // Bistro is not part of gltf-Sample-Models, and therefore not always available.
+        SKIP("Amazon's Bistro (GLTF) is required for this benchmark.");
     }
 
     fastgltf::Parser parser(fastgltf::Extensions::KHR_mesh_quantization);

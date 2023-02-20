@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -13,9 +14,10 @@ example_deps_urls = {
     'glad': "https://github.com/Dav1dde/glad/archive/refs/heads/glad2.zip"
 }
 test_deps_urls = {
-    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.2.1.zip"
+    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.3.1.zip"
 }
 deps_folder = "deps/"
+
 
 def download_zip_and_extract(url, output_folder, name):
     output = f'{output_folder}{name}'
@@ -24,12 +26,14 @@ def download_zip_and_extract(url, output_folder, name):
         names = zip_ref.namelist()
         if len(names) == 0:
             return
-        # Perhaps the file exists already
-        if not os.path.isdir(output):
-            zip_ref.extractall(output_folder)
-            # The zip file contains another folder called the same name.
-            if name.lower() in names[0].lower():
-                os.rename(f'{output_folder}{names[0]}', output)
+        # Remove any old versions of the downloaded dependency
+        if os.path.isdir(output):
+            shutil.rmtree(output)
+
+        zip_ref.extractall(output_folder)
+        # The zip file contains another folder called the same name.
+        if name.lower() in names[0].lower():
+            os.rename(f'{output_folder}{names[0]}', output)
 
     os.remove(file_path)
 
