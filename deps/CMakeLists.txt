@@ -44,6 +44,15 @@ endif()
 # Catch2
 if (EXISTS "${FASTGLTF_DEPS_DIR}/catch2")
     message(STATUS "fastgltf: Found catch2")
+    # We can set Catch2 config options like this. We want all the C++17 features.
+    set(CATCH_CONFIG_CPP17_UNCAUGHT_EXCEPTIONS ON)
+    set(CATCH_CONFIG_CPP17_STRING_VIEW ON)
+    set(CATCH_CONFIG_CPP17_VARIANT ON)
+    set(CATCH_CONFIG_CPP17_OPTIONAL ON)
+    set(CATCH_CONFIG_CPP17_BYTE ON)
+
+    set(CATCH_CONFIG_WINDOWS_CRTDBG ON)
+    set(CATCH_CONFIG_ENABLE_ALL_STRINGMAKERS ON)
     add_subdirectory(${FASTGLTF_DEPS_DIR}/catch2)
 endif()
 

@@ -367,9 +367,9 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
         REQUIRE(userPointer != nullptr);
         auto* allocations = static_cast<std::vector<void*>*>(userPointer);
         allocations->emplace_back(std::malloc(bufferSize));
-        return {
-            .mappedMemory = allocations->back(),
-            .customId = allocations->size() - 1,
+        return fastgltf::BufferInfo {
+            allocations->back(),
+            allocations->size() - 1,
         };
     };
 
@@ -553,13 +553,13 @@ TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
     REQUIRE(asset->meshes.front().primitives.size() == 1);
 
     auto& primitive = asset->meshes.front().primitives.front();
-    REQUIRE(primitive.attributes.contains("POSITION"));
+    REQUIRE(primitive.attributes.find("POSITION") != primitive.attributes.end());
     REQUIRE(primitive.attributes["POSITION"] == 1);
 
     REQUIRE(primitive.targets.size() == 2);
-    REQUIRE(primitive.targets[0].contains("POSITION"));
+    REQUIRE(primitive.targets[0].find("POSITION") != primitive.targets[0].end());
     REQUIRE(primitive.targets[0]["POSITION"] == 2);
-    REQUIRE(primitive.targets[1].contains("POSITION"));
+    REQUIRE(primitive.targets[1].find("POSITION") != primitive.targets[1].end());
     REQUIRE(primitive.targets[1]["POSITION"] == 3);
 }
 

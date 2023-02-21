@@ -79,6 +79,11 @@ endif()
 add_subdirectory(src)
 
 if (FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
+    # This is required so that Catch2 compiles with C++17, enabling various features we use in tests.
+    if (NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD STREQUAL "" OR CMAKE_CXX_STANDARD LESS 17)
+        set(CMAKE_CXX_STANDARD 17 CACHE BOOL "C++ standard" FORCE)
+    endif()
+
     add_subdirectory(deps)
 endif()
 
