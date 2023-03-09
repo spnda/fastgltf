@@ -30,11 +30,27 @@
 #include <cmath>
 #include <type_traits>
 
-#if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
-#include <bit>
+// Macros to determine C++ standard version
+#if (!defined(_MSVC_LANG) && __cplusplus >= 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#define FASTGLTF_CPP_17 1
+#else
+#error "fastgltf requires C++17"
 #endif
 
-#if defined(__cpp_concepts) && __cpp_concepts >= 201507
+#if (!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#define FASTGLTF_CPP_20 1
+#else
+#define FASTGLTF_CPP_20 0
+#endif
+
+#if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
+#define FASTGLTF_HAS_BIT 1
+#include <bit>
+#else
+#define FASTGLTF_HAS_BIT 0
+#endif
+
+#if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 201507
 #define FASTGLTF_HAS_CONCEPTS 1
 #include <concepts>
 #else
@@ -202,7 +218,7 @@ namespace fastgltf {
      * returns a uint8_t as there can only ever be 2^6 zeros.
      */
     [[gnu::const]] inline uint8_t clz(uint64_t value) {
-#if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
+#if FASTGLTF_HAS_BIT
         return std::countl_zero(value);
 #else
 #ifdef _MSC_VER

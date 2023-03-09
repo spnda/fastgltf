@@ -26,11 +26,14 @@
 
 #pragma once
 
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
 #ifdef _MSC_VER
-#pragma warning(push)
+#pragma warning(push) // attribute 'x' is not recognized
 #pragma warning(disable : 5030)
 #endif
 
