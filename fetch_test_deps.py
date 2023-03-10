@@ -14,7 +14,7 @@ example_deps_urls = {
     'glad': "https://github.com/Dav1dde/glad/archive/refs/heads/glad2.zip"
 }
 test_deps_urls = {
-    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.3.1.zip"
+    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.3.2.zip"
 }
 deps_folder = "deps/"
 
