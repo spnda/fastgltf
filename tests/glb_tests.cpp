@@ -51,7 +51,7 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(length));
 
         fastgltf::GltfDataBuffer byteBuffer;
-        byteBuffer.fromByteView(bytes.data(), length, length + fastgltf::getGltfBufferPadding());
+        REQUIRE(byteBuffer.fromByteView(bytes.data(), length, length + fastgltf::getGltfBufferPadding()));
 
         auto box = parser.loadBinaryGLTF(&byteBuffer, folder, fastgltf::Options::LoadGLBBuffers);
         REQUIRE(parser.getError() == fastgltf::Error::None);

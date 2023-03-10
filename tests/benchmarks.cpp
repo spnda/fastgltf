@@ -6,7 +6,6 @@
 #include "simdjson.h"
 
 #include "fastgltf_parser.hpp"
-#include "fastgltf_types.hpp"
 #include "gltf_path.hpp"
 
 constexpr auto benchmarkOptions = fastgltf::Options::DontRequireValidAssetMember;
@@ -45,7 +44,7 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[base64-benchmark]") {
         auto engine = parser.loadGLTF(jsonData.get(), cylinderEngine, benchmarkOptions);
         return engine->parse();
     };
-};
+}
 
 TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     fastgltf::Parser parser;
@@ -73,13 +72,13 @@ TEST_CASE("Benchmark massive gltf file", "[base64-benchmark]") {
         auto engine = parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);
         return engine->parse();
     };
-};
+}
 
 TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmark]") {
     auto buggyPath = sampleModels / "2.0" / "Buggy" / "glTF";
     auto bytes = readFileAsBytes(buggyPath / "Buggy.gltf");
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size());
+    REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
     // Create a minified JSON string
     std::vector<uint8_t> minified(bytes.size());
@@ -98,7 +97,7 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
     };
 
     auto minifiedJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    minifiedJsonData->fromByteView(minified.data(), minified.size() - fastgltf::getGltfBufferPadding(), minified.size());
+    REQUIRE(minifiedJsonData->fromByteView(minified.data(), minified.size() - fastgltf::getGltfBufferPadding(), minified.size()));
 
     fastgltf::Parser parser;
     BENCHMARK("Parse Buggy.gltf with normal JSON") {
