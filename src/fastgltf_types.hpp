@@ -26,7 +26,6 @@
 
 #pragma once
 
-#include <array>
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
@@ -35,6 +34,7 @@
 #include <variant>
 #include <vector>
 
+// Utils header already includes some headers, which we'll try and avoid including twice.
 #include "fastgltf_util.hpp"
 
 #ifdef _MSC_VER
@@ -462,10 +462,6 @@ namespace fastgltf {
             } else {
                 alloc = static_cast<T*>(std::malloc(newCapacity * sizeof(T)));
                 copy(begin(), size(), alloc);
-            }
-
-            if (!_data) {
-                return;
             }
 
             if (!isSmallVector() && _data) {

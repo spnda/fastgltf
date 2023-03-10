@@ -232,10 +232,9 @@ namespace fastgltf {
         DataSource glbBuffer;
         std::filesystem::path directory;
         Options options;
-        Extensions extensions;
         Error errorCode = Error::None;
 
-        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options, Extensions extension);
+        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options);
 
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 
@@ -347,6 +346,18 @@ namespace fastgltf {
     };
 
     /**
+     * Some internals the parser passes on to each glTF instance.
+     */
+    struct ParserInternalConfig {
+        BufferMapCallback* mapCallback = nullptr;
+        BufferUnmapCallback* unmapCallback = nullptr;
+        Base64DecodeCallback* decodeCallback = nullptr;
+
+        void* userPointer = nullptr;
+        Extensions extensions = Extensions::None;
+    };
+
+    /**
      * A parser for one or more glTF files. It uses a SIMD based JSON parser to maximize efficiency
      * and performance at runtime.
      *
@@ -358,18 +369,15 @@ namespace fastgltf {
         std::unique_ptr<simdjson::dom::parser> jsonParser;
 
         // Callbacks
-        BufferMapCallback* mapCallback = nullptr;
-        BufferUnmapCallback* unmapCallback = nullptr;
-        Base64DecodeCallback* decodeCallback = nullptr;
-
-        void* userPointer = nullptr;
-        Extensions extensions;
+        ParserInternalConfig config = {};
         Error errorCode = Error::None;
 
     public:
         explicit Parser(Extensions extensionsToLoad = Extensions::None) noexcept;
-        explicit Parser(const Parser& scene) = delete;
-        Parser& operator=(const Parser& scene) = delete;
+        explicit Parser(const Parser& parser) = delete;
+        Parser(Parser&& parser) noexcept;
+        Parser& operator=(const Parser& parser) = delete;
+        Parser& operator=(Parser&& other) noexcept;
 
         ~Parser();
 

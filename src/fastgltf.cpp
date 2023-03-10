@@ -66,11 +66,7 @@ namespace fastgltf {
     struct ParserData {
         simdjson::dom::document doc;
         simdjson::dom::object root;
-
-        BufferMapCallback* mapCallback = nullptr;
-        BufferUnmapCallback* unmapCallback = nullptr;
-        Base64DecodeCallback* decodeCallback = nullptr;
-        void* userPointer = nullptr;
+        ParserInternalConfig config;
     };
 
     // ASCII for "glTF".
@@ -164,7 +160,7 @@ bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensi
 }
 
 #pragma region glTF
-fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options options, Extensions extensions) : data(std::move(data)), directory(std::move(directory)), options(options), extensions(extensions) {
+fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options options) : data(std::move(data)), directory(std::move(directory)), options(options) {
     parsedAsset = std::make_unique<Asset>();
 }
 
@@ -208,20 +204,20 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
         }
 
         auto encodedData = uri.substr(encodingEnd + 1);
-        if (data->mapCallback != nullptr) {
+        if (data->config.mapCallback != nullptr) {
             // If a map callback is specified, we use a pointer to memory specified by it.
             auto padding = base64::getPadding(encodedData);
             auto size = base64::getOutputSize(encodedData.size(), padding);
-            auto info = data->mapCallback(size, data->userPointer);
+            auto info = data->config.mapCallback(size, data->config.userPointer);
             if (info.mappedMemory != nullptr) {
-                if (data->decodeCallback != nullptr) {
-                    data->decodeCallback(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding, size, data->userPointer);
+                if (data->config.decodeCallback != nullptr) {
+                    data->config.decodeCallback(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding, size, data->config.userPointer);
                 } else {
                     base64::decode_inplace(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding);
                 }
 
-                if (data->unmapCallback != nullptr) {
-                    data->unmapCallback(&info, data->userPointer);
+                if (data->config.unmapCallback != nullptr) {
+                    data->config.unmapCallback(&info, data->config.userPointer);
                 }
 
                 sources::CustomBuffer source = {};
@@ -233,10 +229,10 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
 
         // Decode the base64 data into a traditional vector
         std::vector<uint8_t> uriData;
-        if (data->decodeCallback != nullptr) {
+        if (data->config.decodeCallback != nullptr) {
             auto padding = base64::getPadding(encodedData);
             uriData.resize(base64::getOutputSize(encodedData.size(), padding));
-            data->decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->userPointer);
+            data->config.decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->config.userPointer);
         } else {
             uriData = base64::decode(encodedData);
         }
@@ -257,13 +253,13 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
         auto length = static_cast<int64_t>(file.tellg());
         file.seekg(0);
 
-        if (data->mapCallback != nullptr) {
-            auto info = data->mapCallback(length, data->userPointer);
+        if (data->config.mapCallback != nullptr) {
+            auto info = data->config.mapCallback(length, data->config.userPointer);
             if (info.mappedMemory != nullptr) {
                 sources::CustomBuffer customBufferSource = {info.customId };
                 file.read(reinterpret_cast<char*>(info.mappedMemory), length);
-                if (data->unmapCallback != nullptr) {
-                    data->unmapCallback(&info, data->userPointer);
+                if (data->config.unmapCallback != nullptr) {
+                    data->config.unmapCallback(&info, data->config.userPointer);
                 }
 
                 return std::make_pair(Error::None, customBufferSource);
@@ -444,7 +440,7 @@ fg::Error fg::glTF::validate() {
                 if (name == "POSITION") {
                     if (accessor.type != AccessorType::Vec3)
                         return Error::InvalidGltf;
-                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                    if (!hasBit(data->config.extensions, Extensions::KHR_mesh_quantization)) {
                         if (accessor.componentType != ComponentType::Float)
                             return Error::InvalidGltf;
                     } else {
@@ -454,7 +450,7 @@ fg::Error fg::glTF::validate() {
                 } else if (name == "NORMAL") {
                     if (accessor.type != AccessorType::Vec3)
                         return Error::InvalidGltf;
-                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                    if (!hasBit(data->config.extensions, Extensions::KHR_mesh_quantization)) {
                         if (accessor.componentType != ComponentType::Float)
                             return Error::InvalidGltf;
                     } else {
@@ -466,7 +462,7 @@ fg::Error fg::glTF::validate() {
                 } else if (name == "TANGENT") {
                     if (accessor.type != AccessorType::Vec4)
                         return Error::InvalidGltf;
-                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                    if (!hasBit(data->config.extensions, Extensions::KHR_mesh_quantization)) {
                         if (accessor.componentType != ComponentType::Float)
                             return Error::InvalidGltf;
                     } else {
@@ -478,7 +474,7 @@ fg::Error fg::glTF::validate() {
                 } else if (startsWith(name, "TEXCOORD_")) {
                     if (accessor.type != AccessorType::Vec2)
                         return Error::InvalidGltf;
-                    if (!hasBit(extensions, Extensions::KHR_mesh_quantization)) {
+                    if (!hasBit(data->config.extensions, Extensions::KHR_mesh_quantization)) {
                         if (accessor.componentType != ComponentType::Float &&
                             accessor.componentType != ComponentType::UnsignedByte &&
                             accessor.componentType != ComponentType::UnsignedShort) {
@@ -589,7 +585,7 @@ fg::Error fg::glTF::parse(Category categories) {
         if (asset["version"].get_string().get(version) != SUCCESS) {
             SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
         } else {
-            uint32_t major = version.substr(0, 1)[0] - '0';
+            uint32_t major = static_cast<uint32_t>(version.substr(0, 1)[0] - '0');
             // uint32_t minor = version.substr(2, 3)[0] - '0';
             if (major != 2) {
                 SET_ERROR_RETURN_ERROR(Error::UnsupportedVersion)
@@ -622,7 +618,7 @@ fg::Error fg::glTF::parse(Category categories) {
             for (const auto& [extensionString, extensionEnum] : extensionStrings) {
                 if (extensionString == string) {
                     known = true;
-                    if (!hasBit(extensions, extensionEnum)) {
+                    if (!hasBit(data->config.extensions, extensionEnum)) {
                         // The extension is required, but not enabled by the user.
                         SET_ERROR_RETURN_ERROR(Error::MissingExtensions)
                     }
@@ -1097,7 +1093,7 @@ void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
         dom::object extensionObject;
         if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) {
             dom::object meshoptCompression;
-            if (hasBit(this->extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
+            if (hasBit(data->config.extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
                 parseBufferViewObject(meshoptCompression, true);
                 continue;
             }
@@ -1213,7 +1209,7 @@ void fg::glTF::parseExtensions(simdjson::dom::object& extensionsObject) {
         auto hash = crc32(extensionValue.key);
         switch (hash) {
             case force_consteval<crc32(extensions::KHR_lights_punctual)>: {
-                if (!hasBit(extensions, Extensions::KHR_lights_punctual))
+                if (!hasBit(data->config.extensions, Extensions::KHR_lights_punctual))
                     break;
 
                 dom::array lightsArray;
@@ -1918,7 +1914,7 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
         dom::object textureTransform;
-        if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) {
+        if (hasBit(data->config.extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) {
             if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
                 info->texCoordIndex = index;
             }
@@ -1983,7 +1979,7 @@ void fg::glTF::parseTextures(simdjson::dom::array& textures) {
                 // If the source was specified we'll use that as a fallback.
                 texture.fallbackImageIndex = texture.imageIndex;
             }
-            if (!parseTextureExtensions(texture, extensionsObject, extensions)) {
+            if (!parseTextureExtensions(texture, extensionsObject, data->config.extensions)) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
         }
@@ -2038,7 +2034,7 @@ bool fg::GltfDataBuffer::copyBytes(uint8_t* bytes, size_t byteCount) noexcept {
     // Allocate a byte array with a bit of padding.
     dataSize = byteCount;
     allocatedSize = byteCount + simdjson::SIMDJSON_PADDING;
-    buffer = std::unique_ptr<uint8_t[]>(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+    buffer = decltype(buffer)(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     bufferPointer = buffer.get();
 
     // Copy the data and fill the padding region with zeros.
@@ -2067,7 +2063,7 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, uint64_t byteOffset)
 
     dataSize = static_cast<uint64_t>(length) - byteOffset;
     allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = std::unique_ptr<uint8_t[]>(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+    buffer = decltype(buffer)(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     if (!buffer)
         return false;
     bufferPointer = buffer.get();
@@ -2103,8 +2099,17 @@ fastgltf::GltfType fg::determineGltfFileType(GltfDataBuffer* buffer) {
     return GltfType::Invalid;
 }
 
-fg::Parser::Parser(Extensions extensionsToLoad) noexcept : extensions(extensionsToLoad) {
+fg::Parser::Parser(Extensions extensionsToLoad) noexcept {
     jsonParser = std::make_unique<simdjson::dom::parser>();
+    config.extensions = extensionsToLoad;
+}
+
+fg::Parser::Parser(Parser&& other) noexcept : jsonParser(std::move(other.jsonParser)), config(other.config) {}
+
+fg::Parser& fg::Parser::operator=(Parser&& other) noexcept {
+    jsonParser = std::move(other.jsonParser);
+    config = other.config;
+    return *this;
 }
 
 fg::Parser::~Parser() = default;
@@ -2142,12 +2147,9 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
         errorCode = Error::InvalidJson;
         return nullptr;
     }
-    data->mapCallback = mapCallback;
-    data->unmapCallback = unmapCallback;
-    data->decodeCallback = decodeCallback;
-    data->userPointer = userPointer;
+    data->config = config;
 
-    return std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
+    return std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options));
 }
 
 std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
@@ -2198,12 +2200,9 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
         errorCode = Error::InvalidJson;
         return nullptr;
     }
-    data->mapCallback = mapCallback;
-    data->unmapCallback = unmapCallback;
-    data->decodeCallback = decodeCallback;
-    data->userPointer = userPointer;
+    data->config = config;
 
-    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options, extensions));
+    auto gltf = std::unique_ptr<glTF>(new glTF(std::move(data), std::move(directory), options));
 
     // Is there enough room for another chunk header?
     if (header.length > (offset + sizeof(BinaryGltfChunk))) {
@@ -2216,13 +2215,13 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
         }
 
         if (hasBit(options, Options::LoadGLBBuffers)) {
-            if (gltf->data->mapCallback != nullptr) {
-                const auto& gdata = gltf->data;
-                auto info = gdata->mapCallback(binaryChunk.chunkLength, gdata->userPointer);
+            const auto& gconfig = gltf->data->config;
+            if (gconfig.mapCallback != nullptr) {
+                auto info = gconfig.mapCallback(binaryChunk.chunkLength, gconfig.userPointer);
                 if (info.mappedMemory != nullptr) {
                     read(info.mappedMemory, binaryChunk.chunkLength);
-                    if (gdata->unmapCallback != nullptr) {
-                        gdata->unmapCallback(&info, gdata->userPointer);
+                    if (gconfig.unmapCallback != nullptr) {
+                        gconfig.unmapCallback(&info, gconfig.userPointer);
                     }
                     gltf->glbBuffer = sources::CustomBuffer { info.customId };
                 }
@@ -2245,21 +2244,21 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
     return gltf;
 }
 
-void fg::Parser::setBufferAllocationCallback(BufferMapCallback* newMapCallback, BufferUnmapCallback* newUnmapCallback) noexcept {
-    if (newMapCallback == nullptr)
+void fg::Parser::setBufferAllocationCallback(BufferMapCallback* mapCallback, BufferUnmapCallback* unmapCallback) noexcept {
+    if (mapCallback == nullptr)
         return;
-    mapCallback = newMapCallback;
-    unmapCallback = newUnmapCallback;
+    config.mapCallback = mapCallback;
+    config.unmapCallback = unmapCallback;
 }
 
-void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* newDecodeCallback) noexcept {
-    if (newDecodeCallback == nullptr)
+void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept {
+    if (decodeCallback == nullptr)
         return;
-    decodeCallback = newDecodeCallback;
+    config.decodeCallback = decodeCallback;
 }
 
 void fg::Parser::setUserPointer(void* pointer) noexcept {
-    userPointer = pointer;
+    config.userPointer = pointer;
 }
 #pragma endregion
 
