@@ -165,7 +165,8 @@ namespace fastgltf::base64 {
         const auto shuffled = _mm256_shuffle_epi8(merged, shuffle);
 
         // Beware: This writes 32 bytes, we just discard the top 8 bytes.
-        _mm256_storeu_si256(reinterpret_cast<__m256i*>(out), shuffled);
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(out), _mm256_extracti128_si256(shuffled, 0));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 12), _mm256_extracti128_si256(shuffled, 1));
 
         out += dataOutputSize;
         pos += dataSetSize;
