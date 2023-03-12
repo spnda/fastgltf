@@ -262,6 +262,27 @@ namespace fastgltf {
     inline bool startsWith(std::string_view str, std::string_view search) {
         return str.rfind(search, 0) == 0;
     }
+
+    // For simple ops like &, |, +, - taking a left and right operand.
+#define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \
+    constexpr T1 operator op(const T1& a, const T2& b) noexcept { \
+        static_assert(std::is_enum_v<T1> && std::is_enum_v<T2>); \
+        return static_cast<T1>(to_underlying(a) op to_underlying(b)); \
+    }
+
+    // For any ops like |=, &=, +=, -=
+#define FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(T1, T2, op) \
+    constexpr T1& operator op##=(T1& a, const T2& b) noexcept { \
+        static_assert(std::is_enum_v<T1> && std::is_enum_v<T2>); \
+        return a = static_cast<T1>(to_underlying(a) op to_underlying(b)), a; \
+    }
+
+    // For unary +, unary -, and bitwise NOT
+#define FASTGLTF_UNARY_OP_TEMPLATE_MACRO(T, op) \
+    constexpr T operator ~(const T& a) noexcept { \
+        static_assert(std::is_enum_v<T>); \
+        return static_cast<T>(~to_underlying(a)); \
+    }
 }
 
 #ifdef _MSC_VER

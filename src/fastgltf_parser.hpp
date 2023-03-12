@@ -102,13 +102,10 @@ namespace fastgltf {
     };
     // clang-format on
 
-    constexpr Extensions operator&(Extensions a, Extensions b) noexcept {
-        return static_cast<Extensions>(to_underlying(a) & to_underlying(b));
-    }
-
-    constexpr Extensions operator|(Extensions a, Extensions b) noexcept {
-        return static_cast<Extensions>(to_underlying(a) | to_underlying(b));
-    }
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Extensions, Extensions, |)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, |)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
 
     // clang-format off
     enum class Options : uint64_t {
@@ -161,13 +158,10 @@ namespace fastgltf {
     };
     // clang-format on
 
-    constexpr Options operator&(Options a, Options b) noexcept {
-        return static_cast<Options>(to_underlying(a) & to_underlying(b));
-    }
-
-    constexpr Options operator|(Options a, Options b) noexcept {
-        return static_cast<Options>(to_underlying(a) | to_underlying(b));
-    }
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Options, Options, |)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Options, Options, &)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, |)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, &)
 
     // clang-format off
     enum class Category : uint32_t {
@@ -191,17 +185,10 @@ namespace fastgltf {
     };
     // clang-format on
 
-    constexpr Category operator&(Category a, Category b) noexcept {
-        return static_cast<Category>(to_underlying(a) & to_underlying(b));
-    }
-
-    constexpr Category operator|(Category a, Category b) noexcept {
-        return static_cast<Category>(to_underlying(a) | to_underlying(b));
-    }
-
-    constexpr Category operator|=(Category a, Category b) noexcept {
-        return static_cast<Category>(to_underlying(a) | to_underlying(b));
-    }
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Category, Category, |)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Category, Category, &)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, |)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, &)
 
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {

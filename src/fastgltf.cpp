@@ -67,6 +67,10 @@ namespace fastgltf {
         simdjson::dom::document doc;
         simdjson::dom::object root;
         ParserInternalConfig config;
+
+        explicit ParserData() = default;
+        explicit ParserData(const ParserData& other) = delete;
+        ParserData& operator=(const ParserData& other) = delete;
     };
 
     // ASCII for "glTF".
@@ -250,11 +254,11 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
         }
 
         std::ifstream file(path, std::ios::ate | std::ios::binary);
-        auto length = static_cast<int64_t>(file.tellg());
+        auto length = static_cast<std::streamsize>(file.tellg());
         file.seekg(0);
 
         if (data->config.mapCallback != nullptr) {
-            auto info = data->config.mapCallback(length, data->config.userPointer);
+            auto info = data->config.mapCallback(static_cast<uint64_t>(length), data->config.userPointer);
             if (info.mappedMemory != nullptr) {
                 sources::CustomBuffer customBufferSource = {info.customId };
                 file.read(reinterpret_cast<char*>(info.mappedMemory), length);
@@ -340,7 +344,7 @@ fg::Error fg::glTF::validate() {
     for (const auto& bufferView : parsedAsset->bufferViews) {
         if (bufferView.byteLength < 1)
             return Error::InvalidGltf;
-        if (bufferView.byteStride.has_value() && (bufferView.byteStride < 4 || bufferView.byteStride > 252))
+        if (bufferView.byteStride.has_value() && (bufferView.byteStride < 4U || bufferView.byteStride > 252U))
             return Error::InvalidGltf;
         if (bufferView.bufferIndex >= parsedAsset->buffers.size())
             return Error::InvalidGltf;
@@ -380,11 +384,11 @@ fg::Error fg::glTF::validate() {
             if (pOrthographic->zfar == 0)
                 return Error::InvalidGltf;
         } else if (const auto* pPerspective = std::get_if<Camera::Perspective>(&camera.camera)) {
-            if (pPerspective->aspectRatio.has_value() && pPerspective->aspectRatio == 0)
+            if (pPerspective->aspectRatio.has_value() && pPerspective->aspectRatio == .0f)
                 return Error::InvalidGltf;
             if (pPerspective->yfov == 0)
                 return Error::InvalidGltf;
-            if (pPerspective->zfar.has_value() && pPerspective->zfar == 0)
+            if (pPerspective->zfar.has_value() && pPerspective->zfar == .0f)
                 return Error::InvalidGltf;
             if (pPerspective->znear == 0.0f)
                 return Error::InvalidGltf;
@@ -1344,10 +1348,10 @@ void fg::glTF::parseLights(simdjson::dom::array& lights) {
 
         dom::array colorArray;
         if (lightObject["color"].get_array().get(colorArray) == SUCCESS) {
-            if (colorArray.size() != 3) {
+            if (colorArray.size() != 3U) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            for (auto i = 0; i < colorArray.size(); ++i) {
+            for (size_t i = 0U; i < colorArray.size(); ++i) {
                 double color;
                 if (colorArray.at(i).get_double().get(color) == SUCCESS) {
                     light.color[i] = static_cast<float>(color);
@@ -1402,7 +1406,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                 material.emissiveFactor[i] = static_cast<float>(val);
             }
         } else {
-            material.emissiveFactor = { 0, 0, 0 };
+            material.emissiveFactor = {{ 0, 0, 0 }};
         }
 
         TextureInfo textureObject = {};
@@ -1439,7 +1443,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     pbr.baseColorFactor[i] = static_cast<float>(val);
                 }
             } else {
-                pbr.baseColorFactor = { 1, 1, 1, 1 };
+                pbr.baseColorFactor = {{ 1, 1, 1, 1 }};
             }
 
             double factor;
@@ -1701,7 +1705,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     ++i;
                 }
             } else {
-                trs.scale = {1.0f, 1.0f, 1.0f};
+                trs.scale = {{ 1.0f, 1.0f, 1.0f }};
             }
 
             if (nodeObject["translation"].get_array().get(array) == SUCCESS) {
@@ -1715,7 +1719,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     ++i;
                 }
             } else {
-                trs.translation = {0.0f, 0.0f, 0.0f};
+                trs.translation = {{ 0.0f, 0.0f, 0.0f }};
             }
 
             if (nodeObject["rotation"].get_array().get(array) == SUCCESS) {
@@ -1729,7 +1733,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     ++i;
                 }
             } else {
-                trs.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
+                trs.rotation = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
             }
 
             node.transform = trs;
@@ -1908,8 +1912,8 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     }
 
     info->rotation = 0.0f;
-    info->uvOffset = {0.0f, 0.0f};
-    info->uvScale = {1.0f, 1.0f};
+    info->uvOffset = {{ 0.0f, 0.0f }};
+    info->uvScale = {{ 1.0f, 1.0f }};
 
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
