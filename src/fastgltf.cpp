@@ -282,6 +282,35 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
     }
 }
 
+void fg::glTF::fillCategories(Category& inputCategories) noexcept {
+    if (inputCategories == Category::All)
+        return;
+
+    // The Category enum used to already OR values together so that e.g. Scenes would also implicitly
+    // have the Nodes bit set. This, however, caused some issues within the parse function as it tries
+    // to bail out when all requested categories have been parsed, as now something that hasn't been
+    // parsed could still be set. So, this has to exist...
+    if (hasBit(inputCategories, Category::Scenes))
+        inputCategories |= Category::Nodes;
+    if (hasBit(inputCategories, Category::Nodes))
+        inputCategories |= Category::Cameras | Category::Meshes | Category::Skins;
+    if (hasBit(inputCategories, Category::Skins))
+        // Skins needs nodes, nodes needs skins. To counter this circular dep we just redefine what we just wrote above.
+        inputCategories |= Category::Accessors | (Category::Nodes | Category::Cameras | Category::Meshes | Category::Skins);
+    if (hasBit(inputCategories, Category::Meshes))
+        inputCategories |= Category::Accessors | Category::Materials;
+    if (hasBit(inputCategories, Category::Materials))
+        inputCategories |= Category::Textures;
+    if (hasBit(inputCategories, Category::Animations))
+        inputCategories |= Category::Accessors;
+    if (hasBit(inputCategories, Category::Textures))
+        inputCategories |= Category::Images | Category::Samplers;
+    if (hasBit(inputCategories, Category::Images) || hasBit(inputCategories, Category::Accessors))
+        inputCategories |= Category::BufferViews;
+    if (hasBit(inputCategories, Category::BufferViews))
+        inputCategories |= Category::Buffers;
+}
+
 fg::MimeType fg::glTF::getMimeTypeFromString(std::string_view mime) {
     if (mime == mimeTypeJpeg) {
         return MimeType::JPEG;
@@ -574,6 +603,7 @@ fg::Error fg::glTF::validate() {
 
 fg::Error fg::glTF::parse(Category categories) {
     using namespace simdjson;
+    fillCategories(categories);
 
     if (!hasBit(options, Options::DontRequireValidAssetMember)) {
         dom::object asset;
@@ -696,6 +726,8 @@ fg::Error fg::glTF::parse(Category categories) {
 
 #undef KEY_SWITCH_CASE
     }
+
+    parsedAsset->availableCategories = readCategories;
 
     return errorCode;
 }

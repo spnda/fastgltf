@@ -111,7 +111,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(cubeGltf != nullptr);
 
-        REQUIRE(cubeGltf->parse(fastgltf::Category::Scenes) == fastgltf::Error::None);
+        REQUIRE(cubeGltf->parse(fastgltf::Category::OnlyRenderable) == fastgltf::Error::None);
         REQUIRE(cubeGltf->validate() == fastgltf::Error::None);
 
         auto cube = cubeGltf->getParsedAsset();
@@ -154,7 +154,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(boxGltf != nullptr);
 
-        REQUIRE(boxGltf->parse(fastgltf::Category::Scenes) == fastgltf::Error::None);
+        REQUIRE(boxGltf->parse(fastgltf::Category::OnlyRenderable) == fastgltf::Error::None);
         REQUIRE(boxGltf->validate() == fastgltf::Error::None);
 
         auto box = boxGltf->getParsedAsset();
@@ -188,7 +188,7 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(stainedGlassLamp != nullptr);
 
-        REQUIRE(stainedGlassLamp->parse(fastgltf::Category::Textures) == fastgltf::Error::None);
+        REQUIRE(stainedGlassLamp->parse(fastgltf::Category::Textures | fastgltf::Category::Images) == fastgltf::Error::None);
         REQUIRE(stainedGlassLamp->validate() == fastgltf::Error::None);
 
         auto asset = stainedGlassLamp->getParsedAsset();
@@ -249,7 +249,7 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
     REQUIRE(parser.getError() == fastgltf::Error::None);
     REQUIRE(cube != nullptr);
 
-    REQUIRE(cube->parse(fastgltf::Category::Animations) == fastgltf::Error::None);
+    REQUIRE(cube->parse(fastgltf::Category::OnlyAnimations) == fastgltf::Error::None);
     REQUIRE(cube->validate() == fastgltf::Error::None);
 
     auto asset = cube->getParsedAsset();
@@ -280,7 +280,7 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
     REQUIRE(parser.getError() == fastgltf::Error::None);
     REQUIRE(model != nullptr);
 
-    REQUIRE(model->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
+    REQUIRE(model->parse(fastgltf::Category::Skins | fastgltf::Category::Nodes) == fastgltf::Error::None);
     REQUIRE(model->validate() == fastgltf::Error::None);
 
     auto asset = model->getParsedAsset();
@@ -432,7 +432,7 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(modelWithMatrix != nullptr);
 
-        REQUIRE(modelWithMatrix->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
+        REQUIRE(modelWithMatrix->parse(fastgltf::Category::Nodes | fastgltf::Category::Cameras) == fastgltf::Error::None);
         REQUIRE(modelWithMatrix->validate() == fastgltf::Error::None);
         auto assetWithMatrix = modelWithMatrix->getParsedAsset();
 
@@ -440,7 +440,7 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
         REQUIRE(parser.getError() == fastgltf::Error::None);
         REQUIRE(modelWithMatrix != nullptr);
 
-        REQUIRE(modelDecomposed->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
+        REQUIRE(modelDecomposed->parse(fastgltf::Category::Nodes | fastgltf::Category::Cameras) == fastgltf::Error::None);
         REQUIRE(modelDecomposed->validate() == fastgltf::Error::None);
         auto assetDecomposed = modelDecomposed->getParsedAsset();
 
@@ -547,7 +547,7 @@ TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
     auto model = parser.loadGLTF(jsonData.get(), simpleMorph);
     REQUIRE(model != nullptr);
     REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
+    REQUIRE(model->parse(fastgltf::Category::Meshes) == fastgltf::Error::None);
     REQUIRE(model->validate() == fastgltf::Error::None);
 
     auto asset = model->getParsedAsset();
@@ -574,7 +574,7 @@ TEST_CASE("Test KHR_lights_punctual", "[gltf-loader]") {
     fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
     auto model = parser.loadGLTF(&jsonData, lightsLamp);
     REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model->parse(fastgltf::Category::All) == fastgltf::Error::None);
+    REQUIRE(model->parse(fastgltf::Category::Nodes) == fastgltf::Error::None);
     REQUIRE(model->validate() == fastgltf::Error::None);
 
     auto asset = model->getParsedAsset();

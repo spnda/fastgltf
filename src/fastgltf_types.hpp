@@ -207,6 +207,34 @@ namespace fastgltf {
         Spot,
         Point,
     };
+
+    enum class Category : uint32_t {
+        None        = 0,
+        Buffers     = 1 <<  0,
+        BufferViews = 1 <<  1,
+        Accessors   = 1 <<  2,
+        Images      = 1 <<  3,
+        Samplers    = 1 <<  4,
+        Textures    = 1 <<  5,
+        Animations  = 1 <<  6,
+        Cameras     = 1 <<  7,
+        Materials   = 1 <<  8,
+        Meshes      = 1 <<  9,
+        Skins       = 1 << 10,
+        Nodes       = 1 << 11,
+        Scenes      = 1 << 12,
+        Asset       = 1 << 13,
+
+        All = ~(~0u << 14),
+        // Includes everything needed for rendering but animations
+        OnlyRenderable = All & ~(Animations) & ~(Skins),
+        OnlyAnimations = Animations | Accessors | BufferViews | Buffers,
+    };
+
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Category, Category, |)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Category, Category, &)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, |)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, &)
     // clang-format on
 #pragma endregion
 
@@ -923,6 +951,9 @@ namespace fastgltf {
         std::vector<Scene> scenes;
         std::vector<Skin> skins;
         std::vector<Texture> textures;
+
+        // Keeps tracked of categories that were actually parsed.
+        Category availableCategories = Category::None;
 
         explicit Asset() = default;
         explicit Asset(const Asset& scene) = delete;

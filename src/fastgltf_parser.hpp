@@ -163,33 +163,6 @@ namespace fastgltf {
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, |)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, &)
 
-    // clang-format off
-    enum class Category : uint32_t {
-        None        = 0,
-        Buffers     = 1 <<  0,
-        BufferViews = 1 <<  1 | Buffers,
-        Accessors   = 1 <<  2 | BufferViews,
-        Images      = 1 <<  3 | BufferViews,
-        Samplers    = 1 <<  4,
-        Textures    = 1 <<  5 | Images | Samplers,
-        Animations  = 1 <<  6 | Accessors,
-        Cameras     = 1 <<  7,
-        Materials   = 1 <<  8 | Textures,
-        Meshes      = 1 <<  9 | Accessors | Materials,
-        Skins       = 1 << 10 | Accessors | (1 << 11), // Also depends on Nodes
-        Nodes       = 1 << 11 | Cameras | Meshes | Skins,
-        Scenes      = 1 << 12 | Nodes,
-        Asset       = 1 << 13,
-
-        All = Asset | Scenes | Animations,
-    };
-    // clang-format on
-
-    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Category, Category, |)
-    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Category, Category, &)
-    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, |)
-    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, &)
-
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {
         constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
@@ -224,6 +197,7 @@ namespace fastgltf {
         explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options);
 
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
+        static void fillCategories(Category& inputCategories) noexcept;
 
         [[nodiscard]] auto decodeUri(std::string_view uri) const noexcept -> std::pair<Error, DataSource>;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
