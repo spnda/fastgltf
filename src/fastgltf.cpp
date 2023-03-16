@@ -73,8 +73,9 @@ namespace fastgltf {
         ParserData& operator=(const ParserData& other) = delete;
     };
 
-    // ASCII for "glTF".
-    constexpr uint32_t binaryGltfHeaderMagic = 0x46546C67;
+    constexpr uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
+    constexpr uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
+    constexpr uint32_t binaryGltfDataChunkMagic = 0x004E4942;
 
     struct BinaryGltfHeader {
         uint32_t magic;
@@ -2220,7 +2221,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
     //  2. BIN chunk (optional)
     BinaryGltfChunk jsonChunk = {};
     read(&jsonChunk, sizeof jsonChunk);
-    if (jsonChunk.chunkType != 0x4E4F534A) {
+    if (jsonChunk.chunkType != binaryGltfJsonChunkMagic) {
         errorCode = Error::InvalidGLB;
         return nullptr;
     }
@@ -2245,7 +2246,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
         BinaryGltfChunk binaryChunk = {};
         read(&binaryChunk, sizeof binaryChunk);
 
-        if (binaryChunk.chunkType != 0x004E4942) {
+        if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
             errorCode = Error::InvalidGLB;
             return nullptr;
         }
