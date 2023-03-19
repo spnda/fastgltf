@@ -18,7 +18,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
 
 if (FASTGLTF_DOWNLOAD_SIMDJSON)
     # Download and configure simdjson
-    set(SIMDJSON_TARGET_VERSION "3.1.0")
+    set(SIMDJSON_TARGET_VERSION "3.1.6")
     set(SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
     file(MAKE_DIRECTORY ${SIMDJSON_DL_DIR})
 
