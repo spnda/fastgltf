@@ -2226,14 +2226,15 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
         return nullptr;
     }
 
-    std::vector<uint8_t> jsonData(jsonChunk.chunkLength + simdjson::SIMDJSON_PADDING);
-    read(jsonData.data(), jsonChunk.chunkLength);
-    // We set the padded region to 0 to avoid simdjson reading garbage
-    std::memset(jsonData.data() + jsonChunk.chunkLength, 0, jsonData.size() - jsonChunk.chunkLength);
+    // Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
+    // says the padding can be initialised to anything, apparently. Therefore, this should work.
+    simdjson::padded_string_view jsonChunkView(buffer->bufferPointer + offset,
+                                               jsonChunk.chunkLength,
+                                               jsonChunk.chunkLength + SIMDJSON_PADDING);
+    offset += jsonChunk.chunkLength;
 
-    // The 'false' indicates that simdjson doesn't have to copy the data internally.
     auto data = std::make_unique<ParserData>();
-    if (jsonParser->parse(jsonData.data(), jsonChunk.chunkLength, false).get(data->root) != SUCCESS) {
+    if (jsonParser->parse(jsonChunkView).get(data->root) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }

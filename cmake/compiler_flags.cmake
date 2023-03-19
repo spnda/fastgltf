@@ -13,6 +13,9 @@ macro(compiler_flags TARGET)
 
             # Issue with MinGW: https://github.com/simdjson/simdjson/issues/1963
             target_compile_options(${TARGET} PUBLIC $<$<CONFIG:DEBUG>:-Og>)
+
+            # https://github.com/simdjson/simdjson/blob/master/doc/basics.md#performance-tips
+            target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-DNDEBUG>)
         endif()
     endif()
 endmacro()
