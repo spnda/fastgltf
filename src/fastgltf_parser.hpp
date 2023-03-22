@@ -293,7 +293,7 @@ namespace fastgltf {
         /**
          * This will create a copy of the passed bytes and allocate a adequately sized buffer.
          */
-        bool copyBytes(uint8_t* bytes, size_t byteCount) noexcept;
+        bool copyBytes(const uint8_t* bytes, size_t byteCount) noexcept;
         /**
          * Loads the file with a optional byte offset into a memory buffer.
          */

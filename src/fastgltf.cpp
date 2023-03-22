@@ -2063,7 +2063,7 @@ bool fg::GltfDataBuffer::fromByteView(uint8_t* bytes, size_t byteCount, size_t c
     return true;
 }
 
-bool fg::GltfDataBuffer::copyBytes(uint8_t* bytes, size_t byteCount) noexcept {
+bool fg::GltfDataBuffer::copyBytes(const uint8_t* bytes, size_t byteCount) noexcept {
     using namespace simdjson;
     if (bytes == nullptr || byteCount == 0)
         return false;
