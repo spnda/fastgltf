@@ -111,11 +111,8 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
         cgltf_options options = {};
         cgltf_data* data = nullptr;
         cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        if (result != cgltf_result_success) {
-            cgltf_free(data);
-            return result;
-        }
-
+        REQUIRE(result == cgltf_result_success);
+        cgltf_free(data);
         return result;
     };
 #endif
@@ -152,9 +149,8 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
         cgltf_data* data = nullptr;
         auto filePath = cylinderEngine.string();
         cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        if (result == cgltf_result_success) {
-            result = cgltf_load_buffers(&options, data, filePath.c_str());
-        }
+        REQUIRE(result == cgltf_result_success);
+        result = cgltf_load_buffers(&options, data, filePath.c_str());
         cgltf_free(data);
         return result;
     };
@@ -192,11 +188,8 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
         cgltf_data* data = nullptr;
         auto filePath = buggyPath.string();
         cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        if (result != cgltf_result_success) {
-            cgltf_free(data);
-            return result;
-        }
-
+        REQUIRE(result == cgltf_result_success);
+        cgltf_free(data);
         return result;
     };
 #endif
@@ -237,11 +230,8 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
         cgltf_data* data = nullptr;
         auto filePath = bistroPath.string();
         cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        if (result != cgltf_result_success) {
-            cgltf_free(data);
-            return result;
-        }
-
+        REQUIRE(result == cgltf_result_success);
+        cgltf_free(data);
         return result;
     };
 #endif
