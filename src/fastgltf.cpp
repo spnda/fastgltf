@@ -2158,7 +2158,8 @@ fg::Error fg::Parser::getError() const {
 std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
     using namespace simdjson;
 
-    if (!fs::is_directory(directory)) {
+    // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
+    if (hasBit(options, Options::LoadExternalBuffers) && !fs::is_directory(directory)) {
         errorCode = Error::InvalidPath;
         return nullptr;
     }
@@ -2192,7 +2193,8 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
 std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
     using namespace simdjson;
 
-    if (!fs::is_directory(directory)) {
+    // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
+    if (hasBit(options, Options::LoadExternalBuffers) && !fs::is_directory(directory)) {
         errorCode = Error::InvalidPath;
         return nullptr;
     }
