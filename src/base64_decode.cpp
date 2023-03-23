@@ -144,24 +144,28 @@ namespace fastgltf::base64 {
     const auto alignedSize = outputSize - (outputSize % dataOutputSize);
     auto* out = output;
 
-    size_t pos = 0;
+    // _mm256_setr_epi8 accepts only 'char' but 0xff would overflow a signed char.
+    // This gets optimised to the same assembly as a call to the aformentioned intrinsic.
+    std::array<std::uint8_t, 32> shuffleData = {{
+        2,  1,  0,
+        6,  5,  4,
+        10,  9,  8,
+        14, 13, 12,
+        0xff, 0xff, 0xff, 0xff,
+        2,  1,  0,
+        6,  5,  4,
+        10,  9,  8,
+        14, 13, 12,
+        0xff, 0xff, 0xff, 0xff
+    }};
+    __m256i shuffle;
+    std::memcpy(&shuffle, shuffleData.data(), shuffleData.size());
+
+    std::size_t pos = 0;
     while ((pos + dataSetSize) < alignedSize) {
         auto in = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&encoded[pos]));
         auto values = avx2_lookup_pshufb_bitmask(in);
         const auto merged = avx2_pack_ints(values);
-
-        const auto shuffle = _mm256_setr_epi8(
-            2,  1,  0,
-            6,  5,  4,
-            10,  9,  8,
-            14, 13, 12,
-            char(0xff), char(0xff), char(0xff), char(0xff),
-            2,  1,  0,
-            6,  5,  4,
-            10,  9,  8,
-            14, 13, 12,
-            char(0xff), char(0xff), char(0xff), char(0xff));
-
         const auto shuffled = _mm256_shuffle_epi8(merged, shuffle);
 
         // Beware: This writes 32 bytes, we just discard the top 8 bytes.
@@ -222,20 +226,24 @@ namespace fastgltf::base64 {
     const auto alignedSize = outputSize - (outputSize % dataOutputSize);
     auto* out = output;
 
-    size_t pos = 0;
+    // _mm_setr_epi8 accepts only 'char' but 0xff would overflow a signed char.
+    // This gets optimised to the same assembly as a call to the aformentioned intrinsic.
+    std::array<std::uint8_t, 16> shuffleData = {{
+        2,  1,  0,
+        6,  5,  4,
+        10,  9,  8,
+        14, 13, 12,
+        0xff, 0xff, 0xff, 0xff,
+    }};
+    __m128i shuffle;
+    std::memcpy(&shuffle, shuffleData.data(), shuffleData.size());
+
+    std::size_t pos = 0;
     while ((pos + dataSetSize) < alignedSize) {
         auto in = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&encoded[pos]));
         auto values = sse4_lookup_pshufb_bitmask(in);
         const auto merged = sse4_pack_ints(values);
-
-        const auto shuf = _mm_setr_epi8(
-            2,  1,  0,
-            6,  5,  4,
-            10,  9,  8,
-            14, 13, 12,
-            char(0xff), char(0xff), char(0xff), char(0xff));
-
-        const auto shuffled = _mm_shuffle_epi8(merged, shuf);
+        const auto shuffled = _mm_shuffle_epi8(merged, shuffle);
 
         // Beware: This writes 16 bytes, we just discard the top 4 bytes.
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out), shuffled);
