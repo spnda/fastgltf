@@ -102,23 +102,27 @@ In the following chapter I'll show some graphs on how fastgltf compares to the t
 libraries, cgltf and tinygltf. I've disabled loading of images and buffers to only compare the
 JSON parsing and serialization of the glTF data. I create these graphs using a spreadsheet that you
 can find [here][spreadsheet-link].
-These numbers were tested using Catch2's benchmark tool on a Ryzen 5800X with 32GB of RAM using
-VS 2022.
+These numbers were benchmarked using Catch2's benchmark tool on a Ryzen 5800X (with AVX2) with 32GB
+of RAM using Clang 16, as Clang showed a significant performance improvement over MSVC in every test.
+I would recommend every Windows developer to use Clang. Visual Studio offers ClangCL as one of the
+downloadable options.
 
 First of I compared the performance with embedded buffers that are encoded with base64. This uses
 the [2CylinderEngine asset](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/2CylinderEngine)
 which contains a 1.7MB embedded buffer. fastgltf includes an optimised base64 decoding algorithm
-that can take advantage of AVX2, SSE4, and Neon. With this asset, fastgltf is **7.33 times faster**
-than tinygltf using RapidJSON and **2 times faster** than cgltf.
+that can take advantage of AVX2, SSE4, and ARM Neon. With this asset, fastgltf is **20.56 times faster**
+than tinygltf using RapidJSON and **6.5 times faster** than cgltf.
 
-[![](https://cdn.discordapp.com/attachments/442748131898032138/1033801846621478942/Mean_time_parsing_2CylinderEngine_ms_7.png)][spreadsheet-link]
+[![](https://cdn.discordapp.com/attachments/442748131898032138/1088470860333060207/Mean_time_parsing_2CylinderEngine_ms_8.png)][spreadsheet-link]
 
-[Buggy.gltf](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Buggy) is another
-excellent test subject, as it's a 15k line long JSON. This shows the raw serialization speed of
-all the parsers. In this case fastgltf is **2.3 times faster** than tinygltf and **1.7 times faster**
-than cgltf.
+[Amazon's Bistro](https://developer.nvidia.com/orca/amazon-lumberyard-bistro) (converted to glTF
+2.0 using Blender) is another excellent test subject, as it's a 148k line long JSON. This shows
+the raw serialization speed of all the parsers. For this benchmark I used the `MinimiseJsonBeforeParsing`
+option that lets fastgltf minimise the JSON before parsing (note that the time it takes to minimise
+is measured here too). In this case fastgltf is **2.1 times faster** than tinygltf and **5.6 times
+faster** than cgltf.
 
-[![](https://cdn.discordapp.com/attachments/442748131898032138/1033801845203812352/Mean_time_parsing_Buggy.gltf_ms_3.png)][spreadsheet-link]
+[![](https://cdn.discordapp.com/attachments/442748131898032138/1088470983024840754/Bistro_load_from_memory_without_images_and_buffer_load_1.png)][spreadsheet-link]
 
 ## Acknowledgments
 

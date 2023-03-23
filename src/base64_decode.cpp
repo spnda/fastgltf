@@ -146,7 +146,7 @@ namespace fastgltf::base64 {
 
     // _mm256_setr_epi8 accepts only 'char' but 0xff would overflow a signed char.
     // This gets optimised to the same assembly as a call to the aformentioned intrinsic.
-    std::array<std::uint8_t, 32> shuffleData = {{
+    static const std::array<std::uint8_t, 32> shuffleData = {{
         2,  1,  0,
         6,  5,  4,
         10,  9,  8,
@@ -228,7 +228,7 @@ namespace fastgltf::base64 {
 
     // _mm_setr_epi8 accepts only 'char' but 0xff would overflow a signed char.
     // This gets optimised to the same assembly as a call to the aformentioned intrinsic.
-    std::array<std::uint8_t, 16> shuffleData = {{
+    static const std::array<std::uint8_t, 16> shuffleData = {{
         2,  1,  0,
         6,  5,  4,
         10,  9,  8,
