@@ -28,6 +28,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <cstddef>
 #include <string_view>
 #include <optional>
 #include <utility>
@@ -55,7 +56,7 @@ namespace fastgltf {
     class GltfDataBuffer;
     struct ParserData;
 
-    enum class Error : uint64_t {
+    enum class Error : std::uint64_t {
         None = 0,
         InvalidPath = 1,
         // One or more extensions were not marked as supported by the client application but are
@@ -73,7 +74,7 @@ namespace fastgltf {
     };
 
     // clang-format off
-    enum class Extensions : uint64_t {
+    enum class Extensions : std::uint64_t {
         None = 0,
 
         // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_texture_transform/README.md
@@ -108,7 +109,7 @@ namespace fastgltf {
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
 
     // clang-format off
-    enum class Options : uint64_t {
+    enum class Options : std::uint64_t {
         None                            = 0,
         /**
          * This allows 5130 as an accessor component type. 5130 is the OpenGL constant GL_DOUBLE,
@@ -180,9 +181,9 @@ namespace fastgltf {
         CustomBufferId customId;
     };
 
-    using BufferMapCallback = BufferInfo(uint64_t bufferSize, void* userPointer);
+    using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
     using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
-    using Base64DecodeCallback = void(std::string_view base64, uint8_t* dataOutput, size_t padding, size_t dataOutputSize, void* userPointer);
+    using Base64DecodeCallback = void(std::string_view base64, std::uint8_t* dataOutput, std::size_t padding, std::size_t dataOutputSize, void* userPointer);
 
     class glTF {
         friend class Parser;
@@ -258,7 +259,7 @@ namespace fastgltf {
      * Gets the amount of byte padding required on the GltfDataBuffer, as simdjson requires to be
      * able to overflow as it uses SIMD to load N bytes at a time.
      */
-    size_t getGltfBufferPadding() noexcept;
+    std::size_t getGltfBufferPadding() noexcept;
 
     /**
      * This class holds a chunk of data that makes up a JSON string that the glTF parser will use
@@ -268,11 +269,11 @@ namespace fastgltf {
         friend class Parser;
         friend GltfType determineGltfFileType(GltfDataBuffer* buffer);
 
-        size_t allocatedSize = 0;
-        size_t dataSize = 0;
-        uint8_t* bufferPointer = nullptr;
+        std::size_t allocatedSize = 0;
+        std::size_t dataSize = 0;
+        std::uint8_t* bufferPointer = nullptr;
 
-        std::unique_ptr<uint8_t[]> buffer;
+        std::unique_ptr<std::uint8_t[]> buffer;
 
         std::filesystem::path filePath = {};
 
@@ -289,21 +290,21 @@ namespace fastgltf {
          * with the copyBytes method. Also, it will set the padding bytes all to 0, so be sure to
          * not use that for any other data.
          */
-        bool fromByteView(uint8_t* bytes, size_t byteCount, size_t capacity) noexcept;
+        bool fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept;
         /**
          * This will create a copy of the passed bytes and allocate a adequately sized buffer.
          */
-        bool copyBytes(const uint8_t* bytes, size_t byteCount) noexcept;
+        bool copyBytes(const std::uint8_t* bytes, std::size_t byteCount) noexcept;
         /**
          * Loads the file with a optional byte offset into a memory buffer.
          */
-        bool loadFromFile(const std::filesystem::path& path, uint64_t byteOffset = 0) noexcept;
+        bool loadFromFile(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
 
         /**
          * Returns the size, in bytes,
          * @return
          */
-        [[nodiscard]] inline size_t getBufferSize() const noexcept;
+        [[nodiscard]] inline std::size_t getBufferSize() const noexcept;
     };
 
     /**

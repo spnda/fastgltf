@@ -152,7 +152,7 @@ namespace fastgltf {
         rotation[2] = std::copysignf(rotation[2], matrix[1] - matrix[4]);
     }
 
-    static constexpr std::array<uint32_t, 256> crcHashTable = {
+    static constexpr std::array<std::uint32_t, 256> crcHashTable = {
         0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
         0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
         0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
@@ -198,8 +198,8 @@ namespace fastgltf {
         0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
     };
 
-    [[gnu::hot, gnu::const]] constexpr uint32_t crc32(std::string_view str) noexcept {
-        uint32_t crc = 0xffffffff;
+    [[gnu::hot, gnu::const]] constexpr std::uint32_t crc32(std::string_view str) noexcept {
+        std::uint32_t crc = 0xffffffff;
         for (auto c : str)
             crc = (crc >> 8) ^ crcHashTable[(crc ^ c) & 0xff];
         return crc ^ 0xffffffff;
@@ -214,14 +214,14 @@ namespace fastgltf {
     static constexpr auto force_consteval = V;
 
     /**
-     * Counts the leading zeros from starting the most significant bit. Returns a uint8_t as there
+     * Counts the leading zeros from starting the most significant bit. Returns a std::uint8_t as there
      * can only ever be 2^6 zeros with 64-bit types.
      */
      template <typename T>
 #if FASTGLTF_HAS_CONCEPTS
     requires std::integral<T>
 #endif
-    [[gnu::const]] inline uint8_t clz(T value) {
+    [[gnu::const]] inline std::uint8_t clz(T value) {
         static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
         return std::countl_zero(value);
@@ -229,7 +229,7 @@ namespace fastgltf {
         // Very naive but working implementation of counting zero bits. Any sane compiler will
         // optimise this away, like instead use the bsr x86 instruction.
         if (value == 0) return 64;
-        uint8_t count = 0;
+        std::uint8_t count = 0;
         for (int i = std::numeric_limits<T>::digits; i > 0; --i) {
             if ((value >> i) == 1) {
                 return count;

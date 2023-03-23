@@ -73,29 +73,29 @@ namespace fastgltf {
         ParserData& operator=(const ParserData& other) = delete;
     };
 
-    constexpr uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
-    constexpr uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
-    constexpr uint32_t binaryGltfDataChunkMagic = 0x004E4942;
+    constexpr std::uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
+    constexpr std::uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
+    constexpr std::uint32_t binaryGltfDataChunkMagic = 0x004E4942;
 
     struct BinaryGltfHeader {
-        uint32_t magic;
-        uint32_t version;
-        uint32_t length;
+        std::uint32_t magic;
+        std::uint32_t version;
+        std::uint32_t length;
     };
     static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
 
     struct BinaryGltfChunk {
-        uint32_t chunkLength;
-        uint32_t chunkType;
+        std::uint32_t chunkLength;
+        std::uint32_t chunkType;
     };
 
-    [[nodiscard, gnu::always_inline]] inline std::tuple<bool, bool, size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
+    [[nodiscard, gnu::always_inline]] inline std::tuple<bool, bool, std::size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
     [[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags);
 
     [[nodiscard, gnu::always_inline]] inline Error getJsonArray(simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept;
 }
 
-std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
+std::tuple<bool, bool, std::size_t> fg::getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
     using namespace simdjson;
 
     dom::object sourceExtensionObject;
@@ -103,7 +103,7 @@ std::tuple<bool, bool, size_t> fg::getImageIndexForExtension(simdjson::dom::obje
         return std::make_tuple(false, true, 0U);
     }
 
-    uint64_t imageIndex;
+    std::uint64_t imageIndex;
     if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
         return std::make_tuple(true, false, 0U);
     }
@@ -216,9 +216,9 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
             auto info = data->config.mapCallback(size, data->config.userPointer);
             if (info.mappedMemory != nullptr) {
                 if (data->config.decodeCallback != nullptr) {
-                    data->config.decodeCallback(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding, size, data->config.userPointer);
+                    data->config.decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding, size, data->config.userPointer);
                 } else {
-                    base64::decode_inplace(encodedData, reinterpret_cast<uint8_t*>(info.mappedMemory), padding);
+                    base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding);
                 }
 
                 if (data->config.unmapCallback != nullptr) {
@@ -233,7 +233,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
         }
 
         // Decode the base64 data into a traditional vector
-        std::vector<uint8_t> uriData;
+        std::vector<std::uint8_t> uriData;
         if (data->config.decodeCallback != nullptr) {
             auto padding = base64::getPadding(encodedData);
             uriData.resize(base64::getOutputSize(encodedData.size(), padding));
@@ -259,7 +259,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
         file.seekg(0);
 
         if (data->config.mapCallback != nullptr) {
-            auto info = data->config.mapCallback(static_cast<uint64_t>(length), data->config.userPointer);
+            auto info = data->config.mapCallback(static_cast<std::uint64_t>(length), data->config.userPointer);
             if (info.mappedMemory != nullptr) {
                 sources::CustomBuffer customBufferSource = {info.customId };
                 file.read(reinterpret_cast<char*>(info.mappedMemory), length);
@@ -434,7 +434,7 @@ fg::Error fg::glTF::validate() {
     }
 
     for (const auto& material : parsedAsset->materials) {
-        auto isInvalidTexture = [&textures = parsedAsset->textures](std::optional<size_t> textureIndex) {
+        auto isInvalidTexture = [&textures = parsedAsset->textures](std::optional<std::size_t> textureIndex) {
             return textureIndex.has_value() && textureIndex.value() >= textures.size();
         };
         if (material.normalTexture.has_value() && isInvalidTexture(material.normalTexture->textureIndex))
@@ -620,8 +620,8 @@ fg::Error fg::glTF::parse(Category categories) {
         if (asset["version"].get_string().get(version) != SUCCESS) {
             SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
         } else {
-            uint32_t major = static_cast<uint32_t>(version.substr(0, 1)[0] - '0');
-            // uint32_t minor = version.substr(2, 3)[0] - '0';
+            std::uint32_t major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
+            // std::uint32_t minor = version.substr(2, 3)[0] - '0';
             if (major != 2) {
                 SET_ERROR_RETURN_ERROR(Error::UnsupportedVersion)
             }
@@ -676,11 +676,11 @@ fg::Error fg::glTF::parse(Category categories) {
         auto hashedKey = crc32(object.key);
 
         if (hashedKey == force_consteval<crc32("scene")>) {
-            uint64_t defaultScene;
+            std::uint64_t defaultScene;
             if (object.value.get_uint64().get(defaultScene) != SUCCESS) {
                 errorCode = Error::InvalidGltf;
             }
-            parsedAsset->defaultScene = static_cast<size_t>(defaultScene);
+            parsedAsset->defaultScene = static_cast<std::size_t>(defaultScene);
             continue;
         } else if (hashedKey == force_consteval<crc32("extensions")>) {
             dom::object extensionsObject;
@@ -745,7 +745,7 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        uint64_t componentType;
+        std::uint64_t componentType;
         if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         } else {
@@ -762,24 +762,24 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             accessor.type = getAccessorType(accessorType);
         }
 
-        uint64_t accessorCount;
+        std::uint64_t accessorCount;
         if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         } else {
-            accessor.count = static_cast<size_t>(accessorCount);
+            accessor.count = static_cast<std::size_t>(accessorCount);
         }
 
-        uint64_t bufferView;
+        std::uint64_t bufferView;
         if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) {
-            accessor.bufferViewIndex = static_cast<size_t>(bufferView);
+            accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
         }
 
         // byteOffset is optional, but defaults to 0
-        uint64_t byteOffset;
+        std::uint64_t byteOffset;
         if (accessorObject["byteOffset"].get_uint64().get(byteOffset) != SUCCESS) {
             accessor.byteOffset = 0U;
         } else {
-            accessor.byteOffset = static_cast<size_t>(byteOffset);
+            accessor.byteOffset = static_cast<std::size_t>(byteOffset);
         }
 
         if (accessorObject["normalized"].get_bool().get(accessor.normalized) != SUCCESS) {
@@ -789,12 +789,12 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
         dom::object sparseAccessorObject;
         if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) {
             SparseAccessor sparse = {};
-            uint64_t value;
+            std::uint64_t value;
             dom::object child;
             if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sparse.count = static_cast<size_t>(value);
+            sparse.count = static_cast<std::size_t>(value);
 
             // Accessor Sparce Indices
             if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) {
@@ -804,12 +804,12 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sparse.bufferViewIndices = static_cast<size_t>(value);
+            sparse.bufferViewIndices = static_cast<std::size_t>(value);
 
             if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
                 sparse.byteOffsetIndices = 0;
             } else {
-                sparse.byteOffsetIndices = static_cast<size_t>(value);
+                sparse.byteOffsetIndices = static_cast<std::size_t>(value);
             }
 
             if (child["componentType"].get_uint64().get(value) != SUCCESS) {
@@ -825,12 +825,12 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sparse.bufferViewValues = static_cast<size_t>(value);
+            sparse.bufferViewValues = static_cast<std::size_t>(value);
 
             if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
                 sparse.byteOffsetValues = 0;
             } else {
-                sparse.byteOffsetValues = static_cast<size_t>(value);
+                sparse.byteOffsetValues = static_cast<std::size_t>(value);
             }
 
             accessor.sparse = sparse;
@@ -871,22 +871,22 @@ void fg::glTF::parseAnimations(simdjson::dom::array& animations) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
-            uint64_t sampler;
+            std::uint64_t sampler;
             if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            channel.samplerIndex = static_cast<size_t>(sampler);
+            channel.samplerIndex = static_cast<std::size_t>(sampler);
 
             dom::object targetObject;
             if (channelObject["target"].get_object().get(targetObject) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             } else {
-                uint64_t node;
+                std::uint64_t node;
                 if (targetObject["node"].get_uint64().get(node) != SUCCESS) {
                     // We don't support any extensions for animations, so it is required.
                     SET_ERROR_RETURN(Error::InvalidGltf)
                 }
-                channel.nodeIndex = static_cast<size_t>(node);
+                channel.nodeIndex = static_cast<std::size_t>(node);
 
                 std::string_view path;
                 if (targetObject["path"].get_string().get(path) != SUCCESS) {
@@ -921,17 +921,17 @@ void fg::glTF::parseAnimations(simdjson::dom::array& animations) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
-            uint64_t input;
+            std::uint64_t input;
             if (samplerObject["input"].get_uint64().get(input) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sampler.inputAccessor = static_cast<size_t>(input);
+            sampler.inputAccessor = static_cast<std::size_t>(input);
 
-            uint64_t output;
+            std::uint64_t output;
             if (samplerObject["output"].get_uint64().get(output) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sampler.outputAccessor = static_cast<size_t>(output);
+            sampler.outputAccessor = static_cast<std::size_t>(output);
 
             std::string_view interpolation;
             if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) {
@@ -967,7 +967,7 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
     using namespace simdjson;
 
     parsedAsset->buffers.reserve(buffers.size());
-    size_t bufferIndex = 0;
+    std::size_t bufferIndex = 0;
     for (auto bufferValue : buffers) {
         // Required fields: "byteLength"
         Buffer buffer = {};
@@ -976,11 +976,11 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        uint64_t byteLength;
+        std::uint64_t byteLength;
         if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         } else {
-            buffer.byteLength = static_cast<size_t>(byteLength);
+            buffer.byteLength = static_cast<std::size_t>(byteLength);
         }
 
         // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
@@ -1029,28 +1029,28 @@ void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
         auto parseBufferViewObject = [&views = parsedAsset->bufferViews, this](dom::object& object, bool fromMeshoptCompression) -> fg::Error {
             BufferView view = {};
 
-            uint64_t number;
+            std::uint64_t number;
             if (object["buffer"].get_uint64().get(number) != SUCCESS) {
                 SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             } else {
-                view.bufferIndex = static_cast<size_t>(number);
+                view.bufferIndex = static_cast<std::size_t>(number);
             }
 
             if (object["byteLength"].get_uint64().get(number) != SUCCESS) {
                 SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             } else {
-                view.byteLength = static_cast<size_t>(number);
+                view.byteLength = static_cast<std::size_t>(number);
             }
 
             // byteOffset is optional, but defaults to 0
             if (object["byteOffset"].get_uint64().get(number) != SUCCESS) {
                 view.byteOffset = 0;
             } else {
-                view.byteOffset = static_cast<size_t>(number);
+                view.byteOffset = static_cast<std::size_t>(number);
             }
 
             if (object["byteStride"].get_uint64().get(number) == SUCCESS) {
-                view.byteStride = static_cast<size_t>(number);
+                view.byteStride = static_cast<std::size_t>(number);
             } else if (fromMeshoptCompression) {
                 SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
             }
@@ -1298,7 +1298,7 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
             }
         }
 
-        uint64_t bufferViewIndex;
+        std::uint64_t bufferViewIndex;
         if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) {
             std::string_view mimeType;
             if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) {
@@ -1307,7 +1307,7 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
             }
 
             image.data = sources::BufferView {
-                static_cast<size_t>(bufferViewIndex),
+                static_cast<std::size_t>(bufferViewIndex),
                 getMimeTypeFromString(mimeType),
             };
         }
@@ -1384,7 +1384,7 @@ void fg::glTF::parseLights(simdjson::dom::array& lights) {
             if (colorArray.size() != 3U) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            for (size_t i = 0U; i < colorArray.size(); ++i) {
+            for (std::size_t i = 0U; i < colorArray.size(); ++i) {
                 double color;
                 if (colorArray.at(i).get_double().get(color) == SUCCESS) {
                     light.color[i] = static_cast<float>(color);
@@ -1574,17 +1574,17 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                     SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
-                auto parseAttributes = [](dom::object& object, std::unordered_map<std::string, size_t>& map) -> auto {
+                auto parseAttributes = [](dom::object& object, std::unordered_map<std::string, std::size_t>& map) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
                     // attributes map. The keys are only validated in the validate() method.
                     for (const auto& field : object) {
                         std::string_view key = field.key;
 
-                        uint64_t attributeIndex;
+                        std::uint64_t attributeIndex;
                         if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
                             return Error::InvalidGltf;
                         } else {
-                            map[std::string { key }] = static_cast<size_t>(attributeIndex);
+                            map[std::string { key }] = static_cast<std::size_t>(attributeIndex);
                         }
                     }
                     return Error::None;
@@ -1608,7 +1608,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                 }
 
                 // Mode shall default to 4.
-                uint64_t value;
+                std::uint64_t value;
                 if (primitiveObject["mode"].get_uint64().get(value) != SUCCESS) {
                     primitive.type = PrimitiveType::Triangles;
                 } else {
@@ -1616,11 +1616,11 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                 }
 
                 if (primitiveObject["indices"].get_uint64().get(value) == SUCCESS) {
-                    primitive.indicesAccessor = static_cast<size_t>(value);
+                    primitive.indicesAccessor = static_cast<std::size_t>(value);
                 }
 
                 if (primitiveObject["material"].get_uint64().get(value) == SUCCESS) {
-                    primitive.materialIndex = static_cast<size_t>(value);
+                    primitive.materialIndex = static_cast<std::size_t>(value);
                 }
 
                 mesh.primitives.emplace_back(std::move(primitive));
@@ -1661,15 +1661,15 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        uint64_t index;
+        std::uint64_t index;
         if (nodeObject["mesh"].get_uint64().get(index) == SUCCESS) {
-            node.meshIndex = static_cast<size_t>(index);
+            node.meshIndex = static_cast<std::size_t>(index);
         }
         if (nodeObject["skin"].get_uint64().get(index) == SUCCESS) {
-            node.skinIndex = static_cast<size_t>(index);
+            node.skinIndex = static_cast<std::size_t>(index);
         }
         if (nodeObject["camera"].get_uint64().get(index) == SUCCESS) {
-            node.cameraIndex = static_cast<size_t>(index);
+            node.cameraIndex = static_cast<std::size_t>(index);
         }
 
         dom::array array;
@@ -1681,7 +1681,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
-                node.children.emplace_back(static_cast<size_t>(index));
+                node.children.emplace_back(static_cast<std::size_t>(index));
             }
         } else if (childError != Error::MissingField) {
             SET_ERROR_RETURN(childError)
@@ -1776,9 +1776,9 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
         if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
             dom::object lightsObject;
             if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) {
-                uint64_t light;
+                std::uint64_t light;
                 if (lightsObject["light"].get_uint64().get(light) == SUCCESS) {
-                    node.lightsIndex = static_cast<size_t>(light);
+                    node.lightsIndex = static_cast<std::size_t>(light);
                 }
             }
         }
@@ -1795,7 +1795,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
 void fg::glTF::parseSamplers(simdjson::dom::array& samplers) {
     using namespace simdjson;
 
-    uint64_t number;
+    std::uint64_t number;
     parsedAsset->samplers.reserve(samplers.size());
     for (auto samplerValue : samplers) {
         Sampler sampler = {};
@@ -1856,12 +1856,12 @@ void fg::glTF::parseScenes(simdjson::dom::array& scenes) {
         if (nodeError == Error::None) {
             scene.nodeIndices.reserve(nodes.size());
             for (auto nodeValue : nodes) {
-                uint64_t index;
+                std::uint64_t index;
                 if (nodeValue.get_uint64().get(index) != SUCCESS) {
                     SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
-                scene.nodeIndices.emplace_back(static_cast<size_t>(index));
+                scene.nodeIndices.emplace_back(static_cast<std::size_t>(index));
             }
 
             parsedAsset->scenes.emplace_back(std::move(scene));
@@ -1882,12 +1882,12 @@ void fg::glTF::parseSkins(simdjson::dom::array& skins) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        uint64_t index;
+        std::uint64_t index;
         if (skinObject["inverseBindMatrices"].get_uint64().get(index) == SUCCESS) {
-            skin.inverseBindMatrices = static_cast<size_t>(index);
+            skin.inverseBindMatrices = static_cast<std::size_t>(index);
         }
         if (skinObject["skeleton"].get_uint64().get(index) == SUCCESS) {
-            skin.skeleton = static_cast<size_t>(index);
+            skin.skeleton = static_cast<std::size_t>(index);
         }
 
         dom::array jointsArray;
@@ -1923,15 +1923,15 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
         SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
     }
 
-    uint64_t index;
+    std::uint64_t index;
     if (child["index"].get_uint64().get(index) == SUCCESS) {
-        info->textureIndex = static_cast<size_t>(index);
+        info->textureIndex = static_cast<std::size_t>(index);
     } else {
         SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
     }
 
     if (child["texCoord"].get_uint64().get(index) == SUCCESS) {
-        info->texCoordIndex = static_cast<size_t>(index);
+        info->texCoordIndex = static_cast<std::size_t>(index);
     } else {
         info->texCoordIndex = 0;
     }
@@ -1998,9 +1998,9 @@ void fg::glTF::parseTextures(simdjson::dom::array& textures) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        uint64_t sourceIndex;
+        std::uint64_t sourceIndex;
         if (textureObject["source"].get_uint64().get(sourceIndex) == SUCCESS) {
-            texture.imageIndex = static_cast<size_t>(sourceIndex);
+            texture.imageIndex = static_cast<std::size_t>(sourceIndex);
         }
 
         bool hasExtensions = false;
@@ -2023,9 +2023,9 @@ void fg::glTF::parseTextures(simdjson::dom::array& textures) {
 
         // The index of the sampler used by this texture. When undefined, a sampler with
         // repeat wrapping and auto filtering SHOULD be used.
-        uint64_t samplerIndex;
+        std::uint64_t samplerIndex;
         if (textureObject["sampler"].get_uint64().get(samplerIndex) == SUCCESS) {
-            texture.samplerIndex = static_cast<size_t>(samplerIndex);
+            texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
         }
 
         // name is optional.
@@ -2041,14 +2041,14 @@ void fg::glTF::parseTextures(simdjson::dom::array& textures) {
 #pragma endregion
 
 #pragma region GltfDataBuffer
-size_t fg::getGltfBufferPadding() noexcept {
+std::size_t fg::getGltfBufferPadding() noexcept {
     return simdjson::SIMDJSON_PADDING;
 }
 
 fg::GltfDataBuffer::GltfDataBuffer() noexcept = default;
 fg::GltfDataBuffer::~GltfDataBuffer() noexcept = default;
 
-bool fg::GltfDataBuffer::fromByteView(uint8_t* bytes, size_t byteCount, size_t capacity) noexcept {
+bool fg::GltfDataBuffer::fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept {
     using namespace simdjson;
     if (bytes == nullptr || byteCount == 0 || capacity == 0)
         return false;
@@ -2063,7 +2063,7 @@ bool fg::GltfDataBuffer::fromByteView(uint8_t* bytes, size_t byteCount, size_t c
     return true;
 }
 
-bool fg::GltfDataBuffer::copyBytes(const uint8_t* bytes, size_t byteCount) noexcept {
+bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCount) noexcept {
     using namespace simdjson;
     if (bytes == nullptr || byteCount == 0)
         return false;
@@ -2071,7 +2071,7 @@ bool fg::GltfDataBuffer::copyBytes(const uint8_t* bytes, size_t byteCount) noexc
     // Allocate a byte array with a bit of padding.
     dataSize = byteCount;
     allocatedSize = byteCount + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     bufferPointer = buffer.get();
 
     // Copy the data and fill the padding region with zeros.
@@ -2080,7 +2080,7 @@ bool fg::GltfDataBuffer::copyBytes(const uint8_t* bytes, size_t byteCount) noexc
     return true;
 }
 
-bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, uint64_t byteOffset) noexcept {
+bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOffset) noexcept {
     using namespace simdjson;
     // Open the file and determine the size.
     std::ifstream file(path, std::ios::binary);
@@ -2098,9 +2098,9 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, uint64_t byteOffset)
     file.clear();
     file.seekg(static_cast<std::streamsize>(byteOffset), std::ifstream::beg);
 
-    dataSize = static_cast<uint64_t>(length) - byteOffset;
+    dataSize = static_cast<std::uint64_t>(length) - byteOffset;
     allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     if (!buffer)
         return false;
     bufferPointer = buffer.get();
@@ -2111,7 +2111,7 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, uint64_t byteOffset)
     return true;
 }
 
-size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
+std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
     return dataSize;
 }
 #pragma endregion
@@ -2168,9 +2168,9 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
 
     // If we own the allocation of the JSON data, we'll try to minify the JSON, which, in most cases,
     // will speed up the parsing by a small amount.
-    size_t jsonLength = buffer->getBufferSize();
+    std::size_t jsonLength = buffer->getBufferSize();
     if (buffer->buffer != nullptr && hasBit(options, Options::MinimiseJsonBeforeParsing)) {
-        size_t newLength = 0;
+        std::size_t newLength = 0;
         auto result = simdjson::minify(reinterpret_cast<const char*>(buffer->bufferPointer), buffer->getBufferSize(),
                                        reinterpret_cast<char*>(buffer->bufferPointer), newLength);
         if (result != SUCCESS || newLength == 0) {
@@ -2201,8 +2201,8 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
 
     errorCode = Error::None;
 
-    size_t offset = 0UL;
-    auto read = [&buffer, &offset](void* dst, size_t size) mutable {
+    std::size_t offset = 0UL;
+    auto read = [&buffer, &offset](void* dst, std::size_t size) mutable {
         std::memcpy(dst, buffer->bufferPointer + offset, size);
         offset += size;
     };
