@@ -163,6 +163,7 @@ namespace fastgltf {
     FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Options, Options, &)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, |)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, &)
+    FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Options, ~)
 
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {
