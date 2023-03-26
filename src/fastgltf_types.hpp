@@ -649,7 +649,8 @@ namespace fastgltf {
      * (including offsets), a ordinary vector (if Options::LoadExternalBuffers or Options::LoadGLBBuffers
      * was specified), or the ID of a custom buffer. Note that you, as a user, should never encounter
      * this variant holding the std::monostate, as that would be a ill-formed glTF, which fastgltf
-     * already checks for while parsing.
+     * already checks for while parsing. Note that for buffers, this variant will never hold a BufferView,
+     * as only images are able to reference buffer views as a source.
      */
     using DataSource = std::variant<std::monostate, sources::BufferView, sources::FilePath, sources::Vector, sources::CustomBuffer>;
 

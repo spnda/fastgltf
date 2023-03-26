@@ -388,7 +388,7 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     REQUIRE(asset->buffers.size() == 1);
 
     auto& buffer = asset->buffers.front();
-    auto customBuffer = std::get_if<fastgltf::sources::CustomBuffer>(&buffer.data);
+    const auto* customBuffer = std::get_if<fastgltf::sources::CustomBuffer>(&buffer.data);
     REQUIRE(customBuffer != nullptr);
     REQUIRE(customBuffer->id == 0);
 
