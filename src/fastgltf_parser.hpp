@@ -107,6 +107,7 @@ namespace fastgltf {
     FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, |)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
+    FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Extensions, ~)
 
     // clang-format off
     enum class Options : std::uint64_t {
@@ -135,7 +136,8 @@ namespace fastgltf {
         /**
          * Loads all external buffers into CPU memory. If disabled, fastgltf will only provide
          * a full file path to the file holding the buffer, which can be useful when using APIs
-         * like DirectStorage or Metal IO.
+         * like DirectStorage or Metal IO. For images, LoadExternalImages has to be explicitly
+         * specified, too, if required.
          */
         LoadExternalBuffers             = 1 << 4,
 
@@ -156,6 +158,12 @@ namespace fastgltf {
          * or GltfDataBuffer::copyBytes, and that the bytes will also be overwritten.
          */
         MinimiseJsonBeforeParsing       = 1 << 6,
+
+        /**
+         * Loads all external images into CPU memory. It does not decode any texture data. Complementary
+         * to LoadExternalBuffers.
+         */
+        LoadExternalImages              = 1 << 7,
     };
     // clang-format on
 
@@ -201,7 +209,7 @@ namespace fastgltf {
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
         static void fillCategories(Category& inputCategories) noexcept;
 
-        [[nodiscard]] auto decodeUri(std::string_view uri) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto decodeUri(std::string_view uri, bool fromImage) const noexcept -> std::pair<Error, DataSource>;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
         void parseAccessors(simdjson::dom::array& array);

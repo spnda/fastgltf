@@ -284,7 +284,13 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         auto path = std::filesystem::path{cPath};
         std::unique_ptr<fastgltf::glTF> gltf;
 
-        constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
+        constexpr auto gltfOptions =
+            fastgltf::Options::DontRequireValidAssetMember |
+            fastgltf::Options::AllowDouble |
+            fastgltf::Options::LoadGLBBuffers |
+            fastgltf::Options::LoadExternalBuffers |
+            fastgltf::Options::LoadExternalImages;
+
         fastgltf::GltfDataBuffer data;
         data.loadFromFile(path);
 

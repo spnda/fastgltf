@@ -194,7 +194,7 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 8
 #define SET_ERROR_RETURN_ERROR(error) errorCode = error; \
     return errorCode;
 
-std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) const noexcept {
+std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri, bool fromImage) const noexcept {
     if (uri.substr(0, 4) == "data") {
         // This is a data URI.
         auto index =  uri.find(';');
@@ -239,14 +239,14 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri) c
             uriData.resize(base64::getOutputSize(encodedData.size(), padding));
             data->config.decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->config.userPointer);
         } else {
-            uriData = base64::decode(encodedData);
+            uriData = std::move(base64::decode(encodedData));
         }
 
         sources::Vector source = {};
         source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
         source.bytes = std::move(uriData);
         return std::make_pair(Error::None, std::move(source));
-    } else if (hasBit(options, Options::LoadExternalBuffers)) {
+    } else if ((hasBit(options, Options::LoadExternalBuffers) && !fromImage) || (hasBit(options, Options::LoadExternalImages) && fromImage)) {
         auto path = directory / uri;
         std::error_code error;
         // If we were instructed to load external buffers and the files don't exist, we'll return an error.
@@ -1081,7 +1081,7 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
         // file. Otherwise, data must be specified in the "uri" field.
         std::string_view uri;
         if (bufferObject["uri"].get_string().get(uri) == SUCCESS) {
-            auto [error, source] = decodeUri(uri);
+            auto [error, source] = decodeUri(uri, false);
             if (error != Error::None) {
                 SET_ERROR_RETURN(error)
             }
@@ -1372,7 +1372,7 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
                 // If uri is declared, bufferView cannot be declared.
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            auto [error, source] = decodeUri(uri);
+            auto [error, source] = decodeUri(uri, true);
             if (error != Error::None) {
                 SET_ERROR_RETURN(error)
             }
