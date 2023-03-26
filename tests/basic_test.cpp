@@ -593,3 +593,64 @@ TEST_CASE("Test KHR_lights_punctual", "[gltf-loader]") {
     REQUIRE(glm::epsilonEqual(lights[0].color[1], 0.63187497854232788f, glm::epsilon<float>()));
     REQUIRE(glm::epsilonEqual(lights[0].color[2], 0.23909975588321689f, glm::epsilon<float>()));
 }
+
+TEST_CASE("Test accessors min/max", "[gltf-loader]") {
+    auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
+    fastgltf::GltfDataBuffer jsonData;
+    REQUIRE(jsonData.loadFromFile(lightsLamp / "LightsPunctualLamp.gltf"));
+
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
+    auto model = parser.loadGLTF(&jsonData, lightsLamp);
+    REQUIRE(parser.getError() == fastgltf::Error::None);
+    REQUIRE(model->parse(fastgltf::Category::Accessors) == fastgltf::Error::None);
+    REQUIRE(model->validate() == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->accessors.size() == 15);
+    auto& accessors = asset->accessors;
+
+    {
+        auto& firstAccessor = accessors[0];
+        const auto* max = std::get_if<std::vector<std::int64_t>>(&firstAccessor.max);
+        const auto* min = std::get_if<std::vector<std::int64_t>>(&firstAccessor.min);
+        REQUIRE(max != nullptr);
+        REQUIRE(min != nullptr);
+        REQUIRE(max->size() == fastgltf::getNumComponents(firstAccessor.type));
+        REQUIRE(max->size() == 1);
+        REQUIRE(min->size() == 1);
+        REQUIRE(max->front() == 3211);
+        REQUIRE(min->front() == 0);
+    }
+
+    {
+        auto& secondAccessor = accessors[1];
+        const auto* max = std::get_if<std::vector<double>>(&secondAccessor.max);
+        const auto* min = std::get_if<std::vector<double>>(&secondAccessor.min);
+        REQUIRE(max != nullptr);
+        REQUIRE(min != nullptr);
+        REQUIRE(max->size() == fastgltf::getNumComponents(secondAccessor.type));
+        REQUIRE(max->size() == 3);
+        REQUIRE(min->size() == 3);
+
+        REQUIRE(glm::epsilonEqual(max->at(0), 0.81497824192047119, glm::epsilon<double>()));
+        REQUIRE(glm::epsilonEqual(max->at(1), 1.8746249675750732, glm::epsilon<double>()));
+        REQUIRE(glm::epsilonEqual(max->at(2), 0.32295516133308411, glm::epsilon<double>()));
+
+        REQUIRE(glm::epsilonEqual(min->at(0), -0.12269512563943863, glm::epsilon<double>()));
+        REQUIRE(glm::epsilonEqual(min->at(1), 0.013025385327637196, glm::epsilon<double>()));
+        REQUIRE(glm::epsilonEqual(min->at(2), -0.32393229007720947, glm::epsilon<double>()));
+    }
+
+    {
+        auto& fifthAccessor = accessors[4];
+        const auto* max = std::get_if<std::vector<double>>(&fifthAccessor.max);
+        const auto* min = std::get_if<std::vector<double>>(&fifthAccessor.min);
+        REQUIRE(max != nullptr);
+        REQUIRE(min != nullptr);
+        REQUIRE(max->size() == fastgltf::getNumComponents(fifthAccessor.type));
+        REQUIRE(max->size() == 4);
+        REQUIRE(min->size() == 4);
+
+        REQUIRE(max->back() == 1.0);
+    }
+}

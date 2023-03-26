@@ -357,6 +357,17 @@ fg::Error fg::glTF::validate() {
         if (accessor.bufferViewIndex.has_value() &&
             accessor.bufferViewIndex.value() >= parsedAsset->bufferViews.size())
             return Error::InvalidGltf;
+
+        if (!std::holds_alternative<std::monostate>(accessor.max)) {
+            if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
+                && !std::holds_alternative<std::vector<double>>(accessor.max))
+                return Error::InvalidGltf;
+        }
+        if (!std::holds_alternative<std::monostate>(accessor.min)) {
+            if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
+                && !std::holds_alternative<std::vector<double>>(accessor.min))
+                return Error::InvalidGltf;
+        }
     }
 
     for (const auto& animation : parsedAsset->animations) {
@@ -780,6 +791,89 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             accessor.byteOffset = 0U;
         } else {
             accessor.byteOffset = static_cast<std::size_t>(byteOffset);
+        }
+
+        // Type of min and max should always be the same.
+        auto parseMinMax = [&](std::string_view key, decltype(Accessor::max)& ref) -> fastgltf::Error {
+            dom::array elements;
+            if (accessorObject[key].get_array().get(elements) == SUCCESS) {
+                decltype(Accessor::max) variant;
+                if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
+                    auto vec = std::vector<double> {};
+                    vec.reserve(getNumComponents(accessor.type));
+                    variant = std::move(vec);
+                } else {
+                    auto vec = std::vector<std::int64_t> {};
+                    vec.reserve(getNumComponents(accessor.type));
+                    variant = std::move(vec);
+                }
+
+                for (auto element : elements) {
+                    auto type = element.type();
+                    switch (type) {
+                        case dom::element_type::DOUBLE: {
+                            // We can't safely promote double to ints. Therefore, if the element is a double,
+                            // but our component type is not a floating point, that's invalid.
+                            if (accessor.componentType != ComponentType::Float && accessor.componentType != ComponentType::Double) {
+                                return Error::InvalidGltf;
+                            }
+
+                            double value;
+                            if (element.get_double().get(value) != SUCCESS) {
+                                return Error::InvalidGltf;
+                            }
+                            if (!std::holds_alternative<std::vector<double>>(variant)) {
+                                return Error::InvalidGltf;
+                            }
+                            std::get<std::vector<double>>(variant).emplace_back(value);
+                            break;
+                        }
+                        case dom::element_type::INT64: {
+                            std::int64_t value;
+                            if (element.get_int64().get(value) != SUCCESS) {
+                                return Error::InvalidGltf;
+                            }
+
+                            if (std::holds_alternative<std::vector<double>>(variant)) {
+                                std::get<std::vector<double>>(variant).emplace_back(static_cast<double>(value));
+                            } else if (std::holds_alternative<std::vector<std::int64_t>>(variant)) {
+                                std::get<std::vector<std::int64_t>>(variant).emplace_back(static_cast<std::int64_t>(value));
+                            } else {
+                                return Error::InvalidGltf;
+                            }
+                            break;
+                        }
+                        case dom::element_type::UINT64: {
+                            // Note that the glTF spec doesn't care about any integer larger than 32-bits, so
+                            // truncating uint64 to int64 wouldn't make any difference, as those large values
+                            // aren't allowed anyway.
+                            std::uint64_t value;
+                            if (element.get_uint64().get(value) != SUCCESS) {
+                                return Error::InvalidGltf;
+                            }
+
+                            if (std::holds_alternative<std::vector<double>>(variant)) {
+                                std::get<std::vector<double>>(variant).emplace_back(static_cast<double>(value));
+                            } else if (std::holds_alternative<std::vector<std::int64_t>>(variant)) {
+                                std::get<std::vector<std::int64_t>>(variant).emplace_back(static_cast<std::int64_t>(value));
+                            } else {
+                                return Error::InvalidGltf;
+                            }
+                            break;
+                        }
+                        default: return Error::InvalidGltf;
+                    }
+                }
+                ref = std::move(variant);
+            }
+            return Error::None;
+        };
+
+        if (auto error = parseMinMax("max", accessor.max); error != Error::None) {
+            SET_ERROR_RETURN(error)
+        }
+        if (auto error = parseMinMax("min", accessor.min); error != Error::None) {
+            SET_ERROR_RETURN(error)
         }
 
         if (accessorObject["normalized"].get_bool().get(accessor.normalized) != SUCCESS) {

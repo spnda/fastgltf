@@ -882,6 +882,9 @@ namespace fastgltf {
         AccessorType type;
         ComponentType componentType;
         bool normalized = false;
+        
+        std::variant<std::monostate, std::vector<double>, std::vector<std::int64_t>> max;
+        std::variant<std::monostate, std::vector<double>, std::vector<std::int64_t>> min;
 
         // Could have no value for sparse morph targets
         std::optional<std::size_t> bufferViewIndex;

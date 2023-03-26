@@ -4,6 +4,7 @@ build/*
 lib/*
 out/*
 CMakeSettings.json
+CMakeUserPresets.json
 vcpkg_installed/*
 cmake-build-*/
 
