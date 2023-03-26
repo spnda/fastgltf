@@ -270,9 +270,9 @@ namespace fastgltf {
 
     // For unary +, unary -, and bitwise NOT
 #define FASTGLTF_UNARY_OP_TEMPLATE_MACRO(T, op) \
-    constexpr T operator ~(const T& a) noexcept { \
+    constexpr T operator op(const T& a) noexcept { \
         static_assert(std::is_enum_v<T>); \
-        return static_cast<T>(~to_underlying(a)); \
+        return static_cast<T>(op to_underlying(a)); \
     }
 }
 

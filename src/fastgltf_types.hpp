@@ -235,6 +235,7 @@ namespace fastgltf {
     FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Category, Category, &)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, |)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, &)
+    FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Category, ~)
     // clang-format on
 #pragma endregion
 
