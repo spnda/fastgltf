@@ -2260,7 +2260,7 @@ bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::
 
     std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
 
-    filePath = std::move(path);
+    filePath = path;
 
     return true;
 }

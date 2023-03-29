@@ -323,11 +323,11 @@ namespace fastgltf {
 
     #if defined(__ANDROID__)
     class AndroidGltfDataBuffer : public GltfDataBuffer {
-        AAssetManager* asset_manager = nullptr;
+        AAssetManager* assetManager = nullptr;
 
     public:
         explicit AndroidGltfDataBuffer(AAssetManager* asset_manager_in) noexcept;
-        ~AndroidGltfDataBuffer() override noexcept = default;
+        ~AndroidGltfDataBuffer() noexcept = default;
 
         /**
          * Loads a file from within an Android APK
