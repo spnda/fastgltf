@@ -45,7 +45,7 @@
 #endif
 
 // fwd
-#if __ANDROID__
+#if defined(__ANDROID__)
 struct AAssetManager;
 #endif
 
@@ -282,6 +282,7 @@ namespace fastgltf {
         friend class Parser;
         friend GltfType determineGltfFileType(GltfDataBuffer* buffer);
 
+    protected:
         std::size_t allocatedSize = 0;
         std::size_t dataSize = 0;
         std::uint8_t* bufferPointer = nullptr;
@@ -290,18 +291,9 @@ namespace fastgltf {
 
         std::filesystem::path filePath = {};
         
-        #if __ANDROID__
-        AAssetManager* asset_manager = nullptr;
-
-        void loadFromFile_Android(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
-        #endif
-
     public:
         explicit GltfDataBuffer() noexcept;
-        #if __ANDROID__
-        explicit GltfDataBuffer(AAssetManager* asset_manager_in) noexcept;
-        #endif
-        ~GltfDataBuffer() noexcept;
+        virtual ~GltfDataBuffer() noexcept;
 
         /**
          * Saves the pointer including its range. Does not copy any data. This requires the
@@ -321,13 +313,28 @@ namespace fastgltf {
          * Loads the file with a optional byte offset into a memory buffer.
          */
         bool loadFromFile(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
-
+        
         /**
          * Returns the size, in bytes,
          * @return
          */
         [[nodiscard]] inline std::size_t getBufferSize() const noexcept;
     };
+
+    #if defined(__ANDROID__)
+    class AndroidGltfDataBuffer : public GltfDataBuffer {
+        AAssetManager* asset_manager = nullptr;
+
+    public:
+        explicit AndroidGltfDataBuffer(AAssetManager* asset_manager_in) noexcept;
+        ~AndroidGltfDataBuffer() override noexcept = default;
+
+        /**
+         * Loads a file from within an Android APK
+         */
+        bool loadFromAndroidAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
+    };
+    #endif
 
     /**
      * Some internals the parser passes on to each glTF instance.

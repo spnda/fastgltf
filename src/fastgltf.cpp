@@ -2181,48 +2181,7 @@ bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCo
     return true;
 }
 
-#if __ANDROID__
-bool fg::GltfDataBuffer::loadFromFile_Android(const fs::path& path, std::uint64_t byteOffset) noexcept {
-    using namespace simdjson;
-
-    const auto filename_string = path.string();
-
-    AAsset* file = AAssetManager_open(asset_manager, filename_string.c_str(), AASSET_MODE_BUFFER);
-    if (file == nullptr) {
-        return false;
-    }
-
-    const auto length = AAsset_getLength(file);
-    if (length == 0) {
-        return false;
-    }
-
-    dataSize = length - byteOffset;
-    allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]);
-    if (!buffer) {
-        return false;
-    }
-
-    bufferPointer = buffer.get();
-
-    if (byteOffset > 0) {
-        AAsset_seek64(file, byteOffset, SEEK_SET);
-    }
-
-    AAsset_read(file, bufferPointer, dataSize);
-    AAsset_close(file);
-
-    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
-
-    return true;
-}
-#endif
-
 bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOffset) noexcept {
-    #if __ANDROID__
-    return loadFromFile_Android(path, byteOffset);
-    #else
     using namespace simdjson;
     // Open the file and determine the size.
     std::ifstream file(path, std::ios::binary);
@@ -2251,12 +2210,61 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
     file.read(reinterpret_cast<char*>(bufferPointer), static_cast<std::streamsize>(dataSize));
     std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
-    #endif
 }
 
 std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
     return dataSize;
 }
+#pragma endregion
+
+#pragma region AndroidGltfDataBuffer
+#if defined(__ANDROID__)
+fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(AAssetManager* asset_manager_in) noexcept : asset_manager{asset_manager_in} {}
+
+bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::uint64_t byteOffset) noexcept {
+    if (asset_manager == nullptr) {
+        return false;
+    }
+    
+    using namespace simdjson;
+
+    const auto filename_string = path.string();
+
+    AAsset* file = AAssetManager_open(asset_manager, filename_string.c_str(), AASSET_MODE_BUFFER);
+    if (file == nullptr) {
+        return false;
+    }
+
+    const auto length = AAsset_getLength(file);
+    if (length == 0) {
+        AAsset_close(file);
+        return false;
+    }
+
+    dataSize = length - byteOffset;
+    allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
+    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]);
+    if (!buffer) {
+        AAsset_close(file);
+        return false;
+    }
+
+    bufferPointer = buffer.get();
+
+    if (byteOffset > 0) {
+        AAsset_seek64(file, byteOffset, SEEK_SET);
+    }
+
+    AAsset_read(file, bufferPointer, dataSize);
+    AAsset_close(file);
+
+    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
+
+    filePath = std::move(path);
+
+    return true;
+}
+#endif
 #pragma endregion
 
 #pragma region Parser
