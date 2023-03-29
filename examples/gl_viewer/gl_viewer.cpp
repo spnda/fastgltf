@@ -103,10 +103,11 @@ void glMessageCallback(GLenum source,GLenum type,GLuint id,GLenum severity,GLsiz
 bool checkGlCompileErrors(GLuint shader) {
     GLint success;
     constexpr int length = 1024;
-    char log[length];
+    std::string log;
+    log.resize(length);
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(shader, length, nullptr, log);
+    if (success != GL_TRUE) {
+        glGetShaderInfoLog(shader, length, nullptr, log.data());
         std::cout << "Shader compilation error: " << "\n"
                   << log << "\n -- --------------------------------------------------- -- " << std::endl;
         return false;
@@ -117,10 +118,11 @@ bool checkGlCompileErrors(GLuint shader) {
 bool checkGlLinkErrors(GLuint target) {
     GLint success;
     constexpr int length = 1024;
-    char log[length];
+    std::string log;
+    log.resize(length);
     glGetProgramiv(target, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(target, length, nullptr, log);
+    if (success != GL_TRUE) {
+        glGetShaderInfoLog(target, length, nullptr, log.data());
         std::cout << "Shader program linking error: " << "\n"
                   << log << "\n -- --------------------------------------------------- -- " << std::endl;
         return false;
@@ -583,13 +585,13 @@ int main(int argc, char* argv[]) {
     auto gltfFile = std::string_view { argv[1] };
     Viewer viewer;
 
-    if (!glfwInit()) {
+    if (glfwInit() != GLFW_TRUE) {
         std::cerr << "Failed to initialize glfw." << std::endl;
         return -1;
     }
 
     auto* mainMonitor = glfwGetPrimaryMonitor();
-    auto* vidMode = glfwGetVideoMode(mainMonitor);
+    const auto* vidMode = glfwGetVideoMode(mainMonitor);
 
     glfwWindowHint(GLFW_SAMPLES, 4);
 
@@ -612,8 +614,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    auto glRenderer = glGetString(GL_RENDERER);
-    auto glVersion = glGetString(GL_VERSION);
+    const auto *glRenderer = glGetString(GL_RENDERER);
+    const auto *glVersion = glGetString(GL_VERSION);
     std::cout << "GL Renderer: " << glRenderer << "\nGL Version: " << glVersion << std::endl;
 
     if (GLAD_GL_VERSION_4_6 != 1) {
@@ -627,11 +629,11 @@ int main(int argc, char* argv[]) {
     // Compile the shaders
     GLuint program = GL_NONE;
     {
-        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        const GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        const GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
 
-        auto* frag = fragmentShaderSource.data();
-        auto* vert = vertexShaderSource.data();
+        const auto* frag = fragmentShaderSource.data();
+        const auto* vert = vertexShaderSource.data();
         auto fragSize = static_cast<GLint>(fragmentShaderSource.size());
         auto vertSize = static_cast<GLint>(vertexShaderSource.size());
 
@@ -700,7 +702,7 @@ int main(int argc, char* argv[]) {
     glEnable(GL_DEPTH_TEST);
 
     viewer.lastFrame = static_cast<float>(glfwGetTime());
-    while (!glfwWindowShouldClose(window)) {
+    while (glfwWindowShouldClose(window) != GLFW_TRUE) {
         auto currentFrame = static_cast<float>(glfwGetTime());
         viewer.deltaTime = currentFrame - viewer.lastFrame;
         viewer.lastFrame = currentFrame;

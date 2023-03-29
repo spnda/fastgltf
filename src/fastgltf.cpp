@@ -93,7 +93,7 @@ namespace fastgltf {
     [[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags);
 
     [[nodiscard, gnu::always_inline]] inline Error getJsonArray(simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept;
-}
+} // namespace fastgltf
 
 std::tuple<bool, bool, std::size_t> fg::getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
     using namespace simdjson;
@@ -117,11 +117,11 @@ fg::Error fg::getJsonArray(simdjson::dom::object& parent, std::string_view array
     auto error = parent[arrayName].get_array().get(*array);
     if (error == NO_SUCH_FIELD) {
         return Error::MissingField;
-    } else if (error == SUCCESS) {
-        return Error::None;
-    } else {
-        return Error::InvalidJson;
     }
+    if (error == SUCCESS) {
+        return Error::None;
+    }
+    return Error::InvalidJson;
 }
 
 bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags) {
@@ -239,11 +239,23 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri, b
             uriData.resize(base64::getOutputSize(encodedData.size(), padding));
             data->config.decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->config.userPointer);
         } else {
-            uriData = std::move(base64::decode(encodedData));
+            uriData = base64::decode(encodedData);
         }
 
         sources::Vector source = {};
-        source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
+        if (fromImage) {
+            source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
+        } else {
+            // "When data: URI is used for buffer storage, its mediatype field MUST be set to application/octet-stream or application/gltf-buffer."
+            auto mimeType = uri.substr(5, index - 5);
+            constexpr size_t firstChar = sizeof("application/") / sizeof(char) - 1;
+            switch (mimeType[firstChar]) {
+                case 'o': source.mimeType = MimeType::OctetStream; break;
+                case 'g': source.mimeType = MimeType::GltfBuffer; break;
+                default: source.mimeType = MimeType::None; break;
+            }
+        }
+
         source.bytes = std::move(uriData);
         return std::make_pair(Error::None, std::move(source));
     } else if ((hasBit(options, Options::LoadExternalBuffers) && !fromImage) || (hasBit(options, Options::LoadExternalImages) && fromImage)) {
@@ -261,7 +273,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri, b
         if (data->config.mapCallback != nullptr) {
             auto info = data->config.mapCallback(static_cast<std::uint64_t>(length), data->config.userPointer);
             if (info.mappedMemory != nullptr) {
-                sources::CustomBuffer customBufferSource = {info.customId };
+                const sources::CustomBuffer customBufferSource = { info.customId, MimeType::None };
                 file.read(reinterpret_cast<char*>(info.mappedMemory), length);
                 if (data->config.unmapCallback != nullptr) {
                     data->config.unmapCallback(&info, data->config.userPointer);
@@ -278,7 +290,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri, b
         return std::make_pair(Error::None, std::move(vectorSource));
     } else {
         // TODO: Actually support decoding URIs.
-        sources::FilePath fileSource = {0, directory / uri };
+        sources::FilePath fileSource = {0, directory / uri, MimeType::None};
         return std::make_pair(Error::None, std::move(fileSource));
     }
 }
@@ -313,20 +325,29 @@ void fg::glTF::fillCategories(Category& inputCategories) noexcept {
 }
 
 fg::MimeType fg::glTF::getMimeTypeFromString(std::string_view mime) {
-    if (mime == mimeTypeJpeg) {
-        return MimeType::JPEG;
-    } else if (mime == mimeTypePng) {
-        return MimeType::PNG;
-    } else if (mime == mimeTypeKtx) {
-        return MimeType::KTX2;
-    } else if (mime == mimeTypeDds) {
-        return MimeType::DDS;
-    } else if (mime == mimeTypeGltfBuffer) {
-        return MimeType::GltfBuffer;
-    } else if (mime == mimeTypeOctetStream) {
-        return MimeType::OctetStream;
-    } else {
-        return MimeType::None;
+    const auto hash = crc32(mime);
+    switch (hash) {
+        case force_consteval<crc32(mimeTypeJpeg)>: {
+            return MimeType::JPEG;
+        }
+        case force_consteval<crc32(mimeTypePng)>: {
+            return MimeType::PNG;
+        }
+        case force_consteval<crc32(mimeTypeKtx)>: {
+            return MimeType::KTX2;
+        }
+        case force_consteval<crc32(mimeTypeDds)>: {
+            return MimeType::DDS;
+        }
+        case force_consteval<crc32(mimeTypeGltfBuffer)>: {
+            return MimeType::GltfBuffer;
+        }
+        case force_consteval<crc32(mimeTypeOctetStream)>: {
+            return MimeType::OctetStream;
+        }
+        default: {
+            return MimeType::None;
+        }
     }
 }
 
@@ -431,13 +452,13 @@ fg::Error fg::glTF::validate() {
                 return Error::InvalidGltf;
             if (pPerspective->zfar.has_value() && pPerspective->zfar == .0f)
                 return Error::InvalidGltf;
-            if (pPerspective->znear == 0.0f)
+            if (pPerspective->znear == 0.0F)
                 return Error::InvalidGltf;
         }
     }
 
     for (const auto& image : parsedAsset->images) {
-        if (auto* view = std::get_if<sources::BufferView>(&image.data); view != nullptr) {
+        if (const auto* view = std::get_if<sources::BufferView>(&image.data); view != nullptr) {
             if (view->bufferViewIndex >= parsedAsset->bufferViews.size()) {
                 return Error::InvalidGltf;
             }
@@ -568,7 +589,7 @@ fg::Error fg::glTF::validate() {
             return Error::InvalidGltf;
 
         if (const auto* pTRS = std::get_if<Node::TRS>(&node.transform)) {
-            for (auto& x : pTRS->rotation)
+            for (const auto& x : pTRS->rotation)
                 if (x > 1.0 || x < -1.0)
                     return Error::InvalidGltf;
         }
@@ -631,7 +652,7 @@ fg::Error fg::glTF::parse(Category categories) {
         if (asset["version"].get_string().get(version) != SUCCESS) {
             SET_ERROR_RETURN_ERROR(Error::InvalidOrMissingAssetField)
         } else {
-            std::uint32_t major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
+            const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
             // std::uint32_t minor = version.substr(2, 3)[0] - '0';
             if (major != 2) {
                 SET_ERROR_RETURN_ERROR(Error::UnsupportedVersion)
@@ -1332,9 +1353,8 @@ void fg::glTF::parseExtensions(simdjson::dom::object& extensionsObject) {
         if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) {
             if (error == INCORRECT_TYPE) {
                 continue; // We want to ignore
-            } else {
-                SET_ERROR_RETURN(Error::InvalidGltf)
             }
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         auto hash = crc32(extensionValue.key);
@@ -1577,12 +1597,12 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
             if (pbrMetallicRoughness["metallicFactor"].get_double().get(factor) == SUCCESS) {
                 pbr.metallicFactor = static_cast<float>(factor);
             } else {
-                pbr.metallicFactor = 1.0f;
+                pbr.metallicFactor = 1.0F;
             }
             if (pbrMetallicRoughness["roughnessFactor"].get_double().get(factor) == SUCCESS) {
                 pbr.roughnessFactor = static_cast<float>(factor);
             } else {
-                pbr.roughnessFactor = 1.0f;
+                pbr.roughnessFactor = 1.0F;
             }
 
             error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &textureObject);
@@ -1620,7 +1640,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
         if (materialObject["alphaCutoff"].get_double().get(alphaCutoff) == SUCCESS) {
             material.alphaCutoff = static_cast<float>(alphaCutoff);
         } else {
-            material.alphaCutoff = 0.5f;
+            material.alphaCutoff = 0.5F;
         }
 
         bool doubleSided = false;
@@ -1672,14 +1692,13 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                     // We iterate through the JSON object and write each key/pair value into the
                     // attributes map. The keys are only validated in the validate() method.
                     for (const auto& field : object) {
-                        std::string_view key = field.key;
+                        const auto key = field.key;
 
                         std::uint64_t attributeIndex;
                         if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
                             return Error::InvalidGltf;
-                        } else {
-                            map[std::string { key }] = static_cast<std::size_t>(attributeIndex);
                         }
+                        map[std::string { key }] = static_cast<std::size_t>(attributeIndex);
                     }
                     return Error::None;
                 };
@@ -1832,7 +1851,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     ++i;
                 }
             } else {
-                trs.scale = {{ 1.0f, 1.0f, 1.0f }};
+                trs.scale = {{ 1.0F, 1.0F, 1.0F }};
             }
 
             if (nodeObject["translation"].get_array().get(array) == SUCCESS) {
@@ -1846,7 +1865,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     ++i;
                 }
             } else {
-                trs.translation = {{ 0.0f, 0.0f, 0.0f }};
+                trs.translation = {{ 0.0F, 0.0F, 0.0F }};
             }
 
             if (nodeObject["rotation"].get_array().get(array) == SUCCESS) {
@@ -1860,7 +1879,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
                     ++i;
                 }
             } else {
-                trs.rotation = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
+                trs.rotation = {{ 0.0F, 0.0F, 0.0F, 1.0F }};
             }
 
             node.transform = trs;
@@ -2031,16 +2050,16 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
     }
 
     // scale only applies to normal textures.
-    double scale = 1.0f;
+    double scale = 1.0F;
     if (child["scale"].get_double().get(scale) == SUCCESS) {
         info->scale = static_cast<float>(scale);
     } else {
-        info->scale = 1.0f;
+        info->scale = 1.0F;
     }
 
-    info->rotation = 0.0f;
-    info->uvOffset = {{ 0.0f, 0.0f }};
-    info->uvScale = {{ 1.0f, 1.0f }};
+    info->rotation = 0.0F;
+    info->uvOffset = {{ 0.0F, 0.0F }};
+    info->uvScale = {{ 1.0F, 1.0F }};
 
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
@@ -2050,7 +2069,7 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
                 info->texCoordIndex = index;
             }
 
-            double rotation = 0.0f;
+            double rotation = 0.0F;
             if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
                 info->rotation = static_cast<float>(rotation);
             }
@@ -2213,10 +2232,10 @@ std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
 #pragma region Parser
 fastgltf::GltfType fg::determineGltfFileType(GltfDataBuffer* buffer) {
     // First, check if any of the first four characters is a '{'.
-    char begin[4];
-    std::memcpy(&begin[0], buffer->bufferPointer, sizeof begin);
-    for (char i : begin) {
-        if (i == '{')
+    std::array<std::uint8_t, 4> begin = {};
+    std::memcpy(begin.data(), buffer->bufferPointer, sizeof begin);
+    for (const auto& i : begin) {
+        if ((char)i == '{')
             return GltfType::glTF;
     }
 
@@ -2357,7 +2376,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
                     if (gconfig.unmapCallback != nullptr) {
                         gconfig.unmapCallback(&info, gconfig.userPointer);
                     }
-                    gltf->glbBuffer = sources::CustomBuffer { info.customId };
+                    gltf->glbBuffer = sources::CustomBuffer { info.customId, MimeType::None };
                 }
             } else {
                 sources::Vector vectorData = {};
