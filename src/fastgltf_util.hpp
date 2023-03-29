@@ -50,7 +50,7 @@
 #define FASTGLTF_HAS_BIT 0
 #endif
 
-#if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 201507
+#if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 201907L
 #define FASTGLTF_HAS_CONCEPTS 1
 #include <concepts>
 #else
