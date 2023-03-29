@@ -22,6 +22,14 @@ endif()
 
 target_compile_definitions(fastgltf PRIVATE "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
 
+if (Android)
+    find_package(game-activity REQUIRED CONFIG)
+    target_link_libraries(fastgltf PRIVATE
+        game-activity::game-activity
+        android
+    )
+endif()
+
 install(
     FILES "base64_decode.hpp" "fastgltf_parser.hpp" "fastgltf_types.hpp" "fastgltf_util.hpp"
     TYPE INCLUDE
