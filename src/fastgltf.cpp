@@ -2185,7 +2185,7 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
 
     // Skip over as many characters as possible until EOF, then get how many characters were skipped.
     file.ignore(std::numeric_limits<std::streamsize>::max());
-    auto length = file.gcount() - byteOffset;
+    auto length = file.gcount();
     if (length == 0 || file.bad())
         return false;
 
