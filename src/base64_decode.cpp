@@ -301,12 +301,12 @@ namespace fastgltf::base64 {
 }
 
 // clang-format off
-[[gnu::aligned(16)]] static constexpr std::array<int8_t, 16> shuffleData = {
+[[gnu::aligned(16)]] static constexpr std::array<uint8_t, 16> shuffleData = {
         2,  1,  0,
         6,  5,  4,
         10,  9,  8,
         14, 13, 12,
-        char(0xff), char(0xff), char(0xff), char(0xff)
+        0xff, 0xff, 0xff, 0xff
 };
 // clang-fomat on
 
@@ -327,7 +327,7 @@ void fg::base64::neon_decode_inplace(std::string_view encoded, std::uint8_t* out
     auto* out = output;
 
     // Decode the first 16 long chunks with Neon intrinsics
-    const auto shuffle = vreinterpretq_u8_s8(vld1q_s8(shuffleData.data()));
+    const auto shuffle = vld1q_u8(shuffleData.data());
     std::size_t pos = 0;
     while ((pos + dataSetSize) < alignedSize) {
         // Load 16 8-bit values into a 128-bit register.
