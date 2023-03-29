@@ -326,7 +326,7 @@ namespace fastgltf {
         AAssetManager* assetManager = nullptr;
 
     public:
-        explicit AndroidGltfDataBuffer(AAssetManager* asset_manager_in) noexcept;
+        explicit AndroidGltfDataBuffer(AAssetManager* assetManagerIn) noexcept;
         ~AndroidGltfDataBuffer() noexcept = default;
 
         /**

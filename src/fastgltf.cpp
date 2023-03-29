@@ -2144,9 +2144,6 @@ std::size_t fg::getGltfBufferPadding() noexcept {
 }
 
 fg::GltfDataBuffer::GltfDataBuffer() noexcept = default;
-#if __ANDROID__
-fg::GltfDataBuffer::GltfDataBuffer(AAssetManager* asset_manager_in) noexcept : asset_manager{asset_manager_in} {}
-#endif
 fg::GltfDataBuffer::~GltfDataBuffer() noexcept = default;
 
 bool fg::GltfDataBuffer::fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept {
@@ -2219,18 +2216,18 @@ std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
 
 #pragma region AndroidGltfDataBuffer
 #if defined(__ANDROID__)
-fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(AAssetManager* asset_manager_in) noexcept : asset_manager{asset_manager_in} {}
+fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(AAssetManager* assetManagerIn) noexcept : assetManager{assetManagerIn} {}
 
 bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::uint64_t byteOffset) noexcept {
-    if (asset_manager == nullptr) {
+    if (assetManager == nullptr) {
         return false;
     }
     
     using namespace simdjson;
 
-    const auto filename_string = path.string();
+    const auto filenameString = path.string();
 
-    AAsset* file = AAssetManager_open(asset_manager, filename_string.c_str(), AASSET_MODE_BUFFER);
+    AAsset* file = AAssetManager_open(assetManager, filenameString.c_str(), AASSET_MODE_BUFFER);
     if (file == nullptr) {
         return false;
     }
