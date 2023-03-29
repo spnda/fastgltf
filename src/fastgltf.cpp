@@ -34,6 +34,10 @@
 #include <functional>
 #include <utility>
 
+#if __ANDROID__
+#include <game-activity/native_app_glue/android_native_app_glue.h>
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -2140,6 +2144,9 @@ std::size_t fg::getGltfBufferPadding() noexcept {
 }
 
 fg::GltfDataBuffer::GltfDataBuffer() noexcept = default;
+#if __ANDROID__
+fg::GltfDataBuffer::GltfDataBuffer(AAssetManager* asset_manager_in) noexcept : asset_manager{asset_manager_in} {}
+#endif
 fg::GltfDataBuffer::~GltfDataBuffer() noexcept = default;
 
 bool fg::GltfDataBuffer::fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept {
@@ -2174,7 +2181,48 @@ bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCo
     return true;
 }
 
+#if __ANDROID__
+bool fg::GltfDataBuffer::loadFromFile_Android(const fs::path& path, std::uint64_t byteOffset) noexcept {
+    using namespace simdjson;
+
+    const auto filename_string = path.string();
+
+    AAsset* file = AAssetManager_open(asset_manager, filename_string.c_str(), AASSET_MODE_BUFFER);
+    if (file == nullptr) {
+        return false;
+    }
+
+    const auto length = AAsset_getLength(file);
+    if (length == 0) {
+        return false;
+    }
+
+    dataSize = length - byteOffset;
+    allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
+    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]);
+    if (!buffer) {
+        return false;
+    }
+
+    bufferPointer = buffer.get();
+
+    if (byteOffset > 0) {
+        AAsset_seek64(file, byteOffset, SEEK_SET);
+    }
+
+    AAsset_read(file, bufferPointer, dataSize);
+    AAsset_close(file);
+
+    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
+
+    return true;
+}
+#endif
+
 bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOffset) noexcept {
+    #if __ANDROID__
+    return loadFromFile_Android(path, byteOffset);
+    #else
     using namespace simdjson;
     // Open the file and determine the size.
     std::ifstream file(path, std::ios::binary);
@@ -2203,6 +2251,7 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
     file.read(reinterpret_cast<char*>(bufferPointer), static_cast<std::streamsize>(dataSize));
     std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
+    #endif
 }
 
 std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {

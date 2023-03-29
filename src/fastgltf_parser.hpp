@@ -45,6 +45,10 @@
 #endif
 
 // fwd
+#if __ANDROID__
+struct AAssetManager;
+#endif
+
 namespace simdjson::dom {
     class array;
     class object;
@@ -285,9 +289,18 @@ namespace fastgltf {
         std::unique_ptr<std::uint8_t[]> buffer;
 
         std::filesystem::path filePath = {};
+        
+        #if __ANDROID__
+        AAssetManager* asset_manager = nullptr;
+
+        void loadFromFile_Android(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
+        #endif
 
     public:
         explicit GltfDataBuffer() noexcept;
+        #if __ANDROID__
+        explicit GltfDataBuffer(AAssetManager* asset_manager_in) noexcept;
+        #endif
         ~GltfDataBuffer() noexcept;
 
         /**
