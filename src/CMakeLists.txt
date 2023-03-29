@@ -22,7 +22,7 @@ endif()
 
 target_compile_definitions(fastgltf PRIVATE "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
 
-if (Android)
+if (ANDROID)
     find_package(game-activity REQUIRED CONFIG)
     target_link_libraries(fastgltf PRIVATE
         game-activity::game-activity
