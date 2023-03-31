@@ -323,10 +323,10 @@ namespace fastgltf {
 
     #if defined(__ANDROID__)
     class AndroidGltfDataBuffer : public GltfDataBuffer {
-        AAssetManager* assetManager = nullptr;
+        AAssetManager* assetManager;
 
     public:
-        explicit AndroidGltfDataBuffer(AAssetManager* assetManagerIn) noexcept;
+        explicit AndroidGltfDataBuffer(AAssetManager* assetManager) noexcept;
         ~AndroidGltfDataBuffer() noexcept = default;
 
         /**
