@@ -71,6 +71,7 @@ namespace fastgltf {
         MissingField = 7,
         MissingExternalBuffer = 8,
         UnsupportedVersion = 9,
+        InvalidURI = 10,
     };
 
     // clang-format off
@@ -209,7 +210,8 @@ namespace fastgltf {
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
         static void fillCategories(Category& inputCategories) noexcept;
 
-        [[nodiscard]] auto decodeUri(std::string_view uri, bool fromImage) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto decodeDataUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto loadFileFromUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
         void parseAccessors(simdjson::dom::array& array);

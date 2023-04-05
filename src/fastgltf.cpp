@@ -164,6 +164,144 @@ bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensi
     return false;
 }
 
+#pragma region URI
+fg::URI::URI() noexcept = default;
+
+fg::URI::URI(std::string uri) noexcept : uri(std::move(uri)) {
+    parse();
+}
+
+fg::URI::URI(std::string_view uri) noexcept : uri(uri) {
+    parse();
+}
+
+// Note: Defaulting these constructors will implicitly do a member wise copy/move.
+// Should any member of URI have a deleted move constructor, the copy constructor
+// will be used for *all* members without warning.
+fg::URI::URI(const URI& other) = default;
+fg::URI::URI(URI&& other) noexcept = default;
+fg::URI& fg::URI::operator=(const URI& other) = default;
+fg::URI& fg::URI::operator=(URI&& other) noexcept = default;
+
+void fg::URI::decodePercents(std::string& x) noexcept {
+    for (auto it = x.begin(); it != x.end(); it++) {
+        auto& ch = *it;
+        if (ch == '%') {
+            // Read the next two chars and store them.
+            std::array<char, 3> chars = {*(it + 1), *(it + 2), 0};
+            ch = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
+            x.erase(it + 1, it + 3);
+        }
+    }
+}
+
+void fg::URI::parse() {
+    if (uri.empty()) {
+        _valid = false;
+        return;
+    }
+
+    auto uriView = std::string_view { uri };
+
+    size_t idx = 0;
+    auto firstColon = uri.find(':');
+    if (firstColon != std::string::npos) {
+        // URI has a scheme.
+        if (firstColon == 0) {
+            // Empty scheme is invalid
+            _valid = false;
+            return;
+        }
+        _scheme = uriView.substr(0, firstColon);
+        idx = firstColon + 1;
+    }
+
+    if (startsWith(uriView.substr(idx), "//")) {
+        // URI has an authority part.
+        idx += 2;
+        auto nextSlash = uriView.find('/', idx);
+        auto userInfo = uriView.find('@', idx);
+        if (userInfo != std::string::npos && userInfo < nextSlash) {
+            _userinfo = uriView.substr(idx, userInfo - idx);
+            idx += _userinfo.size() + 1;
+        }
+
+        auto hostEnd = nextSlash - 1;
+        std::size_t portColon;
+        if (uriView[idx] == '[') {
+            hostEnd = uriView.find(']', idx);
+            if (hostEnd == std::string::npos) {
+                _valid = false;
+                return;
+            }
+            // IPv6 addresses are made up of colons, so we need to search after its address.
+            // This will just be hostEnd + 1 or std::string::npos.
+            portColon = uriView.find(':', hostEnd);
+        } else {
+            portColon = uriView.find(':', idx);
+        }
+
+        if (portColon != std::string::npos) {
+            _host = uriView.substr(idx, portColon - idx);
+            ++portColon; // We don't want to include the colon in the port string.
+            _port = uriView.substr(portColon, nextSlash - portColon);
+        } else {
+            ++idx;
+            _host = uriView.substr(idx, hostEnd - idx);
+        }
+
+        idx = nextSlash; // Path includes this slash
+    }
+
+    // Parse the path.
+    auto questionIdx = uriView.find("?", idx);
+    auto hashIdx = uriView.find("#", idx);
+    if (questionIdx != std::string::npos) {
+        _path = uriView.substr(idx, questionIdx - idx);
+
+        if (hashIdx == std::string::npos) {
+            _query = uriView.substr(++questionIdx);
+        } else {
+            ++questionIdx;
+            _query = uriView.substr(questionIdx, hashIdx - questionIdx);
+            _fragment = uriView.substr(++hashIdx);
+        }
+    } else if (hashIdx != std::string::npos) {
+        _path = uriView.substr(idx, hashIdx - idx);
+        _fragment = uriView.substr(++hashIdx);
+    } else {
+        _path = uriView.substr(idx);
+    }
+}
+
+std::string_view fg::URI::raw() const noexcept { return uri; }
+std::string_view fg::URI::scheme() const noexcept { return _scheme; }
+std::string_view fg::URI::userinfo() const noexcept { return _userinfo; }
+std::string_view fg::URI::host() const noexcept { return _host; }
+std::string_view fg::URI::port() const noexcept { return _port; }
+std::string_view fg::URI::path() const noexcept { return _path; }
+std::string_view fg::URI::query() const noexcept { return _query; }
+std::string_view fg::URI::fragment() const noexcept { return _fragment; }
+
+fs::path fg::URI::fspath() const {
+    if (!isLocalPath())
+        return {};
+    return { path() };
+}
+
+bool fg::URI::valid() const noexcept {
+    return _valid;
+}
+
+bool fg::URI::isLocalPath() const noexcept {
+    return scheme().empty() || (scheme() == "file" && host().empty());
+}
+
+bool fg::URI::isDataUri() const noexcept {
+    return scheme() == "data";
+}
+#pragma endregion
+
 #pragma region glTF
 fg::glTF::glTF(std::unique_ptr<ParserData> data, fs::path directory, Options options) : data(std::move(data)), directory(std::move(directory)), options(options) {
     parsedAsset = std::make_unique<Asset>();
@@ -194,105 +332,87 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 8
 #define SET_ERROR_RETURN_ERROR(error) errorCode = error; \
     return errorCode;
 
-std::pair<fg::Error, fg::DataSource> fg::glTF::decodeUri(std::string_view uri, bool fromImage) const noexcept {
-    if (uri.substr(0, 4) == "data") {
-        // This is a data URI.
-        auto index =  uri.find(';');
-        auto encodingEnd = uri.find(',', index + 1);
-        if (index == std::string::npos || encodingEnd == std::string::npos) {
-            return std::make_pair(Error::InvalidGltf, std::monostate {});
-        }
+std::pair<fg::Error, fg::DataSource> fg::glTF::decodeDataUri(URI& uri) const noexcept {
+    auto path = uri.path();
+    auto mimeEnd = path.find(';');
+    auto mime = path.substr(0, mimeEnd);
 
-        auto encoding = uri.substr(index + 1, encodingEnd - index - 1);
-        if (encoding != "base64") {
-            return std::make_pair(Error::InvalidGltf, std::monostate {});
-        }
-
-        auto encodedData = uri.substr(encodingEnd + 1);
-        if (data->config.mapCallback != nullptr) {
-            // If a map callback is specified, we use a pointer to memory specified by it.
-            auto padding = base64::getPadding(encodedData);
-            auto size = base64::getOutputSize(encodedData.size(), padding);
-            auto info = data->config.mapCallback(size, data->config.userPointer);
-            if (info.mappedMemory != nullptr) {
-                if (data->config.decodeCallback != nullptr) {
-                    data->config.decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding, size, data->config.userPointer);
-                } else {
-                    base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding);
-                }
-
-                if (data->config.unmapCallback != nullptr) {
-                    data->config.unmapCallback(&info, data->config.userPointer);
-                }
-
-                sources::CustomBuffer source = {};
-                source.id = info.customId;
-                source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
-                return std::make_pair(Error::None, source);
-            }
-        }
-
-        // Decode the base64 data into a traditional vector
-        std::vector<std::uint8_t> uriData;
-        if (data->config.decodeCallback != nullptr) {
-            auto padding = base64::getPadding(encodedData);
-            uriData.resize(base64::getOutputSize(encodedData.size(), padding));
-            data->config.decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->config.userPointer);
-        } else {
-            uriData = base64::decode(encodedData);
-        }
-
-        sources::Vector source = {};
-        if (fromImage) {
-            source.mimeType = getMimeTypeFromString(uri.substr(5, index - 5));
-        } else {
-            // "When data: URI is used for buffer storage, its mediatype field MUST be set to application/octet-stream or application/gltf-buffer."
-            auto mimeType = uri.substr(5, index - 5);
-            constexpr size_t firstChar = sizeof("application/") / sizeof(char) - 1;
-            switch (mimeType[firstChar]) {
-                case 'o': source.mimeType = MimeType::OctetStream; break;
-                case 'g': source.mimeType = MimeType::GltfBuffer; break;
-                default: source.mimeType = MimeType::None; break;
-            }
-        }
-
-        source.bytes = std::move(uriData);
-        return std::make_pair(Error::None, std::move(source));
-    } else if ((hasBit(options, Options::LoadExternalBuffers) && !fromImage) || (hasBit(options, Options::LoadExternalImages) && fromImage)) {
-        auto path = directory / uri;
-        std::error_code error;
-        // If we were instructed to load external buffers and the files don't exist, we'll return an error.
-        if (!fs::exists(path, error) || error) {
-            return std::make_pair(Error::MissingExternalBuffer, std::monostate {});
-        }
-
-        std::ifstream file(path, std::ios::ate | std::ios::binary);
-        auto length = static_cast<std::streamsize>(file.tellg());
-        file.seekg(0);
-
-        if (data->config.mapCallback != nullptr) {
-            auto info = data->config.mapCallback(static_cast<std::uint64_t>(length), data->config.userPointer);
-            if (info.mappedMemory != nullptr) {
-                const sources::CustomBuffer customBufferSource = { info.customId, MimeType::None };
-                file.read(reinterpret_cast<char*>(info.mappedMemory), length);
-                if (data->config.unmapCallback != nullptr) {
-                    data->config.unmapCallback(&info, data->config.userPointer);
-                }
-
-                return std::make_pair(Error::None, customBufferSource);
-            }
-        }
-
-        sources::Vector vectorSource = {};
-        vectorSource.mimeType = MimeType::GltfBuffer;
-        vectorSource.bytes.resize(length);
-        file.read(reinterpret_cast<char*>(vectorSource.bytes.data()), length);
-        return std::make_pair(Error::None, std::move(vectorSource));
-    } else {
-        // TODO: Actually support decoding URIs.
-        sources::FilePath fileSource = {0, directory / uri, MimeType::None};
-        return std::make_pair(Error::None, std::move(fileSource));
+    auto encodingEnd = path.find(',');
+    auto encoding = path.substr(mimeEnd + 1, encodingEnd - mimeEnd - 1);
+    if (encoding != "base64") {
+        return std::make_pair(Error::InvalidURI, std::monostate {});
     }
+
+    auto encodedData = path.substr(encodingEnd + 1);
+    if (data->config.mapCallback != nullptr) {
+        // If a map callback is specified, we use a pointer to memory specified by it.
+        auto padding = base64::getPadding(encodedData);
+        auto size = base64::getOutputSize(encodedData.size(), padding);
+        auto info = data->config.mapCallback(size, data->config.userPointer);
+        if (info.mappedMemory != nullptr) {
+            if (data->config.decodeCallback != nullptr) {
+                data->config.decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding, size, data->config.userPointer);
+            } else {
+                base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding);
+            }
+
+            if (data->config.unmapCallback != nullptr) {
+                data->config.unmapCallback(&info, data->config.userPointer);
+            }
+
+            sources::CustomBuffer source = {};
+            source.id = info.customId;
+            source.mimeType = getMimeTypeFromString(mime);
+            return std::make_pair(Error::None, source);
+        }
+    }
+
+    // Decode the base64 data into a traditional vector
+    std::vector<std::uint8_t> uriData;
+    if (data->config.decodeCallback != nullptr) {
+        auto padding = base64::getPadding(encodedData);
+        uriData.resize(base64::getOutputSize(encodedData.size(), padding));
+        data->config.decodeCallback(encodedData, uriData.data(), padding, uriData.size(), data->config.userPointer);
+    } else {
+        uriData = base64::decode(encodedData);
+    }
+
+    sources::Vector source = {};
+    source.mimeType = getMimeTypeFromString(mime);
+    source.bytes = std::move(uriData);
+    return std::make_pair(Error::None, std::move(source));
+}
+
+std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const noexcept {
+    auto path = directory / uri.path();
+    std::error_code error;
+    // If we were instructed to load external buffers and the files don't exist, we'll return an error.
+    if (!fs::exists(path, error) || error) {
+        return std::make_pair(Error::MissingExternalBuffer, std::monostate {});
+    }
+
+    std::ifstream file(path, std::ios::ate | std::ios::binary);
+    auto length = static_cast<std::streamsize>(file.tellg());
+    file.seekg(0);
+
+    if (data->config.mapCallback != nullptr) {
+        auto info = data->config.mapCallback(static_cast<std::uint64_t>(length), data->config.userPointer);
+        if (info.mappedMemory != nullptr) {
+            const sources::CustomBuffer customBufferSource = { info.customId, MimeType::None };
+            file.read(reinterpret_cast<char*>(info.mappedMemory), length);
+            if (data->config.unmapCallback != nullptr) {
+                data->config.unmapCallback(&info, data->config.userPointer);
+            }
+
+            return std::make_pair(Error::None, customBufferSource);
+        }
+    }
+
+    sources::Vector vectorSource = {};
+    vectorSource.mimeType = MimeType::GltfBuffer;
+    vectorSource.bytes.resize(length);
+    file.read(reinterpret_cast<char*>(vectorSource.bytes.data()), length);
+    return std::make_pair(Error::None, std::move(vectorSource));
 }
 
 void fg::glTF::fillCategories(Category& inputCategories) noexcept {
@@ -1100,14 +1220,33 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
 
         // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
         // file. Otherwise, data must be specified in the "uri" field.
-        std::string_view uri;
-        if (bufferObject["uri"].get_string().get(uri) == SUCCESS) {
-            auto [error, source] = decodeUri(uri, false);
-            if (error != Error::None) {
-                SET_ERROR_RETURN(error)
+        std::string_view uriString;
+        if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) {
+            URI uri(uriString);
+            if (!uri.valid()) {
+                SET_ERROR_RETURN(Error::InvalidURI)
             }
 
-            buffer.data = std::move(source);
+            if (uri.isDataUri()) {
+                auto [error, source] = decodeDataUri(uri);
+                if (error != Error::None) {
+                    SET_ERROR_RETURN(error)
+                }
+
+                buffer.data = std::move(source);
+            } else if (uri.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
+                auto [error, source] = loadFileFromUri(uri);
+                if (error != Error::None) {
+                    SET_ERROR_RETURN(error)
+                }
+
+                buffer.data = std::move(source);
+            } else {
+                sources::URI filePath;
+                filePath.fileByteOffset = 0;
+                filePath.uri = std::move(uri);
+                buffer.data = std::move(filePath);
+            }
         } else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
             buffer.data = std::move(glbBuffer);
         } else {
@@ -1386,18 +1525,38 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        std::string_view uri;
-        if (imageObject["uri"].get_string().get(uri) == SUCCESS) {
+        std::string_view uriString;
+        if (imageObject["uri"].get_string().get(uriString) == SUCCESS) {
             if (imageObject["bufferView"].error() == SUCCESS) {
                 // If uri is declared, bufferView cannot be declared.
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            auto [error, source] = decodeUri(uri, true);
-            if (error != Error::None) {
-                SET_ERROR_RETURN(error)
+
+            URI uri(uriString);
+            if (!uri.valid()) {
+                SET_ERROR_RETURN(Error::InvalidURI)
             }
 
-            image.data = std::move(source);
+            if (uri.isDataUri()) {
+                auto [error, source] = decodeDataUri(uri);
+                if (error != Error::None) {
+                    SET_ERROR_RETURN(error)
+                }
+
+                image.data = std::move(source);
+            } else if (uri.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
+                auto [error, source] = loadFileFromUri(uri);
+                if (error != Error::None) {
+                    SET_ERROR_RETURN(error)
+                }
+
+                image.data = std::move(source);
+            } else {
+                sources::URI filePath;
+                filePath.fileByteOffset = 0;
+                filePath.uri = std::move(uri);
+                image.data = std::move(filePath);
+            }
 
             std::string_view mimeType;
             if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) {
@@ -1405,7 +1564,7 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
                     using T = std::decay_t<decltype(arg)>;
 
                     // This is kinda cursed
-                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::FilePath, sources::Vector>()) {
+                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Vector>()) {
                         arg.mimeType = getMimeTypeFromString(mimeType);
                     }
                 }, image.data);
@@ -2386,10 +2545,8 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
                 gltf->glbBuffer = std::move(vectorData);
             }
         } else {
-            sources::FilePath filePath = {};
-            filePath.fileByteOffset  = offset;
-            filePath.path = buffer->filePath;
-            filePath.mimeType = MimeType::GltfBuffer;
+            auto string = std::string("file:") + buffer->filePath.string();
+            sources::URI filePath = { offset, fastgltf::URI(std::move(string)), MimeType::GltfBuffer };
             gltf->glbBuffer = std::move(filePath);
         }
     }

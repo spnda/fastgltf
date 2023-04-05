@@ -22,8 +22,9 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         REQUIRE(asset->buffers.size() == 1);
 
         auto& buffer = asset->buffers.front();
-        auto* bufferFile = std::get_if<fastgltf::sources::FilePath>(&buffer.data);
+        auto* bufferFile = std::get_if<fastgltf::sources::URI>(&buffer.data);
         REQUIRE(bufferFile != nullptr);
+        REQUIRE(bufferFile->uri.isLocalPath());
         REQUIRE(bufferFile->fileByteOffset == 1016);
     }
 

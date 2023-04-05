@@ -485,10 +485,12 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
     std::visit(overloaded {
         [](auto& arg) {},
-        [&](fastgltf::sources::FilePath& filePath) {
+        [&](fastgltf::sources::URI& filePath) {
             assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
+            assert(filePath.uri.isLocalPath()); // We're only capable of loading local files.
             int width, height, nrChannels;
-            auto path = filePath.path.string();
+
+            std::string path(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
             unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
             glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
             glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);

@@ -201,8 +201,10 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
         REQUIRE(!texture.fallbackImageIndex.has_value());
 
         auto& image = asset->images.front();
-        auto filePath = std::get_if<fastgltf::sources::FilePath>(&image.data);
+        auto* filePath = std::get_if<fastgltf::sources::URI>(&image.data);
         REQUIRE(filePath != nullptr);
+        REQUIRE(filePath->uri.valid());
+        REQUIRE(filePath->uri.isLocalPath());
         REQUIRE(filePath->mimeType == fastgltf::MimeType::KTX2);
     }
 

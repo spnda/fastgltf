@@ -616,6 +616,61 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Structs
+    /**
+     * Custom URI class for fastgltf's needs. glTF 2.0 only allows two types of URIs:
+     *  (1) Data URIs as specified in RFC 2397.
+     *  (2) Relative paths as specified in RFC 3986.
+     *
+     * See https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#uris for details.
+     * However, the glTF spec allows more broader URIs in client implementations. Therefore,
+     * this supports all types of URIs as defined in RFC 3986.
+     */
+    class URI {
+        std::string uri;
+
+        std::string_view _scheme;
+        std::string_view _path;
+
+        std::string_view _userinfo;
+        std::string_view _host;
+        std::string_view _port;
+
+        std::string_view _query;
+        std::string_view _fragment;
+
+        bool _valid = true;
+
+        void parse();
+
+    public:
+        explicit URI() noexcept;
+        explicit URI(std::string uri) noexcept;
+        explicit URI(std::string_view uri) noexcept;
+
+        URI(const URI& other);
+        URI(URI&& other) noexcept;
+
+        URI& operator=(const URI& other);
+        URI& operator=(URI&& other) noexcept;
+
+        static void decodePercents(std::string& x) noexcept;
+
+        [[nodiscard]] auto raw() const noexcept -> std::string_view;
+
+        [[nodiscard]] auto scheme() const noexcept -> std::string_view;
+        [[nodiscard]] auto userinfo() const noexcept -> std::string_view;
+        [[nodiscard]] auto host() const noexcept -> std::string_view;
+        [[nodiscard]] auto port() const noexcept -> std::string_view;
+        [[nodiscard]] auto path() const noexcept -> std::string_view;
+        [[nodiscard]] auto query() const noexcept -> std::string_view;
+        [[nodiscard]] auto fragment() const noexcept -> std::string_view;
+
+        [[nodiscard]] auto fspath() const -> std::filesystem::path;
+        [[nodiscard]] bool valid() const noexcept;
+        [[nodiscard]] bool isLocalPath() const noexcept;
+        [[nodiscard]] bool isDataUri() const noexcept;
+    };
+
     using CustomBufferId = std::uint64_t;
 
     /**
@@ -627,9 +682,9 @@ namespace fastgltf {
             MimeType mimeType;
         };
 
-        struct FilePath {
+        struct URI {
             std::size_t fileByteOffset;
-            std::filesystem::path path;
+            fastgltf::URI uri;
             MimeType mimeType;
         };
 
@@ -652,7 +707,7 @@ namespace fastgltf {
      * already checks for while parsing. Note that for buffers, this variant will never hold a BufferView,
      * as only images are able to reference buffer views as a source.
      */
-    using DataSource = std::variant<std::monostate, sources::BufferView, sources::FilePath, sources::Vector, sources::CustomBuffer>;
+    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Vector, sources::CustomBuffer>;
 
     struct AnimationChannel {
         std::size_t samplerIndex;
