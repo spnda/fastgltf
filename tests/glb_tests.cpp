@@ -22,10 +22,10 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         REQUIRE(asset->buffers.size() == 1);
 
         auto& buffer = asset->buffers.front();
-        auto* bufferFile = std::get_if<fastgltf::sources::URI>(&buffer.data);
-        REQUIRE(bufferFile != nullptr);
-        REQUIRE(bufferFile->uri.isLocalPath());
-        REQUIRE(bufferFile->fileByteOffset == 1016);
+        auto* bufferView = std::get_if<fastgltf::sources::ByteView>(&buffer.data);
+        REQUIRE(bufferView != nullptr);
+        auto jsonSpan = fastgltf::span<std::byte>(jsonData);
+        REQUIRE(bufferView->bytes.data() - jsonSpan.data() == 1016);
     }
 
     SECTION("Load basic Box.glb and load buffers") {

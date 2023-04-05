@@ -2329,7 +2329,7 @@ bool fg::GltfDataBuffer::fromByteView(std::uint8_t* bytes, std::size_t byteCount
         return copyBytes(bytes, byteCount);
 
     dataSize = byteCount;
-    bufferPointer = bytes;
+    bufferPointer = reinterpret_cast<std::byte*>(bytes);
     allocatedSize = capacity;
     std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
@@ -2343,7 +2343,7 @@ bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCo
     // Allocate a byte array with a bit of padding.
     dataSize = byteCount;
     allocatedSize = byteCount + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+    buffer = decltype(buffer)(new std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     bufferPointer = buffer.get();
 
     // Copy the data and fill the padding region with zeros.
@@ -2372,7 +2372,7 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
 
     dataSize = static_cast<std::uint64_t>(length) - byteOffset;
     allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+    buffer = decltype(buffer)(new std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     if (!buffer)
         return false;
     bufferPointer = buffer.get();
@@ -2453,7 +2453,8 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
     }
 
     auto data = std::make_unique<ParserData>();
-    if (jsonParser->parse(padded_string_view(buffer->bufferPointer, jsonLength, buffer->allocatedSize)).get(data->root) != SUCCESS) {
+    auto view = padded_string_view(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer), jsonLength, buffer->allocatedSize);
+    if (jsonParser->parse(view).get(data->root) != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }
@@ -2502,7 +2503,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
 
     // Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
     // says the padding can be initialised to anything, apparently. Therefore, this should work.
-    simdjson::padded_string_view jsonChunkView(buffer->bufferPointer + offset,
+    simdjson::padded_string_view jsonChunkView(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer) + offset,
                                                jsonChunk.chunkLength,
                                                jsonChunk.chunkLength + SIMDJSON_PADDING);
     offset += jsonChunk.chunkLength;
@@ -2545,9 +2546,11 @@ std::unique_ptr<fg::glTF> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs:
                 gltf->glbBuffer = std::move(vectorData);
             }
         } else {
-            auto string = std::string("file:") + buffer->filePath.string();
-            sources::URI filePath = { offset, fastgltf::URI(std::move(string)), MimeType::GltfBuffer };
-            gltf->glbBuffer = std::move(filePath);
+            const span<const std::byte> glbBytes(reinterpret_cast<std::byte*>(buffer->bufferPointer + offset), binaryChunk.chunkLength);
+            sources::ByteView glbByteView = {};
+            glbByteView.bytes = glbBytes;
+            glbByteView.mimeType = MimeType::GltfBuffer;
+            gltf->glbBuffer = glbByteView;
         }
     }
 

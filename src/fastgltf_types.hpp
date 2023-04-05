@@ -37,6 +37,10 @@
 // Utils header already includes some headers, which we'll try and avoid including twice.
 #include "fastgltf_util.hpp"
 
+#if FASTGLTF_CPP_20
+#include <span>
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -671,6 +675,66 @@ namespace fastgltf {
         [[nodiscard]] bool isDataUri() const noexcept;
     };
 
+    inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
+
+    /**
+     * Custom span class imitating C++20's std::span for referencing bytes without owning the
+     * allocation. Can also directly be converted to a std::span or used by itself.
+     */
+    template <typename T, std::size_t Extent = dynamic_extent>
+    class span {
+        using element_type = T;
+        using value_type = std::remove_cv_t<T>;
+        using size_type = std::size_t;
+        using difference_type = std::ptrdiff_t;
+        using pointer = T*;
+        using const_pointer = const T*;
+        using reference = T&;
+        using const_reference = const T&;
+
+        pointer _ptr;
+        size_type _size;
+
+    public:
+        constexpr span() noexcept = default;
+
+        template <typename Iterator>
+        explicit constexpr span(Iterator first, size_type count) : _ptr(first), _size(count) {}
+
+        constexpr span(const span& other) noexcept = default;
+        constexpr span& operator=(const span& other) noexcept = default;
+
+        [[nodiscard]] constexpr reference operator[](size_type idx) const {
+            return data()[idx];
+        }
+
+        [[nodiscard]] constexpr pointer data() const noexcept {
+            return _ptr;
+        }
+
+        [[nodiscard]] constexpr size_type size() const noexcept {
+            return size;
+        }
+
+        [[nodiscard]] constexpr size_type size_bytes() const noexcept {
+            return _size * sizeof(element_type);
+        }
+
+        [[nodiscard]] constexpr bool empty() const noexcept {
+            return size() == 0;
+        }
+
+        [[nodiscard]] constexpr span<T, Extent> first(size_type count) const {
+            return span(_ptr, count);
+        }
+
+#if FASTGLTF_CPP_20
+        operator std::span() const {
+            return std::span(data(), size());
+        }
+#endif
+    };
+
     using CustomBufferId = std::uint64_t;
 
     /**
@@ -697,7 +761,12 @@ namespace fastgltf {
             CustomBufferId id;
             MimeType mimeType;
         };
-    }
+
+        struct ByteView {
+            span<const std::byte> bytes;
+            MimeType mimeType;
+        };
+    };
 
     /**
      * Represents the data source of a buffer or image. These could be a buffer view, a file path
@@ -707,7 +776,7 @@ namespace fastgltf {
      * already checks for while parsing. Note that for buffers, this variant will never hold a BufferView,
      * as only images are able to reference buffer views as a source.
      */
-    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Vector, sources::CustomBuffer>;
+    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Vector, sources::CustomBuffer, sources::ByteView>;
 
     struct AnimationChannel {
         std::size_t samplerIndex;
@@ -1020,7 +1089,7 @@ namespace fastgltf {
         Asset& operator=(const Asset& scene) = delete;
     };
 #pragma endregion
-}
+} // namespace fastgltf
 
 #ifdef _MSC_VER
 #pragma warning(pop)

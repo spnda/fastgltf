@@ -282,9 +282,9 @@ namespace fastgltf {
 
         std::size_t allocatedSize = 0;
         std::size_t dataSize = 0;
-        std::uint8_t* bufferPointer = nullptr;
+        std::byte* bufferPointer = nullptr;
 
-        std::unique_ptr<std::uint8_t[]> buffer;
+        std::unique_ptr<std::byte[]> buffer;
 
         std::filesystem::path filePath = {};
 
@@ -316,6 +316,10 @@ namespace fastgltf {
          * @return
          */
         [[nodiscard]] inline std::size_t getBufferSize() const noexcept;
+
+        [[nodiscard]] explicit operator span<std::byte>() {
+            return span<std::byte>(bufferPointer, dataSize);
+        }
     };
 
     /**
