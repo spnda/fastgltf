@@ -2418,7 +2418,7 @@ bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::
 
     dataSize = length - byteOffset;
     allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new std::uint8_t[allocatedSize]);
+    buffer = decltype(buffer)(new std::byte[allocatedSize]);
     if (!buffer) {
         return false;
     }
