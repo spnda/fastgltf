@@ -34,6 +34,10 @@
 #include <functional>
 #include <utility>
 
+#if __ANDROID__
+#include <android/asset_manager.h>
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -2386,6 +2390,54 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
 std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
     return dataSize;
 }
+#pragma endregion
+
+#pragma region AndroidGltfDataBuffer
+#if defined(__ANDROID__)
+fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(AAssetManager* assetManager) noexcept : assetManager{assetManager} {}
+
+bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::uint64_t byteOffset) noexcept {
+    if (assetManager == nullptr) {
+        return false;
+    }
+    
+    using namespace simdjson;
+
+    const auto filenameString = path.string();
+
+    auto assetDeleter = [](AAsset* file) { AAsset_close(file); };
+    auto file = std::unique_ptr<AAsset, decltype(assetDeleter)>(AAssetManager_open(assetManager, filenameString.c_str(), AASSET_MODE_BUFFER), assetDeleter);
+    if (file == nullptr) {
+        return false;
+    }
+
+    const auto length = AAsset_getLength(file.get());
+    if (length == 0) {
+        return false;
+    }
+
+    dataSize = length - byteOffset;
+    allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
+    buffer = decltype(buffer)(new std::byte[allocatedSize]);
+    if (!buffer) {
+        return false;
+    }
+
+    bufferPointer = buffer.get();
+
+    if (byteOffset > 0) {
+        AAsset_seek64(file.get(), byteOffset, SEEK_SET);
+    }
+
+    AAsset_read(file.get(), bufferPointer, dataSize);
+
+    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
+
+    filePath = path;
+
+    return true;
+}
+#endif
 #pragma endregion
 
 #pragma region Parser

@@ -45,6 +45,10 @@
 #endif
 
 // fwd
+#if defined(__ANDROID__)
+struct AAssetManager;
+#endif
+
 namespace simdjson::dom {
     class array;
     class object;
@@ -280,6 +284,7 @@ namespace fastgltf {
         friend class Parser;
         friend GltfType determineGltfFileType(GltfDataBuffer* buffer);
 
+    protected:
         std::size_t allocatedSize = 0;
         std::size_t dataSize = 0;
         std::byte* bufferPointer = nullptr;
@@ -287,10 +292,10 @@ namespace fastgltf {
         std::unique_ptr<std::byte[]> buffer;
 
         std::filesystem::path filePath = {};
-
+        
     public:
         explicit GltfDataBuffer() noexcept;
-        ~GltfDataBuffer() noexcept;
+        virtual ~GltfDataBuffer() noexcept;
 
         /**
          * Saves the pointer including its range. Does not copy any data. This requires the
@@ -310,7 +315,7 @@ namespace fastgltf {
          * Loads the file with a optional byte offset into a memory buffer.
          */
         bool loadFromFile(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
-
+        
         /**
          * Returns the size, in bytes,
          * @return
@@ -321,6 +326,21 @@ namespace fastgltf {
             return span<std::byte>(bufferPointer, dataSize);
         }
     };
+
+    #if defined(__ANDROID__)
+    class AndroidGltfDataBuffer : public GltfDataBuffer {
+        AAssetManager* assetManager;
+
+    public:
+        explicit AndroidGltfDataBuffer(AAssetManager* assetManager) noexcept;
+        ~AndroidGltfDataBuffer() noexcept = default;
+
+        /**
+         * Loads a file from within an Android APK
+         */
+        bool loadFromAndroidAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
+    };
+    #endif
 
     /**
      * Some internals the parser passes on to each glTF instance.

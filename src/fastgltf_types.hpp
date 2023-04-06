@@ -729,7 +729,7 @@ namespace fastgltf {
         }
 
 #if FASTGLTF_CPP_20
-        operator std::span() const {
+        operator std::span<T>() const {
             return std::span(data(), size());
         }
 #endif
