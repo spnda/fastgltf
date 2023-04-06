@@ -75,6 +75,7 @@ namespace fastgltf {
         MissingField = 7,
         MissingExternalBuffer = 8,
         UnsupportedVersion = 9,
+        InvalidURI = 10,
     };
 
     // clang-format off
@@ -213,7 +214,8 @@ namespace fastgltf {
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
         static void fillCategories(Category& inputCategories) noexcept;
 
-        [[nodiscard]] auto decodeUri(std::string_view uri, bool fromImage) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto decodeDataUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto loadFileFromUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
         void parseAccessors(simdjson::dom::array& array);
@@ -285,9 +287,9 @@ namespace fastgltf {
     protected:
         std::size_t allocatedSize = 0;
         std::size_t dataSize = 0;
-        std::uint8_t* bufferPointer = nullptr;
+        std::byte* bufferPointer = nullptr;
 
-        std::unique_ptr<std::uint8_t[]> buffer;
+        std::unique_ptr<std::byte[]> buffer;
 
         std::filesystem::path filePath = {};
         
@@ -319,6 +321,10 @@ namespace fastgltf {
          * @return
          */
         [[nodiscard]] inline std::size_t getBufferSize() const noexcept;
+
+        [[nodiscard]] explicit operator span<std::byte>() {
+            return span<std::byte>(bufferPointer, dataSize);
+        }
     };
 
     #if defined(__ANDROID__)

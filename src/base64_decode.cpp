@@ -67,12 +67,12 @@ namespace fastgltf::base64 {
             // We use simdjson's helper functions to determine which SIMD intrinsics are available at runtime.
             // The different implementations, because they're SIMD based, require a minimum amount of chars, as
             // they load multiple at once.
-            auto& impls = simdjson::get_available_implementations();
+            const auto& impls = simdjson::get_available_implementations();
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-            if (const auto* avx2 = impls["haswell"]; avx2 && avx2->supported_by_runtime_system()) {
+            if (const auto* avx2 = impls["haswell"]; avx2 != nullptr && avx2->supported_by_runtime_system()) {
                 func = avx2_decode;
                 inplace = avx2_decode_inplace;
-            } else if (const auto* sse4 = impls["westmere"]; sse4 && sse4->supported_by_runtime_system()) {
+            } else if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
                 func = sse4_decode;
                 inplace = sse4_decode_inplace;
             }
@@ -98,7 +98,7 @@ namespace fastgltf::base64 {
             return &getter;
         }
     };
-};
+} // namespace fastgltf::base64
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
 // The AVX and SSE decoding functions are based on http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html.

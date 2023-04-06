@@ -23,9 +23,7 @@ endif()
 target_compile_definitions(fastgltf PRIVATE "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
 
 if (ANDROID)
-    target_link_libraries(fastgltf PRIVATE
-        android
-    )
+    target_link_libraries(fastgltf PRIVATE android)
 endif()
 
 install(
