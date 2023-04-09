@@ -674,15 +674,17 @@ namespace fastgltf {
     };
 
     #if defined(__ANDROID__)
-    class AndroidGltfDataBuffer : public GltfDataBuffer {
-        AAssetManager* assetManager;
+	void setAndroidAssetManager(AAssetManager* assetManager) noexcept;
 
+    class AndroidGltfDataBuffer : public GltfDataBuffer {
     public:
-        explicit AndroidGltfDataBuffer(AAssetManager* assetManager) noexcept;
+        explicit AndroidGltfDataBuffer() noexcept;
         ~AndroidGltfDataBuffer() noexcept = default;
 
         /**
-         * Loads a file from within an Android APK
+         * Loads a file from within an Android APK.
+         *
+         * @note This requires a valid AAssetManager to have been specified through fastgltf::setAndroidAssetManager.
          */
         bool loadFromAndroidAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
     };
@@ -732,6 +734,9 @@ namespace fastgltf {
 
 		[[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> Expected<DataSource>;
 		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
+#if defined(__ANDROID__)
+		[[nodiscard]] auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> Expected<DataSource>;
+#endif
 
 		Error generateMeshIndices(Asset& asset) const;
 

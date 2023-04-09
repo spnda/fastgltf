@@ -400,6 +400,17 @@ namespace fastgltf {
 			? static_cast<unsigned_t>(-(val + 1)) + 1
 			: static_cast<unsigned_t>(val);
 	}
+
+	template <auto callback>
+	struct UniqueDeleter {
+		template <typename T>
+		constexpr void operator()(T* t) const {
+			callback(t);
+		}
+	};
+
+	template <typename T, auto callback>
+	using deletable_unique_ptr = std::unique_ptr<T, UniqueDeleter<callback>>;
 } // namespace fastgltf
 
 #ifdef _MSC_VER
