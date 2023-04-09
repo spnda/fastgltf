@@ -404,7 +404,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const n
 
 #if defined(__ANDROID__)
     // Try to load external buffers from the APK. If they're not there, fall through to the file case
-    const auto android_result = loadFileFromApk(uri);
+    const auto android_result = loadFileFromApk(path);
     if(android_result.first == Error::None) {
         return android_result;
     }
