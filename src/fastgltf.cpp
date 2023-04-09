@@ -456,7 +456,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromApk(URI& uri) const n
         auto info = data->config.mapCallback(static_cast<std::uint64_t>(length), data->config.userPointer);
         if (info.mappedMemory != nullptr) {
             const sources::CustomBuffer customBufferSource = { info.customId, MimeType::None };
-            file.read(reinterpret_cast<char*>(info.mappedMemory), length);
+            AAsset_read(file.get(), info.mappedMemory, length);
             if (data->config.unmapCallback != nullptr) {
                 data->config.unmapCallback(&info, data->config.userPointer);
             }
