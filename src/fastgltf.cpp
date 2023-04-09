@@ -440,9 +440,10 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const n
 }
 
 #if defined(__ANDROID__)
-std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromApk(URI& uri) const noexcept {
+std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromApk(const std::filesystem::path& filepath) const noexcept {
+    const auto fileString = filepath.string();
     auto assetDeleter = [](AAsset* file) { AAsset_close(file); };
-    auto file = std::unique_ptr<AAsset, decltype(assetDeleter)>(AAssetManager_open(androidAssetManager, uri.c_str(), AASSET_MODE_BUFFER), assetDeleter);
+    auto file = std::unique_ptr<AAsset, decltype(assetDeleter)>(AAssetManager_open(androidAssetManager, fileString.c_str(), AASSET_MODE_BUFFER), assetDeleter);
     if (file == nullptr) {
         return std::make_pair(Error::MissingExternalBuffer, std::monostate{});
     }

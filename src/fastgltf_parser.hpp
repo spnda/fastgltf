@@ -217,7 +217,7 @@ namespace fastgltf {
         [[nodiscard]] auto decodeDataUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
         [[nodiscard]] auto loadFileFromUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
 #if defined(__ANDROID__)
-        [[nodiscard]] auto loadFileFromApk(URI& uri) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> std::pair<Error, DataSource>;
 #endif
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
