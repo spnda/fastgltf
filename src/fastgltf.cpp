@@ -34,7 +34,7 @@
 #include <functional>
 #include <utility>
 
-#if __ANDROID__
+#if defined(__ANDROID__)
 #include <android/asset_manager.h>
 #endif
 
@@ -66,6 +66,16 @@ namespace fastgltf {
     constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
     constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
     constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+
+
+#if defined(__ANDROID__)
+    /**
+     * TU-global asset manager that can be accessed by glTF's methods
+     *
+     * VS having to pass it to every glTF that we parse
+     */
+    static AAssetManager* androidAssetManager = nullptr;
+#endif
 
     struct ParserData {
         simdjson::dom::document doc;
@@ -390,6 +400,15 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeDataUri(URI& uri) const noe
 std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const noexcept {
     auto path = directory / uri.path();
     std::error_code error;
+
+#if defined(__ANDROID__)
+    // Try to load external buffers from the APK. If they're not there, fall through to the file case
+    const auto android_result = loadFileFromApk(uri);
+    if(android_result.first != Error::None) {
+        return android_result;
+    }
+#endif
+
     // If we were instructed to load external buffers and the files don't exist, we'll return an error.
     if (!fs::exists(path, error) || error) {
         return std::make_pair(Error::MissingExternalBuffer, std::monostate {});
@@ -418,6 +437,12 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const n
     file.read(reinterpret_cast<char*>(vectorSource.bytes.data()), length);
     return std::make_pair(Error::None, std::move(vectorSource));
 }
+
+#if defined(__ANDROID__)
+std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromApk(URI& uri) const noexcept {
+    
+}
+#endif
 
 void fg::glTF::fillCategories(Category& inputCategories) noexcept {
     if (inputCategories == Category::All)
@@ -2394,10 +2419,12 @@ std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
 
 #pragma region AndroidGltfDataBuffer
 #if defined(__ANDROID__)
-fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(AAssetManager* assetManager) noexcept : assetManager{assetManager} {}
+fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(AAssetManager* assetManager) noexcept {
+    androidAssetManager = assetManager;
+}
 
 bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::uint64_t byteOffset) noexcept {
-    if (assetManager == nullptr) {
+    if (androidAssetManager == nullptr) {
         return false;
     }
     
@@ -2406,7 +2433,7 @@ bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::
     const auto filenameString = path.string();
 
     auto assetDeleter = [](AAsset* file) { AAsset_close(file); };
-    auto file = std::unique_ptr<AAsset, decltype(assetDeleter)>(AAssetManager_open(assetManager, filenameString.c_str(), AASSET_MODE_BUFFER), assetDeleter);
+    auto file = std::unique_ptr<AAsset, decltype(assetDeleter)>(AAssetManager_open(androidAssetManager, filenameString.c_str(), AASSET_MODE_BUFFER), assetDeleter);
     if (file == nullptr) {
         return false;
     }

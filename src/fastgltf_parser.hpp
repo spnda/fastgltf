@@ -216,6 +216,9 @@ namespace fastgltf {
 
         [[nodiscard]] auto decodeDataUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
         [[nodiscard]] auto loadFileFromUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
+#if defined(__ANDROID__)
+        [[nodiscard]] auto loadFileFromApk(URI& uri) const noexcept -> std::pair<Error, DataSource>;
+#endif
         [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
         void parseAccessors(simdjson::dom::array& array);
@@ -329,8 +332,6 @@ namespace fastgltf {
 
     #if defined(__ANDROID__)
     class AndroidGltfDataBuffer : public GltfDataBuffer {
-        AAssetManager* assetManager;
-
     public:
         explicit AndroidGltfDataBuffer(AAssetManager* assetManager) noexcept;
         ~AndroidGltfDataBuffer() noexcept = default;
