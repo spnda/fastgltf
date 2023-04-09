@@ -289,6 +289,7 @@ void fg::URI::parse() {
 }
 
 std::string_view fg::URI::raw() const noexcept { return uri; }
+const char* fastgltf::URI::c_str() const noexcept { return uri.c_str(); }
 std::string_view fg::URI::scheme() const noexcept { return _scheme; }
 std::string_view fg::URI::userinfo() const noexcept { return _userinfo; }
 std::string_view fg::URI::host() const noexcept { return _host; }
@@ -404,7 +405,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const n
 #if defined(__ANDROID__)
     // Try to load external buffers from the APK. If they're not there, fall through to the file case
     const auto android_result = loadFileFromApk(uri);
-    if(android_result.first != Error::None) {
+    if(android_result.first == Error::None) {
         return android_result;
     }
 #endif
@@ -440,7 +441,36 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const n
 
 #if defined(__ANDROID__)
 std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromApk(URI& uri) const noexcept {
+    auto assetDeleter = [](AAsset* file) { AAsset_close(file); };
+    auto file = std::unique_ptr<AAsset, decltype(assetDeleter)>(AAssetManager_open(androidAssetManager, uri.c_str(), AASSET_MODE_BUFFER), assetDeleter);
+    if (file == nullptr) {
+        return std::make_pair(Error::MissingExternalBuffer, std::monostate{});
+    }
+
+    const auto length = AAsset_getLength(file.get());
+    if (length == 0) {
+        return std::make_pair(Error::MissingExternalBuffer, std::monostate{});
+    }
+
+    if (data->config.mapCallback != nullptr) {
+        auto info = data->config.mapCallback(static_cast<std::uint64_t>(length), data->config.userPointer);
+        if (info.mappedMemory != nullptr) {
+            const sources::CustomBuffer customBufferSource = { info.customId, MimeType::None };
+            file.read(reinterpret_cast<char*>(info.mappedMemory), length);
+            if (data->config.unmapCallback != nullptr) {
+                data->config.unmapCallback(&info, data->config.userPointer);
+            }
+
+            return std::make_pair(Error::None, customBufferSource);
+        }
+    }
     
+    sources::Vector vectorSource = {};
+    vectorSource.mimeType = MimeType::GltfBuffer;
+    vectorSource.bytes.resize(length);
+    AAsset_read(file.get(), vectorSource.bytes.data(), length);
+
+    return std::make_pair(Error::None, std::move(vectorSource));
 }
 #endif
 
@@ -2508,12 +2538,14 @@ fg::Error fg::Parser::getError() const {
 
 std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path directory, Options options) {
     using namespace simdjson;
-
+    
+#if !defined(__ANDROID__)
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
     if (hasBit(options, Options::LoadExternalBuffers) && !fs::is_directory(directory)) {
         errorCode = Error::InvalidPath;
         return nullptr;
     }
+#endif
 
     errorCode = Error::None;
 

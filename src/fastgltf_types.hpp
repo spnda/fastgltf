@@ -660,6 +660,7 @@ namespace fastgltf {
         static void decodePercents(std::string& x) noexcept;
 
         [[nodiscard]] auto raw() const noexcept -> std::string_view;
+        [[nodiscard]] auto c_str() const noexcept -> const char*;
 
         [[nodiscard]] auto scheme() const noexcept -> std::string_view;
         [[nodiscard]] auto userinfo() const noexcept -> std::string_view;
