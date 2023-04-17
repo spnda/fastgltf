@@ -395,9 +395,12 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const n
         return std::make_pair(Error::MissingExternalBuffer, std::monostate {});
     }
 
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    auto length = static_cast<std::streamsize>(file.tellg());
-    file.seekg(0);
+    auto length = static_cast<std::streamsize>(std::filesystem::file_size(path, error));
+    if (error) {
+        return std::make_pair(Error::InvalidPath, std::monostate {});
+    }
+
+    std::ifstream file(path, std::ios::binary);
 
     if (data->config.mapCallback != nullptr) {
         auto info = data->config.mapCallback(static_cast<std::uint64_t>(length), data->config.userPointer);
@@ -2358,6 +2361,12 @@ bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCo
 
 bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOffset) noexcept {
     using namespace simdjson;
+    std::error_code ec;
+    auto length = static_cast<std::streamsize>(std::filesystem::file_size(path, ec));
+    if (ec) {
+        return false;
+    }
+
     // Open the file and determine the size.
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open() || file.bad())
@@ -2365,13 +2374,6 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
 
     filePath = path;
 
-    // Skip over as many characters as possible until EOF, then get how many characters were skipped.
-    file.ignore(std::numeric_limits<std::streamsize>::max());
-    auto length = file.gcount();
-    if (length == 0 || file.bad())
-        return false;
-
-    file.clear();
     file.seekg(static_cast<std::streamsize>(byteOffset), std::ifstream::beg);
 
     dataSize = static_cast<std::uint64_t>(length) - byteOffset;

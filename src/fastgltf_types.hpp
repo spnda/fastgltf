@@ -692,8 +692,8 @@ namespace fastgltf {
         using reference = T&;
         using const_reference = const T&;
 
-        pointer _ptr;
-        size_type _size;
+        pointer _ptr = nullptr;
+        size_type _size = 0;
 
     public:
         constexpr span() noexcept = default;
