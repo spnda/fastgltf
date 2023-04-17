@@ -1732,20 +1732,19 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
         }
 
         TextureInfo textureObject = {};
-        auto error = parseTextureObject(&materialObject, "normalTexture", &textureObject);
-        if (error == Error::None) {
+        if (auto error = parseTextureObject(&materialObject, "normalTexture", &textureObject); error == Error::None) {
             material.normalTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
         }
-        error = parseTextureObject(&materialObject, "occlusionTexture", &textureObject);
-        if (error == Error::None) {
+
+        if (auto error = parseTextureObject(&materialObject, "occlusionTexture", &textureObject); error == Error::None) {
             material.occlusionTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
         }
-        error = parseTextureObject(&materialObject, "emissiveTexture", &textureObject);
-        if (error == Error::None) {
+
+        if (auto error = parseTextureObject(&materialObject, "emissiveTexture", &textureObject); error == Error::None) {
             material.emissiveTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
@@ -1780,14 +1779,13 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                 pbr.roughnessFactor = 1.0F;
             }
 
-            error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &textureObject);
-            if (error == Error::None) {
+            if (auto error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &textureObject); error == Error::None) {
                 pbr.baseColorTexture = std::move(textureObject);
             } else if (error != Error::MissingField) {
                 SET_ERROR_RETURN(error)
             }
-            error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &textureObject);
-            if (error == Error::None) {
+
+            if (auto error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &textureObject); error == Error::None) {
                 pbr.metallicRoughnessTexture = std::move(textureObject);
             } else if (error != Error::MissingField) {
                 SET_ERROR_RETURN(error)
@@ -1825,10 +1823,68 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
             material.doubleSided = false;
         }
 
-        // name is optional.
         std::string_view name;
         if (materialObject["name"].get_string().get(name) == SUCCESS) {
             material.name = std::string { name };
+        }
+
+        dom::object extensionsObject;
+        if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
+            dom::object specularObject;
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_specular)) {
+                if (auto specularError = extensionsObject[extensions::KHR_materials_specular].get_object().get(specularObject); specularError == SUCCESS) {
+                    auto specular = std::make_unique<MaterialSpecular>();
+
+                    double specularFactor;
+                    if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error == SUCCESS) {
+                        specular->specularFactor = static_cast<float>(specularFactor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        specular->specularFactor = 1.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo specularTexture;
+                    if (auto error = parseTextureObject(&specularObject, "specularTexture", &specularTexture); error == Error::None) {
+                        specular->specularTexture = std::move(specularTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    dom::array specularColorFactor;
+                    if (auto error = specularObject["specularColorFactor"].get_array().get(specularColorFactor); error == SUCCESS) {
+                        std::size_t i = 0;
+                        specular->specularColorFactor = std::array<float, 3> {};
+                        for (auto factor : specularColorFactor) {
+                            if (i >= specular->specularColorFactor->size()) {
+                                SET_ERROR_RETURN(Error::InvalidGltf)
+                            }
+                            double value;
+                            if (factor.get_double().get(value) != SUCCESS) {
+                                SET_ERROR_RETURN(Error::InvalidGltf)
+                            }
+                            (*specular->specularColorFactor)[i++] = static_cast<float>(value);
+                        }
+                    } else if (error == NO_SUCH_FIELD) {
+                        specular->specularColorFactor = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo specularColorTexture;
+                    if (auto error = parseTextureObject(&specularObject, "specularColorTexture", &specularColorTexture); error == Error::None) {
+                        specular->specularColorTexture = std::move(specularColorTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    material.specular = std::move(specular);
+                } else if (specularError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+        } else if (extensionError != NO_SUCH_FIELD) {
+            SET_ERROR_RETURN(Error::InvalidJson)
         }
 
         parsedAsset->materials.emplace_back(std::move(material));

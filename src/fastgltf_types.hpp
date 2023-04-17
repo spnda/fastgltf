@@ -952,6 +952,16 @@ namespace fastgltf {
         std::optional<TextureInfo> metallicRoughnessTexture;
     };
 
+    /**
+     * Specular information from KHR_materials_specular.
+     */
+    struct MaterialSpecular {
+        std::optional<float> specularFactor;
+        std::optional<TextureInfo> specularTexture;
+        std::optional<std::array<float, 3>> specularColorFactor;
+        std::optional<TextureInfo> specularColorTexture;
+    };
+
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
@@ -983,6 +993,8 @@ namespace fastgltf {
          * Determines whether back-face culling should be disabled when using this material.
          */
         bool doubleSided;
+
+        std::unique_ptr<MaterialSpecular> specular;
 
         std::string name;
     };
