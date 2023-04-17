@@ -538,28 +538,22 @@ fg::Error fg::glTF::validate() {
         if (bufferView.bufferIndex >= parsedAsset->buffers.size())
             return Error::InvalidGltf;
 
-        if (bufferView.mode.has_value()) {
-            // If mode has a value, this must be a buffer view that is using the meshoptimizer's
-            // compression. We therefore have to assume that everything but byteOffset and filter
-            // are present. Otherwise, the parse stage would have already failed.
-            if (!bufferView.count.has_value())
-                return Error::InvalidGltf;
-            if (!bufferView.filter.has_value())
-                return Error::InvalidGltf;
-            if (!bufferView.byteStride.has_value())
-                return Error::InvalidGltf;
+        if (bufferView.meshoptCompression != nullptr && hasBit(data->config.extensions, Extensions::EXT_meshopt_compression))
+            return Error::InvalidGltf;
 
-            switch (bufferView.mode.value()) {
+        if (bufferView.meshoptCompression) {
+            const auto& compression = bufferView.meshoptCompression;
+            switch (compression->mode) {
                 case MeshoptCompressionMode::Attributes:
-                    if (*bufferView.byteStride % 4 != 0 || *bufferView.byteStride > 256)
+                    if (*compression->byteStride % 4 != 0 || *compression->byteStride > 256)
                         return Error::InvalidGltf;
                     break;
                 case MeshoptCompressionMode::Triangles:
-                    if (*bufferView.count % 3 != 0)
+                    if (compression->count % 3 != 0)
                         return Error::InvalidGltf;
                     [[fallthrough]];
                 case MeshoptCompressionMode::Indices:
-                    if (*bufferView.byteStride != 2 && *bufferView.byteStride != 4)
+                    if (*compression->byteStride != 2 && *compression->byteStride != 4)
                         return Error::InvalidGltf;
                     break;
                 case MeshoptCompressionMode::None:
@@ -1281,123 +1275,138 @@ void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
 
     parsedAsset->bufferViews.reserve(bufferViews.size());
     for (auto bufferViewValue : bufferViews) {
-        // Required fields: "bufferIndex", "byteLength"
         dom::object bufferViewObject;
         if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        auto parseBufferViewObject = [&views = parsedAsset->bufferViews, this](dom::object& object, bool fromMeshoptCompression) -> fg::Error {
-            BufferView view = {};
+        std::uint64_t number;
+        BufferView view;
+        if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) {
+            SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
+        }
+        view.bufferIndex = static_cast<std::size_t>(number);
 
-            std::uint64_t number;
-            if (object["buffer"].get_uint64().get(number) != SUCCESS) {
-                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-            } else {
-                view.bufferIndex = static_cast<std::size_t>(number);
-            }
+        if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) {
+            view.byteOffset = static_cast<std::size_t>(number);
+        } else if (error == NO_SUCH_FIELD) {
+            view.byteOffset = 0;
+        } else {
+            SET_ERROR_RETURN(Error::InvalidJson)
+        }
 
-            if (object["byteLength"].get_uint64().get(number) != SUCCESS) {
-                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-            } else {
-                view.byteLength = static_cast<std::size_t>(number);
-            }
+        if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) {
+            SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
+        }
+        view.byteLength = static_cast<std::size_t>(number);
 
-            // byteOffset is optional, but defaults to 0
-            if (object["byteOffset"].get_uint64().get(number) != SUCCESS) {
-                view.byteOffset = 0;
-            } else {
-                view.byteOffset = static_cast<std::size_t>(number);
-            }
+        if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) {
+            view.byteStride = static_cast<std::size_t>(number);
+        } else if (error != NO_SUCH_FIELD) {
+            SET_ERROR_RETURN(Error::InvalidJson)
+        }
 
-            if (object["byteStride"].get_uint64().get(number) == SUCCESS) {
-                view.byteStride = static_cast<std::size_t>(number);
-            } else if (fromMeshoptCompression) {
-                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-            }
+        if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) {
+            view.target = static_cast<BufferTarget>(number);
+        } else if (error != NO_SUCH_FIELD) {
+            SET_ERROR_RETURN(Error::InvalidJson)
+        }
 
-            if (object["count"].get_uint64().get(number) == SUCCESS) {
-                view.count = number;
-            } else if (fromMeshoptCompression) {
-                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-            }
-
-            // target is optional
-            if (!fromMeshoptCompression && object["target"].get_uint64().get(number) == SUCCESS) {
-                view.target = static_cast<BufferTarget>(number);
-            }
-
-            // name is optional. With EXT_meshopt_compression it seems to be entirely omitted, but
-            // the spec is not fully clear on this.
-            std::string_view string;
-            if (object["name"].get_string().get(string) == SUCCESS) {
-                view.name = std::string { string };
-            }
-
-            if (object["mode"].get_string().get(string) == SUCCESS) {
-                const auto key = crc32(string);
-                switch (key) {
-                    case force_consteval<crc32("ATTRIBUTES")>: {
-                        view.mode = MeshoptCompressionMode::Attributes;
-                        break;
-                    }
-                    case force_consteval<crc32("TRIANGLES")>: {
-                        view.mode = MeshoptCompressionMode::Triangles;
-                        break;
-                    }
-                    case force_consteval<crc32("INDICES")>: {
-                        view.mode = MeshoptCompressionMode::Indices;
-                        break;
-                    }
-                    default: {
-                        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-                    }
-                }
-            } else if (fromMeshoptCompression) {
-                SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-            }
-
-            if (object["filter"].get_string().get(string) == SUCCESS) {
-                const auto key = crc32(string);
-                switch (key) {
-                    case force_consteval<crc32("NONE")>: {
-                        view.filter = MeshoptCompressionFilter::None;
-                        break;
-                    }
-                    case force_consteval<crc32("OCTAHEDRAL")>: {
-                        view.filter = MeshoptCompressionFilter::Octahedral;
-                        break;
-                    }
-                    case force_consteval<crc32("QUATERNION")>: {
-                        view.filter = MeshoptCompressionFilter::Quaternion;
-                        break;
-                    }
-                    case force_consteval<crc32("EXPONENTIAL")>: {
-                        view.filter = MeshoptCompressionFilter::Exponential;
-                        break;
-                    }
-                    default: {
-                        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-                    }
-                }
-            } else if (fromMeshoptCompression) {
-                view.filter = MeshoptCompressionFilter::None;
-            }
-
-            views.emplace_back(std::move(view));
-            return errorCode;
-        };
+        std::string_view string;
+        if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
+            view.name = std::string { string };
+        } else if (error != NO_SUCH_FIELD) {
+            SET_ERROR_RETURN(Error::InvalidJson)
+        }
 
         dom::object extensionObject;
         if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) {
             dom::object meshoptCompression;
             if (hasBit(data->config.extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
-                parseBufferViewObject(meshoptCompression, true);
-                continue;
+                auto compression = std::make_unique<CompressedBufferView>();
+
+                if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) {
+                    SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
+                }
+                compression->bufferIndex = static_cast<std::size_t>(number);
+
+                if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) {
+                    compression->byteOffset = static_cast<std::size_t>(number);
+                } else if (error == NO_SUCH_FIELD) {
+                    compression->byteOffset = 0;
+                } else {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+
+                if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) {
+                    SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
+                }
+                compression->byteLength = static_cast<std::size_t>(number);
+
+                if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error != SUCCESS) {
+                    SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
+                }
+                compression->byteStride = static_cast<std::size_t>(number);
+
+                if (auto error = bufferViewObject["count"].get_uint64().get(number); error != SUCCESS) {
+                    SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
+                }
+                compression->count = number;
+
+                if (auto error = bufferViewObject["mode"].get_string().get(string); error != SUCCESS) {
+                    SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
+                }
+                switch (const auto key = crc32(string); key) {
+                    case force_consteval<crc32("ATTRIBUTES")>: {
+                        compression->mode = MeshoptCompressionMode::Attributes;
+                        break;
+                    }
+                    case force_consteval<crc32("TRIANGLES")>: {
+                        compression->mode = MeshoptCompressionMode::Triangles;
+                        break;
+                    }
+                    case force_consteval<crc32("INDICES")>: {
+                        compression->mode = MeshoptCompressionMode::Indices;
+                        break;
+                    }
+                    default: {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+                }
+
+                if (auto error = bufferViewObject["filter"].get_string().get(string); error == SUCCESS) {
+                    switch (const auto key = crc32(string); key) {
+                        case force_consteval<crc32("NONE")>: {
+                            compression->filter = MeshoptCompressionFilter::None;
+                            break;
+                        }
+                        case force_consteval<crc32("OCTAHEDRAL")>: {
+                            compression->filter = MeshoptCompressionFilter::Octahedral;
+                            break;
+                        }
+                        case force_consteval<crc32("QUATERNION")>: {
+                            compression->filter = MeshoptCompressionFilter::Quaternion;
+                            break;
+                        }
+                        case force_consteval<crc32("EXPONENTIAL")>: {
+                            compression->filter = MeshoptCompressionFilter::Exponential;
+                            break;
+                        }
+                        default: {
+                            SET_ERROR_RETURN(Error::InvalidGltf)
+                        }
+                    }
+                } else if (error == NO_SUCH_FIELD) {
+                    compression->filter = MeshoptCompressionFilter::None;
+                } else {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+
+                view.meshoptCompression = std::move(compression);
             }
         }
 
-        parseBufferViewObject(bufferViewObject, false);
+        parsedAsset->bufferViews.emplace_back(std::move(view));
     }
 }
 
@@ -1725,19 +1734,19 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
         TextureInfo textureObject = {};
         auto error = parseTextureObject(&materialObject, "normalTexture", &textureObject);
         if (error == Error::None) {
-            material.normalTexture = textureObject;
+            material.normalTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
         }
         error = parseTextureObject(&materialObject, "occlusionTexture", &textureObject);
         if (error == Error::None) {
-            material.occlusionTexture = textureObject;
+            material.occlusionTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
         }
         error = parseTextureObject(&materialObject, "emissiveTexture", &textureObject);
         if (error == Error::None) {
-            material.emissiveTexture = textureObject;
+            material.emissiveTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
         }
@@ -1773,18 +1782,18 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
 
             error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &textureObject);
             if (error == Error::None) {
-                pbr.baseColorTexture = textureObject;
+                pbr.baseColorTexture = std::move(textureObject);
             } else if (error != Error::MissingField) {
                 SET_ERROR_RETURN(error)
             }
             error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &textureObject);
             if (error == Error::None) {
-                pbr.metallicRoughnessTexture = textureObject;
+                pbr.metallicRoughnessTexture = std::move(textureObject);
             } else if (error != Error::MissingField) {
                 SET_ERROR_RETURN(error)
             }
 
-            material.pbrData = pbr;
+            material.pbrData = std::move(pbr);
         }
 
         std::string_view alphaMode;
@@ -2223,21 +2232,22 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
         info->scale = 1.0F;
     }
 
-    info->rotation = 0.0F;
-    info->uvOffset = {{ 0.0F, 0.0F }};
-    info->uvScale = {{ 1.0F, 1.0F }};
-
     dom::object extensionsObject;
     if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
         dom::object textureTransform;
         if (hasBit(data->config.extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) {
+            auto transform = std::make_unique<TextureTransform>();
+            transform->rotation = 0.0F;
+            transform->uvOffset = {{ 0.0F, 0.0F }};
+            transform->uvScale = {{ 1.0F, 1.0F }};
+
             if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
-                info->texCoordIndex = index;
+                transform->texCoordIndex = index;
             }
 
             double rotation = 0.0F;
             if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
-                info->rotation = static_cast<float>(rotation);
+                transform->rotation = static_cast<float>(rotation);
             }
 
             dom::array array;
@@ -2247,7 +2257,7 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
                     if (array.at(i).get_double().get(val) != SUCCESS) {
                         return Error::InvalidGltf;
                     }
-                    info->uvOffset[i] = static_cast<float>(val);
+                    transform->uvOffset[i] = static_cast<float>(val);
                 }
             }
 
@@ -2257,9 +2267,11 @@ fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, Textu
                     if (array.at(i).get_double().get(val) != SUCCESS) {
                         return Error::InvalidGltf;
                     }
-                    info->uvScale[i] = static_cast<float>(val);
+                    transform->uvScale[i] = static_cast<float>(val);
                 }
             }
+
+            info->transform = std::move(transform);
         }
     }
 

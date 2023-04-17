@@ -853,7 +853,12 @@ namespace fastgltf {
         std::optional<std::size_t> meshIndex;
         std::optional<std::size_t> skinIndex;
         std::optional<std::size_t> cameraIndex;
+
+        /**
+         * Only ever empty when KHR_lights_punctual is enabled and used by the asset.
+         */
         std::optional<std::size_t> lightsIndex;
+
         SmallVector<std::size_t> children;
         SmallVector<float> weights;
 
@@ -891,26 +896,40 @@ namespace fastgltf {
         std::string name;
     };
 
+    /**
+     * Texture transform information as per KHR_texture_transform.
+     */
+    struct TextureTransform {
+        /**
+         * The offset of the UV coordinate origin as a factor of the texture dimensions.
+         */
+        float rotation;
+
+        /**
+         * Rotate the UVs by this many radians counter-clockwise around the origin. This is equivalent to a similar rotation of the image clockwise.
+         */
+        std::array<float, 2> uvOffset;
+
+        /**
+         * The scale factor applied to the components of the UV coordinates.
+         */
+        std::array<float, 2> uvScale;
+
+        /**
+         * Overrides the textureInfo texCoord value if supplied.
+         */
+        std::optional<std::size_t> texCoordIndex;
+    };
+
     struct TextureInfo {
         std::size_t textureIndex;
         std::size_t texCoordIndex;
         float scale;
 
         /**
-         * UV counter-clockwise rotation in radians.
-         * @note 0.0f unless KHR_texture_transform is specified and used by the glTF.
+         * Data from KHR_texture_transform, and nullptr if the extension wasn't enabled or used.
          */
-        float rotation;
-        /**
-         * UV offset.
-         * @note 0.0f unless KHR_texture_transform is specified and used by the glTF.
-         */
-        std::array<float, 2> uvOffset;
-        /**
-         * UV scale.
-         * @note 1.0f unless KHR_texture_transform is specified and used by the glTF.
-         */
-        std::array<float, 2> uvScale;
+        std::unique_ptr<TextureTransform> transform;
     };
 
     struct PBRData {
@@ -969,6 +988,10 @@ namespace fastgltf {
     };
 
     struct Texture {
+        /**
+         * When empty, an extension or other mechanism SHOULD supply an alternate texture source,
+         * otherwise behavior is undefined.
+         */
         std::optional<std::size_t> imageIndex;
 
         /**
@@ -1018,6 +1041,8 @@ namespace fastgltf {
         std::string name;
     };
 
+    struct CompressedBufferView;
+
     struct BufferView {
         std::size_t bufferIndex;
         std::size_t byteOffset;
@@ -1026,14 +1051,23 @@ namespace fastgltf {
         std::optional<std::size_t> byteStride;
         std::optional<BufferTarget> target;
 
-        // From EXT_meshopt_compression
-        std::optional<std::size_t> count;
-        // From EXT_meshopt_compression
-        std::optional<MeshoptCompressionMode> mode;
-        // From EXT_meshopt_compression
-        std::optional<MeshoptCompressionFilter> filter;
+        /**
+         * Data from EXT_meshopt_compression, and nullptr if the extension was not enabled or used.
+         */
+        std::unique_ptr<CompressedBufferView> meshoptCompression;
 
         std::string name;
+    };
+
+    struct CompressedBufferView : BufferView {
+    private:
+        using BufferView::name;
+        using BufferView::target;
+
+    public:
+        std::size_t count;
+        MeshoptCompressionMode mode;
+        MeshoptCompressionFilter filter;
     };
 
     struct Buffer {

@@ -236,8 +236,9 @@ TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
     auto& material = asset->materials.front();
     REQUIRE(material.pbrData.has_value());
     REQUIRE(material.pbrData->baseColorTexture.has_value());
-    REQUIRE(material.pbrData->baseColorTexture->uvOffset[0] == 0.705f);
-    REQUIRE(material.pbrData->baseColorTexture->rotation == Catch::Approx(1.5707963705062866f));
+    REQUIRE(material.pbrData->baseColorTexture->transform != nullptr);
+    REQUIRE(material.pbrData->baseColorTexture->transform->uvOffset[0] == 0.705f);
+    REQUIRE(material.pbrData->baseColorTexture->transform->rotation == Catch::Approx(1.5707963705062866f));
 }
 
 TEST_CASE("Loading glTF animation", "[gltf-loader]") {
