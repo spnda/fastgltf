@@ -1830,9 +1830,25 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
 
         dom::object extensionsObject;
         if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
-            dom::object specularObject;
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_ior)) {
+                dom::object iorObject;
+                auto iorError = extensionsObject[extensions::KHR_materials_ior].get_object().get(iorObject);
+                if (iorError == SUCCESS) {
+                    double ior;
+                    auto error = iorObject["ior"].get_double().get(ior);
+                    if (error != SUCCESS) {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+                    material.ior = static_cast<float>(ior);
+                } else if (iorError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+
             if (hasBit(data->config.extensions, Extensions::KHR_materials_specular)) {
-                if (auto specularError = extensionsObject[extensions::KHR_materials_specular].get_object().get(specularObject); specularError == SUCCESS) {
+                dom::object specularObject;
+                auto specularError = extensionsObject[extensions::KHR_materials_specular].get_object().get(specularObject);
+                if (specularError == SUCCESS) {
                     auto specular = std::make_unique<MaterialSpecular>();
 
                     double specularFactor;

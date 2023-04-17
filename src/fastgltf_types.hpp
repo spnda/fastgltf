@@ -996,6 +996,11 @@ namespace fastgltf {
 
         std::unique_ptr<MaterialSpecular> specular;
 
+        /**
+         * The index of refraction as specified through KHR_materials_ior.
+         */
+        std::optional<float> ior;
+
         std::string name;
     };
 
