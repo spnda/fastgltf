@@ -1845,6 +1845,68 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                 }
             }
 
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_iridescence)) {
+                dom::object iridescenceObject;
+                auto iridescenceError = extensionsObject[extensions::KHR_materials_iridescence].get_object().get(iridescenceObject);
+                if (iridescenceError == SUCCESS) {
+                    auto iridescence = std::make_unique<MaterialIridescence>();
+
+                    double iridescenceFactor;
+                    if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor); error == SUCCESS) {
+                        iridescence->iridescenceFactor = static_cast<float>(iridescenceFactor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        iridescence->iridescenceFactor = 0.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo iridescenceTexture;
+                    if (auto error = parseTextureObject(&iridescenceObject, "specularTexture", &iridescenceTexture); error == Error::None) {
+                        iridescence->iridescenceTexture = std::move(iridescenceTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    double iridescenceIor;
+                    if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error == SUCCESS) {
+                        iridescence->iridescenceIor = static_cast<float>(iridescenceIor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        iridescence->iridescenceIor = 1.3f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    double iridescenceThicknessMinimum;
+                    if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(iridescenceThicknessMinimum); error == SUCCESS) {
+                        iridescence->iridescenceThicknessMinimum = static_cast<float>(iridescenceThicknessMinimum);
+                    } else if (error == NO_SUCH_FIELD) {
+                        iridescence->iridescenceThicknessMinimum = 100.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    double iridescenceThicknessMaximum;
+                    if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(iridescenceThicknessMaximum); error == SUCCESS) {
+                        iridescence->iridescenceThicknessMaximum = static_cast<float>(iridescenceThicknessMaximum);
+                    } else if (error == NO_SUCH_FIELD) {
+                        iridescence->iridescenceThicknessMaximum = 400.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo iridescenceThicknessTexture;
+                    if (auto error = parseTextureObject(&iridescenceObject, "specularTexture", &iridescenceThicknessTexture); error == Error::None) {
+                        iridescence->iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    material.iridescence = std::move(iridescence);
+                } else if (iridescenceError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+
             if (hasBit(data->config.extensions, Extensions::KHR_materials_specular)) {
                 dom::object specularObject;
                 auto specularError = extensionsObject[extensions::KHR_materials_specular].get_object().get(specularObject);

@@ -134,3 +134,34 @@ TEST_CASE("Test KHR_materials_specular", "[gltf-loader]") {
     REQUIRE(materials[12].specular->specularColorTexture.has_value());
     REQUIRE(materials[12].specular->specularColorTexture.value().textureIndex == 2);
 }
+
+TEST_CASE("Test KHR_materials_ior and KHR_materials_iridescence", "[gltf-loader]") {
+    auto specularTest = sampleModels / "2.0" / "IridescenceDielectricSpheres" / "glTF";
+    fastgltf::GltfDataBuffer jsonData;
+    REQUIRE(jsonData.loadFromFile(specularTest / "IridescenceDielectricSpheres.gltf"));
+
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_iridescence | fastgltf::Extensions::KHR_materials_ior);
+    auto model = parser.loadGLTF(&jsonData, specularTest);
+    REQUIRE(model->parse(fastgltf::Category::Materials) == fastgltf::Error::None);
+    REQUIRE(model->validate() == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->materials.size() >= 12);
+
+    auto& materials = asset->materials;
+    REQUIRE(materials[0].iridescence != nullptr);
+    REQUIRE(materials[0].iridescence->iridescenceFactor == 1.0f);
+    REQUIRE(materials[0].iridescence->iridescenceIor == 1.0f);
+    REQUIRE(materials[0].iridescence->iridescenceThicknessMaximum == 100.0f);
+
+    REQUIRE(materials[0].ior.has_value());
+    REQUIRE(materials[0].ior.value() == 1.0f);
+
+    REQUIRE(materials[7].ior.has_value());
+    REQUIRE(materials[7].ior.value() == 1.17f);
+
+    REQUIRE(materials[50].iridescence != nullptr);
+    REQUIRE(materials[50].iridescence->iridescenceFactor == 1.0f);
+    REQUIRE(materials[50].iridescence->iridescenceIor == 1.17f);
+    REQUIRE(materials[50].iridescence->iridescenceThicknessMaximum == 200.0f);
+}
