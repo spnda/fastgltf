@@ -997,6 +997,13 @@ namespace fastgltf {
         std::optional<TextureInfo> clearcoatNormalTexture;
     };
 
+    struct MaterialSheen {
+        std::array<float, 3> sheenColorFactor;
+        std::optional<TextureInfo> sheenColorTexture;
+        float sheenRoughnessFactor;
+        std::optional<TextureInfo> sheenRoughnessTexture;
+    };
+
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
@@ -1035,6 +1042,8 @@ namespace fastgltf {
          * Iridescence information from KHR_materials_iridescence.
          */
         std::unique_ptr<MaterialIridescence> iridescence;
+
+        std::unique_ptr<MaterialSheen> sheen;
 
         /**
          * Specular information from KHR_materials_specular.

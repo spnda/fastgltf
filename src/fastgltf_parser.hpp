@@ -126,6 +126,9 @@ namespace fastgltf {
 
         // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_emissive_strength/README.md
         KHR_materials_emissive_strength = 1 << 15,
+
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_sheen/README.md
+        KHR_materials_sheen = 1 << 16,
     };
     // clang-format on
 
@@ -209,6 +212,7 @@ namespace fastgltf {
         constexpr std::string_view KHR_materials_emissive_strength = "KHR_materials_emissive_strength";
         constexpr std::string_view KHR_materials_ior = "KHR_materials_ior";
         constexpr std::string_view KHR_materials_iridescence = "KHR_materials_iridescence";
+        constexpr std::string_view KHR_materials_sheen = "KHR_materials_sheen";
         constexpr std::string_view KHR_materials_specular = "KHR_materials_specular";
         constexpr std::string_view KHR_materials_transmission = "KHR_materials_transmission";
         constexpr std::string_view KHR_materials_volume = "KHR_materials_volume";

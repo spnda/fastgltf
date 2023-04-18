@@ -392,7 +392,7 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 15> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 16> extensionStrings = {{
     { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
@@ -401,6 +401,7 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 1
     { fg::extensions::KHR_materials_emissive_strength,    fg::Extensions::KHR_materials_emissive_strength },
     { fg::extensions::KHR_materials_ior,                  fg::Extensions::KHR_materials_ior },
     { fg::extensions::KHR_materials_iridescence,          fg::Extensions::KHR_materials_iridescence },
+    { fg::extensions::KHR_materials_sheen,                fg::Extensions::KHR_materials_sheen },
     { fg::extensions::KHR_materials_specular,             fg::Extensions::KHR_materials_specular },
     { fg::extensions::KHR_materials_transmission,         fg::Extensions::KHR_materials_transmission },
     { fg::extensions::KHR_materials_volume,               fg::Extensions::KHR_materials_volume },
@@ -2060,6 +2061,60 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                 }
             }
 
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_sheen)) {
+                dom::object sheenObject;
+                auto sheenError = extensionsObject[extensions::KHR_materials_sheen].get_object().get(sheenObject);
+                if (sheenError == SUCCESS) {
+                    auto sheen = std::make_unique<MaterialSheen>();
+
+                    dom::array sheenColorFactor;
+                    if (auto error = sheenObject["sheenColorFactor"].get_array().get(sheenColorFactor); error == SUCCESS) {
+                        std::size_t i = 0;
+                        for (auto factor : sheenColorFactor) {
+                            if (i >= sheen->sheenColorFactor.size()) {
+                                SET_ERROR_RETURN(Error::InvalidGltf)
+                            }
+                            double value;
+                            if (factor.get_double().get(value) != SUCCESS) {
+                                SET_ERROR_RETURN(Error::InvalidGltf)
+                            }
+                            sheen->sheenColorFactor[i++] = static_cast<float>(value);
+                        }
+                    } else if (error == NO_SUCH_FIELD) {
+                        sheen->sheenColorFactor = std::array<float, 3>{{ 0.0f, 0.0f, 0.0f }};
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo sheenColorTexture;
+                    if (auto error = parseTextureObject(&sheenObject, "sheenColorTexture", &sheenColorTexture); error == Error::None) {
+                        sheen->sheenColorTexture = std::move(sheenColorTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    double sheenRoughnessFactor;
+                    if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor); error == SUCCESS) {
+                        sheen->sheenRoughnessFactor = static_cast<float>(sheenRoughnessFactor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        sheen->sheenRoughnessFactor = 0.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo sheenRoughnessTexture;
+                    if (auto error = parseTextureObject(&sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture); error == Error::None) {
+                        sheen->sheenRoughnessTexture = std::move(sheenRoughnessTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    material.sheen = std::move(sheen);
+                } else if (sheenError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+
             if (hasBit(data->config.extensions, Extensions::KHR_materials_specular)) {
                 dom::object specularObject;
                 auto specularError = extensionsObject[extensions::KHR_materials_specular].get_object().get(specularObject);
@@ -2096,7 +2151,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                             specular->specularColorFactor[i++] = static_cast<float>(value);
                         }
                     } else if (error == NO_SUCH_FIELD) {
-                        specular->specularColorFactor = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
+                        specular->specularColorFactor = std::array<float, 3>{{ 1.0f, 1.0f, 1.0f }};
                     } else {
                         SET_ERROR_RETURN(Error::InvalidGltf)
                     }
