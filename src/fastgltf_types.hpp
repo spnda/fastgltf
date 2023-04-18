@@ -1052,6 +1052,11 @@ namespace fastgltf {
         std::unique_ptr<MaterialVolume> volume;
 
         /**
+         * The emissive strength from the KHR_materials_emissive_strength extension.
+         */
+        std::optional<float> emissiveStrength;
+
+        /**
          * The index of refraction as specified through KHR_materials_ior.
          */
         std::optional<float> ior;

@@ -392,12 +392,13 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 14> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 15> extensionStrings = {{
     { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
     { fg::extensions::KHR_lights_punctual,                fg::Extensions::KHR_lights_punctual },
     { fg::extensions::KHR_materials_clearcoat,            fg::Extensions::KHR_materials_clearcoat },
+    { fg::extensions::KHR_materials_emissive_strength,    fg::Extensions::KHR_materials_emissive_strength },
     { fg::extensions::KHR_materials_ior,                  fg::Extensions::KHR_materials_ior },
     { fg::extensions::KHR_materials_iridescence,          fg::Extensions::KHR_materials_iridescence },
     { fg::extensions::KHR_materials_specular,             fg::Extensions::KHR_materials_specular },
@@ -1959,6 +1960,22 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
 
                     material.clearcoat = std::move(clearcoat);
                 } else if (clearcoatError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_emissive_strength)) {
+                dom::object emissiveObject;
+                auto emissiveError = extensionsObject[extensions::KHR_materials_emissive_strength].get_object().get(emissiveObject);
+                if (emissiveError == SUCCESS) {
+                    double emissiveStrength;
+                    auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
+                    if (error == SUCCESS) {
+                        material.emissiveStrength = static_cast<float>(emissiveStrength);
+                    } else if (error == NO_SUCH_FIELD) {
+                        material.emissiveStrength = 1.0f;
+                    }
+                } else if (emissiveError != NO_SUCH_FIELD) {
                     SET_ERROR_RETURN(Error::InvalidJson)
                 }
             }
