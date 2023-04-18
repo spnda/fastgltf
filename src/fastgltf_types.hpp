@@ -989,6 +989,14 @@ namespace fastgltf {
         std::optional<TextureInfo> transmissionTexture;
     };
 
+    struct MaterialClearcoat {
+        float clearcoatFactor;
+        std::optional<TextureInfo> clearcoatTexture;
+        float clearcoatRoughnessFactor;
+        std::optional<TextureInfo> clearcoatRoughnessTexture;
+        std::optional<TextureInfo> clearcoatNormalTexture;
+    };
+
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
@@ -1020,6 +1028,8 @@ namespace fastgltf {
          * Determines whether back-face culling should be disabled when using this material.
          */
         bool doubleSided;
+
+        std::unique_ptr<MaterialClearcoat> clearcoat;
 
         /**
          * Iridescence information from KHR_materials_iridescence.

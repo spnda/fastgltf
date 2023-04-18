@@ -392,11 +392,12 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 13> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 14> extensionStrings = {{
     { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
     { fg::extensions::KHR_lights_punctual,                fg::Extensions::KHR_lights_punctual },
+    { fg::extensions::KHR_materials_clearcoat,            fg::Extensions::KHR_materials_clearcoat },
     { fg::extensions::KHR_materials_ior,                  fg::Extensions::KHR_materials_ior },
     { fg::extensions::KHR_materials_iridescence,          fg::Extensions::KHR_materials_iridescence },
     { fg::extensions::KHR_materials_specular,             fg::Extensions::KHR_materials_specular },
@@ -1911,6 +1912,57 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
 
         dom::object extensionsObject;
         if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_clearcoat)) {
+                dom::object clearcoatObject;
+                auto clearcoatError = extensionsObject[extensions::KHR_materials_clearcoat].get_object().get(clearcoatObject);
+                if (clearcoatError == SUCCESS) {
+                    auto clearcoat = std::make_unique<MaterialClearcoat>();
+
+                    double clearcoatFactor;
+                    if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error == SUCCESS) {
+                        clearcoat->clearcoatFactor = static_cast<float>(clearcoatFactor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        clearcoat->clearcoatFactor = 0.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo clearcoatTexture;
+                    if (auto error = parseTextureObject(&clearcoatObject, "clearcoatTexture", &clearcoatTexture); error == Error::None) {
+                        clearcoat->clearcoatTexture = std::move(clearcoatTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    double clearcoatRoughnessFactor;
+                    if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(clearcoatRoughnessFactor); error == SUCCESS) {
+                        clearcoat->clearcoatRoughnessFactor = static_cast<float>(clearcoatRoughnessFactor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        clearcoat->clearcoatRoughnessFactor = 0.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo clearcoatRoughnessTexture;
+                    if (auto error = parseTextureObject(&clearcoatObject, "clearcoatRoughnessTexture", &clearcoatRoughnessTexture); error == Error::None) {
+                        clearcoat->clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    TextureInfo clearcoatNormalTexture;
+                    if (auto error = parseTextureObject(&clearcoatObject, "clearcoatNormalTexture", &clearcoatNormalTexture); error == Error::None) {
+                        clearcoat->clearcoatNormalTexture = std::move(clearcoatNormalTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    material.clearcoat = std::move(clearcoat);
+                } else if (clearcoatError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+
             if (hasBit(data->config.extensions, Extensions::KHR_materials_ior)) {
                 dom::object iorObject;
                 auto iorError = extensionsObject[extensions::KHR_materials_ior].get_object().get(iorObject);

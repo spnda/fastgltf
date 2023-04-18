@@ -25,6 +25,7 @@ fastgltf supports a number of glTF extensions:
 - [x] EXT_meshopt_compression
 - [x] EXT_texture_webp
 - [x] KHR_lights_punctual
+- [x] KHR_materials_clearcoat
 - [x] KHR_materials_ior
 - [x] KHR_materials_iridescence
 - [x] KHR_materials_specular

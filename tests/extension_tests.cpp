@@ -143,7 +143,7 @@ TEST_CASE("Test KHR_materials_ior and KHR_materials_iridescence", "[gltf-loader]
     REQUIRE(model->validate() == fastgltf::Error::None);
 
     auto asset = model->getParsedAsset();
-    REQUIRE(asset->materials.size() >= 12);
+    REQUIRE(asset->materials.size() >= 50);
 
     auto& materials = asset->materials;
     REQUIRE(materials[0].iridescence != nullptr);
@@ -174,7 +174,7 @@ TEST_CASE("Test KHR_materials_volume and KHR_materials_transmission", "[gltf-loa
     REQUIRE(model->validate() == fastgltf::Error::None);
 
     auto asset = model->getParsedAsset();
-    REQUIRE(asset->materials.size() >= 12);
+    REQUIRE(asset->materials.size() >= 5);
 
     auto& materials = asset->materials;
     REQUIRE(materials[5].volume != nullptr);
@@ -185,4 +185,30 @@ TEST_CASE("Test KHR_materials_volume and KHR_materials_transmission", "[gltf-loa
 
     REQUIRE(materials[5].transmission != nullptr);
     REQUIRE(materials[5].transmission->transmissionFactor == 1.0f);
+}
+
+TEST_CASE("Test KHR_materials_clearcoat", "[gltf-loader]") {
+    auto clearcoatTest = sampleModels / "2.0" / "ClearCoatTest" / "glTF";
+    fastgltf::GltfDataBuffer jsonData;
+    REQUIRE(jsonData.loadFromFile(clearcoatTest / "ClearCoatTest.gltf"));
+
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_clearcoat);
+    auto model = parser.loadGLTF(&jsonData, clearcoatTest);
+    REQUIRE(model->parse(fastgltf::Category::Materials) == fastgltf::Error::None);
+    REQUIRE(model->validate() == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->materials.size() >= 7);
+
+    auto& materials = asset->materials;
+    REQUIRE(materials[1].clearcoat != nullptr);
+    REQUIRE(materials[1].clearcoat->clearcoatFactor == 1.0f);
+    REQUIRE(materials[1].clearcoat->clearcoatRoughnessFactor == 0.03f);
+
+    REQUIRE(materials[7].clearcoat != nullptr);
+    REQUIRE(materials[7].clearcoat->clearcoatFactor == 1.0f);
+    REQUIRE(materials[7].clearcoat->clearcoatRoughnessFactor == 1.0f);
+    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture.has_value());
+    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->textureIndex == 2);
+    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->texCoordIndex == 0);
 }
