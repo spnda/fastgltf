@@ -117,18 +117,15 @@ TEST_CASE("Test KHR_materials_specular", "[gltf-loader]") {
 
     auto& materials = asset->materials;
     REQUIRE(materials[1].specular != nullptr);
-    REQUIRE(materials[1].specular->specularFactor.has_value());
     REQUIRE(materials[1].specular->specularFactor == 0.0f);
 
     REQUIRE(materials[2].specular != nullptr);
-    REQUIRE(materials[2].specular->specularFactor.has_value());
-    REQUIRE(glm::epsilonEqual(*materials[2].specular->specularFactor, 0.051269f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(materials[2].specular->specularFactor, 0.051269f, glm::epsilon<float>()));
 
     REQUIRE(materials[8].specular != nullptr);
-    REQUIRE(materials[8].specular->specularColorFactor.has_value());
-    REQUIRE(glm::epsilonEqual((*(materials[8].specular->specularColorFactor))[0], 0.051269f, glm::epsilon<float>()));
-    REQUIRE(glm::epsilonEqual((*(materials[8].specular->specularColorFactor))[1], 0.051269f, glm::epsilon<float>()));
-    REQUIRE(glm::epsilonEqual((*(materials[8].specular->specularColorFactor))[2], 0.051269f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(materials[8].specular->specularColorFactor[0], 0.051269f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(materials[8].specular->specularColorFactor[1], 0.051269f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(materials[8].specular->specularColorFactor[2], 0.051269f, glm::epsilon<float>()));
 
     REQUIRE(materials[12].specular != nullptr);
     REQUIRE(materials[12].specular->specularColorTexture.has_value());

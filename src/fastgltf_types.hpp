@@ -956,9 +956,9 @@ namespace fastgltf {
      * Specular information from KHR_materials_specular.
      */
     struct MaterialSpecular {
-        std::optional<float> specularFactor;
+        float specularFactor;
         std::optional<TextureInfo> specularTexture;
-        std::optional<std::array<float, 3>> specularColorFactor;
+        std::array<float, 3> specularColorFactor;
         std::optional<TextureInfo> specularColorTexture;
     };
 

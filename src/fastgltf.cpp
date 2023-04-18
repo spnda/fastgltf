@@ -2013,16 +2013,15 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     dom::array specularColorFactor;
                     if (auto error = specularObject["specularColorFactor"].get_array().get(specularColorFactor); error == SUCCESS) {
                         std::size_t i = 0;
-                        specular->specularColorFactor = std::array<float, 3> {};
                         for (auto factor : specularColorFactor) {
-                            if (i >= specular->specularColorFactor->size()) {
+                            if (i >= specular->specularColorFactor.size()) {
                                 SET_ERROR_RETURN(Error::InvalidGltf)
                             }
                             double value;
                             if (factor.get_double().get(value) != SUCCESS) {
                                 SET_ERROR_RETURN(Error::InvalidGltf)
                             }
-                            (*specular->specularColorFactor)[i++] = static_cast<float>(value);
+                            specular->specularColorFactor[i++] = static_cast<float>(value);
                         }
                     } else if (error == NO_SUCH_FIELD) {
                         specular->specularColorFactor = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
