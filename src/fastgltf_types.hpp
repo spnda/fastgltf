@@ -974,6 +974,16 @@ namespace fastgltf {
         std::optional<TextureInfo> iridescenceThicknessTexture;
     };
 
+    /**
+     * Volume information from KHR_materials_volume
+     */
+    struct MaterialVolume {
+        float thicknessFactor;
+        std::optional<TextureInfo> thicknessTexture;
+        float attenuationDistance;
+        std::array<float, 3> attenuationColor;
+    };
+
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
@@ -1007,14 +1017,22 @@ namespace fastgltf {
         bool doubleSided;
 
         /**
+         * Iridescence information from KHR_materials_iridescence.
+         */
+        std::unique_ptr<MaterialIridescence> iridescence;
+
+        /**
          * Specular information from KHR_materials_specular.
          */
         std::unique_ptr<MaterialSpecular> specular;
 
         /**
-         * Iridescence information from KHR_materials_iridescence.
          */
-        std::unique_ptr<MaterialIridescence> iridescence;
+
+        /**
+         * Volume information from KHR_materials_volume
+         */
+        std::unique_ptr<MaterialVolume> volume;
 
         /**
          * The index of refraction as specified through KHR_materials_ior.
