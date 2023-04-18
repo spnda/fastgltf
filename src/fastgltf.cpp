@@ -1917,10 +1917,13 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                 if (iorError == SUCCESS) {
                     double ior;
                     auto error = iorObject["ior"].get_double().get(ior);
-                    if (error != SUCCESS) {
-                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    if (error == SUCCESS) {
+                        material.ior = static_cast<float>(ior);
+                    } else if (error == NO_SUCH_FIELD) {
+                        material.ior = 1.5f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidJson)
                     }
-                    material.ior = static_cast<float>(ior);
                 } else if (iorError != NO_SUCH_FIELD) {
                     SET_ERROR_RETURN(Error::InvalidJson)
                 }
