@@ -273,3 +273,13 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
         return buggy->parse();
     };
 }
+
+TEST_CASE("Small CRC32-C benchmark", "[gltf-benchmark]") {
+    static constexpr std::string_view test = "abcdefghijklmnopqrstuvwxyz";
+    BENCHMARK("Default 1-byte tabular algorithm") {
+        return fastgltf::crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
+    };
+    BENCHMARK("SSE4 hardware algorithm") {
+        return fastgltf::hwcrc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
+    };
+}

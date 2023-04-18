@@ -25,6 +25,9 @@ fastgltf supports a number of glTF extensions:
 - [x] EXT_meshopt_compression
 - [x] EXT_texture_webp
 - [x] KHR_lights_punctual
+- [x] KHR_materials_ior
+- [x] KHR_materials_iridescence
+- [x] KHR_materials_specular
 - [x] KHR_texture_basisu
 - [x] KHR_texture_transform
 - [x] KHR_mesh_quantization
@@ -133,6 +136,9 @@ library really shows off at massive JSON files, by parsing around 8GB/s.**
 The SIMD-based base64 decoding algorithms come from
 [Wojciech Muła](http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html#avx2-version), which can
 usually nearly triple the decoding speed with AVX2.
+
+Thanks to https://github.com/komrad36/CRC for some insight into optimising the CRC32-C algorithm and
+using the SSE4 CRC instructions.
 
 ## License
 

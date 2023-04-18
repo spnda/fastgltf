@@ -32,6 +32,8 @@
 #include <cmath>
 #include <fstream>
 #include <functional>
+#include <mutex>
+#include <numeric>
 #include <utility>
 
 #if __ANDROID__
@@ -92,6 +94,70 @@ namespace fastgltf {
         std::uint32_t chunkLength;
         std::uint32_t chunkType;
     };
+
+    using CRCFunction = std::uint32_t(*)(const std::uint8_t*, std::size_t);
+    using CRCStringFunction = std::uint32_t(*)(std::string_view str);
+
+    [[gnu::hot, gnu::const, gnu::target("crc32")]] std::uint32_t hwcrc32c(std::string_view str) noexcept {
+        return hwcrc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
+    }
+
+    [[gnu::hot, gnu::const, gnu::target("crc32")]] std::uint32_t hwcrc32c(const std::uint8_t* d, std::size_t len) noexcept {
+        std::uint32_t crc = 0;
+
+        // Try to advance forwards until the address is aligned to 4 bytes.
+        auto address = reinterpret_cast<std::uintptr_t>(d);
+        std::size_t i = 0;
+        if (address % 2 != 0 && i < len) {
+            crc = _mm_crc32_u8(crc, d[i++]);
+        }
+
+        // We might be 4 byte aligned, but if not we'll read 2 more bytes to get to 4 byte alignment.
+        if ((address + i) % 4 != 0 && i < len) {
+            crc = _mm_crc32_u16(crc, *reinterpret_cast<const std::uint16_t*>(&d[i]));
+            i += 2;
+        }
+
+        // Now, try to decode as much as possible using 4 byte steps. We specifically don't use
+        // the 8 byte instruction here because the strings used by glTF are usually very short.
+        while (i < len && (len - i) >= 4) {
+            crc = _mm_crc32_u32(crc, *reinterpret_cast<const std::uint32_t*>(&d[i]));
+            i += 4;
+        }
+
+        if ((len - i) >= 2) {
+            crc = _mm_crc32_u16(crc, *reinterpret_cast<const std::uint16_t*>(&d[i]));
+            i += 2;
+        }
+
+        // Decode the rest
+        if (i < len) {
+            crc = _mm_crc32_u8(crc, d[i++]);
+        }
+
+        return crc;
+    }
+
+    /**
+     * Points to the most 'optimal' CRC32-C encoding function. After initialiseCrc has been called,
+     * this might also point to hwcrc32c. We only use this for runtime evaluation of hashes, and is
+     * intended to work for any length of data.
+     */
+    static CRCFunction crcFunction = crc32c;
+    static CRCStringFunction crcStringFunction = crc32c;
+
+    std::once_flag crcInitialisation;
+
+    /**
+     * Checks if SSE4.2 is available to try and use the hardware accelerated version.
+     */
+    void initialiseCrc() {
+        const auto& impls = simdjson::get_available_implementations();
+        if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
+            crcFunction = hwcrc32c;
+            crcStringFunction = hwcrc32c;
+        }
+    }
 
     [[nodiscard, gnu::always_inline]] inline std::tuple<bool, bool, std::size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
     [[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags);
@@ -452,24 +518,24 @@ void fg::glTF::fillCategories(Category& inputCategories) noexcept {
 }
 
 fg::MimeType fg::glTF::getMimeTypeFromString(std::string_view mime) {
-    const auto hash = crc32(mime);
+    const auto hash = crcStringFunction(mime);
     switch (hash) {
-        case force_consteval<crc32(mimeTypeJpeg)>: {
+        case force_consteval<crc32c(mimeTypeJpeg)>: {
             return MimeType::JPEG;
         }
-        case force_consteval<crc32(mimeTypePng)>: {
+        case force_consteval<crc32c(mimeTypePng)>: {
             return MimeType::PNG;
         }
-        case force_consteval<crc32(mimeTypeKtx)>: {
+        case force_consteval<crc32c(mimeTypeKtx)>: {
             return MimeType::KTX2;
         }
-        case force_consteval<crc32(mimeTypeDds)>: {
+        case force_consteval<crc32c(mimeTypeDds)>: {
             return MimeType::DDS;
         }
-        case force_consteval<crc32(mimeTypeGltfBuffer)>: {
+        case force_consteval<crc32c(mimeTypeGltfBuffer)>: {
             return MimeType::GltfBuffer;
         }
-        case force_consteval<crc32(mimeTypeOctetStream)>: {
+        case force_consteval<crc32c(mimeTypeOctetStream)>: {
             return MimeType::OctetStream;
         }
         default: {
@@ -826,16 +892,17 @@ fg::Error fg::glTF::parse(Category categories) {
             break;
         }
 
-        auto hashedKey = crc32(object.key);
-
-        if (hashedKey == force_consteval<crc32("scene")>) {
+        auto hashedKey = crcStringFunction(object.key);
+        if (hashedKey == force_consteval<crc32c("scene")>) {
             std::uint64_t defaultScene;
             if (object.value.get_uint64().get(defaultScene) != SUCCESS) {
                 errorCode = Error::InvalidGltf;
             }
             parsedAsset->defaultScene = static_cast<std::size_t>(defaultScene);
             continue;
-        } else if (hashedKey == force_consteval<crc32("extensions")>) {
+        }
+
+        if (hashedKey == force_consteval<crc32c("extensions")>) {
             dom::object extensionsObject;
             if (object.value.get_object().get(extensionsObject) != SUCCESS) {
                 errorCode = Error::InvalidGltf;
@@ -844,7 +911,9 @@ fg::Error fg::glTF::parse(Category categories) {
 
             parseExtensions(extensionsObject);
             continue;
-        } else if (hashedKey == force_consteval<crc32("asset")> || hashedKey == force_consteval<crc32("extras")>) {
+        }
+
+        if (hashedKey == force_consteval<crc32c("asset")> || hashedKey == force_consteval<crc32c("extras")>) {
             continue;
         }
 
@@ -854,7 +923,7 @@ fg::Error fg::glTF::parse(Category categories) {
             return errorCode;
         }
 
-#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32(FASTGLTF_QUOTE(id))>:       \
+#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>:       \
                 if (hasBit(categories, Category::name))   \
                     parse##name(array);                     \
                 readCategories |= Category::name;         \
@@ -1356,16 +1425,16 @@ void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
                 if (auto error = bufferViewObject["mode"].get_string().get(string); error != SUCCESS) {
                     SET_ERROR_RETURN(error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson)
                 }
-                switch (const auto key = crc32(string); key) {
-                    case force_consteval<crc32("ATTRIBUTES")>: {
+                switch (crcStringFunction(string)) {
+                    case force_consteval<crc32c("ATTRIBUTES")>: {
                         compression->mode = MeshoptCompressionMode::Attributes;
                         break;
                     }
-                    case force_consteval<crc32("TRIANGLES")>: {
+                    case force_consteval<crc32c("TRIANGLES")>: {
                         compression->mode = MeshoptCompressionMode::Triangles;
                         break;
                     }
-                    case force_consteval<crc32("INDICES")>: {
+                    case force_consteval<crc32c("INDICES")>: {
                         compression->mode = MeshoptCompressionMode::Indices;
                         break;
                     }
@@ -1375,20 +1444,20 @@ void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
                 }
 
                 if (auto error = bufferViewObject["filter"].get_string().get(string); error == SUCCESS) {
-                    switch (const auto key = crc32(string); key) {
-                        case force_consteval<crc32("NONE")>: {
+                    switch (crcStringFunction(string)) {
+                        case force_consteval<crc32c("NONE")>: {
                             compression->filter = MeshoptCompressionFilter::None;
                             break;
                         }
-                        case force_consteval<crc32("OCTAHEDRAL")>: {
+                        case force_consteval<crc32c("OCTAHEDRAL")>: {
                             compression->filter = MeshoptCompressionFilter::Octahedral;
                             break;
                         }
-                        case force_consteval<crc32("QUATERNION")>: {
+                        case force_consteval<crc32c("QUATERNION")>: {
                             compression->filter = MeshoptCompressionFilter::Quaternion;
                             break;
                         }
-                        case force_consteval<crc32("EXPONENTIAL")>: {
+                        case force_consteval<crc32c("EXPONENTIAL")>: {
                             compression->filter = MeshoptCompressionFilter::Exponential;
                             break;
                         }
@@ -1512,9 +1581,9 @@ void fg::glTF::parseExtensions(simdjson::dom::object& extensionsObject) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        auto hash = crc32(extensionValue.key);
+        auto hash = crcStringFunction(extensionValue.key);
         switch (hash) {
-            case force_consteval<crc32(extensions::KHR_lights_punctual)>: {
+            case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
                 if (!hasBit(data->config.extensions, Extensions::KHR_lights_punctual))
                     break;
 
@@ -1628,16 +1697,16 @@ void fg::glTF::parseLights(simdjson::dom::array& lights) {
 
         std::string_view type;
         if (lightObject["type"].get_string().get(type) == SUCCESS) {
-            switch (crc32(type)) {
-                case force_consteval<crc32("directional")>: {
+            switch (crcStringFunction(type.data())) {
+                case force_consteval<crc32c("directional")>: {
                     light.type = LightType::Directional;
                     break;
                 }
-                case force_consteval<crc32("spot")>: {
+                case force_consteval<crc32c("spot")>: {
                     light.type = LightType::Spot;
                     break;
                 }
-                case force_consteval<crc32("point")>: {
+                case force_consteval<crc32c("point")>: {
                     light.type = LightType::Point;
                     break;
                 }
@@ -2609,6 +2678,7 @@ fastgltf::GltfType fg::determineGltfFileType(GltfDataBuffer* buffer) {
 }
 
 fg::Parser::Parser(Extensions extensionsToLoad) noexcept {
+    std::call_once(crcInitialisation, initialiseCrc);
     jsonParser = std::make_unique<simdjson::dom::parser>();
     config.extensions = extensionsToLoad;
 }
