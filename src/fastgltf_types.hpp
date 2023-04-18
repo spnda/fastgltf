@@ -1070,6 +1070,11 @@ namespace fastgltf {
          */
         std::optional<float> ior;
 
+        /**
+         * Only applicable
+         */
+        bool unlit;
+
         std::string name;
     };
 

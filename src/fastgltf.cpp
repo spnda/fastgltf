@@ -392,7 +392,7 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 16> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 17> extensionStrings = {{
     { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
@@ -404,6 +404,7 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 1
     { fg::extensions::KHR_materials_sheen,                fg::Extensions::KHR_materials_sheen },
     { fg::extensions::KHR_materials_specular,             fg::Extensions::KHR_materials_specular },
     { fg::extensions::KHR_materials_transmission,         fg::Extensions::KHR_materials_transmission },
+    { fg::extensions::KHR_materials_unlit,                fg::Extensions::KHR_materials_unlit },
     { fg::extensions::KHR_materials_volume,               fg::Extensions::KHR_materials_volume },
     { fg::extensions::KHR_mesh_quantization,              fg::Extensions::KHR_mesh_quantization },
     { fg::extensions::KHR_texture_basisu,                 fg::Extensions::KHR_texture_basisu },
@@ -1912,6 +1913,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
             material.name = std::string { name };
         }
 
+        material.unlit = false;
         dom::object extensionsObject;
         if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
             if (hasBit(data->config.extensions, Extensions::KHR_materials_clearcoat)) {
@@ -2194,6 +2196,16 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     material.transmission = std::move(transmission);
                 } else if (transmissionError != NO_SUCH_FIELD) {
                     SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_unlit)) {
+                dom::object unlitObject;
+                auto unlitError = extensionsObject[extensions::KHR_materials_unlit].get_object().get(unlitObject);
+                if (unlitError == SUCCESS) {
+                    material.unlit = true;
+                } else if (unlitError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidGltf)
                 }
             }
 
