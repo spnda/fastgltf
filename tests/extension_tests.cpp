@@ -165,3 +165,27 @@ TEST_CASE("Test KHR_materials_ior and KHR_materials_iridescence", "[gltf-loader]
     REQUIRE(materials[50].iridescence->iridescenceIor == 1.17f);
     REQUIRE(materials[50].iridescence->iridescenceThicknessMaximum == 200.0f);
 }
+
+TEST_CASE("Test KHR_materials_volume and KHR_materials_transmission", "[gltf-loader]") {
+    auto beautifulGame = sampleModels / "2.0" / "ABeautifulGame" / "glTF";
+    fastgltf::GltfDataBuffer jsonData;
+    REQUIRE(jsonData.loadFromFile(beautifulGame / "ABeautifulGame.gltf"));
+
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_volume | fastgltf::Extensions::KHR_materials_transmission);
+    auto model = parser.loadGLTF(&jsonData, beautifulGame);
+    REQUIRE(model->parse(fastgltf::Category::Materials) == fastgltf::Error::None);
+    REQUIRE(model->validate() == fastgltf::Error::None);
+
+    auto asset = model->getParsedAsset();
+    REQUIRE(asset->materials.size() >= 12);
+
+    auto& materials = asset->materials;
+    REQUIRE(materials[5].volume != nullptr);
+    REQUIRE(glm::epsilonEqual(materials[5].volume->thicknessFactor, 0.2199999988079071f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(materials[5].volume->attenuationColor[0], 0.800000011920929f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(materials[5].volume->attenuationColor[1], 0.800000011920929f, glm::epsilon<float>()));
+    REQUIRE(glm::epsilonEqual(materials[5].volume->attenuationColor[2], 0.800000011920929f, glm::epsilon<float>()));
+
+    REQUIRE(materials[5].transmission != nullptr);
+    REQUIRE(materials[5].transmission->transmissionFactor == 1.0f);
+}

@@ -392,7 +392,7 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 12> extensionStrings = {{
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 13> extensionStrings = {{
     { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
@@ -400,6 +400,7 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 1
     { fg::extensions::KHR_materials_ior,                  fg::Extensions::KHR_materials_ior },
     { fg::extensions::KHR_materials_iridescence,          fg::Extensions::KHR_materials_iridescence },
     { fg::extensions::KHR_materials_specular,             fg::Extensions::KHR_materials_specular },
+    { fg::extensions::KHR_materials_transmission,         fg::Extensions::KHR_materials_transmission },
     { fg::extensions::KHR_materials_volume,               fg::Extensions::KHR_materials_volume },
     { fg::extensions::KHR_mesh_quantization,              fg::Extensions::KHR_mesh_quantization },
     { fg::extensions::KHR_texture_basisu,                 fg::Extensions::KHR_texture_basisu },
@@ -2038,6 +2039,34 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
 
                     material.specular = std::move(specular);
                 } else if (specularError != NO_SUCH_FIELD) {
+                    SET_ERROR_RETURN(Error::InvalidJson)
+                }
+            }
+
+            if (hasBit(data->config.extensions, Extensions::KHR_materials_transmission)) {
+                dom::object transmissionObject;
+                auto transmissionError = extensionsObject[extensions::KHR_materials_transmission].get_object().get(transmissionObject);
+                if (transmissionError == SUCCESS) {
+                    auto transmission = std::make_unique<MaterialTransmission>();
+
+                    double transmissionFactor;
+                    if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor); error == SUCCESS) {
+                        transmission->transmissionFactor = static_cast<float>(transmissionFactor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        transmission->transmissionFactor = 0.0f;
+                    } else {
+                        SET_ERROR_RETURN(Error::InvalidGltf)
+                    }
+
+                    TextureInfo transmissionTexture;
+                    if (auto error = parseTextureObject(&transmissionObject, "transmissionTexture", &transmissionTexture); error == Error::None) {
+                        transmission->transmissionTexture = std::move(transmissionTexture);
+                    } else if (error != Error::MissingField) {
+                        SET_ERROR_RETURN(error)
+                    }
+
+                    material.transmission = std::move(transmission);
+                } else if (transmissionError != NO_SUCH_FIELD) {
                     SET_ERROR_RETURN(Error::InvalidJson)
                 }
             }

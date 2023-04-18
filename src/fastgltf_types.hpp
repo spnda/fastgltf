@@ -984,6 +984,11 @@ namespace fastgltf {
         std::array<float, 3> attenuationColor;
     };
 
+    struct MaterialTransmission {
+        float transmissionFactor;
+        std::optional<TextureInfo> transmissionTexture;
+    };
+
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
@@ -1027,7 +1032,9 @@ namespace fastgltf {
         std::unique_ptr<MaterialSpecular> specular;
 
         /**
+         * Specular information from KHR_materials_transmission.
          */
+        std::unique_ptr<MaterialTransmission> transmission;
 
         /**
          * Volume information from KHR_materials_volume
