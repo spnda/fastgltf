@@ -33,7 +33,6 @@
 #include <fstream>
 #include <functional>
 #include <mutex>
-#include <numeric>
 #include <utility>
 
 #if __ANDROID__
@@ -57,6 +56,10 @@ static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, 
 #include "fastgltf_types.hpp"
 #include "fastgltf_util.hpp"
 #include "base64_decode.hpp"
+
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#include "crc32intrin.h"
+#endif
 
 namespace fg = fastgltf;
 namespace fs = std::filesystem;
@@ -98,6 +101,7 @@ namespace fastgltf {
     using CRCFunction = std::uint32_t(*)(const std::uint8_t*, std::size_t);
     using CRCStringFunction = std::uint32_t(*)(std::string_view str);
 
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
     [[gnu::hot, gnu::const, gnu::target("crc32")]] std::uint32_t hwcrc32c(std::string_view str) noexcept {
         return hwcrc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
     }
@@ -137,6 +141,7 @@ namespace fastgltf {
 
         return crc;
     }
+#endif
 
     /**
      * Points to the most 'optimal' CRC32-C encoding function. After initialiseCrc has been called,
@@ -152,11 +157,13 @@ namespace fastgltf {
      * Checks if SSE4.2 is available to try and use the hardware accelerated version.
      */
     void initialiseCrc() {
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
         const auto& impls = simdjson::get_available_implementations();
         if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
             crcFunction = hwcrc32c;
             crcStringFunction = hwcrc32c;
         }
+#endif
     }
 
     [[nodiscard, gnu::always_inline]] inline std::tuple<bool, bool, std::size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);

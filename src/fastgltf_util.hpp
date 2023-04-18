@@ -204,12 +204,14 @@ namespace fastgltf {
         return crc;
     }
 
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
     /**
      * Variant of crc32 that uses SSE4.2 instructions to increase performance. Note that this does not
      * check for availability of said instructions.
      */
     [[gnu::hot, gnu::const]] std::uint32_t hwcrc32c(std::string_view str) noexcept;
     [[gnu::hot, gnu::const]] std::uint32_t hwcrc32c(const std::uint8_t* d, std::size_t len) noexcept;
+#endif
 
     /**
      * Helper to force evaluation of constexpr functions at compile-time in C++17. One example of
