@@ -58,7 +58,7 @@ static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, 
 #include "base64_decode.hpp"
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-#include "crc32intrin.h"
+#include <smmintrin.h>
 #endif
 
 namespace fg = fastgltf;
@@ -102,11 +102,11 @@ namespace fastgltf {
     using CRCStringFunction = std::uint32_t(*)(std::string_view str);
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-    [[gnu::hot, gnu::const, gnu::target("crc32")]] std::uint32_t hwcrc32c(std::string_view str) noexcept {
+    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t hwcrc32c(std::string_view str) noexcept {
         return hwcrc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
     }
 
-    [[gnu::hot, gnu::const, gnu::target("crc32")]] std::uint32_t hwcrc32c(const std::uint8_t* d, std::size_t len) noexcept {
+    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t hwcrc32c(const std::uint8_t* d, std::size_t len) noexcept {
         std::uint32_t crc = 0;
 
         // Try to advance forwards until the address is aligned to 4 bytes.
