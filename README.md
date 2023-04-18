@@ -29,7 +29,11 @@ fastgltf supports a number of glTF extensions:
 - [x] KHR_materials_emissive_strength
 - [x] KHR_materials_ior
 - [x] KHR_materials_iridescence
+- [x] KHR_materials_sheen
 - [x] KHR_materials_specular
+- [x] KHR_materials_transmission
+- [x] KHR_materials_unlit
+- [x] KHR_materials_volume
 - [x] KHR_texture_basisu
 - [x] KHR_texture_transform
 - [x] KHR_mesh_quantization

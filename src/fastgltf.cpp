@@ -392,8 +392,7 @@ fg::glTF::~glTF() = default;
 // An array of pairs of string representations of extension identifiers and their respective enum
 // value used for enabling/disabling the loading of it. This also represents all extensions that
 // fastgltf supports and understands.
-static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 17> extensionStrings = {{
-    { fg::extensions::EXT_mesh_gpu_instancing,            fg::Extensions::EXT_mesh_gpu_instancing },
+static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 16> extensionStrings = {{
     { fg::extensions::EXT_meshopt_compression,            fg::Extensions::EXT_meshopt_compression },
     { fg::extensions::EXT_texture_webp,                   fg::Extensions::EXT_texture_webp },
     { fg::extensions::KHR_lights_punctual,                fg::Extensions::KHR_lights_punctual },
