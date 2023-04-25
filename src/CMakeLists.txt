@@ -9,6 +9,7 @@ compiler_flags(fastgltf)
 enable_debug_inlining(fastgltf_simdjson)
 
 set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
+set_target_properties(fastgltf PROPERTIES VERSION ${PROJECT_VERSION})
 
 if (TARGET fastgltf_simdjson)
     target_link_libraries(fastgltf PRIVATE fastgltf_simdjson)

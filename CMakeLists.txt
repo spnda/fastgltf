@@ -74,8 +74,6 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
         NAMESPACE fastgltf::
         DESTINATION lib/cmake/fastgltf
     )
-else()
-    find_package(simdjson CONFIG REQUIRED)
 endif()
 
 add_subdirectory(src)
