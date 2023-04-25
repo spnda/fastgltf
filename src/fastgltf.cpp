@@ -626,7 +626,7 @@ fg::Error fg::glTF::validate() {
             const auto& compression = bufferView.meshoptCompression;
             switch (compression->mode) {
                 case MeshoptCompressionMode::Attributes:
-                    if (*compression->byteStride % 4 != 0 || *compression->byteStride > 256)
+                    if (compression->byteStride % 4 != 0 || compression->byteStride > 256)
                         return Error::InvalidGltf;
                     break;
                 case MeshoptCompressionMode::Triangles:
@@ -634,7 +634,7 @@ fg::Error fg::glTF::validate() {
                         return Error::InvalidGltf;
                     [[fallthrough]];
                 case MeshoptCompressionMode::Indices:
-                    if (*compression->byteStride != 2 && *compression->byteStride != 4)
+                    if (compression->byteStride != 2 && compression->byteStride != 4)
                         return Error::InvalidGltf;
                     break;
                 case MeshoptCompressionMode::None:

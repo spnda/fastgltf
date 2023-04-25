@@ -1132,7 +1132,16 @@ namespace fastgltf {
         std::string name;
     };
 
-    struct CompressedBufferView;
+    struct CompressedBufferView {
+        std::size_t bufferIndex;
+        std::size_t byteOffset;
+        std::size_t byteLength;
+        std::size_t count;
+        MeshoptCompressionMode mode;
+        MeshoptCompressionFilter filter;
+
+        std::size_t byteStride;
+    };
 
     struct BufferView {
         std::size_t bufferIndex;
@@ -1148,17 +1157,6 @@ namespace fastgltf {
         std::unique_ptr<CompressedBufferView> meshoptCompression;
 
         std::string name;
-    };
-
-    struct CompressedBufferView : BufferView {
-    private:
-        using BufferView::name;
-        using BufferView::target;
-
-    public:
-        std::size_t count;
-        MeshoptCompressionMode mode;
-        MeshoptCompressionFilter filter;
     };
 
     struct Buffer {
