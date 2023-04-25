@@ -26,6 +26,7 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         REQUIRE(bufferView != nullptr);
         auto jsonSpan = fastgltf::span<std::byte>(jsonData);
         REQUIRE(bufferView->bytes.data() - jsonSpan.data() == 1016);
+        REQUIRE(jsonSpan.size() == 1664);
     }
 
     SECTION("Load basic Box.glb and load buffers") {

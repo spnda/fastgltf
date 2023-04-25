@@ -713,11 +713,11 @@ namespace fastgltf {
         }
 
         [[nodiscard]] constexpr size_type size() const noexcept {
-            return size;
+            return _size;
         }
 
         [[nodiscard]] constexpr size_type size_bytes() const noexcept {
-            return _size * sizeof(element_type);
+            return size() * sizeof(element_type);
         }
 
         [[nodiscard]] constexpr bool empty() const noexcept {
