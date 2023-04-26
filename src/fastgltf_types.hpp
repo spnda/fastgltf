@@ -260,7 +260,7 @@ namespace fastgltf {
     }
 
     constexpr std::uint32_t getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
-        return getNumComponents(type) * (getComponentBitSize(componentType) / 8);
+        return (getNumComponents(type) * getComponentBitSize(componentType) + 7u) / 8u;
     }
 
     constexpr std::uint32_t getGLComponentType(ComponentType type) noexcept {
