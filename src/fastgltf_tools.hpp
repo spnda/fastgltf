@@ -165,14 +165,34 @@ struct DefaultBufferDataAdapter {
 template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
 ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index,
 		const BufferDataAdapter& adapter = {}) {
-	// FIXME: Assuming that I have a buffer view index, but what do I do if I don't?
-	auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-	auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
+	if (accessor.sparse) {
+		auto& indicesView = asset.bufferViews[accessor.sparse->bufferViewIndices];
+		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
+				+ indicesView.byteOffset + accessor.sparse->byteOffsetIndices;
+		auto indexStride = getElementByteSize(AccessorType::Scalar, accessor.sparse->indexComponentType);
 
-	auto* bytes = adapter(asset.buffers[view.bufferIndex]);
-	bytes += view.byteOffset + accessor.byteOffset;
+		auto& valuesView = asset.bufferViews[accessor.sparse->bufferViewValues];
+		auto* valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
+				+ valuesView.byteOffset + accessor.sparse->byteOffsetValues;
+		// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
+		// have its target or byteStride properties defined."
+		auto valueStride = getElementByteSize(accessor.type, accessor.componentType);
 
-	return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride);
+		auto idx = internal::getAccessorElementAt<std::uint32_t>(accessor.sparse->indexComponentType,
+				indicesBytes + indexStride * index);
+
+		return internal::getAccessorElementAt<ElementType>(accessor.componentType,
+				valuesBytes + valueStride * idx);
+	}
+	else {
+		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+		auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
+
+		auto* bytes = adapter(asset.buffers[view.bufferIndex]);
+		bytes += view.byteOffset + accessor.byteOffset;
+
+		return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride);
+	}
 }
 
 template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
@@ -182,9 +202,38 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 		return;
 	}
 
-	for (std::size_t i = 0; i < accessor.count; ++i) {
-		func(getAccessorElement<ElementType>(asset, accessor, adapter));
+	if (accessor.sparse) {
+		auto& indicesView = asset.bufferViews[accessor.sparse->bufferViewIndices];
+		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
+				+ indicesView.byteOffset + accessor.sparse->byteOffsetIndices;
+		auto indexStride = getElementByteSize(AccessorType::Scalar, accessor.sparse->indexComponentType);
+
+		auto& valuesView = asset.bufferViews[accessor.sparse->bufferViewValues];
+		auto* valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
+				+ valuesView.byteOffset + accessor.sparse->byteOffsetValues;
+		// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
+		// have its target or byteStride properties defined."
+		auto valueStride = getElementByteSize(accessor.type, accessor.componentType);
+
+		for (std::size_t i = 0; i < accessor.sparse->count; ++i) {
+			auto idx = internal::getAccessorElementAt<std::uint32_t>(accessor.sparse->indexComponentType,
+					indicesBytes + indexStride * i);
+			func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
+					valuesBytes + valueStride * idx));
+		}
 	}
+	else {
+		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+		auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
+
+		auto* bytes = adapter(asset.buffers[view.bufferIndex]);
+		bytes += view.byteOffset + accessor.byteOffset;
+
+		for (std::size_t i = 0; i < accessor.count; ++i) {
+			func(internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + i * stride));
+		}
+	}
+
 }
 
 template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
@@ -195,30 +244,55 @@ void fillTargetFromAccessor(const Asset& asset, const Accessor& accessor, void* 
 		return;
 	}
 
-	// FIXME: Assuming that I have a buffer view index, but what do I do if I don't?
-	auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-	auto srcStride = view.byteStride && *view.byteStride != 0 ? *view.byteStride
-			: getElementByteSize(accessor.type, accessor.componentType);
-
-	auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
-
-	auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
 	auto* dstBytes = reinterpret_cast<std::byte*>(dest);
 
-	if constexpr (std::is_trivially_copyable_v<ElementType>) {
-		if (srcStride == elemSize && srcStride == TargetStride) {
-			std::memcpy(dest, srcBytes, elemSize * accessor.count);
-		}
-		else {
-			for (std::size_t i = 0; i < accessor.count; ++i) {
-				std::memcpy(dstBytes + TargetStride * i, srcBytes + srcStride * i, elemSize);
-			}
+	if (accessor.sparse) {
+		auto& indicesView = asset.bufferViews[accessor.sparse->bufferViewIndices];
+		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
+				+ indicesView.byteOffset + accessor.sparse->byteOffsetIndices;
+		auto indexStride = getElementByteSize(AccessorType::Scalar, accessor.sparse->indexComponentType);
+
+		auto& valuesView = asset.bufferViews[accessor.sparse->bufferViewValues];
+		auto* valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
+				+ valuesView.byteOffset + accessor.sparse->byteOffsetValues;
+		// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
+		// have its target or byteStride properties defined."
+		auto srcStride = getElementByteSize(accessor.type, accessor.componentType);
+
+		for (std::size_t i = 0; i < accessor.sparse->count; ++i) {
+			auto idx = internal::getAccessorElementAt<std::uint32_t>(accessor.sparse->indexComponentType,
+					indicesBytes + indexStride * i);
+			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
+
+			*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType,
+					valuesBytes + srcStride * idx);
 		}
 	}
 	else {
-		for (std::size_t i = 0; i < accessor.count; ++i) {
-			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
-			*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType, srcBytes + srcStride * i);
+		// FIXME: Assuming that I have a buffer view index, but what do I do if I don't?
+		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+		auto srcStride = view.byteStride ? *view.byteStride
+				: getElementByteSize(accessor.type, accessor.componentType);
+
+		auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
+
+		auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
+
+		if constexpr (std::is_trivially_copyable_v<ElementType>) {
+			if (srcStride == elemSize && srcStride == TargetStride) {
+				std::memcpy(dest, srcBytes, elemSize * accessor.count);
+			}
+			else {
+				for (std::size_t i = 0; i < accessor.count; ++i) {
+					std::memcpy(dstBytes + TargetStride * i, srcBytes + srcStride * i, elemSize);
+				}
+			}
+		}
+		else {
+			for (std::size_t i = 0; i < accessor.count; ++i) {
+				auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
+				*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType, srcBytes + srcStride * i);
+			}
 		}
 	}
 }
