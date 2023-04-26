@@ -74,7 +74,7 @@ TEST_CASE("Test accessor ", "[gltf-tools]") {
 		auto* checkData = reinterpret_cast<const unsigned short*>(bufferData + view.byteOffset
 				+ firstAccessor.byteOffset);
 
-		REQUIRE(*checkData == fastgltf::getAccessorElement<unsigned short>(*asset, firstAccessor, bufferData, 0));
+		REQUIRE(*checkData == fastgltf::getAccessorElement<unsigned short>(*asset, firstAccessor, 0));
     }
 
 	{
@@ -90,7 +90,7 @@ TEST_CASE("Test accessor ", "[gltf-tools]") {
 
 		auto* checkData = reinterpret_cast<const glm::vec3*>(bufferData + view.byteOffset
 				+ secondAccessor.byteOffset);
-		REQUIRE(*checkData == fastgltf::getAccessorElement<glm::vec3>(*asset, secondAccessor, bufferData, 0));
+		REQUIRE(*checkData == fastgltf::getAccessorElement<glm::vec3>(*asset, secondAccessor, 0));
 	}
 }
 

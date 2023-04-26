@@ -143,33 +143,54 @@ ElementType getAccessorElementAt(ComponentType componentType, const std::byte* b
 
 }
 
-template <typename ElementType>
-ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, const void* bufferData, size_t index) {
-	auto* bytes = reinterpret_cast<const std::byte*>(bufferData);
+struct DefaultBufferDataAdapter {
+	const std::byte* operator()(const Buffer& buffer) const {
+		const std::byte* result = nullptr;
 
+		std::visit([&](auto& arg) {
+			using SourceType = std::decay_t<decltype(arg)>;
+
+			if constexpr (std::is_same_v<SourceType, sources::Vector>) {
+				result = reinterpret_cast<const std::byte*>(arg.bytes.data());
+			}
+			else if constexpr (std::is_same_v<SourceType, sources::ByteView>) {
+				result = arg.bytes.data();
+			}
+		}, buffer.data);
+
+		return result;
+	}
+};
+
+template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
+ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index,
+		const BufferDataAdapter& adapter = {}) {
 	// FIXME: Assuming that I have a buffer view index, but what do I do if I don't?
 	auto& view = asset.bufferViews[*accessor.bufferViewIndex];
 	auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
 
+	auto* bytes = adapter(asset.buffers[view.bufferIndex]);
 	bytes += view.byteOffset + accessor.byteOffset;
 
 	return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride);
 }
 
-template <typename ElementType, typename Functor>
-void iterateAccessor(const Asset& asset, const Accessor& accessor, const void* bufferData, Functor&& func) {
+template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
+void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& func,
+		const BufferDataAdapter& adapter = {}) {
 	if (accessor.type != ElementTraits<ElementType>::type) {
 		return;
 	}
 
 	for (std::size_t i = 0; i < accessor.count; ++i) {
-		func(getAccessorElement<ElementType>(asset, accessor, bufferData));
+		func(getAccessorElement<ElementType>(asset, accessor, adapter));
 	}
 }
 
-template <typename ElementType, std::size_t TargetStride = sizeof(ElementType)>
-void fillTargetFromAccessor(const Asset& asset, const Accessor& accessor, const void* sourceBufferData,
-		void* dest) {
+template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
+		 typename BufferDataAdapter = DefaultBufferDataAdapter>
+void fillTargetFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
+		const BufferDataAdapter& adapter = {}) {
 	if (accessor.type != ElementTraits<ElementType>::type) {
 		return;
 	}
@@ -181,12 +202,12 @@ void fillTargetFromAccessor(const Asset& asset, const Accessor& accessor, const 
 
 	auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
 
-	auto* srcBytes = reinterpret_cast<const std::byte*>(sourceBufferData) + view.byteOffset + accessor.byteOffset;
+	auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
 	auto* dstBytes = reinterpret_cast<std::byte*>(dest);
 
 	if constexpr (std::is_trivially_copyable_v<ElementType>) {
 		if (srcStride == elemSize && srcStride == TargetStride) {
-			std::memcpy(dest, sourceBufferData, elemSize * accessor.count);
+			std::memcpy(dest, srcBytes, elemSize * accessor.count);
 		}
 		else {
 			for (std::size_t i = 0; i < accessor.count; ++i) {
