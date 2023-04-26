@@ -26,6 +26,8 @@
 
 #pragma once
 
+#include <cstring>
+
 #include "fastgltf_types.hpp"
 
 namespace fastgltf {
