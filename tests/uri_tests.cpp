@@ -78,3 +78,26 @@ TEST_CASE("Test data URI parsing", "[uri-tests]") {
     REQUIRE(uri.scheme() == "data");
     REQUIRE(uri.path() == data.substr(5));
 }
+
+TEST_CASE("Validate URI copying/moving", "[uri-tests]") {
+    const std::string_view data = "test.bin";
+    SECTION("Copy semantics") {
+        fastgltf::URI uri(data);
+        REQUIRE(uri.path() == data);
+        fastgltf::URI uri2(uri);
+        REQUIRE(uri2.raw().data() != uri.raw().data());
+        REQUIRE(uri2.path() == data);
+    }
+
+    SECTION("Move semantics") {
+        fastgltf::URI uri;
+        {
+            fastgltf::URI uri2(data);
+            uri = std::move(uri2);
+            REQUIRE(uri2.raw().empty());
+        }
+        // Test that the values were copied over and that the string views are still valid.
+        REQUIRE(uri.raw() == data);
+        REQUIRE(uri.path() == uri.raw());
+    }
+}

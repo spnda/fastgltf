@@ -644,6 +644,7 @@ namespace fastgltf {
 
         bool _valid = true;
 
+        void readjustViews(const fastgltf::URI& other, std::string_view otherUri);
         void parse();
 
     public:

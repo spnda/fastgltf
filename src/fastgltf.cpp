@@ -252,21 +252,54 @@ fg::URI::URI(std::string_view uri) noexcept : uri(uri) {
     parse();
 }
 
-// Note: Defaulting these constructors will implicitly do a member wise copy/move.
-// Should any member of URI have a deleted move constructor, the copy constructor
-// will be used for *all* members without warning.
-fg::URI::URI(const URI& other) = default;
-fg::URI::URI(URI&& other) noexcept = default;
-fg::URI& fg::URI::operator=(const URI& other) = default;
-fg::URI& fg::URI::operator=(URI&& other) noexcept = default;
+// Some C++ stdlib implementations copy in some cases when moving strings, which invalidates the
+// views stored in the URI struct. This function adjusts the views from the old string to the new
+// string for safe copying.
+fg::URI::URI(const URI& other) : uri(other.uri) {
+    readjustViews(other, other.uri);
+}
+
+fg::URI::URI(URI&& other) noexcept {
+    std::string_view view = other.uri;
+    uri = std::move(other.uri);
+    if (uri.data() != view.data()) {
+        // A reallocation happened or stack memory was used.
+        readjustViews(other, view);
+    }
+}
+
+fg::URI& fg::URI::operator=(const URI& other) {
+    uri = other.uri;
+    readjustViews(other, other.uri);
+    return *this;
+}
+
+fg::URI& fg::URI::operator=(URI&& other) noexcept {
+    std::string_view view = other.uri;
+    uri = std::move(other.uri);
+    if (uri.data() != view.data()) {
+        // A reallocation happened or stack memory was used.
+        readjustViews(other, view);
+    }
+    return *this;
+}
+
+void fg::URI::readjustViews(const fastgltf::URI& other, std::string_view otherUri) {
+    if (!other._scheme.empty()) {   _scheme     = std::string_view(uri.data() + (other._scheme.data()     - other.uri.data()), other._scheme.size()); }
+    if (!other._path.empty()) {     _path       = std::string_view(uri.data() + (other._path.data()       - other.uri.data()), other._path.size()); }
+    if (!other._userinfo.empty()) { _userinfo   = std::string_view(uri.data() + (other._userinfo.data()   - other.uri.data()), other._userinfo.size()); }
+    if (!other._host.empty()) {     _host       = std::string_view(uri.data() + (other._host.data()       - other.uri.data()), other._host.size()); }
+    if (!other._port.empty()) {     _port       = std::string_view(uri.data() + (other._port.data()       - other.uri.data()), other._port.size()); }
+    if (!other._query.empty()) {    _query      = std::string_view(uri.data() + (other._query.data()      - other.uri.data()), other._query.size()); }
+    if (!other._fragment.empty()) { _fragment   = std::string_view(uri.data() + (other._fragment.data()   - other.uri.data()), other._fragment.size()); }
+}
 
 void fg::URI::decodePercents(std::string& x) noexcept {
     for (auto it = x.begin(); it != x.end(); it++) {
-        auto& ch = *it;
-        if (ch == '%') {
+        if (*it == '%') {
             // Read the next two chars and store them.
             std::array<char, 3> chars = {*(it + 1), *(it + 2), 0};
-            ch = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
+            *it = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
             x.erase(it + 1, it + 3);
         }
     }
