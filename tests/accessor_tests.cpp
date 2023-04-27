@@ -24,7 +24,7 @@ struct fastgltf::ElementTraits<glm::vec3> {
 	using element_type = glm::vec3;
 	using component_type = float;
 	static constexpr auto type = AccessorType::Vec3;
-	static constexpr auto componentType = ComponentType::Float;
+	static constexpr auto enum_component_type = ComponentType::Float;
 };
 
 static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {

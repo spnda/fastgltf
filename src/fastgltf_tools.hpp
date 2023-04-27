@@ -40,7 +40,7 @@ struct ElementTraits<std::int8_t> {
 	using element_type = std::int8_t;
 	using component_type = std::int8_t;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::Byte;
+	static constexpr auto enum_component_type = ComponentType::Byte;
 };
 
 template<>
@@ -48,7 +48,7 @@ struct ElementTraits<std::uint8_t> {
 	using element_type = std::uint8_t;
 	using component_type = std::uint8_t;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::UnsignedByte;
+	static constexpr auto enum_component_type = ComponentType::UnsignedByte;
 };
 
 template<>
@@ -56,7 +56,7 @@ struct ElementTraits<std::int16_t> {
 	using element_type = std::int16_t;
 	using component_type = std::int16_t;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::Short;
+	static constexpr auto enum_component_type = ComponentType::Short;
 };
 
 template<>
@@ -64,7 +64,7 @@ struct ElementTraits<std::uint16_t> {
 	using element_type = std::uint16_t;
 	using component_type = std::uint16_t;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::UnsignedShort;
+	static constexpr auto enum_component_type = ComponentType::UnsignedShort;
 };
 
 template<>
@@ -72,7 +72,7 @@ struct ElementTraits<std::int32_t> {
 	using element_type = std::int32_t;
 	using component_type = std::int32_t;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::Int;
+	static constexpr auto enum_component_type = ComponentType::Int;
 };
 
 template<>
@@ -80,7 +80,7 @@ struct ElementTraits<std::uint32_t> {
 	using element_type = std::uint32_t;
 	using component_type = std::uint32_t;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::UnsignedInt;
+	static constexpr auto enum_component_type = ComponentType::UnsignedInt;
 };
 
 template<>
@@ -88,7 +88,7 @@ struct ElementTraits<float> {
 	using element_type = float;
 	using component_type = float;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::Float;
+	static constexpr auto enum_component_type = ComponentType::Float;
 };
 
 template<>
@@ -96,7 +96,7 @@ struct ElementTraits<double> {
 	using element_type = double;
 	using component_type = double;
 	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto componentType = ComponentType::Double;
+	static constexpr auto enum_component_type = ComponentType::Double;
 };
 
 namespace internal {
@@ -112,8 +112,7 @@ constexpr ElementType convertAccessorElement(const std::byte* bytes, std::index_
 
 	if constexpr (std::is_aggregate_v<ElementType>) {
 		return {convertComponent<SourceType, DestType, I>(bytes)...};
-	}
-	else {
+	} else {
 		return ElementType{convertComponent<SourceType, DestType, I>(bytes)...};
 	}
 }
@@ -154,8 +153,7 @@ struct DefaultBufferDataAdapter {
 
 			if constexpr (std::is_same_v<SourceType, sources::Vector>) {
 				result = reinterpret_cast<const std::byte*>(arg.bytes.data());
-			}
-			else if constexpr (std::is_same_v<SourceType, sources::ByteView>) {
+			} else if constexpr (std::is_same_v<SourceType, sources::ByteView>) {
 				result = arg.bytes.data();
 			}
 		}, buffer.data);
@@ -185,16 +183,14 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 
 		return internal::getAccessorElementAt<ElementType>(accessor.componentType,
 				valuesBytes + valueStride * idx);
-	}
-	else {
+	} else {
 		// 5.1.1. accessor.bufferView
 		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
 		// property or extensions MAY override zeros with actual values.
 		if (!accessor.bufferViewIndex) {
 			if constexpr (std::is_aggregate_v<ElementType>) {
 				return {};
-			}
-			else {
+			} else {
 				return ElementType{};
 			}
 		}
@@ -235,8 +231,7 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 			func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
 					valuesBytes + valueStride * idx));
 		}
-	}
-	else {
+	} else {
 		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
 		auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
 
@@ -281,8 +276,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 			*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType,
 					valuesBytes + srcStride * idx);
 		}
-	}
-	else {
+	} else {
 		auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
 
 		// 5.1.1. accessor.bufferView
@@ -292,21 +286,18 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 			if constexpr (std::is_trivially_copyable_v<ElementType>) {
 				if (TargetStride == elemSize) {
 					std::memset(dest, 0, elemSize * accessor.count);
-				}
-				else {
+				} else {
 					for (std::size_t i = 0; i < accessor.count; ++i) {
 						std::memset(dstBytes + i * TargetStride, 0, elemSize);
 					}
 				}
-			}
-			else {
+			} else {
 				for (std::size_t i = 0; i < accessor.count; ++i) {
 					auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
 
 					if constexpr (std::is_aggregate_v<ElementType>) {
 						*pDest = {};
-					}
-					else {
+					} else {
 						*pDest = ElementType{};
 					}
 				}
@@ -324,14 +315,12 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		if constexpr (std::is_trivially_copyable_v<ElementType>) {
 			if (srcStride == elemSize && srcStride == TargetStride) {
 				std::memcpy(dest, srcBytes, elemSize * accessor.count);
-			}
-			else {
+			} else {
 				for (std::size_t i = 0; i < accessor.count; ++i) {
 					std::memcpy(dstBytes + TargetStride * i, srcBytes + srcStride * i, elemSize);
 				}
 			}
-		}
-		else {
+		} else {
 			for (std::size_t i = 0; i < accessor.count; ++i) {
 				auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
 				*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType, srcBytes + srcStride * i);
