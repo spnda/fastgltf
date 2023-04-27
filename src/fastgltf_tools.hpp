@@ -187,6 +187,18 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 				valuesBytes + valueStride * idx);
 	}
 	else {
+		// 5.1.1. accessor.bufferView
+		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
+		// property or extensions MAY override zeros with actual values.
+		if (!accessor.bufferViewIndex) {
+			if constexpr (std::is_aggregate_v<ElementType>) {
+				return {};
+			}
+			else {
+				return ElementType{};
+			}
+		}
+
 		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
 		auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
 
@@ -271,12 +283,41 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		}
 	}
 	else {
-		// FIXME: Assuming that I have a buffer view index, but what do I do if I don't?
+		auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
+
+		// 5.1.1. accessor.bufferView
+		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
+		// property or extensions MAY override zeros with actual values.
+		if (!accessor.bufferViewIndex) {
+			if constexpr (std::is_trivially_copyable_v<ElementType>) {
+				if (TargetStride == elemSize) {
+					std::memset(dest, 0, elemSize * accessor.count);
+				}
+				else {
+					for (std::size_t i = 0; i < accessor.count; ++i) {
+						std::memset(dstBytes + i * TargetStride, 0, elemSize);
+					}
+				}
+			}
+			else {
+				for (std::size_t i = 0; i < accessor.count; ++i) {
+					auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
+
+					if constexpr (std::is_aggregate_v<ElementType>) {
+						*pDest = {};
+					}
+					else {
+						*pDest = ElementType{};
+					}
+				}
+			}
+
+			return;
+		}
+
 		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
 		auto srcStride = view.byteStride ? *view.byteStride
 				: getElementByteSize(accessor.type, accessor.componentType);
-
-		auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
 
 		auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
 
