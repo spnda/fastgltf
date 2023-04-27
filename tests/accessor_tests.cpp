@@ -59,7 +59,7 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
     REQUIRE(asset->accessors.size() == 15);
     auto& accessors = asset->accessors;
 
-    {
+    SECTION("getAccessorElement<std::uint16_t>") {
         auto& firstAccessor = accessors[0];
 		REQUIRE(firstAccessor.type == fastgltf::AccessorType::Scalar);
 		REQUIRE(firstAccessor.componentType == fastgltf::ComponentType::UnsignedShort);
@@ -70,10 +70,10 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 		auto* bufferData = getBufferData(asset->buffers[view.bufferIndex]);
 		REQUIRE(bufferData != nullptr);
 
-		auto* checkData = reinterpret_cast<const unsigned short*>(bufferData + view.byteOffset
+		auto* checkData = reinterpret_cast<const std::uint16_t*>(bufferData + view.byteOffset
 				+ firstAccessor.byteOffset);
 
-		REQUIRE(*checkData == fastgltf::getAccessorElement<unsigned short>(*asset, firstAccessor, 0));
+		REQUIRE(*checkData == fastgltf::getAccessorElement<std::uint16_t>(*asset, firstAccessor, 0));
     }
 
 	{
@@ -89,20 +89,27 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 
 		auto* checkData = reinterpret_cast<const glm::vec3*>(bufferData + view.byteOffset
 				+ secondAccessor.byteOffset);
-		REQUIRE(*checkData == fastgltf::getAccessorElement<glm::vec3>(*asset, secondAccessor, 0));
 
-		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
-		std::size_t i = 0;
+		SECTION("getAccessorElement<glm::vec3>") {
+			REQUIRE(*checkData == fastgltf::getAccessorElement<glm::vec3>(*asset, secondAccessor, 0));
+		}
 
-		fastgltf::iterateAccessor<glm::vec3>(*asset, secondAccessor, [&](auto&& v3) {
-			dstCopy[i++] = std::move(v3);
-		});
+		SECTION("iterateAccessor") {
+			auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+			std::size_t i = 0;
 
-		REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+			fastgltf::iterateAccessor<glm::vec3>(*asset, secondAccessor, [&](auto&& v3) {
+				dstCopy[i++] = std::move(v3);
+			});
 
-		auto dstFill = std::make_unique<glm::vec3[]>(secondAccessor.count);
-		fastgltf::copyFromAccessor<glm::vec3>(*asset, secondAccessor, dstFill.get());
-		REQUIRE(std::memcmp(dstFill.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+		}
+
+		SECTION("copyFromAccessor") {
+			auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+			fastgltf::copyFromAccessor<glm::vec3>(*asset, secondAccessor, dstCopy.get());
+			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+		}
 	}
 }
 
@@ -144,20 +151,28 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
 
 	for (std::size_t i = 0; i < secondAccessor.sparse->count; ++i) {
 		checkValues[i] = dataValues[dataIndices[i]];
-		REQUIRE(checkValues[i] == fastgltf::getAccessorElement<glm::vec3>(*asset, secondAccessor, i));
 	}
 
-	auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.sparse->count);
-	std::size_t i = 0;
+	SECTION("getAccessorElement") {
+		for (std::size_t i = 0; i < secondAccessor.sparse->count; ++i) {
+			REQUIRE(checkValues[i] == fastgltf::getAccessorElement<glm::vec3>(*asset, secondAccessor, i));
+		}
+	}
 
-	fastgltf::iterateAccessor<glm::vec3>(*asset, secondAccessor, [&](auto&& v3) {
-		dstCopy[i++] = std::move(v3);
-	});
+	SECTION("iterateAccessor") {
+		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.sparse->count);
+		std::size_t i = 0;
 
-	REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.sparse->count * sizeof(glm::vec3)) == 0);
+		fastgltf::iterateAccessor<glm::vec3>(*asset, secondAccessor, [&](auto&& v3) {
+			dstCopy[i++] = std::move(v3);
+		});
 
-	auto dstFill = std::make_unique<glm::vec3[]>(secondAccessor.sparse->count);
-	fastgltf::copyFromAccessor<glm::vec3>(*asset, secondAccessor, dstFill.get());
-	REQUIRE(std::memcmp(dstFill.get(), checkValues.get(), secondAccessor.sparse->count * sizeof(glm::vec3)) == 0);
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.sparse->count * sizeof(glm::vec3)) == 0);
+	}
+
+	SECTION("copyFromAccessor") {
+		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.sparse->count);
+		fastgltf::copyFromAccessor<glm::vec3>(*asset, secondAccessor, dstCopy.get());
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.sparse->count * sizeof(glm::vec3)) == 0);
+	}
 }
-
