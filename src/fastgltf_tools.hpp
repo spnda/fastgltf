@@ -240,7 +240,7 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 
 template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
 		 typename BufferDataAdapter = DefaultBufferDataAdapter>
-void fillTargetFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
+void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		const BufferDataAdapter& adapter = {}) {
 	if (accessor.type != ElementTraits<ElementType>::type) {
 		return;
@@ -300,4 +300,3 @@ void fillTargetFromAccessor(const Asset& asset, const Accessor& accessor, void* 
 }
 
 } // namespace fastgltf
-
