@@ -99,6 +99,16 @@ struct ElementTraits<double> {
 	static constexpr auto enum_component_type = ComponentType::Double;
 };
 
+#if FASTGLTF_HAS_CONCEPTS
+template <typename ElementType>
+concept Element = std::is_arithmetic_v<typename ElementTraits<ElementType>::component_type>
+		&& ElementTraits<ElementType>::type != AccessorType::Invalid
+		&& ElementTraits<ElementType>::enum_component_type != ComponentType::Invalid
+		&& std::is_default_constructible_v<ElementType>
+		&& std::is_constructible_v<ElementType>
+		&& std::is_move_assignable_v<ElementType>;
+#endif
+
 namespace internal {
 
 template <typename SourceType, typename DestType, std::size_t Index>
@@ -107,8 +117,12 @@ constexpr DestType convertComponent(const std::byte* bytes) {
 }
 
 template <typename ElementType, typename SourceType, std::size_t... I>
+#if FASTGLTF_HAS_CONCEPTS
+requires Element<ElementType>
+#endif
 constexpr ElementType convertAccessorElement(const std::byte* bytes, std::index_sequence<I...>) {
 	using DestType = typename ElementTraits<ElementType>::component_type;
+	static_assert(std::is_arithmetic_v<DestType>, "Accessor traits must provide a valid component ttype");
 
 	if constexpr (std::is_aggregate_v<ElementType>) {
 		return {convertComponent<SourceType, DestType, I>(bytes)...};
@@ -119,6 +133,9 @@ constexpr ElementType convertAccessorElement(const std::byte* bytes, std::index_
 
 template <typename ElementType,
 		typename Seq = std::make_index_sequence<getNumComponents(ElementTraits<ElementType>::type)>>
+#if FASTGLTF_HAS_CONCEPTS
+requires Element<ElementType>
+#endif
 ElementType getAccessorElementAt(ComponentType componentType, const std::byte* bytes) {
 	switch (componentType) {
 		// This is undefined behavior if component type is invalid
@@ -163,8 +180,17 @@ struct DefaultBufferDataAdapter {
 };
 
 template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
+#if FASTGLTF_HAS_CONCEPTS
+requires Element<ElementType>
+#endif
 ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index,
 		const BufferDataAdapter& adapter = {}) {
+	using Traits = ElementTraits<ElementType>;
+	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid Accessor Type");
+	static_assert(std::is_default_constructible_v<ElementType>, "Element type must be default constructible");
+	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
+	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
+
 	if (accessor.sparse) {
 		auto& indicesView = asset.bufferViews[accessor.sparse->bufferViewIndices];
 		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
@@ -206,9 +232,18 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 }
 
 template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
+#if FASTGLTF_HAS_CONCEPTS
+requires Element<ElementType>
+#endif
 void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& func,
 		const BufferDataAdapter& adapter = {}) {
-	if (accessor.type != ElementTraits<ElementType>::type) {
+	using Traits = ElementTraits<ElementType>;
+	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid Accessor Type");
+	static_assert(std::is_default_constructible_v<ElementType>, "Element type must be default constructible");
+	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
+	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
+
+	if (accessor.type != Traits::type) {
 		return;
 	}
 
@@ -247,9 +282,18 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 
 template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
 		 typename BufferDataAdapter = DefaultBufferDataAdapter>
+#if FASTGLTF_HAS_CONCEPTS
+requires Element<ElementType>
+#endif
 void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		const BufferDataAdapter& adapter = {}) {
-	if (accessor.type != ElementTraits<ElementType>::type) {
+	using Traits = ElementTraits<ElementType>;
+	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid Accessor Type");
+	static_assert(std::is_default_constructible_v<ElementType>, "Element type must be default constructible");
+	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
+	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
+
+	if (accessor.type != Traits::type) {
 		return;
 	}
 
