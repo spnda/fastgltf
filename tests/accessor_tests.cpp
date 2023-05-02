@@ -16,8 +16,6 @@
 #include "fastgltf_tools.hpp"
 #include "gltf_path.hpp"
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 template<>
 struct fastgltf::ElementTraits<glm::vec3> {
@@ -30,7 +28,7 @@ struct fastgltf::ElementTraits<glm::vec3> {
 static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {
 	const std::byte* result = nullptr;
 
-	std::visit(overloaded {
+	std::visit(fastgltf::visitor {
 		[](auto&) {},
 		[&](const fastgltf::sources::Vector& vec) {
 			result = reinterpret_cast<const std::byte*>(vec.bytes.data());

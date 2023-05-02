@@ -41,9 +41,6 @@
 #include <fastgltf_parser.hpp>
 #include <fastgltf_types.hpp>
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
 constexpr std::string_view vertexShaderSource = R"(
     #version 460 core
 
@@ -329,7 +326,7 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
     for (auto& buffer : buffers) {
         constexpr GLuint bufferUsage = GL_STATIC_DRAW;
 
-        std::visit(overloaded {
+        std::visit(fastgltf::visitor {
             [](auto& arg) {}, // Covers FilePathWithOffset, BufferView, ... which are all not possible
             [&](fastgltf::sources::Vector& vector) {
                 GLuint glBuffer;
@@ -483,7 +480,7 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
 
     GLuint texture;
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-    std::visit(overloaded {
+    std::visit(fastgltf::visitor {
         [](auto& arg) {},
         [&](fastgltf::sources::URI& filePath) {
             assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
@@ -508,7 +505,7 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
             auto& buffer = viewer->asset->buffers[bufferView.bufferIndex];
             // Yes, we've already loaded every buffer into some GL buffer. However, with GL it's simpler
             // to just copy the buffer data again for the texture. Besides, this is just an example.
-            std::visit(overloaded {
+            std::visit(fastgltf::visitor {
                 // We only care about VectorWithMime here, because we specify LoadExternalBuffers, meaning
                 // all buffers are already loaded into a vector.
                 [](auto& arg) {},
