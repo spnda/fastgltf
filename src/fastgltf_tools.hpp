@@ -209,26 +209,26 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 
 		return internal::getAccessorElementAt<ElementType>(accessor.componentType,
 				valuesBytes + valueStride * idx);
-	} else {
-		// 5.1.1. accessor.bufferView
-		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
-		// property or extensions MAY override zeros with actual values.
-		if (!accessor.bufferViewIndex) {
-			if constexpr (std::is_aggregate_v<ElementType>) {
-				return {};
-			} else {
-				return ElementType{};
-			}
+	} 
+
+	// 5.1.1. accessor.bufferView
+	// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
+	// property or extensions MAY override zeros with actual values.
+	if (!accessor.bufferViewIndex) {
+		if constexpr (std::is_aggregate_v<ElementType>) {
+			return {};
+		} else {
+			return ElementType{};
 		}
-
-		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-		auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
-
-		auto* bytes = adapter(asset.buffers[view.bufferIndex]);
-		bytes += view.byteOffset + accessor.byteOffset;
-
-		return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride);
 	}
+
+	auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+	auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
+
+	auto* bytes = adapter(asset.buffers[view.bufferIndex]);
+	bytes += view.byteOffset + accessor.byteOffset;
+
+	return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride);
 }
 
 template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
