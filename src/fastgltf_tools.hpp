@@ -165,14 +165,14 @@ struct DefaultBufferDataAdapter {
 	const std::byte* operator()(const Buffer& buffer) const {
 		const std::byte* result = nullptr;
 
-		std::visit([&](auto& arg) {
-			using SourceType = std::decay_t<decltype(arg)>;
-
-			if constexpr (std::is_same_v<SourceType, sources::Vector>) {
-				result = reinterpret_cast<const std::byte*>(arg.bytes.data());
-			} else if constexpr (std::is_same_v<SourceType, sources::ByteView>) {
-				result = arg.bytes.data();
-			}
+		std::visit(visitor {
+			[](auto&) {},
+			[&](const sources::Vector& vec) {
+				result = reinterpret_cast<const std::byte*>(vec.bytes.data());
+			},
+			[&](const sources::ByteView& bv) {
+				result = bv.bytes.data();
+			},
 		}, buffer.data);
 
 		return result;
