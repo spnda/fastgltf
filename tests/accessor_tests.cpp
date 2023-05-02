@@ -1,21 +1,10 @@
-#include <cstdlib>
-#include <random>
-
-#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/benchmark/catch_benchmark.hpp>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/vec3.hpp>
 
-#include "base64_decode.hpp"
 #include "fastgltf_parser.hpp"
-#include "fastgltf_types.hpp"
 #include "fastgltf_tools.hpp"
 #include "gltf_path.hpp"
-
 
 template<>
 struct fastgltf::ElementTraits<glm::vec3> {
