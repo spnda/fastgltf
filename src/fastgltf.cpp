@@ -256,16 +256,11 @@ fg::URI::URI(std::string_view uri) noexcept : uri(uri) {
 // views stored in the URI struct. This function adjusts the views from the old string to the new
 // string for safe copying.
 fg::URI::URI(const URI& other) : uri(other.uri) {
-    readjustViews(other, other.uri);
+    *this = other;
 }
 
 fg::URI::URI(URI&& other) noexcept {
-    std::string_view view = other.uri;
-    uri = std::move(other.uri);
-    if (uri.data() != view.data()) {
-        // A reallocation happened or stack memory was used.
-        readjustViews(other, view);
-    }
+    *this = other;
 }
 
 fg::URI& fg::URI::operator=(const URI& other) {
@@ -277,7 +272,17 @@ fg::URI& fg::URI::operator=(const URI& other) {
 fg::URI& fg::URI::operator=(URI&& other) noexcept {
     std::string_view view = other.uri;
     uri = std::move(other.uri);
-    if (uri.data() != view.data()) {
+    _valid = other._valid;
+    other._valid = false;
+    if (uri.data() == view.data()) {
+        _scheme = other._scheme;
+        _path = other._path;
+        _userinfo = other._userinfo;
+        _host = other._host;
+        _port = other._port;
+        _query = other._query;
+        _fragment = other._fragment;
+    } else {
         // A reallocation happened or stack memory was used.
         readjustViews(other, view);
     }
