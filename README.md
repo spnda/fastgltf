@@ -47,14 +47,22 @@ fastgltf brings many utilities:
 ## Usage
 
 fastgltf is built using C++17 and only depends on simdjson, which is downloaded automatically in
-the CMake script (can be disabled with `FASTGLTF_DOWNLOAD_SIMDJSON=OFF`). The library is tested on
-GCC 9, GCC 10, Clang 12, and MSVC 14 (Visual Studio 2022) using CI. The project uses a simple CMake
-3.11 script, and can be simply used by adding fastgltf as a subdirectory. Also, fastgltf is
-available from [vcpkg](https://github.com/microsoft/vcpkg).
+the CMake script. The library is tested on GCC 9, GCC 10, Clang 12, and MSVC 14 (Visual Studio 2022)
+using CI. The project uses a simple CMake 3.11 script, and can be simply used by adding fastgltf as
+a subdirectory. Also, fastgltf is available from [vcpkg](https://github.com/microsoft/vcpkg).
 
 Tests and examples are also available and can be built by enabling the respective options, `FASTGLTF_ENABLE_TESTS`
 and `FASTGLTF_ENABLE_EXAMPLES`. fastgltf will then require a few extra dependencies for the test
 framework, and OpenGL tools, which have to be downloaded by running `fetch_test_deps.py`.
+
+When you use `simdjson` yourself or want to target a specific option, you can set `FASTGLTF_DOWNLOAD_SIMDJSON`
+to `OFF`. fastgltf will now not try to download simdjson and will instead only try to link to the
+`simdjson::simdjson` target.
+
+It can sometimes also be useful to set `FASTGLTF_USE_CUSTOM_SMALLVECTOR` to `ON`. fastgltf comes
+with a custom `SmallVector`. This has the same API as a `std::vector` but can store up to N elements
+(the exact amount is a hardcoded template parameter) on the stack to avoid possibly expensive
+allocations for only a few bytes.
 
 ```cpp
 #include <fastgltf_parser.hpp>

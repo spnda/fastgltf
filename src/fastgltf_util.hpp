@@ -282,7 +282,7 @@ namespace fastgltf {
         static_assert(std::is_enum_v<T>); \
         return static_cast<T>(op to_underlying(a)); \
     }
-}
+} // namespace fastgltf
 
 #ifdef _MSC_VER
 #pragma warning(pop)
