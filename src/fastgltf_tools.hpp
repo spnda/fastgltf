@@ -327,55 +327,39 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 		// have its target or byteStride properties defined."
 		auto valueStride = getElementByteSize(accessor.type, accessor.componentType);
 
+		const std::byte* srcBytes = nullptr;
+		std::size_t srcStride = 0;
+
 		// 5.1.1. accessor.bufferView
 		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
 		// property or extensions MAY override zeros with actual values.
-		if (!accessor.bufferViewIndex) {
-			auto nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-					accessor.sparse->indexComponentType, indicesBytes);
-			std::size_t sparseIndexCount = 0;
-
-			for (std::size_t i = 0; i < accessor.count; ++i) {
-				if (i == nextSparseIndex) {
-					func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
-							valuesBytes + valueStride * sparseIndexCount));
-
-					++sparseIndexCount;
-
-					if (sparseIndexCount < accessor.sparse->count) {
-						nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-								accessor.sparse->indexComponentType, indicesBytes + indexStride * sparseIndexCount);
-					}
-				} else {
-					func(ElementType{});
-				}
-			}
-		}
-		else {
+		if (accessor.bufferViewIndex) {
 			auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-			auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
-			auto srcStride = view.byteStride ? *view.byteStride
+			srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
+			srcStride = view.byteStride ? *view.byteStride
 					: getElementByteSize(accessor.type, accessor.componentType);
+		}
 
-			auto nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-					accessor.sparse->indexComponentType, indicesBytes);
-			std::size_t sparseIndexCount = 0;
+		auto nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
+				accessor.sparse->indexComponentType, indicesBytes);
+		std::size_t sparseIndexCount = 0;
 
-			for (std::size_t i = 0; i < accessor.count; ++i) {
-				if (i == nextSparseIndex) {
-					func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
-							valuesBytes + valueStride * sparseIndexCount));
+		for (std::size_t i = 0; i < accessor.count; ++i) {
+			if (i == nextSparseIndex) {
+				func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
+						valuesBytes + valueStride * sparseIndexCount));
 
-					++sparseIndexCount;
+				++sparseIndexCount;
 
-					if (sparseIndexCount < accessor.sparse->count) {
-						nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-								accessor.sparse->indexComponentType, indicesBytes + indexStride * sparseIndexCount);
-					}
-				} else {
-					func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
-							srcBytes + srcStride * i));
+				if (sparseIndexCount < accessor.sparse->count) {
+					nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
+							accessor.sparse->indexComponentType, indicesBytes + indexStride * sparseIndexCount);
 				}
+			} else if (accessor.bufferViewIndex) {
+				func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
+						srcBytes + srcStride * i));
+			} else {
+				func(ElementType{});
 			}
 		}
 	} else {
@@ -399,7 +383,6 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 			}
 		}
 	}
-
 }
 
 template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
@@ -422,76 +405,12 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 	auto* dstBytes = reinterpret_cast<std::byte*>(dest);
 
 	if (accessor.sparse && accessor.sparse->count > 0) {
-		auto& indicesView = asset.bufferViews[accessor.sparse->bufferViewIndices];
-		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
-				+ indicesView.byteOffset + accessor.sparse->byteOffsetIndices;
-		auto indexStride = getElementByteSize(AccessorType::Scalar, accessor.sparse->indexComponentType);
-
-		auto& valuesView = asset.bufferViews[accessor.sparse->bufferViewValues];
-		auto* valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
-				+ valuesView.byteOffset + accessor.sparse->byteOffsetValues;
-		// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
-		// have its target or byteStride properties defined."
-		auto valueStride = getElementByteSize(accessor.type, accessor.componentType);
-
-		// 5.1.1. accessor.bufferView
-		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
-		// property or extensions MAY override zeros with actual values.
-		if (!accessor.bufferViewIndex) {
-			auto nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-					accessor.sparse->indexComponentType, indicesBytes);
-			std::size_t sparseIndexCount = 0;
-
-			for (std::size_t i = 0; i < accessor.count; ++i) {
-				auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
-
-				if (i == nextSparseIndex) {
-					*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType,
-							valuesBytes + valueStride * sparseIndexCount);
-
-					++sparseIndexCount;
-
-					if (sparseIndexCount < accessor.sparse->count) {
-						nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-								accessor.sparse->indexComponentType, indicesBytes + indexStride * sparseIndexCount);
-					}
-				} else {
-					if constexpr (std::is_aggregate_v<ElementType>) {
-						*pDest = {};
-					} else {
-						*pDest = ElementType{};
-					}
-				}
-			}
-		} else {
-			auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-			auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
-			auto srcStride = view.byteStride ? *view.byteStride
-					: getElementByteSize(accessor.type, accessor.componentType);
-
-			auto nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-					accessor.sparse->indexComponentType, indicesBytes);
-			std::size_t sparseIndexCount = 0;
-
-			for (std::size_t i = 0; i < accessor.count; ++i) {
-				auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
-
-				if (i == nextSparseIndex) {
-					*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType,
-							valuesBytes + valueStride * sparseIndexCount);
-
-					++sparseIndexCount;
-
-					if (sparseIndexCount < accessor.sparse->count) {
-						nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
-								accessor.sparse->indexComponentType, indicesBytes + indexStride * sparseIndexCount);
-					}
-				} else {
-					*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType,
-							srcBytes + srcStride * i);
-				}
-			}
-		}
+		std::size_t index = 0;
+		iterateAccessor<ElementType>(asset, accessor, [&](auto&& value) {
+			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * index);
+			*pDest = std::move(value);
+			++index;
+		}, adapter);
 	} else {
 		auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
 
