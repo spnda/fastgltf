@@ -7,12 +7,7 @@
 #include "gltf_path.hpp"
 
 template<>
-struct fastgltf::ElementTraits<glm::vec3> {
-	using element_type = glm::vec3;
-	using component_type = float;
-	static constexpr auto type = AccessorType::Vec3;
-	static constexpr auto enum_component_type = ComponentType::Float;
-};
+struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, float, AccessorType::Vec3> {};
 
 static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {
 	const std::byte* result = nullptr;

@@ -33,71 +33,82 @@
 namespace fastgltf {
 
 template <typename>
+struct ComponentTypeConverter;
+
+template<>
+struct ComponentTypeConverter<std::int8_t> {
+	static constexpr auto type = ComponentType::Byte;
+};
+
+template<>
+struct ComponentTypeConverter<std::uint8_t> {
+	static constexpr auto type = ComponentType::UnsignedByte;
+};
+
+template<>
+struct ComponentTypeConverter<std::int16_t> {
+	static constexpr auto type = ComponentType::Short;
+};
+
+template<>
+struct ComponentTypeConverter<std::uint16_t> {
+	static constexpr auto type = ComponentType::UnsignedShort;
+};
+
+template<>
+struct ComponentTypeConverter<std::int32_t> {
+	static constexpr auto type = ComponentType::Int;
+};
+
+template<>
+struct ComponentTypeConverter<std::uint32_t> {
+	static constexpr auto type = ComponentType::UnsignedInt;
+};
+
+template<>
+struct ComponentTypeConverter<float> {
+	static constexpr auto type = ComponentType::Float;
+};
+
+template<>
+struct ComponentTypeConverter<double> {
+	static constexpr auto type = ComponentType::Double;
+};
+
+template <typename ElementType, typename ComponentType, AccessorType EnumAccessorType>
+struct ElementTraitsBase {
+	using element_type = ElementType;
+	using component_type = ComponentType;
+	static constexpr auto type = EnumAccessorType;
+	static constexpr auto enum_component_type = ComponentTypeConverter<ComponentType>::type;
+};
+
+template <typename>
 struct ElementTraits;
 
 template<>
-struct ElementTraits<std::int8_t> {
-	using element_type = std::int8_t;
-	using component_type = std::int8_t;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::Byte;
-};
+struct ElementTraits<std::int8_t> : ElementTraitsBase<std::int8_t, std::int8_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::uint8_t> {
-	using element_type = std::uint8_t;
-	using component_type = std::uint8_t;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::UnsignedByte;
-};
+struct ElementTraits<std::uint8_t> : ElementTraitsBase<std::uint8_t, std::uint8_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::int16_t> {
-	using element_type = std::int16_t;
-	using component_type = std::int16_t;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::Short;
-};
+struct ElementTraits<std::int16_t> : ElementTraitsBase<std::int16_t, std::int16_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::uint16_t> {
-	using element_type = std::uint16_t;
-	using component_type = std::uint16_t;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::UnsignedShort;
-};
+struct ElementTraits<std::uint16_t> : ElementTraitsBase<std::uint16_t, std::uint16_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::int32_t> {
-	using element_type = std::int32_t;
-	using component_type = std::int32_t;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::Int;
-};
+struct ElementTraits<std::int32_t> : ElementTraitsBase<std::int32_t, std::int32_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::uint32_t> {
-	using element_type = std::uint32_t;
-	using component_type = std::uint32_t;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::UnsignedInt;
-};
+struct ElementTraits<std::uint32_t> : ElementTraitsBase<std::uint32_t, std::uint32_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<float> {
-	using element_type = float;
-	using component_type = float;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::Float;
-};
+struct ElementTraits<float> : ElementTraitsBase<float, float, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<double> {
-	using element_type = double;
-	using component_type = double;
-	static constexpr auto type = AccessorType::Scalar;
-	static constexpr auto enum_component_type = ComponentType::Double;
-};
+struct ElementTraits<double> : ElementTraitsBase<double, double, AccessorType::Scalar> {};
 
 #if FASTGLTF_HAS_CONCEPTS
 template <typename ElementType>
@@ -408,7 +419,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		std::size_t index = 0;
 		iterateAccessor<ElementType>(asset, accessor, [&](auto&& value) {
 			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * index);
-			*pDest = std::move(value);
+			*pDest = std::forward<ElementType>(value);
 			++index;
 		}, adapter);
 	} else {
