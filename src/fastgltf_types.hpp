@@ -344,13 +344,13 @@ namespace fastgltf {
         alignas(T) std::array<T, N> storage;
 
         T* _data;
-        std::std::size_t _size = 0, _capacity = N;
+        std::size_t _size = 0, _capacity = N;
 
         template<typename Input, typename Output>
-        void copy(Input first, std::std::size_t count, Output result) {
+        void copy(Input first, std::size_t count, Output result) {
             if (count > 0) {
                 *result++ = *first;
-                for (std::std::size_t i = 1; i < count; ++i) {
+                for (std::size_t i = 1; i < count; ++i) {
                     *result++ = *++first;
                 }
             }
@@ -359,11 +359,11 @@ namespace fastgltf {
     public:
         SmallVector() : _data(this->storage.data()) {}
 
-        explicit SmallVector(std::std::size_t size) : _data(this->storage.data()) {
+        explicit SmallVector(std::size_t size) : _data(this->storage.data()) {
             assign(size);
         }
 
-        explicit SmallVector(std::std::size_t size, const T& value) : _data(this->storage.data()) {
+        explicit SmallVector(std::size_t size, const T& value) : _data(this->storage.data()) {
             assign(size, value);
         }
 
@@ -459,14 +459,14 @@ namespace fastgltf {
 
         [[nodiscard]] inline T* data() noexcept { return _data; }
         [[nodiscard]] inline const T* data() const noexcept { return _data; }
-        [[nodiscard]] inline std::std::size_t size() const noexcept { return _size; }
-        [[nodiscard]] inline std::std::size_t size_in_bytes() const noexcept { return _size * sizeof(T); }
-        [[nodiscard]] inline std::std::size_t capacity() const noexcept { return _capacity; }
+        [[nodiscard]] inline std::size_t size() const noexcept { return _size; }
+        [[nodiscard]] inline std::size_t size_in_bytes() const noexcept { return _size * sizeof(T); }
+        [[nodiscard]] inline std::size_t capacity() const noexcept { return _capacity; }
 
         [[nodiscard]] inline bool empty() const noexcept { return _size == 0; }
         [[nodiscard]] inline bool isSmallVector() const noexcept { return data() == this->storage.data(); }
 
-        inline void reserve(std::std::size_t newCapacity) {
+        inline void reserve(std::size_t newCapacity) {
             // We don't want to reduce capacity with reserve, only with shrink_to_fit.
             if (newCapacity <= capacity()) {
                 return;
@@ -482,7 +482,7 @@ namespace fastgltf {
             }
 
             // We use geometric growth, similarly to std::vector.
-            newCapacity = std::std::size_t(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
+            newCapacity = std::size_t(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
 
             // If we don't hold any items yet, we can use realloc to expand. If we do hold any
             // items, we can't use realloc because it'll invalidate the previous allocation and we
@@ -503,7 +503,7 @@ namespace fastgltf {
             _capacity = newCapacity;
         }
 
-        inline void resize(std::std::size_t newSize) {
+        inline void resize(std::size_t newSize) {
             if (newSize == size()) {
                 return;
             }
@@ -520,7 +520,7 @@ namespace fastgltf {
             _size = newSize;
         }
 
-        inline void resize(std::std::size_t newSize, const T& value) {
+        inline void resize(std::size_t newSize, const T& value) {
             if (newSize == size()) {
                 return;
             }
@@ -543,14 +543,14 @@ namespace fastgltf {
             _size = newSize;
         }
 
-        inline void assign(std::std::size_t count) {
+        inline void assign(std::size_t count) {
             resize(count);
             for (auto it = begin(); it != end(); ++it) {
                 new (it) T();
             }
         }
 
-        inline void assign(std::std::size_t count, const T& value) {
+        inline void assign(std::size_t count, const T& value) {
             resize(count);
             for (auto it = begin(); it != end(); ++it) {
                 *it = value;
@@ -571,24 +571,24 @@ namespace fastgltf {
             return (result);
         }
 
-        [[nodiscard]] inline T& at(std::std::size_t idx) {
+        [[nodiscard]] inline T& at(std::size_t idx) {
             if (idx >= size()) {
                 throw std::out_of_range("Index is out of range for SmallVector");
             }
             return begin()[idx];
         }
-        [[nodiscard]] inline const T& at(std::std::size_t idx) const {
+        [[nodiscard]] inline const T& at(std::size_t idx) const {
             if (idx >= size()) {
                 throw std::out_of_range("Index is out of range for SmallVector");
             }
             return begin()[idx];
         }
 
-        [[nodiscard]] inline T& operator[](std::std::size_t idx) {
+        [[nodiscard]] inline T& operator[](std::size_t idx) {
             assert(idx < size());
             return begin()[idx];
         }
-        [[nodiscard]] inline const T& operator[](std::std::size_t idx) const {
+        [[nodiscard]] inline const T& operator[](std::size_t idx) const {
             assert(idx < size());
             return begin()[idx];
         }
