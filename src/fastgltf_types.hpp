@@ -248,22 +248,20 @@ namespace fastgltf {
      * Gets the number of components for each element for the given accessor type. For example, with
      * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
      */
-    constexpr std::uint32_t getNumComponents(AccessorType type) noexcept {
-        return static_cast<std::uint32_t>(
-            (static_cast<decltype(std::underlying_type_t<AccessorType>())>(type) >> 8) & 0xFF);
+    constexpr std::uint8_t getNumComponents(AccessorType type) noexcept {
+        return (to_underlying(type) >> 8) & 0xFF;
     }
 
-    constexpr std::uint32_t getComponentBitSize(ComponentType componentType) noexcept {
-        auto masked =
-            static_cast<decltype(std::underlying_type_t<ComponentType>())>(componentType) & 0xFFFF0000;
-        return (masked >> 16);
+    constexpr std::uint16_t getComponentBitSize(ComponentType componentType) noexcept {
+        auto masked = to_underlying(componentType) & 0xFFFF0000;
+        return masked >> 16;
     }
 
-    constexpr std::uint32_t getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
-        return getNumComponents(type) * (getComponentBitSize(componentType) / 8);
+    constexpr std::uint16_t getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
+        return static_cast<std::uint16_t>(getNumComponents(type)) * (getComponentBitSize(componentType) / 8);
     }
 
-    constexpr std::uint32_t getGLComponentType(ComponentType type) noexcept {
+    constexpr std::uint16_t getGLComponentType(ComponentType type) noexcept {
         return to_underlying(type) & 0xFFFF;
     }
 
@@ -318,7 +316,7 @@ namespace fastgltf {
             }
             case 'M': {
                 auto componentCount = accessorTypeName[3] - '2';
-                if (1ULL + componentCount >= accessorTypes.size())
+                if (4ULL + componentCount >= accessorTypes.size())
                     return AccessorType::Invalid;
                 return accessorTypes[4ULL + componentCount];
             }
@@ -767,7 +765,7 @@ namespace fastgltf {
             span<const std::byte> bytes;
             MimeType mimeType;
         };
-    };
+    } // namespace sources
 
     /**
      * Represents the data source of a buffer or image. These could be a buffer view, a file path
