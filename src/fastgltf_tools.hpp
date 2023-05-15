@@ -149,8 +149,6 @@ requires Element<ElementType>
 #endif
 ElementType getAccessorElementAt(ComponentType componentType, const std::byte* bytes) {
 	switch (componentType) {
-		// This is undefined behavior if component type is invalid
-		default:
 		case ComponentType::Byte:
 			return convertAccessorElement<ElementType, std::int8_t>(bytes, Seq{});
 		case ComponentType::UnsignedByte:
@@ -167,7 +165,11 @@ ElementType getAccessorElementAt(ComponentType componentType, const std::byte* b
 			return convertAccessorElement<ElementType, float>(bytes, Seq{});
 		case ComponentType::Double:
 			return convertAccessorElement<ElementType, double>(bytes, Seq{});
+		case ComponentType::Invalid:
+			return ElementType{};
 	}
+
+	return ElementType{};
 }
 
 // Performs a binary search for the index into the sparse index list whose value matches the desired index
@@ -211,14 +213,16 @@ bool findSparseIndex(ComponentType componentType, const std::byte* bytes, std::s
 			return findSparseIndex<std::int32_t>(bytes, indexCount, desiredIndex, resultIndex);
 		case ComponentType::UnsignedInt:
 			return findSparseIndex<std::uint32_t>(bytes, indexCount, desiredIndex, resultIndex);
-		default:
-			break;
+		case ComponentType::Float:
+		case ComponentType::Double:
+		case ComponentType::Invalid:
+			return false;
 	}
 
 	return false;
 }
 
-}
+} // namespace internal
 
 struct DefaultBufferDataAdapter {
 	const std::byte* operator()(const Buffer& buffer) const {
@@ -373,25 +377,27 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 				func(ElementType{});
 			}
 		}
-	} else {
-		// 5.1.1. accessor.bufferView
-		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
-		// property or extensions MAY override zeros with actual values.
-		if (!accessor.bufferViewIndex) {
-			for (std::size_t i = 0; i < accessor.count; ++i) {
-				func(ElementType{});
-			}
+
+		return;
+	}
+
+	// 5.1.1. accessor.bufferView
+	// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
+	// property or extensions MAY override zeros with actual values.
+	if (!accessor.bufferViewIndex) {
+		for (std::size_t i = 0; i < accessor.count; ++i) {
+			func(ElementType{});
 		}
-		else {
-			auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-			auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
+	}
+	else {
+		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+		auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
 
-			auto* bytes = adapter(asset.buffers[view.bufferIndex]);
-			bytes += view.byteOffset + accessor.byteOffset;
+		auto* bytes = adapter(asset.buffers[view.bufferIndex]);
+		bytes += view.byteOffset + accessor.byteOffset;
 
-			for (std::size_t i = 0; i < accessor.count; ++i) {
-				func(internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + i * stride));
-			}
+		for (std::size_t i = 0; i < accessor.count; ++i) {
+			func(internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + i * stride));
 		}
 	}
 }
@@ -422,55 +428,57 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 			*pDest = std::forward<ElementType>(value);
 			++index;
 		}, adapter);
-	} else {
-		auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
 
-		// 5.1.1. accessor.bufferView
-		// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
-		// property or extensions MAY override zeros with actual values.
-		if (!accessor.bufferViewIndex) {
-			if constexpr (std::is_trivially_copyable_v<ElementType>) {
-				if (TargetStride == elemSize) {
-					std::memset(dest, 0, elemSize * accessor.count);
-				} else {
-					for (std::size_t i = 0; i < accessor.count; ++i) {
-						std::memset(dstBytes + i * TargetStride, 0, elemSize);
-					}
-				}
-			} else {
-				for (std::size_t i = 0; i < accessor.count; ++i) {
-					auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
+		return;
+	}
 
-					if constexpr (std::is_aggregate_v<ElementType>) {
-						*pDest = {};
-					} else {
-						*pDest = ElementType{};
-					}
-				}
-			}
+	auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
 
-			return;
-		}
-
-		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-		auto srcStride = view.byteStride ? *view.byteStride
-				: getElementByteSize(accessor.type, accessor.componentType);
-
-		auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
-
+	// 5.1.1. accessor.bufferView
+	// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
+	// property or extensions MAY override zeros with actual values.
+	if (!accessor.bufferViewIndex) {
 		if constexpr (std::is_trivially_copyable_v<ElementType>) {
-			if (srcStride == elemSize && srcStride == TargetStride) {
-				std::memcpy(dest, srcBytes, elemSize * accessor.count);
+			if (TargetStride == elemSize) {
+				std::memset(dest, 0, elemSize * accessor.count);
 			} else {
 				for (std::size_t i = 0; i < accessor.count; ++i) {
-					std::memcpy(dstBytes + TargetStride * i, srcBytes + srcStride * i, elemSize);
+					std::memset(dstBytes + i * TargetStride, 0, elemSize);
 				}
 			}
 		} else {
 			for (std::size_t i = 0; i < accessor.count; ++i) {
 				auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
-				*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType, srcBytes + srcStride * i);
+
+				if constexpr (std::is_aggregate_v<ElementType>) {
+					*pDest = {};
+				} else {
+					*pDest = ElementType{};
+				}
 			}
+		}
+
+		return;
+	}
+
+	auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+	auto srcStride = view.byteStride ? *view.byteStride
+			: getElementByteSize(accessor.type, accessor.componentType);
+
+	auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
+
+	if constexpr (std::is_trivially_copyable_v<ElementType>) {
+		if (srcStride == elemSize && srcStride == TargetStride) {
+			std::memcpy(dest, srcBytes, elemSize * accessor.count);
+		} else {
+			for (std::size_t i = 0; i < accessor.count; ++i) {
+				std::memcpy(dstBytes + TargetStride * i, srcBytes + srcStride * i, elemSize);
+			}
+		}
+	} else {
+		for (std::size_t i = 0; i < accessor.count; ++i) {
+			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
+			*pDest = internal::getAccessorElementAt<ElementType>(accessor.componentType, srcBytes + srcStride * i);
 		}
 	}
 }
