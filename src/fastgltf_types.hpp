@@ -256,7 +256,7 @@ namespace fastgltf {
         auto masked = to_underlying(componentType) & 0xFFFF0000;
         return masked >> 16;
     }
-  
+
     constexpr std::uint16_t getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
         return static_cast<std::uint16_t>(getNumComponents(type)) * (getComponentBitSize(componentType) / 8);
     }
