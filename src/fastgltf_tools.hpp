@@ -75,7 +75,7 @@ struct ComponentTypeConverter<double> {
 	static constexpr auto type = ComponentType::Double;
 };
 
-template <typename ElementType, typename ComponentType, AccessorType EnumAccessorType>
+template <typename ElementType, AccessorType EnumAccessorType, typename ComponentType = ElementType>
 struct ElementTraitsBase {
 	using element_type = ElementType;
 	using component_type = ComponentType;
@@ -87,28 +87,28 @@ template <typename>
 struct ElementTraits;
 
 template<>
-struct ElementTraits<std::int8_t> : ElementTraitsBase<std::int8_t, std::int8_t, AccessorType::Scalar> {};
+struct ElementTraits<std::int8_t> : ElementTraitsBase<std::int8_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::uint8_t> : ElementTraitsBase<std::uint8_t, std::uint8_t, AccessorType::Scalar> {};
+struct ElementTraits<std::uint8_t> : ElementTraitsBase<std::uint8_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::int16_t> : ElementTraitsBase<std::int16_t, std::int16_t, AccessorType::Scalar> {};
+struct ElementTraits<std::int16_t> : ElementTraitsBase<std::int16_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::uint16_t> : ElementTraitsBase<std::uint16_t, std::uint16_t, AccessorType::Scalar> {};
+struct ElementTraits<std::uint16_t> : ElementTraitsBase<std::uint16_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::int32_t> : ElementTraitsBase<std::int32_t, std::int32_t, AccessorType::Scalar> {};
+struct ElementTraits<std::int32_t> : ElementTraitsBase<std::int32_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<std::uint32_t> : ElementTraitsBase<std::uint32_t, std::uint32_t, AccessorType::Scalar> {};
+struct ElementTraits<std::uint32_t> : ElementTraitsBase<std::uint32_t, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<float> : ElementTraitsBase<float, float, AccessorType::Scalar> {};
+struct ElementTraits<float> : ElementTraitsBase<float, AccessorType::Scalar> {};
 
 template<>
-struct ElementTraits<double> : ElementTraitsBase<double, double, AccessorType::Scalar> {};
+struct ElementTraits<double> : ElementTraitsBase<double, AccessorType::Scalar> {};
 
 #if FASTGLTF_HAS_CONCEPTS
 template <typename ElementType>
@@ -133,7 +133,7 @@ requires Element<ElementType>
 #endif
 constexpr ElementType convertAccessorElement(const std::byte* bytes, std::index_sequence<I...>) {
 	using DestType = typename ElementTraits<ElementType>::component_type;
-	static_assert(std::is_arithmetic_v<DestType>, "Accessor traits must provide a valid component ttype");
+	static_assert(std::is_arithmetic_v<DestType>, "Accessor traits must provide a valid component type");
 
 	if constexpr (std::is_aggregate_v<ElementType>) {
 		return {convertComponent<SourceType, DestType, I>(bytes)...};

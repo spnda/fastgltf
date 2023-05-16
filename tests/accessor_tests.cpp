@@ -7,7 +7,7 @@
 #include "gltf_path.hpp"
 
 template<>
-struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, float, AccessorType::Vec3> {};
+struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> {};
 
 static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {
 	const std::byte* result = nullptr;
@@ -119,7 +119,6 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
     REQUIRE(sparse.bufferViewValues == 3);
     REQUIRE(sparse.byteOffsetValues == 0);
     REQUIRE(sparse.indexComponentType == fastgltf::ComponentType::UnsignedShort);
-
 
 	auto& secondAccessor = asset->accessors[1];
 	auto& viewIndices = asset->bufferViews[secondAccessor.sparse->bufferViewIndices];
