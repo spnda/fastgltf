@@ -41,8 +41,9 @@ fastgltf supports a number of glTF extensions:
 
 fastgltf brings many utilities:
 - [x] SIMD powered base64 buffer decoder
-- [x] Can decompose transform matrices, so you only ever have translation, rotation, and scale.
-- [x] Allows writing directly to mapped GPU buffers for direct uploads, reducing copies.
+- [x] Can decompose transform matrices into independent translation, rotation, and scale factors
+- [x] Allows writing directly to mapped GPU buffers for direct uploads, reducing copies
+- [x] Advanced utilities to read, copy and iterate over accessor data
 
 ## Usage
 
