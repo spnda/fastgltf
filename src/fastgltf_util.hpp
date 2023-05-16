@@ -262,6 +262,17 @@ namespace fastgltf {
         return str.rfind(search, 0) == 0;
     }
 
+	/**
+	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
+	 * std::visit
+	 */
+	template<class... Ts> 
+	struct visitor : Ts... {
+		using Ts::operator()...;
+	};
+
+	template<class... Ts> visitor(Ts...) -> visitor<Ts...>;
+
     // For simple ops like &, |, +, - taking a left and right operand.
 #define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \
     constexpr T1 operator op(const T1& a, const T2& b) noexcept { \
