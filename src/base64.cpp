@@ -45,7 +45,7 @@
 
 #include "simdjson.h"
 
-#include "base64_decode.hpp"
+#include <fastgltf/base64.hpp>
 
 namespace fg = fastgltf;
 

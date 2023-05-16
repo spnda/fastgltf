@@ -2,8 +2,8 @@
 
 #include <glm/vec3.hpp>
 
-#include "fastgltf_parser.hpp"
-#include "fastgltf_tools.hpp"
+#include <fastgltf/parser.hpp>
+#include <fastgltf/tools.hpp>
 #include "gltf_path.hpp"
 
 template<>

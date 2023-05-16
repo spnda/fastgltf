@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <fastgltf_types.hpp>
+#include <fastgltf/types.hpp>
 
 TEST_CASE("Test resize/reserve", "[vector-tests]") {
     fastgltf::SmallVector<uint32_t, 4> vec = {1, 2, 3};

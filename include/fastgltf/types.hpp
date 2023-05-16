@@ -35,7 +35,7 @@
 #include <vector>
 
 // Utils header already includes some headers, which we'll try and avoid including twice.
-#include "fastgltf_util.hpp"
+#include "util.hpp"
 
 #if FASTGLTF_CPP_20
 #include <span>

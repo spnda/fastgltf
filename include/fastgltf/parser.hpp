@@ -35,8 +35,8 @@
 #include <variant>
 #include <vector>
 
-#include "fastgltf_types.hpp"
-#include "fastgltf_util.hpp"
+#include "types.hpp"
+#include "util.hpp"
 
 #ifdef _MSC_VER
 #pragma warning(push)

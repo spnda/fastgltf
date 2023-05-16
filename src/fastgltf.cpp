@@ -45,17 +45,17 @@
 #pragma warning(disable : 4514) // unreferenced inline function has been removed
 #endif
 
-#include "simdjson.h"
+#include <simdjson.h>
 
 #ifdef SIMDJSON_TARGET_VERSION
 // Make sure that SIMDJSON_TARGET_VERSION is equal to SIMDJSON_VERSION.
 static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, "Outdated version of simdjson. Reconfigure project to update.");
 #endif
 
-#include "fastgltf_parser.hpp"
-#include "fastgltf_types.hpp"
-#include "fastgltf_util.hpp"
-#include "base64_decode.hpp"
+#include <fastgltf/parser.hpp>
+#include <fastgltf/types.hpp>
+#include <fastgltf/util.hpp>
+#include <fastgltf/base64.hpp>
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
 #include <smmintrin.h>

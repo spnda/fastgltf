@@ -2,8 +2,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "fastgltf_parser.hpp"
-#include "fastgltf_types.hpp"
+#include <fastgltf/parser.hpp>
+#include <fastgltf/types.hpp>
 #include "gltf_path.hpp"
 
 TEST_CASE("Load basic GLB file", "[gltf-loader]") {

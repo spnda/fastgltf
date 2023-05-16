@@ -4,9 +4,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
-#include "base64_decode.hpp"
-#include "fastgltf_types.hpp"
-#include "fastgltf_parser.hpp"
+#include <fastgltf/base64.hpp>
+#include <fastgltf/types.hpp>
+#include <fastgltf/parser.hpp>
 #include "gltf_path.hpp"
 
 constexpr std::string_view testBase64 = "SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLiBIZWxsbyBXb3JsZC4=";

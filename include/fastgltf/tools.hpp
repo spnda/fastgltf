@@ -28,7 +28,7 @@
 
 #include <cstring>
 
-#include "fastgltf_types.hpp"
+#include "types.hpp"
 
 namespace fastgltf {
 

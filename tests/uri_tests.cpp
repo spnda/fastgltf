@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <fastgltf_types.hpp>
+#include <fastgltf/types.hpp>
 
 TEST_CASE("Test basic URIs", "[uri-tests]") {
     const fastgltf::URI uri1(std::string_view(""));

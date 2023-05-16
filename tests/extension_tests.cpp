@@ -5,8 +5,7 @@
 #include <glm/gtc/epsilon.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <fastgltf_parser.hpp>
-
+#include <fastgltf/parser.hpp>
 #include "gltf_path.hpp"
 
 TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {

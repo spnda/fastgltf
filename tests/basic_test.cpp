@@ -10,9 +10,9 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-#include "base64_decode.hpp"
-#include "fastgltf_parser.hpp"
-#include "fastgltf_types.hpp"
+#include <fastgltf/base64.hpp>
+#include <fastgltf/parser.hpp>
+#include <fastgltf/types.hpp>
 #include "gltf_path.hpp"
 
 TEST_CASE("Component type tests", "[gltf-loader]") {

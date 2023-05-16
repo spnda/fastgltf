@@ -5,7 +5,7 @@
 
 #include "simdjson.h"
 
-#include "fastgltf_parser.hpp"
+#include <fastgltf/parser.hpp>
 #include "gltf_path.hpp"
 
 constexpr auto benchmarkOptions = fastgltf::Options::DontRequireValidAssetMember;
