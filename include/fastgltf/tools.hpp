@@ -255,13 +255,13 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
 
 	if (accessor.sparse) {
-		auto& indicesView = asset.bufferViews[accessor.sparse->bufferViewIndices];
+		auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
 		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
-				+ indicesView.byteOffset + accessor.sparse->byteOffsetIndices;
+				+ indicesView.byteOffset + accessor.sparse->indicesByteOffset;
 
-		auto& valuesView = asset.bufferViews[accessor.sparse->bufferViewValues];
+		auto& valuesView = asset.bufferViews[accessor.sparse->valuesBufferView];
 		auto* valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
-				+ valuesView.byteOffset + accessor.sparse->byteOffsetValues;
+				+ valuesView.byteOffset + accessor.sparse->valuesByteOffset;
 		// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
 		// have its target or byteStride properties defined."
 		auto valueStride = getElementByteSize(accessor.type, accessor.componentType);
@@ -330,14 +330,14 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 	}
 
 	if (accessor.sparse && accessor.sparse->count > 0) {
-		auto& indicesView = asset.bufferViews[accessor.sparse->bufferViewIndices];
+		auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
 		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
-				+ indicesView.byteOffset + accessor.sparse->byteOffsetIndices;
+				+ indicesView.byteOffset + accessor.sparse->indicesByteOffset;
 		auto indexStride = getElementByteSize(AccessorType::Scalar, accessor.sparse->indexComponentType);
 
-		auto& valuesView = asset.bufferViews[accessor.sparse->bufferViewValues];
+		auto& valuesView = asset.bufferViews[accessor.sparse->valuesBufferView];
 		auto* valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
-				+ valuesView.byteOffset + accessor.sparse->byteOffsetValues;
+				+ valuesView.byteOffset + accessor.sparse->valuesByteOffset;
 		// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
 		// have its target or byteStride properties defined."
 		auto valueStride = getElementByteSize(accessor.type, accessor.componentType);

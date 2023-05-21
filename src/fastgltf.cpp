@@ -1162,12 +1162,12 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sparse.bufferViewIndices = static_cast<std::size_t>(value);
+            sparse.indicesBufferView = static_cast<std::size_t>(value);
 
             if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
-                sparse.byteOffsetIndices = 0;
+                sparse.indicesByteOffset = 0;
             } else {
-                sparse.byteOffsetIndices = static_cast<std::size_t>(value);
+                sparse.indicesByteOffset = static_cast<std::size_t>(value);
             }
 
             if (child["componentType"].get_uint64().get(value) != SUCCESS) {
@@ -1183,12 +1183,12 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
-            sparse.bufferViewValues = static_cast<std::size_t>(value);
+            sparse.valuesBufferView = static_cast<std::size_t>(value);
 
             if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
-                sparse.byteOffsetValues = 0;
+                sparse.valuesByteOffset = 0;
             } else {
-                sparse.byteOffsetValues = static_cast<std::size_t>(value);
+                sparse.valuesByteOffset = static_cast<std::size_t>(value);
             }
 
             accessor.sparse = sparse;

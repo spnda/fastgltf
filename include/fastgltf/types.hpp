@@ -1106,10 +1106,10 @@ namespace fastgltf {
 
     struct SparseAccessor {
         std::size_t count;
-        std::size_t bufferViewIndices;
-        std::size_t byteOffsetIndices;
-        std::size_t bufferViewValues;
-        std::size_t byteOffsetValues;
+        std::size_t indicesBufferView;
+        std::size_t indicesByteOffset;
+        std::size_t valuesBufferView;
+        std::size_t valuesByteOffset;
         ComponentType indexComponentType;
     };
 

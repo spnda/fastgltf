@@ -494,10 +494,10 @@ TEST_CASE("Validate sparse accessor parsing", "[gltf-loader]") {
     REQUIRE(asset->accessors[1].sparse.has_value());
     auto& sparse = asset->accessors[1].sparse.value();
     REQUIRE(sparse.count == 3);
-    REQUIRE(sparse.bufferViewIndices == 2);
-    REQUIRE(sparse.byteOffsetIndices == 0);
-    REQUIRE(sparse.bufferViewValues == 3);
-    REQUIRE(sparse.byteOffsetValues == 0);
+    REQUIRE(sparse.indicesBufferView == 2);
+    REQUIRE(sparse.indicesByteOffset == 0);
+    REQUIRE(sparse.valuesBufferView == 3);
+    REQUIRE(sparse.valuesByteOffset == 0);
     REQUIRE(sparse.indexComponentType == fastgltf::ComponentType::UnsignedShort);
 }
 

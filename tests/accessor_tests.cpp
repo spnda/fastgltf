@@ -114,15 +114,15 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
     REQUIRE(asset->accessors[1].sparse.has_value());
     auto& sparse = asset->accessors[1].sparse.value();
     REQUIRE(sparse.count == 3);
-    REQUIRE(sparse.bufferViewIndices == 2);
-    REQUIRE(sparse.byteOffsetIndices == 0);
-    REQUIRE(sparse.bufferViewValues == 3);
-    REQUIRE(sparse.byteOffsetValues == 0);
+    REQUIRE(sparse.indicesBufferView == 2);
+    REQUIRE(sparse.indicesByteOffset == 0);
+    REQUIRE(sparse.valuesBufferView == 3);
+    REQUIRE(sparse.valuesByteOffset == 0);
     REQUIRE(sparse.indexComponentType == fastgltf::ComponentType::UnsignedShort);
 
 	auto& secondAccessor = asset->accessors[1];
-	auto& viewIndices = asset->bufferViews[secondAccessor.sparse->bufferViewIndices];
-	auto& viewValues = asset->bufferViews[secondAccessor.sparse->bufferViewValues];
+	auto& viewIndices = asset->bufferViews[secondAccessor.sparse->indicesBufferView];
+	auto& viewValues = asset->bufferViews[secondAccessor.sparse->valuesBufferView];
 
 	auto& viewData = asset->bufferViews[*secondAccessor.bufferViewIndex];
 	auto* bufferData = getBufferData(asset->buffers[viewData.bufferIndex]) + viewData.byteOffset
@@ -131,9 +131,9 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
 			: fastgltf::getElementByteSize(secondAccessor.type, secondAccessor.componentType);
 
 	auto* dataIndices = reinterpret_cast<const std::uint16_t*>(getBufferData(asset->buffers[viewIndices.bufferIndex])
-			+ viewIndices.byteOffset + secondAccessor.sparse->byteOffsetIndices);
+			+ viewIndices.byteOffset + secondAccessor.sparse->indicesByteOffset);
 	auto* dataValues = reinterpret_cast<const glm::vec3*>(getBufferData(asset->buffers[viewValues.bufferIndex])
-			+ viewValues.byteOffset + secondAccessor.sparse->byteOffsetValues);
+			+ viewValues.byteOffset + secondAccessor.sparse->valuesByteOffset);
 
 	auto checkValues = std::make_unique<glm::vec3[]>(secondAccessor.count);
 
