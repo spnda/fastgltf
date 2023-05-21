@@ -32,9 +32,9 @@
 #include <cmath>
 #include <functional>
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#if defined(FASTGLTF_IS_X86)
 #include <immintrin.h>
-#elif defined(__aarch64__) || defined(__ARM_NEON) || defined(_M_ARM64)
+#elif defined(FASTGLTF_IS_A64)
 #include <arm_neon.h> // Includes arm64_neon.h on MSVC
 #endif
 
@@ -68,7 +68,7 @@ namespace fastgltf::base64 {
             // The different implementations, because they're SIMD based, require a minimum amount of chars, as
             // they load multiple at once.
             const auto& impls = simdjson::get_available_implementations();
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#if defined(FASTGLTF_IS_X86)
             if (const auto* avx2 = impls["haswell"]; avx2 != nullptr && avx2->supported_by_runtime_system()) {
                 func = avx2_decode;
                 inplace = avx2_decode_inplace;
@@ -76,7 +76,7 @@ namespace fastgltf::base64 {
                 func = sse4_decode;
                 inplace = sse4_decode_inplace;
             }
-#elif defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
+#elif defined(FASTGLTF_IS_A64)
             // _M_ARM64 always guarantees 64-bit ARM processors that support NEON, defined by MSVC.
             // __aarch64__ always guarantees 64-bit ARMv8 processors that support NEON, defined by Clang.
             // __ARM_NEON always guarantees NEON support, defined by Clang and GCC.
@@ -100,7 +100,7 @@ namespace fastgltf::base64 {
     };
 } // namespace fastgltf::base64
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#if defined(FASTGLTF_IS_X86)
 // The AVX and SSE decoding functions are based on http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html.
 // It covers various methods of en-/decoding base64 using SSE and AVX and also shows their
 // performance metrics.
@@ -265,7 +265,7 @@ namespace fastgltf::base64 {
 
     return ret;
 }
-#elif defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
+#elif defined(FASTGLTF_IS_A64)
 [[gnu::always_inline]] FORCEINLINE int8x16_t neon_lookup_pshufb_bitmask(const uint8x16_t input) {
     // clang-format off
     constexpr std::array<int8_t, 16> shiftLUTdata = {

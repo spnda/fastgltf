@@ -37,6 +37,13 @@
 #pragma warning(disable : 5030)
 #endif
 
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#define FASTGLTF_IS_X86
+#elif defined(_M_ARM64) || defined(__aarch64__)
+// __ARM_NEON is only for general Neon availability. It does not guarantee the full A64 instruction set.
+#define FASTGLTF_IS_A64
+#endif
+
 namespace fastgltf::base64 {
     /**
      * Calculates the amount of base64 padding chars ('=') at the end of the encoded string.
@@ -62,13 +69,13 @@ namespace fastgltf::base64 {
         return (encodedSize / 4) * 3 - padding;
     }
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#if defined(FASTGLTF_IS_X86)
     void sse4_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
     void avx2_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
 
     [[nodiscard]] std::vector<std::uint8_t> sse4_decode(std::string_view encoded);
     [[nodiscard]] std::vector<std::uint8_t> avx2_decode(std::string_view encoded);
-#elif defined(_M_ARM64) || defined(__ARM_NEON) || defined(__aarch64__)
+#elif defined(FASTGLTF_IS_A64)
     void neon_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
     [[nodiscard]] std::vector<std::uint8_t> neon_decode(std::string_view encoded);
 #endif
