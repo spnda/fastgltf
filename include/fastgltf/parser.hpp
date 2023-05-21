@@ -248,7 +248,7 @@ namespace fastgltf {
 
         [[nodiscard]] auto decodeDataUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
         [[nodiscard]] auto loadFileFromUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
-        [[gnu::always_inline]] inline Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
+        [[gnu::always_inline]] Error parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept;
 
         void parseAccessors(simdjson::dom::array& array);
         void parseAnimations(simdjson::dom::array& array);

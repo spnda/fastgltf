@@ -52,7 +52,7 @@ namespace fg = fastgltf;
 #if defined(_MSC_VER)
 #define FORCEINLINE __forceinline
 #else
-#define FORCEINLINE inline
+#define FORCEINLINE
 #endif
 
 namespace fastgltf::base64 {
