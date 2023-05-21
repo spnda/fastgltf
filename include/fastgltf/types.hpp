@@ -1070,7 +1070,7 @@ namespace fastgltf {
         std::optional<float> ior;
 
         /**
-         * Only applicable
+         * Only applicable if KHR_materials_unlit is enabled.
          */
         bool unlit;
 
