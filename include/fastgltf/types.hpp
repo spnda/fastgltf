@@ -51,7 +51,7 @@
 #define FASTGLTF_QUOTE(x) FASTGLTF_QUOTE_Q(x)
 
 // fastgltf version string. Use FASTGLTF_QUOTE to stringify.
-#define FASTGLTF_VERSION 0.4.0
+#define FASTGLTF_VERSION 0.5.0
 
 namespace fastgltf {
 #pragma region Enums
