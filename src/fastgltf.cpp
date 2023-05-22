@@ -166,80 +166,75 @@ namespace fastgltf {
 #endif
     }
 
-    [[nodiscard, gnu::always_inline]] std::tuple<bool, bool, std::size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension);
-    [[nodiscard, gnu::always_inline]] bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags);
+	[[nodiscard, gnu::always_inline]] inline std::tuple<bool, bool, std::size_t> getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
+		using namespace simdjson;
 
-    [[nodiscard, gnu::always_inline]] Error getJsonArray(simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept;
+		dom::object sourceExtensionObject;
+		if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) {
+			return std::make_tuple(false, true, 0U);
+		}
+
+		std::uint64_t imageIndex;
+		if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
+			return std::make_tuple(true, false, 0U);
+		}
+
+		return std::make_tuple(false, false, imageIndex);
+	}
+
+	[[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags) {
+		if (hasBit(extensionFlags, Extensions::KHR_texture_basisu)) {
+			auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::KHR_texture_basisu);
+			if (invalidGltf) {
+				return false;
+			}
+
+			if (!extensionNotPresent) {
+				texture.imageIndex = imageIndex;
+				return true;
+			}
+		}
+
+		if (hasBit(extensionFlags, Extensions::MSFT_texture_dds)) {
+			auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::MSFT_texture_dds);
+			if (invalidGltf) {
+				return false;
+			}
+
+			if (!extensionNotPresent) {
+				texture.imageIndex = imageIndex;
+				return true;
+			}
+		}
+
+		if (hasBit(extensionFlags, Extensions::EXT_texture_webp)) {
+			auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::EXT_texture_webp);
+			if (invalidGltf) {
+				return false;
+			}
+
+			if (!extensionNotPresent) {
+				texture.imageIndex = imageIndex;
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	[[nodiscard, gnu::always_inline]] inline Error getJsonArray(simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept {
+		using namespace simdjson;
+
+		auto error = parent[arrayName].get_array().get(*array);
+		if (error == NO_SUCH_FIELD) {
+			return Error::MissingField;
+		}
+		if (error == SUCCESS) {
+			return Error::None;
+		}
+		return Error::InvalidJson;
+	}
 } // namespace fastgltf
-
-std::tuple<bool, bool, std::size_t> fg::getImageIndexForExtension(simdjson::dom::object& object, std::string_view extension) {
-    using namespace simdjson;
-
-    dom::object sourceExtensionObject;
-    if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) {
-        return std::make_tuple(false, true, 0U);
-    }
-
-    std::uint64_t imageIndex;
-    if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
-        return std::make_tuple(true, false, 0U);
-    }
-
-    return std::make_tuple(false, false, imageIndex);
-}
-
-fg::Error fg::getJsonArray(simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept {
-    using namespace simdjson;
-
-    auto error = parent[arrayName].get_array().get(*array);
-    if (error == NO_SUCH_FIELD) {
-        return Error::MissingField;
-    }
-    if (error == SUCCESS) {
-        return Error::None;
-    }
-    return Error::InvalidJson;
-}
-
-bool fg::parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags) {
-    if (hasBit(extensionFlags, Extensions::KHR_texture_basisu)) {
-        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::KHR_texture_basisu);
-        if (invalidGltf) {
-            return false;
-        }
-
-        if (!extensionNotPresent) {
-            texture.imageIndex = imageIndex;
-            return true;
-        }
-    }
-
-    if (hasBit(extensionFlags, Extensions::MSFT_texture_dds)) {
-        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::MSFT_texture_dds);
-        if (invalidGltf) {
-            return false;
-        }
-
-        if (!extensionNotPresent) {
-            texture.imageIndex = imageIndex;
-            return true;
-        }
-    }
-
-    if (hasBit(extensionFlags, Extensions::EXT_texture_webp)) {
-        auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::EXT_texture_webp);
-        if (invalidGltf) {
-            return false;
-        }
-
-        if (!extensionNotPresent) {
-            texture.imageIndex = imageIndex;
-            return true;
-        }
-    }
-
-    return false;
-}
 
 #pragma region URI
 fg::URI::URI() noexcept = default;

@@ -52,7 +52,9 @@ namespace fg = fastgltf;
 #if defined(_MSC_VER)
 #define FORCEINLINE __forceinline
 #else
-#define FORCEINLINE
+// On other compilers we need the inline specifier, so that the functions in this compilation unit
+// can be properly inlined without the "function body can be overwritten at link time" error.
+#define FORCEINLINE inline
 #endif
 
 namespace fastgltf::base64 {
