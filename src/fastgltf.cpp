@@ -234,6 +234,84 @@ namespace fastgltf {
 		}
 		return Error::InvalidJson;
 	}
+
+	fg::Error parseTextureObject(simdjson::dom::object& object, std::string_view key, TextureInfo* info, Extensions extensions) noexcept {
+		using namespace simdjson;
+
+		dom::object child;
+		const auto childErr = object[key].get_object().get(child);
+		if (childErr == NO_SUCH_FIELD) {
+			return Error::MissingField; // Don't set errorCode.
+		} else if (childErr != SUCCESS) {
+			return Error::InvalidGltf;
+		}
+
+		std::uint64_t index;
+		if (child["index"].get_uint64().get(index) == SUCCESS) {
+			info->textureIndex = static_cast<std::size_t>(index);
+		} else {
+			return Error::InvalidGltf;
+		}
+
+		if (child["texCoord"].get_uint64().get(index) == SUCCESS) {
+			info->texCoordIndex = static_cast<std::size_t>(index);
+		} else {
+			info->texCoordIndex = 0;
+		}
+
+		// scale only applies to normal textures.
+		double scale = 1.0F;
+		if (child["scale"].get_double().get(scale) == SUCCESS) {
+			info->scale = static_cast<float>(scale);
+		} else {
+			info->scale = 1.0F;
+		}
+
+		dom::object extensionsObject;
+		if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
+			dom::object textureTransform;
+			if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) {
+				auto transform = std::make_unique<TextureTransform>();
+				transform->rotation = 0.0F;
+				transform->uvOffset = {{ 0.0F, 0.0F }};
+				transform->uvScale = {{ 1.0F, 1.0F }};
+
+				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
+					transform->texCoordIndex = index;
+				}
+
+				double rotation = 0.0F;
+				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
+					transform->rotation = static_cast<float>(rotation);
+				}
+
+				dom::array array;
+				if (textureTransform["offset"].get_array().get(array) == SUCCESS) {
+					for (auto i = 0U; i < 2; ++i) {
+						double val;
+						if (array.at(i).get_double().get(val) != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+						transform->uvOffset[i] = static_cast<float>(val);
+					}
+				}
+
+				if (textureTransform["scale"].get_array().get(array) == SUCCESS) {
+					for (auto i = 0U; i < 2; ++i) {
+						double val;
+						if (array.at(i).get_double().get(val) != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+						transform->uvScale[i] = static_cast<float>(val);
+					}
+				}
+
+				info->transform = std::move(transform);
+			}
+		}
+
+		return Error::None;
+	}
 } // namespace fastgltf
 
 #pragma region URI
@@ -1849,19 +1927,19 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
         }
 
         TextureInfo textureObject = {};
-        if (auto error = parseTextureObject(&materialObject, "normalTexture", &textureObject); error == Error::None) {
+        if (auto error = parseTextureObject(materialObject, "normalTexture", &textureObject, data->config.extensions); error == Error::None) {
             material.normalTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
         }
 
-        if (auto error = parseTextureObject(&materialObject, "occlusionTexture", &textureObject); error == Error::None) {
+        if (auto error = parseTextureObject(materialObject, "occlusionTexture", &textureObject, data->config.extensions); error == Error::None) {
             material.occlusionTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
         }
 
-        if (auto error = parseTextureObject(&materialObject, "emissiveTexture", &textureObject); error == Error::None) {
+        if (auto error = parseTextureObject(materialObject, "emissiveTexture", &textureObject, data->config.extensions); error == Error::None) {
             material.emissiveTexture = std::move(textureObject);
         } else if (error != Error::MissingField) {
             SET_ERROR_RETURN(error)
@@ -1896,13 +1974,13 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                 pbr.roughnessFactor = 1.0F;
             }
 
-            if (auto error = parseTextureObject(&pbrMetallicRoughness, "baseColorTexture", &textureObject); error == Error::None) {
+            if (auto error = parseTextureObject(pbrMetallicRoughness, "baseColorTexture", &textureObject, data->config.extensions); error == Error::None) {
                 pbr.baseColorTexture = std::move(textureObject);
             } else if (error != Error::MissingField) {
                 SET_ERROR_RETURN(error)
             }
 
-            if (auto error = parseTextureObject(&pbrMetallicRoughness, "metallicRoughnessTexture", &textureObject); error == Error::None) {
+            if (auto error = parseTextureObject(pbrMetallicRoughness, "metallicRoughnessTexture", &textureObject, data->config.extensions); error == Error::None) {
                 pbr.metallicRoughnessTexture = std::move(textureObject);
             } else if (error != Error::MissingField) {
                 SET_ERROR_RETURN(error)
@@ -1964,7 +2042,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo clearcoatTexture;
-                    if (auto error = parseTextureObject(&clearcoatObject, "clearcoatTexture", &clearcoatTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(clearcoatObject, "clearcoatTexture", &clearcoatTexture, data->config.extensions); error == Error::None) {
                         clearcoat->clearcoatTexture = std::move(clearcoatTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -1980,14 +2058,14 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo clearcoatRoughnessTexture;
-                    if (auto error = parseTextureObject(&clearcoatObject, "clearcoatRoughnessTexture", &clearcoatRoughnessTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(clearcoatObject, "clearcoatRoughnessTexture", &clearcoatRoughnessTexture, data->config.extensions); error == Error::None) {
                         clearcoat->clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
                     }
 
                     TextureInfo clearcoatNormalTexture;
-                    if (auto error = parseTextureObject(&clearcoatObject, "clearcoatNormalTexture", &clearcoatNormalTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(clearcoatObject, "clearcoatNormalTexture", &clearcoatNormalTexture, data->config.extensions); error == Error::None) {
                         clearcoat->clearcoatNormalTexture = std::move(clearcoatNormalTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2049,7 +2127,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo iridescenceTexture;
-                    if (auto error = parseTextureObject(&iridescenceObject, "specularTexture", &iridescenceTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(iridescenceObject, "specularTexture", &iridescenceTexture, data->config.extensions); error == Error::None) {
                         iridescence->iridescenceTexture = std::move(iridescenceTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2083,7 +2161,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo iridescenceThicknessTexture;
-                    if (auto error = parseTextureObject(&iridescenceObject, "specularTexture", &iridescenceThicknessTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(iridescenceObject, "specularTexture", &iridescenceThicknessTexture, data->config.extensions); error == Error::None) {
                         iridescence->iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2121,7 +2199,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo sheenColorTexture;
-                    if (auto error = parseTextureObject(&sheenObject, "sheenColorTexture", &sheenColorTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(sheenObject, "sheenColorTexture", &sheenColorTexture, data->config.extensions); error == Error::None) {
                         sheen->sheenColorTexture = std::move(sheenColorTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2137,7 +2215,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo sheenRoughnessTexture;
-                    if (auto error = parseTextureObject(&sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture, data->config.extensions); error == Error::None) {
                         sheen->sheenRoughnessTexture = std::move(sheenRoughnessTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2165,7 +2243,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo specularTexture;
-                    if (auto error = parseTextureObject(&specularObject, "specularTexture", &specularTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(specularObject, "specularTexture", &specularTexture, data->config.extensions); error == Error::None) {
                         specular->specularTexture = std::move(specularTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2191,7 +2269,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo specularColorTexture;
-                    if (auto error = parseTextureObject(&specularObject, "specularColorTexture", &specularColorTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(specularObject, "specularColorTexture", &specularColorTexture, data->config.extensions); error == Error::None) {
                         specular->specularColorTexture = std::move(specularColorTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2219,7 +2297,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo transmissionTexture;
-                    if (auto error = parseTextureObject(&transmissionObject, "transmissionTexture", &transmissionTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(transmissionObject, "transmissionTexture", &transmissionTexture, data->config.extensions); error == Error::None) {
                         transmission->transmissionTexture = std::move(transmissionTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2257,7 +2335,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
                     }
 
                     TextureInfo thicknessTexture;
-                    if (auto error = parseTextureObject(&volumeObject, "thicknessTexture", &thicknessTexture); error == Error::None) {
+                    if (auto error = parseTextureObject(volumeObject, "thicknessTexture", &thicknessTexture, data->config.extensions); error == Error::None) {
                         volume->thicknessTexture = std::move(thicknessTexture);
                     } else if (error != Error::MissingField) {
                         SET_ERROR_RETURN(error)
@@ -2666,85 +2744,6 @@ void fg::glTF::parseSkins(simdjson::dom::array& skins) {
         }
         parsedAsset->skins.emplace_back(std::move(skin));
     }
-}
-
-fg::Error fg::glTF::parseTextureObject(void* object, std::string_view key, TextureInfo* info) noexcept {
-    using namespace simdjson;
-    auto& obj = *static_cast<dom::object*>(object);
-
-    dom::object child;
-    const auto childErr = obj[key].get_object().get(child);
-    if (childErr == NO_SUCH_FIELD) {
-        return Error::MissingField; // Don't set errorCode.
-    } else if (childErr != SUCCESS) {
-        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-    }
-
-    std::uint64_t index;
-    if (child["index"].get_uint64().get(index) == SUCCESS) {
-        info->textureIndex = static_cast<std::size_t>(index);
-    } else {
-        SET_ERROR_RETURN_ERROR(Error::InvalidGltf)
-    }
-
-    if (child["texCoord"].get_uint64().get(index) == SUCCESS) {
-        info->texCoordIndex = static_cast<std::size_t>(index);
-    } else {
-        info->texCoordIndex = 0;
-    }
-
-    // scale only applies to normal textures.
-    double scale = 1.0F;
-    if (child["scale"].get_double().get(scale) == SUCCESS) {
-        info->scale = static_cast<float>(scale);
-    } else {
-        info->scale = 1.0F;
-    }
-
-    dom::object extensionsObject;
-    if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
-        dom::object textureTransform;
-        if (hasBit(data->config.extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) {
-            auto transform = std::make_unique<TextureTransform>();
-            transform->rotation = 0.0F;
-            transform->uvOffset = {{ 0.0F, 0.0F }};
-            transform->uvScale = {{ 1.0F, 1.0F }};
-
-            if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
-                transform->texCoordIndex = index;
-            }
-
-            double rotation = 0.0F;
-            if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
-                transform->rotation = static_cast<float>(rotation);
-            }
-
-            dom::array array;
-            if (textureTransform["offset"].get_array().get(array) == SUCCESS) {
-                for (auto i = 0U; i < 2; ++i) {
-                    double val;
-                    if (array.at(i).get_double().get(val) != SUCCESS) {
-                        return Error::InvalidGltf;
-                    }
-                    transform->uvOffset[i] = static_cast<float>(val);
-                }
-            }
-
-            if (textureTransform["scale"].get_array().get(array) == SUCCESS) {
-                for (auto i = 0U; i < 2; ++i) {
-                    double val;
-                    if (array.at(i).get_double().get(val) != SUCCESS) {
-                        return Error::InvalidGltf;
-                    }
-                    transform->uvScale[i] = static_cast<float>(val);
-                }
-            }
-
-            info->transform = std::move(transform);
-        }
-    }
-
-    return Error::None;
 }
 
 void fg::glTF::parseTextures(simdjson::dom::array& textures) {
