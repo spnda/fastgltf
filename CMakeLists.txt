@@ -12,6 +12,7 @@ option(FASTGLTF_DOWNLOAD_SIMDJSON "Downloads a copy of simdjson itself to satisf
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastlgtf" OFF)
 option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
+option(FASTGLTF_ENABLE_GLTF_RS "Enables the benchmark usage of gltf-rs" OFF)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)

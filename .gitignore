@@ -32,6 +32,10 @@ tests/gltf/good-froge/
 tests/gltf/deccer-cubes/
 tests/gltf_loaders/
 
+# gltf Rust wrapper
+tests/gltf-rs/target
+tests/gltf-rs/Cargo.lock
+
 # Example files
 *.ngfx-proj
 SpirvTemp/

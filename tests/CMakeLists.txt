@@ -27,7 +27,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/tinygltf/tiny_gltf.h")
 
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/RapidJSON")
         # RapidJSON's CMake is weird
-        message(STATUS "Found RapidJSON")
+        message(STATUS "fastgltf: Found RapidJSON")
         target_include_directories(fastgltf_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/RapidJSON/include")
         target_compile_definitions(fastgltf_tests PRIVATE HAS_RAPIDJSON=1 TINYGLTF_USE_RAPIDJSON=1 TINYGLTF_NO_INCLUDE_RAPIDJSON)
     endif()
@@ -37,6 +37,15 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/cgltf/cgltf.h")
     message(STATUS "fastgltf: Found cgltf")
     target_include_directories(fastgltf_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/cgltf")
     target_compile_definitions(fastgltf_tests PRIVATE HAS_CGLTF=1)
+endif()
+
+if (FASTGLTF_ENABLE_GLTF_RS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf-rs/src/lib.rs")
+    message(STATUS "fastgltf: Found gltf-rs")
+    corrosion_import_crate(MANIFEST_PATH gltf-rs/Cargo.toml)
+    corrosion_add_cxxbridge(gltf-rs-bridge CRATE gltf_rs MANIFEST_PATH gltf-rs FILES lib.rs)
+
+    target_link_libraries(fastgltf_tests PUBLIC gltf-rs-bridge)
+    target_compile_definitions(fastgltf_tests PRIVATE HAS_GLTFRS=1)
 endif()
 
 add_source_directory(TARGET fastgltf_tests FOLDER ".")

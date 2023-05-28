@@ -11,10 +11,11 @@ example_deps_urls = {
     'glfw': "https://github.com/glfw/glfw/releases/download/3.3.8/glfw-3.3.8.zip",
     'glm': "https://github.com/g-truc/glm/releases/download/0.9.9.8/glm-0.9.9.8.zip",
     'stb': "https://github.com/nothings/stb/archive/refs/heads/master.zip",
-    'glad': "https://github.com/Dav1dde/glad/archive/refs/heads/glad2.zip"
+    'glad': "https://github.com/Dav1dde/glad/archive/refs/heads/glad2.zip",
 }
 test_deps_urls = {
-    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.3.2.zip"
+    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.3.2.zip",
+    'corrosion': "https://github.com/corrosion-rs/corrosion/archive/refs/heads/master.zip",
 }
 deps_folder = "deps/"
 
