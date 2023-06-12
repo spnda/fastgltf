@@ -112,6 +112,59 @@ type. References in between objects are done with a single `size_t`, which is us
 the various vectors in the asset. fastgltf heavily utilizes standard containers like std::variant
 and std::optional to enforce safety for the user.
 
+## Accessor tools
+
+fastgltf provides a utility header for working with accessors. The header contains various functions
+and utilities for reading, copying, and converting accessor data. This header was written by
+[forenoonwatch](https://github.com/forenoonwatch) with the help of [Eearslya](https://github.com/Eearslya)
+and me. All of these tools also directly support sparse accessors to help add support for these without
+having to understand how they work.
+
+Loading the indices of a mesh primitive is as easy as this:
+
+```cpp
+fastgltf::Primitive& primitive = ...;
+
+std::vector<std::uint32_t> indices;
+if (primitive.indicesAccessor.has_value()) {
+	auto& accessor = asset->accessors[p.indicesAccessor.value()];
+	indices.resize(accessor.count);
+	fastgltf::iterateAccessorWithIndex<std::uint32_t>(*asset, accessor, [&](std::uint32_t index, std::size_t idx) {
+		indices[idx] = index;
+	});
+}
+```
+
+fastgltf can also directly convert into other types such as `glm::vec3`. For this to work, you have to
+define a specialization of `fastgltf::ElementTraits` with your type. fastgltf provides specializations
+for every glm type that a glTF accessor could provide data for, which can be found in `fastgltf/glm_element_traits.hpp`.
+
+```cpp
+template<>
+struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> {};
+```
+
+```cpp
+fastgltf::Primitive& primitive = ...;
+
+std::vector<Vertex> vertices;
+auto& accessor = asset->accessors[primitive.attributes["POSITION"]];
+vertices.resize(accessor.count);
+fastgltf::iterateAccessorWithIndex<glm::vec3>(*asset, accessor, [&](glm::vec3&& position, std::size_t idx) {
+	vertices[idx] = std::forward<glm::vec3>(position);
+});
+```
+
+Note that, by default, these functions will only be able to load from buffers where the source is either a
+`sources::ByteView` or a `sources::Vector`. For other data sources, you'll need to provide a functor similar
+to the already provided `DefaultBufferDataAdapter`.
+
+In total, fastgltf provides these functions for working with accessors:
+- `copyFromAccessor` which is essentially a glorified std::memcpy which respects byte stride and converts data.
+- `iterateAccessor` which provides the callback function to handle every element within the accessor.
+- `iterateAccessorWithIndex` which provides the callback function for every element and also provides the current index.
+- `getAccessorElement` which allows you to get single elements from the accessor.
+
 ## Performance
 
 [spreadsheet-link]: https://docs.google.com/spreadsheets/d/1ocdHGoty-rF0N46ZlAlswzcPHVRsqG_tncy8paD3iMY/edit?usp=sharing
