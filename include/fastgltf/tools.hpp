@@ -254,23 +254,12 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
 	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
 
-	// 5.1.1. accessor.bufferView
-	// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
-	// property or extensions MAY override zeros with actual values.
-	if (!accessor.bufferViewIndex) {
-		if constexpr (std::is_aggregate_v<ElementType>) {
-			return {};
-		} else {
-			return ElementType{};
-		}
-	}
-
 	if (accessor.sparse) {
-		auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
+		const auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
 		auto* indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
 				+ indicesView.byteOffset + accessor.sparse->indicesByteOffset;
 
-		auto& valuesView = asset.bufferViews[accessor.sparse->valuesBufferView];
+		const auto& valuesView = asset.bufferViews[accessor.sparse->valuesBufferView];
 		auto* valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
 				+ valuesView.byteOffset + accessor.sparse->valuesByteOffset;
 		// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
@@ -283,9 +272,20 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 			return internal::getAccessorElementAt<ElementType>(accessor.componentType,
 					valuesBytes + valueStride * sparseIndex);
 		}
-	} 
+	}
 
-	auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+	// 5.1.1. accessor.bufferView
+	// The index of the buffer view. When undefined, the accessor MUST be initialized with zeros; sparse
+	// property or extensions MAY override zeros with actual values.
+	if (!accessor.bufferViewIndex) {
+		if constexpr (std::is_aggregate_v<ElementType>) {
+			return {};
+		} else {
+			return ElementType{};
+		}
+	}
+
+	const auto& view = asset.bufferViews[*accessor.bufferViewIndex];
 	auto stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
 
 	auto* bytes = adapter(asset.buffers[view.bufferIndex]);
