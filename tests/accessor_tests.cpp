@@ -163,6 +163,16 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
 		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
 	}
 
+	SECTION("iterateAccessor with idx") {
+		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+
+		fastgltf::iterateAccessorWithIndex<glm::vec3>(*asset, secondAccessor, [&](auto&& v3, std::size_t i) {
+			dstCopy[i] = std::forward<glm::vec3>(v3);
+		});
+
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
+	}
+
 	SECTION("copyFromAccessor") {
 		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
 		fastgltf::copyFromAccessor<glm::vec3>(*asset, secondAccessor, dstCopy.get());

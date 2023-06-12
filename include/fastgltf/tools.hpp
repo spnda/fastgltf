@@ -402,6 +402,18 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 	}
 }
 
+template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
+#if FASTGLTF_HAS_CONCEPTS
+requires Element<ElementType>
+#endif
+void iterateAccessorWithIndex(const Asset& asset, const Accessor& accessor, Functor&& func,
+                     const BufferDataAdapter& adapter = {}) {
+	std::size_t idx = 0;
+	iterateAccessor<ElementType>(asset, accessor, [&](auto&& elementType) {
+	    func(std::forward<ElementType>(elementType), idx++);
+	}, adapter);
+}
+
 template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
 		 typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
