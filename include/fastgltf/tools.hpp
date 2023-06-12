@@ -166,10 +166,9 @@ ElementType getAccessorElementAt(ComponentType componentType, const std::byte* b
 		case ComponentType::Double:
 			return convertAccessorElement<ElementType, double>(bytes, Seq{});
 		case ComponentType::Invalid:
+		default:
 			return ElementType{};
 	}
-
-	return ElementType{};
 }
 
 // Performs a binary search for the index into the sparse index list whose value matches the desired index
