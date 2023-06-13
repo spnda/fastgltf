@@ -373,7 +373,7 @@ void fg::URI::readjustViews(const fastgltf::URI& other, std::string_view otherUr
 }
 
 void fg::URI::decodePercents(std::string& x) noexcept {
-    for (auto it = x.begin(); it != x.end(); it++) {
+    for (auto it = x.begin(); it != x.end(); ++it) {
         if (*it == '%') {
             // Read the next two chars and store them.
             std::array<char, 3> chars = {*(it + 1), *(it + 2), 0};
@@ -388,6 +388,8 @@ void fg::URI::parse() {
         _valid = false;
         return;
     }
+
+	decodePercents(uri);
 
     auto uriView = std::string_view { uri };
 
@@ -2989,7 +2991,7 @@ std::unique_ptr<fg::glTF> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path 
 
     auto data = std::make_unique<ParserData>();
     auto view = padded_string_view(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer), jsonLength, buffer->allocatedSize);
-    if (jsonParser->parse(view).get(data->root) != SUCCESS) {
+    if (auto error = jsonParser->parse(view).get(data->root); error != SUCCESS) {
         errorCode = Error::InvalidJson;
         return nullptr;
     }

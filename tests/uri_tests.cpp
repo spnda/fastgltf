@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <fastgltf/types.hpp>
+#include <fastgltf/parser.hpp>
 
 TEST_CASE("Test basic URIs", "[uri-tests]") {
     const fastgltf::URI uri1(std::string_view(""));
@@ -100,4 +101,24 @@ TEST_CASE("Validate URI copying/moving", "[uri-tests]") {
         REQUIRE(uri.raw() == data);
         REQUIRE(uri.path() == uri.raw());
     }
+}
+
+TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
+	const std::string_view gltfString = R"({"images": [{"uri": "grande_sph\u00E8re.png"}]})";
+	fastgltf::GltfDataBuffer dataBuffer;
+	dataBuffer.copyBytes((uint8_t*) gltfString.data(), gltfString.size());
+
+	fastgltf::Parser parser;
+	auto gltf = parser.loadGLTF(&dataBuffer, "", fastgltf::Options::DontRequireValidAssetMember);
+	REQUIRE(parser.getError() == fastgltf::Error::None);
+	auto result = gltf->parse();
+	REQUIRE(result == fastgltf::Error::None);
+
+	auto asset = gltf->getParsedAsset();
+	auto escaped = std::get<fastgltf::sources::URI>(asset->images.front().data);
+
+	const fastgltf::URI original(std::string_view("grande_sphère.png"));
+	const fastgltf::URI encoded(std::string_view("grande_sph%C3%A8re.png"));
+	REQUIRE(original.raw() == escaped.uri.raw());
+	REQUIRE(original.raw() == encoded.raw());
 }
