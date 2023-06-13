@@ -155,6 +155,24 @@ fastgltf::iterateAccessorWithIndex<glm::vec3>(*asset, accessor, [&](glm::vec3&& 
 });
 ```
 
+There's also an overload of `iterateAccessor` which returns an iterable type on which you can call `begin()` and `end()`.
+
+```cpp
+// Using iterators directly
+auto iterable = fastgltf::iterateAccessor(*asset, accessor);
+for (auto it = iterable.begin(); it != iterable.end(); ++it) {
+	auto idx = std::distance(iterable.begin(), it);
+	array[idx] = *it;
+}
+
+// Using a range-based for loop
+// Note: elements can not be passed by reference and always need to be copied.
+std::size_t idx = 0;
+for (auto element : fastgltf::iterateAccessor(*asset, accessor)) {
+	array[idx++] = element;
+}
+```
+
 Note that, by default, these functions will only be able to load from buffers where the source is either a
 `sources::ByteView` or a `sources::Vector`. For other data sources, you'll need to provide a functor similar
 to the already provided `DefaultBufferDataAdapter`.
@@ -162,6 +180,7 @@ to the already provided `DefaultBufferDataAdapter`.
 In total, fastgltf provides these functions for working with accessors:
 - `copyFromAccessor` which is essentially a glorified std::memcpy which respects byte stride and converts data.
 - `iterateAccessor` which provides the callback function to handle every element within the accessor.
+- `iterateAccessor` which provides a C++ iterator which can be used in for loops to iterate over the elements.
 - `iterateAccessorWithIndex` which provides the callback function for every element and also provides the current index.
 - `getAccessorElement` which allows you to get single elements from the accessor.
 

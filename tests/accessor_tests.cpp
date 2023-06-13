@@ -92,6 +92,15 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 			fastgltf::copyFromAccessor<glm::vec3>(*asset, secondAccessor, dstCopy.get());
 			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
 		}
+
+		SECTION("Iterator test") {
+			auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+			auto accessor = fastgltf::iterateAccessor<glm::vec3>(*asset, secondAccessor);
+			for (auto it = accessor.begin(); it != accessor.end(); ++it) {
+				dstCopy[std::distance(accessor.begin(), it)] = *it;
+			}
+			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+		}
 	}
 }
 
@@ -176,6 +185,15 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
 	SECTION("copyFromAccessor") {
 		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
 		fastgltf::copyFromAccessor<glm::vec3>(*asset, secondAccessor, dstCopy.get());
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
+	}
+
+	SECTION("Iterator test") {
+		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+		auto accessor = fastgltf::iterateAccessor<glm::vec3>(*asset, secondAccessor);
+		for (auto it = accessor.begin(); it != accessor.end(); ++it) {
+			dstCopy[std::distance(accessor.begin(), it)] = *it;
+		}
 		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
 	}
 }

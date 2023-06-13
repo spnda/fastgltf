@@ -241,6 +241,144 @@ struct DefaultBufferDataAdapter {
 	}
 };
 
+template <typename ElementType, typename BufferDataAdapter>
+class IterableAccessor;
+
+template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
+class AccessorIterator {
+protected:
+	const IterableAccessor<ElementType, BufferDataAdapter>* accessor;
+	std::size_t idx;
+	std::size_t sparseIdx = 0;
+	std::size_t nextSparseIndex = 0;
+
+public:
+	using value_type = ElementType;
+	using reference = ElementType&;
+	using pointer = ElementType*;
+	using difference_type = std::ptrdiff_t;
+
+	// This iterator isn't truly random access (as per the C++ definition), but we do want to support
+	// some things that these come with (e.g. std::distance using operator-).
+	using iterator_category = std::random_access_iterator_tag;
+
+	AccessorIterator(const IterableAccessor<ElementType, BufferDataAdapter>* accessor, std::size_t idx = 0)
+			: accessor(accessor), idx(idx) {
+		if (accessor->accessor.sparse.has_value()) {
+			// Get the first sparse index.
+			nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(accessor->indexComponentType,
+			                                                                accessor->indicesBytes + accessor->indexStride * sparseIdx);
+		}
+	}
+
+	AccessorIterator& operator++() noexcept {
+		++idx;
+		return *this;
+	}
+
+	AccessorIterator operator++(int) noexcept {
+		auto x = *this;
+		++(*this);
+		return x;
+	}
+
+	[[nodiscard]] difference_type operator-(const AccessorIterator& other) const noexcept {
+		return static_cast<difference_type>(idx - other.idx);
+	}
+
+	[[nodiscard]] bool operator==(const AccessorIterator& iterator) const noexcept {
+		// We don't compare sparse properties
+		return idx == iterator.idx &&
+			accessor->bufferBytes == iterator.accessor->bufferBytes &&
+			accessor->stride == iterator.accessor->stride &&
+			accessor->componentType == iterator.accessor->componentType;
+	}
+
+	[[nodiscard]] bool operator!=(const AccessorIterator& iterator) const noexcept {
+		return !(*this == iterator);
+	}
+
+	[[nodiscard]] ElementType operator*() noexcept {
+		if (accessor->accessor.sparse.has_value()) {
+			if (idx == nextSparseIndex) {
+				// Get the sparse value for this index
+				auto value = internal::getAccessorElementAt<ElementType>(accessor->componentType,
+																   accessor->valuesBytes + accessor->valueStride * sparseIdx);
+
+				// Find the next sparse index.
+				++sparseIdx;
+				if (sparseIdx < accessor->sparseCount) {
+					nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(accessor->indexComponentType,
+					                                                                accessor->indicesBytes + accessor->indexStride * sparseIdx);
+				}
+				return value;
+			}
+		}
+
+		return internal::getAccessorElementAt<ElementType>(accessor->componentType, accessor->bufferBytes + idx * accessor->stride);
+	}
+};
+
+template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
+class IterableAccessor {
+	friend class AccessorIterator<ElementType, BufferDataAdapter>;
+
+	const Asset& asset;
+	const Accessor& accessor;
+
+	const std::byte* bufferBytes;
+	std::size_t stride;
+	fastgltf::ComponentType componentType;
+
+	// Data needed for sparse accessors
+	fastgltf::ComponentType indexComponentType;
+	const std::byte* indicesBytes;
+	const std::byte* valuesBytes;
+	std::size_t indexStride;
+	std::size_t valueStride;
+	std::size_t sparseCount;
+
+public:
+	using iterator = AccessorIterator<ElementType, BufferDataAdapter>;
+
+	explicit IterableAccessor(const Asset& asset, const Accessor& accessor, const BufferDataAdapter& adapter) : asset(asset), accessor(accessor) {
+		componentType = accessor.componentType;
+
+		const auto& view = asset.bufferViews[*accessor.bufferViewIndex];
+		stride = view.byteStride ? *view.byteStride : getElementByteSize(accessor.type, accessor.componentType);
+
+		bufferBytes = adapter(asset.buffers[view.bufferIndex]);
+		bufferBytes += view.byteOffset + accessor.byteOffset;
+
+		if (accessor.sparse.has_value()) {
+			const auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
+			indicesBytes = adapter(asset.buffers[indicesView.bufferIndex])
+			               + indicesView.byteOffset + accessor.sparse->indicesByteOffset;
+
+			indexStride = getElementByteSize(AccessorType::Scalar, accessor.sparse->indexComponentType);
+
+			const auto& valuesView = asset.bufferViews[accessor.sparse->valuesBufferView];
+			valuesBytes = adapter(asset.buffers[valuesView.bufferIndex])
+			              + valuesView.byteOffset + accessor.sparse->valuesByteOffset;
+
+			// "The index of the bufferView with sparse values. The referenced buffer view MUST NOT
+			// have its target or byteStride properties defined."
+			valueStride = getElementByteSize(accessor.type, accessor.componentType);
+
+			indexComponentType = accessor.sparse->indexComponentType;
+			sparseCount = accessor.sparse->count;
+		}
+	}
+
+	[[nodiscard]] iterator begin() const noexcept {
+		return iterator(this, 0);
+	}
+
+	[[nodiscard]] iterator end() const noexcept {
+		return iterator(this, accessor.count);
+	}
+};
+
 template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
@@ -291,6 +429,14 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 	bytes += view.byteOffset + accessor.byteOffset;
 
 	return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride);
+}
+
+template<typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
+#if FASTGLTF_HAS_CONCEPTS
+requires Element<ElementType>
+#endif
+IterableAccessor<ElementType, BufferDataAdapter> iterateAccessor(const Asset& asset, const Accessor& accessor, const BufferDataAdapter& adapter = {}) {
+	return IterableAccessor<ElementType, BufferDataAdapter>(asset, accessor, adapter);
 }
 
 template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
