@@ -196,7 +196,7 @@ bool findSparseIndex(const std::byte* bytes, std::size_t indexCount, std::size_t
 }
 
 // Finds the index of the nearest sparse index to the desired index
-bool findSparseIndex(ComponentType componentType, const std::byte* bytes, std::size_t indexCount,
+inline bool findSparseIndex(ComponentType componentType, const std::byte* bytes, std::size_t indexCount,
 		std::size_t desiredIndex, std::size_t& resultIndex) {
 	switch (componentType) {
 		case ComponentType::Byte:
