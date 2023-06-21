@@ -315,180 +315,246 @@ namespace fastgltf {
 } // namespace fastgltf
 
 #pragma region URI
+fg::URIView::URIView() noexcept = default;
+
+fg::URIView::URIView(std::string_view uri) noexcept : view(uri) {
+	parse();
+}
+
+fg::URIView::URIView(const URIView& other) noexcept {
+	*this = other;
+}
+
+fg::URIView& fg::URIView::operator=(const URIView& other) {
+	view = other.view;
+	_scheme = other._scheme;
+	_path = other._path;
+	_userinfo = other._userinfo;
+	_host = other._host;
+	_port = other._port;
+	_query = other._query;
+	_fragment = other._fragment;
+	return *this;
+}
+
+fg::URIView& fg::URIView::operator=(std::string_view other) {
+	view = other;
+	parse();
+	return *this;
+}
+
+void fg::URIView::parse() {
+	if (view.empty()) {
+		_valid = false;
+		return;
+	}
+
+	size_t idx = 0;
+	auto firstColon = view.find(':');
+	if (firstColon != std::string::npos) {
+		// URI has a scheme.
+		if (firstColon == 0) {
+			// Empty scheme is invalid
+			_valid = false;
+			return;
+		}
+		_scheme = view.substr(0, firstColon);
+		idx = firstColon + 1;
+	}
+
+	if (startsWith(view.substr(idx), "//")) {
+		// URI has an authority part.
+		idx += 2;
+		auto nextSlash = view.find('/', idx);
+		auto userInfo = view.find('@', idx);
+		if (userInfo != std::string::npos && userInfo < nextSlash) {
+			_userinfo = view.substr(idx, userInfo - idx);
+			idx += _userinfo.size() + 1;
+		}
+
+		auto hostEnd = nextSlash - 1;
+		std::size_t portColon;
+		if (view[idx] == '[') {
+			hostEnd = view.find(']', idx);
+			if (hostEnd == std::string::npos) {
+				_valid = false;
+				return;
+			}
+			// IPv6 addresses are made up of colons, so we need to search after its address.
+			// This will just be hostEnd + 1 or std::string::npos.
+			portColon = view.find(':', hostEnd);
+		} else {
+			portColon = view.find(':', idx);
+		}
+
+		if (portColon != std::string::npos) {
+			_host = view.substr(idx, portColon - idx);
+			++portColon; // We don't want to include the colon in the port string.
+			_port = view.substr(portColon, nextSlash - portColon);
+		} else {
+			++idx;
+			_host = view.substr(idx, hostEnd - idx);
+		}
+
+		idx = nextSlash; // Path includes this slash
+	}
+
+	// Parse the path.
+	auto questionIdx = view.find("?", idx);
+	auto hashIdx = view.find("#", idx);
+	if (questionIdx != std::string::npos) {
+		_path = view.substr(idx, questionIdx - idx);
+
+		if (hashIdx == std::string::npos) {
+			_query = view.substr(++questionIdx);
+		} else {
+			++questionIdx;
+			_query = view.substr(questionIdx, hashIdx - questionIdx);
+			_fragment = view.substr(++hashIdx);
+		}
+	} else if (hashIdx != std::string::npos) {
+		_path = view.substr(idx, hashIdx - idx);
+		_fragment = view.substr(++hashIdx);
+	} else {
+		_path = view.substr(idx);
+	}
+}
+
+const char* fg::URIView::data() const noexcept {
+	return view.data();
+}
+
+std::string_view fg::URIView::string() const noexcept { return view; }
+std::string_view fg::URIView::scheme() const noexcept { return _scheme; }
+std::string_view fg::URIView::userinfo() const noexcept { return _userinfo; }
+std::string_view fg::URIView::host() const noexcept { return _host; }
+std::string_view fg::URIView::port() const noexcept { return _port; }
+std::string_view fg::URIView::path() const noexcept { return _path; }
+std::string_view fg::URIView::query() const noexcept { return _query; }
+std::string_view fg::URIView::fragment() const noexcept { return _fragment; }
+
+fs::path fg::URIView::fspath() const {
+	if (!isLocalPath())
+		return {};
+	return { path() };
+}
+
+bool fg::URIView::valid() const noexcept {
+	return _valid;
+}
+
+bool fg::URIView::isLocalPath() const noexcept {
+	return scheme().empty() || (scheme() == "file" && host().empty());
+}
+
+bool fg::URIView::isDataUri() const noexcept {
+	return scheme() == "data";
+}
+
 fg::URI::URI() noexcept = default;
 
 fg::URI::URI(std::string uri) noexcept : uri(std::move(uri)) {
-    parse();
+	decodePercents(this->uri);
+	view = this->uri; // Also parses.
 }
 
 fg::URI::URI(std::string_view uri) noexcept : uri(uri) {
-    parse();
+	decodePercents(this->uri);
+	view = this->uri; // Also parses.
 }
 
 // Some C++ stdlib implementations copy in some cases when moving strings, which invalidates the
 // views stored in the URI struct. This function adjusts the views from the old string to the new
 // string for safe copying.
-fg::URI::URI(const URI& other) : uri(other.uri) {
-    *this = other;
+fg::URI::URI(const URI& other) {
+	*this = other;
 }
 
 fg::URI::URI(URI&& other) noexcept {
-    *this = other;
+	*this = other;
 }
 
 fg::URI& fg::URI::operator=(const URI& other) {
-    uri = other.uri;
-    readjustViews(other, other.uri);
-    return *this;
+	uri = other.uri;
+	// We'll assume that with copying the string will always have to reallocate.
+	readjustViews(other.view);
+	return *this;
+}
+
+fg::URI& fg::URI::operator=(const URIView& other) {
+	uri = other.view;
+	readjustViews(other);
+	return *this;
 }
 
 fg::URI& fg::URI::operator=(URI&& other) noexcept {
-    std::string_view view = other.uri;
-    uri = std::move(other.uri);
-    _valid = other._valid;
-    other._valid = false;
-    if (uri.data() == view.data()) {
-        _scheme = other._scheme;
-        _path = other._path;
-        _userinfo = other._userinfo;
-        _host = other._host;
-        _port = other._port;
-        _query = other._query;
-        _fragment = other._fragment;
-    } else {
-        // A reallocation happened or stack memory was used.
-        readjustViews(other, view);
-    }
-    return *this;
+	auto* oldData = other.uri.data();
+	uri = std::move(other.uri);
+
+	// Invalidate the previous URI's view.
+	view._valid = other.view._valid;
+	other.view._valid = false;
+
+	if (uri.data() != oldData) {
+		// Allocation changed, we need to readjust views
+		readjustViews(other.view);
+	} else {
+		// No reallocation happened, we can safely copy the view.
+		view = other.view;
+	}
+	return *this;
 }
 
-void fg::URI::readjustViews(const fastgltf::URI& other, std::string_view otherUri) {
-    if (!other._scheme.empty()) {   _scheme     = std::string_view(uri.data() + (other._scheme.data()     - other.uri.data()), other._scheme.size()); }
-    if (!other._path.empty()) {     _path       = std::string_view(uri.data() + (other._path.data()       - other.uri.data()), other._path.size()); }
-    if (!other._userinfo.empty()) { _userinfo   = std::string_view(uri.data() + (other._userinfo.data()   - other.uri.data()), other._userinfo.size()); }
-    if (!other._host.empty()) {     _host       = std::string_view(uri.data() + (other._host.data()       - other.uri.data()), other._host.size()); }
-    if (!other._port.empty()) {     _port       = std::string_view(uri.data() + (other._port.data()       - other.uri.data()), other._port.size()); }
-    if (!other._query.empty()) {    _query      = std::string_view(uri.data() + (other._query.data()      - other.uri.data()), other._query.size()); }
-    if (!other._fragment.empty()) { _fragment   = std::string_view(uri.data() + (other._fragment.data()   - other.uri.data()), other._fragment.size()); }
+fg::URI::operator URIView() const noexcept {
+	return view;
+}
+
+void fg::URI::readjustViews(const fastgltf::URIView& other) {
+	if (!other._scheme.empty())   { view._scheme     = std::string_view(uri.data() + (other._scheme.data()     - other.view.data()), other._scheme.size()); }
+	if (!other._path.empty())     { view._path       = std::string_view(uri.data() + (other._path.data()       - other.view.data()), other._path.size()); }
+	if (!other._userinfo.empty()) { view._userinfo   = std::string_view(uri.data() + (other._userinfo.data()   - other.view.data()), other._userinfo.size()); }
+	if (!other._host.empty())     { view._host       = std::string_view(uri.data() + (other._host.data()       - other.view.data()), other._host.size()); }
+	if (!other._port.empty())     { view._port       = std::string_view(uri.data() + (other._port.data()       - other.view.data()), other._port.size()); }
+	if (!other._query.empty())    { view._query      = std::string_view(uri.data() + (other._query.data()      - other.view.data()), other._query.size()); }
+	if (!other._fragment.empty()) { view._fragment   = std::string_view(uri.data() + (other._fragment.data()   - other.view.data()), other._fragment.size()); }
+
+	view.view = uri;
 }
 
 void fg::URI::decodePercents(std::string& x) noexcept {
-    for (auto it = x.begin(); it != x.end(); ++it) {
-        if (*it == '%') {
-            // Read the next two chars and store them.
-            std::array<char, 3> chars = {*(it + 1), *(it + 2), 0};
-            *it = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
-            x.erase(it + 1, it + 3);
-        }
-    }
+	for (auto it = x.begin(); it != x.end(); ++it) {
+		if (*it == '%') {
+			// Read the next two chars and store them.
+			std::array<char, 3> chars = {*(it + 1), *(it + 2), 0};
+			*it = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
+			x.erase(it + 1, it + 3);
+		}
+	}
 }
 
-void fg::URI::parse() {
-    if (uri.empty()) {
-        _valid = false;
-        return;
-    }
-
-	decodePercents(uri);
-
-    auto uriView = std::string_view { uri };
-
-    size_t idx = 0;
-    auto firstColon = uri.find(':');
-    if (firstColon != std::string::npos) {
-        // URI has a scheme.
-        if (firstColon == 0) {
-            // Empty scheme is invalid
-            _valid = false;
-            return;
-        }
-        _scheme = uriView.substr(0, firstColon);
-        idx = firstColon + 1;
-    }
-
-    if (startsWith(uriView.substr(idx), "//")) {
-        // URI has an authority part.
-        idx += 2;
-        auto nextSlash = uriView.find('/', idx);
-        auto userInfo = uriView.find('@', idx);
-        if (userInfo != std::string::npos && userInfo < nextSlash) {
-            _userinfo = uriView.substr(idx, userInfo - idx);
-            idx += _userinfo.size() + 1;
-        }
-
-        auto hostEnd = nextSlash - 1;
-        std::size_t portColon;
-        if (uriView[idx] == '[') {
-            hostEnd = uriView.find(']', idx);
-            if (hostEnd == std::string::npos) {
-                _valid = false;
-                return;
-            }
-            // IPv6 addresses are made up of colons, so we need to search after its address.
-            // This will just be hostEnd + 1 or std::string::npos.
-            portColon = uriView.find(':', hostEnd);
-        } else {
-            portColon = uriView.find(':', idx);
-        }
-
-        if (portColon != std::string::npos) {
-            _host = uriView.substr(idx, portColon - idx);
-            ++portColon; // We don't want to include the colon in the port string.
-            _port = uriView.substr(portColon, nextSlash - portColon);
-        } else {
-            ++idx;
-            _host = uriView.substr(idx, hostEnd - idx);
-        }
-
-        idx = nextSlash; // Path includes this slash
-    }
-
-    // Parse the path.
-    auto questionIdx = uriView.find("?", idx);
-    auto hashIdx = uriView.find("#", idx);
-    if (questionIdx != std::string::npos) {
-        _path = uriView.substr(idx, questionIdx - idx);
-
-        if (hashIdx == std::string::npos) {
-            _query = uriView.substr(++questionIdx);
-        } else {
-            ++questionIdx;
-            _query = uriView.substr(questionIdx, hashIdx - questionIdx);
-            _fragment = uriView.substr(++hashIdx);
-        }
-    } else if (hashIdx != std::string::npos) {
-        _path = uriView.substr(idx, hashIdx - idx);
-        _fragment = uriView.substr(++hashIdx);
-    } else {
-        _path = uriView.substr(idx);
-    }
-}
-
-std::string_view fg::URI::raw() const noexcept { return uri; }
-std::string_view fg::URI::scheme() const noexcept { return _scheme; }
-std::string_view fg::URI::userinfo() const noexcept { return _userinfo; }
-std::string_view fg::URI::host() const noexcept { return _host; }
-std::string_view fg::URI::port() const noexcept { return _port; }
-std::string_view fg::URI::path() const noexcept { return _path; }
-std::string_view fg::URI::query() const noexcept { return _query; }
-std::string_view fg::URI::fragment() const noexcept { return _fragment; }
+std::string_view fg::URI::string() const noexcept { return uri; }
+std::string_view fg::URI::scheme() const noexcept { return view.scheme(); }
+std::string_view fg::URI::userinfo() const noexcept { return view.userinfo(); }
+std::string_view fg::URI::host() const noexcept { return view.host(); }
+std::string_view fg::URI::port() const noexcept { return view.port(); }
+std::string_view fg::URI::path() const noexcept { return view.path(); }
+std::string_view fg::URI::query() const noexcept { return view.query(); }
+std::string_view fg::URI::fragment() const noexcept { return view.fragment(); }
 
 fs::path fg::URI::fspath() const {
-    if (!isLocalPath())
-        return {};
-    return { path() };
+	return view.fspath();
 }
 
 bool fg::URI::valid() const noexcept {
-    return _valid;
+	return view.valid();
 }
 
 bool fg::URI::isLocalPath() const noexcept {
-    return scheme().empty() || (scheme() == "file" && host().empty());
+	return view.isLocalPath();
 }
 
 bool fg::URI::isDataUri() const noexcept {
-    return scheme() == "data";
+	return view.isDataUri();
 }
 #pragma endregion
 
@@ -530,7 +596,7 @@ static constexpr std::array<std::pair<std::string_view, fastgltf::Extensions>, 1
 #define SET_ERROR_RETURN_ERROR(error) errorCode = error; \
     return errorCode;
 
-std::pair<fg::Error, fg::DataSource> fg::glTF::decodeDataUri(URI& uri) const noexcept {
+std::pair<fg::Error, fg::DataSource> fg::glTF::decodeDataUri(URIView& uri) const noexcept {
     auto path = uri.path();
     auto mimeEnd = path.find(';');
     auto mime = path.substr(0, mimeEnd);
@@ -581,7 +647,7 @@ std::pair<fg::Error, fg::DataSource> fg::glTF::decodeDataUri(URI& uri) const noe
     return std::make_pair(Error::None, std::move(source));
 }
 
-std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URI& uri) const noexcept {
+std::pair<fg::Error, fg::DataSource> fg::glTF::loadFileFromUri(URIView& uri) const noexcept {
     auto path = directory / uri.path();
     std::error_code error;
     // If we were instructed to load external buffers and the files don't exist, we'll return an error.
@@ -1423,20 +1489,21 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
         // file. Otherwise, data must be specified in the "uri" field.
         std::string_view uriString;
         if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) {
-            URI uri(uriString);
-            if (!uri.valid()) {
+			URIView uriView(uriString);
+
+            if (!uriView.valid()) {
                 SET_ERROR_RETURN(Error::InvalidURI)
             }
 
-            if (uri.isDataUri()) {
-                auto [error, source] = decodeDataUri(uri);
+            if (uriView.isDataUri()) {
+                auto [error, source] = decodeDataUri(uriView);
                 if (error != Error::None) {
                     SET_ERROR_RETURN(error)
                 }
 
                 buffer.data = std::move(source);
-            } else if (uri.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
-                auto [error, source] = loadFileFromUri(uri);
+            } else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
+                auto [error, source] = loadFileFromUri(uriView);
                 if (error != Error::None) {
                     SET_ERROR_RETURN(error)
                 }
@@ -1445,7 +1512,7 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
             } else {
                 sources::URI filePath;
                 filePath.fileByteOffset = 0;
-                filePath.uri = std::move(uri);
+                filePath.uri = uriView;
                 buffer.data = std::move(filePath);
             }
         } else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
@@ -1748,20 +1815,20 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
                 SET_ERROR_RETURN(Error::InvalidGltf)
             }
 
-            URI uri(uriString);
-            if (!uri.valid()) {
+            URIView uriView(uriString);
+            if (!uriView.valid()) {
                 SET_ERROR_RETURN(Error::InvalidURI)
             }
 
-            if (uri.isDataUri()) {
-                auto [error, source] = decodeDataUri(uri);
+            if (uriView.isDataUri()) {
+                auto [error, source] = decodeDataUri(uriView);
                 if (error != Error::None) {
                     SET_ERROR_RETURN(error)
                 }
 
                 image.data = std::move(source);
-            } else if (uri.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
-                auto [error, source] = loadFileFromUri(uri);
+            } else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
+                auto [error, source] = loadFileFromUri(uriView);
                 if (error != Error::None) {
                     SET_ERROR_RETURN(error)
                 }
@@ -1770,7 +1837,7 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
             } else {
                 sources::URI filePath;
                 filePath.fileByteOffset = 0;
-                filePath.uri = std::move(uri);
+                filePath.uri = uriView;
                 image.data = std::move(filePath);
             }
 

@@ -644,60 +644,118 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Structs
-    /**
-     * Custom URI class for fastgltf's needs. glTF 2.0 only allows two types of URIs:
-     *  (1) Data URIs as specified in RFC 2397.
-     *  (2) Relative paths as specified in RFC 3986.
-     *
-     * See https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#uris for details.
-     * However, the glTF spec allows more broader URIs in client implementations. Therefore,
-     * this supports all types of URIs as defined in RFC 3986.
-     */
-    class URI {
-        std::string uri;
+	class glTF;
+	class URI;
 
-        std::string_view _scheme;
-        std::string_view _path;
+	/**
+	 * Custom URI class for fastgltf's needs. glTF 2.0 only allows two types of URIs:
+	 *  (1) Data URIs as specified in RFC 2397.
+	 *  (2) Relative paths as specified in RFC 3986.
+	 *
+	 * See https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#uris for details.
+	 * However, the glTF spec allows more broader URIs in client implementations. Therefore,
+	 * this supports all types of URIs as defined in RFC 3986.
+	 *
+	 * This class, unlike fastgltf::URI, only holds a std::string_view to the URI and therefore
+	 * doesn't own the allocation.
+	 */
+	class URIView {
+		friend class glTF;
+		friend class URI;
 
-        std::string_view _userinfo;
-        std::string_view _host;
-        std::string_view _port;
+		std::string_view view;
 
-        std::string_view _query;
-        std::string_view _fragment;
+		std::string_view _scheme;
+		std::string_view _path;
 
-        bool _valid = true;
+		std::string_view _userinfo;
+		std::string_view _host;
+		std::string_view _port;
 
-        void readjustViews(const fastgltf::URI& other, std::string_view otherUri);
-        void parse();
+		std::string_view _query;
+		std::string_view _fragment;
 
-    public:
-        explicit URI() noexcept;
-        explicit URI(std::string uri) noexcept;
-        explicit URI(std::string_view uri) noexcept;
+		bool _valid = true;
 
-        URI(const URI& other);
-        URI(URI&& other) noexcept;
+		void parse();
 
-        URI& operator=(const URI& other);
-        URI& operator=(URI&& other) noexcept;
+		[[nodiscard]] auto data() const noexcept -> const char*;
 
-        static void decodePercents(std::string& x) noexcept;
+	public:
+		explicit URIView() noexcept;
+		explicit URIView(std::string_view uri) noexcept;
+		URIView(const URIView& other) noexcept;
 
-        [[nodiscard]] auto raw() const noexcept -> std::string_view;
+		URIView& operator=(const URIView& other);
+		URIView& operator=(std::string_view other);
 
-        [[nodiscard]] auto scheme() const noexcept -> std::string_view;
-        [[nodiscard]] auto userinfo() const noexcept -> std::string_view;
-        [[nodiscard]] auto host() const noexcept -> std::string_view;
-        [[nodiscard]] auto port() const noexcept -> std::string_view;
-        [[nodiscard]] auto path() const noexcept -> std::string_view;
-        [[nodiscard]] auto query() const noexcept -> std::string_view;
-        [[nodiscard]] auto fragment() const noexcept -> std::string_view;
+		[[nodiscard]] auto string() const noexcept -> std::string_view;
 
-        [[nodiscard]] auto fspath() const -> std::filesystem::path;
-        [[nodiscard]] bool valid() const noexcept;
-        [[nodiscard]] bool isLocalPath() const noexcept;
-        [[nodiscard]] bool isDataUri() const noexcept;
+		[[nodiscard]] auto scheme() const noexcept -> std::string_view;
+		[[nodiscard]] auto userinfo() const noexcept -> std::string_view;
+		[[nodiscard]] auto host() const noexcept -> std::string_view;
+		[[nodiscard]] auto port() const noexcept -> std::string_view;
+		[[nodiscard]] auto path() const noexcept -> std::string_view;
+		[[nodiscard]] auto query() const noexcept -> std::string_view;
+		[[nodiscard]] auto fragment() const noexcept -> std::string_view;
+
+		[[nodiscard]] auto fspath() const -> std::filesystem::path;
+		[[nodiscard]] bool valid() const noexcept;
+		[[nodiscard]] bool isLocalPath() const noexcept;
+		[[nodiscard]] bool isDataUri() const noexcept;
+	};
+
+	/**
+	 * Custom URI class for fastgltf's needs. glTF 2.0 only allows two types of URIs:
+	 *  (1) Data URIs as specified in RFC 2397.
+	 *  (2) Relative paths as specified in RFC 3986.
+	 *
+	 * See https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#uris for details.
+	 * However, the glTF spec allows more broader URIs in client implementations. Therefore,
+	 * this supports all types of URIs as defined in RFC 3986.
+	 *
+	 * This class, unlike fastgltf::URIView, holds a std::string which contains the URI. It
+	 * also decodes any percent-encoded characters.
+	 */
+	class URI {
+		friend class glTF;
+
+		std::string uri;
+		URIView view;
+
+		void readjustViews(const URIView& other);
+
+	public:
+		explicit URI() noexcept;
+
+		explicit URI(std::string uri) noexcept;
+		explicit URI(std::string_view uri) noexcept;
+
+		URI(const URI& other);
+		URI(URI&& other) noexcept;
+
+		URI& operator=(const URI& other);
+		URI& operator=(const URIView& other);
+		URI& operator=(URI&& other) noexcept;
+
+		operator URIView() const noexcept;
+
+		static void decodePercents(std::string& x) noexcept;
+
+		[[nodiscard]] auto string() const noexcept -> std::string_view;
+
+		[[nodiscard]] auto scheme() const noexcept -> std::string_view;
+		[[nodiscard]] auto userinfo() const noexcept -> std::string_view;
+		[[nodiscard]] auto host() const noexcept -> std::string_view;
+		[[nodiscard]] auto port() const noexcept -> std::string_view;
+		[[nodiscard]] auto path() const noexcept -> std::string_view;
+		[[nodiscard]] auto query() const noexcept -> std::string_view;
+		[[nodiscard]] auto fragment() const noexcept -> std::string_view;
+
+		[[nodiscard]] auto fspath() const -> std::filesystem::path;
+		[[nodiscard]] bool valid() const noexcept;
+		[[nodiscard]] bool isLocalPath() const noexcept;
+		[[nodiscard]] bool isDataUri() const noexcept;
     };
 
     inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();

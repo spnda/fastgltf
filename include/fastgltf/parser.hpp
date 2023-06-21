@@ -246,8 +246,8 @@ namespace fastgltf {
         static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
         static void fillCategories(Category& inputCategories) noexcept;
 
-        [[nodiscard]] auto decodeDataUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
-        [[nodiscard]] auto loadFileFromUri(URI& uri) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> std::pair<Error, DataSource>;
+        [[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> std::pair<Error, DataSource>;
 
         void parseAccessors(simdjson::dom::array& array);
         void parseAnimations(simdjson::dom::array& array);

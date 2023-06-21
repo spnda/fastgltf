@@ -86,7 +86,7 @@ TEST_CASE("Validate URI copying/moving", "[uri-tests]") {
         fastgltf::URI uri(data);
         REQUIRE(uri.path() == data);
         fastgltf::URI uri2(uri);
-        REQUIRE(uri2.raw().data() != uri.raw().data());
+        REQUIRE(uri2.string().data() != uri.string().data());
         REQUIRE(uri2.path() == data);
     }
 
@@ -95,11 +95,11 @@ TEST_CASE("Validate URI copying/moving", "[uri-tests]") {
         {
             fastgltf::URI uri2(data);
             uri = std::move(uri2);
-            REQUIRE(uri2.raw().empty());
+            REQUIRE(uri2.string().empty());
         }
         // Test that the values were copied over and that the string views are still valid.
-        REQUIRE(uri.raw() == data);
-        REQUIRE(uri.path() == uri.raw());
+        REQUIRE(uri.string() == data);
+        REQUIRE(uri.path() == uri.string());
     }
 }
 
@@ -119,6 +119,6 @@ TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 
 	const fastgltf::URI original(std::string_view("grande_sphère.png"));
 	const fastgltf::URI encoded(std::string_view("grande_sph%C3%A8re.png"));
-	REQUIRE(original.raw() == escaped.uri.raw());
-	REQUIRE(original.raw() == encoded.raw());
+	REQUIRE(original.string() == escaped.uri.string());
+	REQUIRE(original.string() == encoded.string());
 }
