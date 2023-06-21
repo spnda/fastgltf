@@ -123,22 +123,37 @@ concept Element = std::is_arithmetic_v<typename ElementTraits<ElementType>::comp
 namespace internal {
 
 template <typename SourceType, typename DestType, std::size_t Index>
-constexpr DestType convertComponent(const std::byte* bytes) {
-	return static_cast<DestType>(reinterpret_cast<const SourceType*>(bytes)[Index]);
+constexpr DestType convertComponent(const std::byte* bytes, bool normalized) {
+	auto source = reinterpret_cast<const SourceType*>(bytes)[Index];
+
+	if (normalized) {
+		if constexpr (std::is_floating_point_v<SourceType> && std::is_integral_v<DestType>) {
+			// float -> int conversion
+			return static_cast<DestType>(std::round(source * static_cast<SourceType>(std::numeric_limits<DestType>::max())));
+		} else if constexpr (std::is_integral_v<SourceType> && std::is_floating_point_v<DestType>) {
+			// int -> float conversion
+			// We have to use max here because for uchar -> float we could have -128 but 1.0 should represent 127,
+			// which is why -128 and -127 both equate to 1.0.
+			return fastgltf::max(static_cast<DestType>(source) / static_cast<DestType>(std::numeric_limits<SourceType>::max()),
+								 static_cast<DestType>(-1.0));
+		}
+	}
+
+	return static_cast<DestType>(source);
 }
 
 template <typename ElementType, typename SourceType, std::size_t... I>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
-constexpr ElementType convertAccessorElement(const std::byte* bytes, std::index_sequence<I...>) {
+constexpr ElementType convertAccessorElement(const std::byte* bytes, bool normalized, std::index_sequence<I...>) {
 	using DestType = typename ElementTraits<ElementType>::component_type;
 	static_assert(std::is_arithmetic_v<DestType>, "Accessor traits must provide a valid component type");
 
 	if constexpr (std::is_aggregate_v<ElementType>) {
-		return {convertComponent<SourceType, DestType, I>(bytes)...};
+		return {convertComponent<SourceType, DestType, I>(bytes, normalized)...};
 	} else {
-		return ElementType{convertComponent<SourceType, DestType, I>(bytes)...};
+		return ElementType{convertComponent<SourceType, DestType, I>(bytes, normalized)...};
 	}
 }
 
@@ -147,24 +162,24 @@ template <typename ElementType,
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
-ElementType getAccessorElementAt(ComponentType componentType, const std::byte* bytes) {
+ElementType getAccessorElementAt(ComponentType componentType, const std::byte* bytes, bool normalized = false) {
 	switch (componentType) {
 		case ComponentType::Byte:
-			return convertAccessorElement<ElementType, std::int8_t>(bytes, Seq{});
+			return convertAccessorElement<ElementType, std::int8_t>(bytes, normalized, Seq{});
 		case ComponentType::UnsignedByte:
-			return convertAccessorElement<ElementType, std::uint8_t>(bytes, Seq{});
+			return convertAccessorElement<ElementType, std::uint8_t>(bytes, normalized, Seq{});
 		case ComponentType::Short:
-			return convertAccessorElement<ElementType, std::int16_t>(bytes, Seq{});
+			return convertAccessorElement<ElementType, std::int16_t>(bytes, normalized, Seq{});
 		case ComponentType::UnsignedShort:
-			return convertAccessorElement<ElementType, std::uint16_t>(bytes, Seq{});
+			return convertAccessorElement<ElementType, std::uint16_t>(bytes, normalized, Seq{});
 		case ComponentType::Int:
-			return convertAccessorElement<ElementType, std::int32_t>(bytes, Seq{});
+			return convertAccessorElement<ElementType, std::int32_t>(bytes, normalized, Seq{});
 		case ComponentType::UnsignedInt:
-			return convertAccessorElement<ElementType, std::uint32_t>(bytes, Seq{});
+			return convertAccessorElement<ElementType, std::uint32_t>(bytes, normalized, Seq{});
 		case ComponentType::Float:
-			return convertAccessorElement<ElementType, float>(bytes, Seq{});
+			return convertAccessorElement<ElementType, float>(bytes, normalized, Seq{});
 		case ComponentType::Double:
-			return convertAccessorElement<ElementType, double>(bytes, Seq{});
+			return convertAccessorElement<ElementType, double>(bytes, normalized, Seq{});
 		case ComponentType::Invalid:
 		default:
 			return ElementType{};
@@ -302,7 +317,8 @@ public:
 			if (idx == nextSparseIndex) {
 				// Get the sparse value for this index
 				auto value = internal::getAccessorElementAt<ElementType>(accessor->componentType,
-																   accessor->valuesBytes + accessor->valueStride * sparseIdx);
+																		 accessor->valuesBytes + accessor->valueStride * sparseIdx,
+																		 accessor->accessor.normalized);
 
 				// Find the next sparse index.
 				++sparseIdx;
@@ -314,7 +330,9 @@ public:
 			}
 		}
 
-		return internal::getAccessorElementAt<ElementType>(accessor->componentType, accessor->bufferBytes + idx * accessor->stride);
+		return internal::getAccessorElementAt<ElementType>(accessor->componentType,
+														   accessor->bufferBytes + idx * accessor->stride,
+														   accessor->accessor.normalized);
 	}
 };
 
@@ -406,7 +424,8 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 		if (internal::findSparseIndex(accessor.sparse->indexComponentType, indicesBytes, accessor.sparse->count,
 				index, sparseIndex)) {
 			return internal::getAccessorElementAt<ElementType>(accessor.componentType,
-					valuesBytes + valueStride * sparseIndex);
+					valuesBytes + valueStride * sparseIndex,
+					accessor.normalized);
 		}
 	}
 
@@ -427,7 +446,7 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 	auto* bytes = adapter(asset.buffers[view.bufferIndex]);
 	bytes += view.byteOffset + accessor.byteOffset;
 
-	return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride);
+	return internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + index * stride, accessor.normalized);
 }
 
 template<typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
@@ -487,7 +506,8 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 		for (std::size_t i = 0; i < accessor.count; ++i) {
 			if (i == nextSparseIndex) {
 				func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
-						valuesBytes + valueStride * sparseIndexCount));
+						valuesBytes + valueStride * sparseIndexCount,
+						accessor.normalized));
 
 				++sparseIndexCount;
 
@@ -497,7 +517,8 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 				}
 			} else if (accessor.bufferViewIndex) {
 				func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
-						srcBytes + srcStride * i));
+						srcBytes + srcStride * i,
+						accessor.normalized));
 			} else {
 				func(ElementType{});
 			}
@@ -522,7 +543,7 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 		bytes += view.byteOffset + accessor.byteOffset;
 
 		for (std::size_t i = 0; i < accessor.count; ++i) {
-			func(internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + i * stride));
+			func(internal::getAccessorElementAt<ElementType>(accessor.componentType, bytes + i * stride, accessor.normalized));
 		}
 	}
 }
@@ -604,7 +625,9 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 
 	auto* srcBytes = adapter(asset.buffers[view.bufferIndex]) + view.byteOffset + accessor.byteOffset;
 
-	if constexpr (std::is_trivially_copyable_v<ElementType>) {
+	// We have to perform normalization if the accessor is marked as containing normalized data, which is why
+	// we can't just memcpy then.
+	if (std::is_trivially_copyable_v<ElementType> && !accessor.normalized) {
 		if (srcStride == elemSize && srcStride == TargetStride) {
 			std::memcpy(dest, srcBytes, elemSize * accessor.count);
 		} else {

@@ -1098,26 +1098,24 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
         std::uint64_t componentType;
         if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
-        } else {
-            accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
-            if (accessor.componentType == ComponentType::Double && !hasBit(options, Options::AllowDouble)) {
-                SET_ERROR_RETURN(Error::InvalidGltf)
-            }
+        }
+		accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
+        if (accessor.componentType == ComponentType::Double && !hasBit(options, Options::AllowDouble)) {
+            SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
         std::string_view accessorType;
         if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
-        } else {
-            accessor.type = getAccessorType(accessorType);
         }
+		accessor.type = getAccessorType(accessorType);
 
         std::uint64_t accessorCount;
         if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
-        } else {
-            accessor.count = static_cast<std::size_t>(accessorCount);
         }
+		accessor.count = static_cast<std::size_t>(accessorCount);
+
 
         std::uint64_t bufferView;
         if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) {
@@ -1218,6 +1216,11 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
         if (accessorObject["normalized"].get_bool().get(accessor.normalized) != SUCCESS) {
             accessor.normalized = false;
         }
+
+		// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
+		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || accessor.componentType == ComponentType::Float)) {
+			SET_ERROR_RETURN(Error::InvalidGltf)
+		}
 
         dom::object sparseAccessorObject;
         if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) {

@@ -1118,7 +1118,7 @@ namespace fastgltf {
         std::size_t count;
         AccessorType type;
         ComponentType componentType;
-        bool normalized = false;
+        bool normalized;
         
         std::variant<std::monostate, std::vector<double>, std::vector<std::int64_t>> max;
         std::variant<std::monostate, std::vector<double>, std::vector<std::int64_t>> min;
