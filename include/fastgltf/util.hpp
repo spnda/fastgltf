@@ -105,7 +105,7 @@ namespace fastgltf {
         { t > t } -> std::same_as<bool>;
     }
 #endif
-    [[nodiscard]] inline T max(T a, T b) noexcept {
+    [[nodiscard]] constexpr T max(T a, T b) noexcept {
         return (a > b) ? a : b;
     }
 

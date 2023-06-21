@@ -132,10 +132,17 @@ constexpr DestType convertComponent(const std::byte* bytes, bool normalized) {
 			return static_cast<DestType>(std::round(source * static_cast<SourceType>(std::numeric_limits<DestType>::max())));
 		} else if constexpr (std::is_integral_v<SourceType> && std::is_floating_point_v<DestType>) {
 			// int -> float conversion
+			DestType minValue;
+			if constexpr (std::is_signed_v<DestType>) {
+				minValue = static_cast<DestType>(-1.0);
+			} else {
+				minValue = static_cast<DestType>(0.0);
+			}
+
 			// We have to use max here because for uchar -> float we could have -128 but 1.0 should represent 127,
 			// which is why -128 and -127 both equate to 1.0.
 			return fastgltf::max(static_cast<DestType>(source) / static_cast<DestType>(std::numeric_limits<SourceType>::max()),
-								 static_cast<DestType>(-1.0));
+			                     minValue);
 		}
 	}
 
