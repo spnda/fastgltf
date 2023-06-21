@@ -80,7 +80,7 @@ endif()
 # Create the library target
 add_library(fastgltf
     "src/fastgltf.cpp" "src/base64.cpp"
-    "include/fastgltf/base64.hpp" "include/fastgltf/parser.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp")
+    "include/fastgltf/base64.hpp" "include/fastgltf/glm_element_traits.hpp" "include/fastgltf/parser.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp")
 add_library(fastgltf::fastgltf ALIAS fastgltf)
 
 compiler_flags(fastgltf)
@@ -108,7 +108,7 @@ if (ANDROID)
 endif()
 
 install(
-    FILES "include/fastgltf/base64.hpp" "include/fastgltf/parser.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp"
+    FILES "include/fastgltf/base64.hpp" "include/fastgltf/glm_element_traits.hpp" "include/fastgltf/parser.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp"
     DESTINATION include/fastgltf
 )
 
