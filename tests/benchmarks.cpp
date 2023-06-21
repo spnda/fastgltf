@@ -310,7 +310,7 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
     };
 }
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#if defined(FASTGLTF_IS_X86)
 TEST_CASE("Small CRC32-C benchmark", "[gltf-benchmark]") {
     static constexpr std::string_view test = "abcdefghijklmnopqrstuvwxyz";
     BENCHMARK("Default 1-byte tabular algorithm") {

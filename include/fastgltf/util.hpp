@@ -238,7 +238,7 @@ namespace fastgltf {
         // optimise this away, like instead use the bsr x86 instruction.
         if (value == 0) return 64;
         std::uint8_t count = 0;
-        for (int i = std::numeric_limits<T>::digits; i > 0; --i) {
+        for (auto i = std::numeric_limits<T>::digits - 1; i > 0; --i) {
             if ((value >> i) == 1) {
                 return count;
             }

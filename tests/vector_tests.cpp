@@ -2,6 +2,17 @@
 
 #include <fastgltf/types.hpp>
 
+TEST_CASE("Verify clz", "[vector-tests]") {
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000001) == 7);
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000010) == 6);
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000100) == 5);
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b00001000) == 4);
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b00010000) == 3);
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b00100000) == 2);
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b01000000) == 1);
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b10000000) == 0);
+}
+
 TEST_CASE("Test resize/reserve", "[vector-tests]") {
     fastgltf::SmallVector<uint32_t, 4> vec = {1, 2, 3};
     REQUIRE(vec[0] == 1);
