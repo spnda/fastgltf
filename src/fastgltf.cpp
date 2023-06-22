@@ -505,11 +505,11 @@ fg::URI& fg::URI::operator=(URI&& other) noexcept {
 	return *this;
 }
 
-fg::URI::operator URIView() const noexcept {
+fg::URI::operator fg::URIView() const noexcept {
 	return view;
 }
 
-void fg::URI::readjustViews(const fastgltf::URIView& other) {
+void fg::URI::readjustViews(const URIView& other) {
 	if (!other._scheme.empty())   { view._scheme     = std::string_view(uri.data() + (other._scheme.data()     - other.view.data()), other._scheme.size()); }
 	if (!other._path.empty())     { view._path       = std::string_view(uri.data() + (other._path.data()       - other.view.data()), other._path.size()); }
 	if (!other._userinfo.empty()) { view._userinfo   = std::string_view(uri.data() + (other._userinfo.data()   - other.view.data()), other._userinfo.size()); }
