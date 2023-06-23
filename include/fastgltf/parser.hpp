@@ -338,7 +338,7 @@ namespace fastgltf {
          * Loads the file with a optional byte offset into a memory buffer.
          */
         bool loadFromFile(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
-        
+
         /**
          * Returns the size, in bytes,
          * @return
