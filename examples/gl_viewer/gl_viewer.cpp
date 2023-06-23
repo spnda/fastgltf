@@ -38,8 +38,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include <fastgltf_parser.hpp>
-#include <fastgltf_types.hpp>
+#include <fastgltf/parser.hpp>
+#include <fastgltf/types.hpp>
 
 constexpr std::string_view vertexShaderSource = R"(
     #version 460 core
@@ -349,8 +349,10 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
     auto& asset = viewer->asset;
     Mesh outMesh = {};
     outMesh.primitives.resize(mesh.primitives.size());
+
     for (auto it = mesh.primitives.begin(); it != mesh.primitives.end(); ++it) {
-        if (it->attributes.find("POSITION") == it->attributes.end())
+		auto positionIt = it->findAttribute("POSITION");
+        if (positionIt == it->attributes.end())
             continue;
 
         // We only support indexed geometry.
@@ -380,7 +382,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 
         {
             // Position
-            auto& positionAccessor = asset->accessors[it->attributes["POSITION"]];
+            auto& positionAccessor = asset->accessors[positionIt->second];
             if (!positionAccessor.bufferViewIndex.has_value())
                 continue;
 
@@ -406,7 +408,8 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 
         {
             // Tex coord
-            auto& texCoordAccessor = asset->accessors[it->attributes["TEXCOORD_0"]];
+			auto texcoord0 = it->findAttribute("TEXCOORD_0");
+			auto& texCoordAccessor = asset->accessors[texcoord0->second];
             if (!texCoordAccessor.bufferViewIndex.has_value())
                 continue;
 

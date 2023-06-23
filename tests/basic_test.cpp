@@ -519,14 +519,20 @@ TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
     REQUIRE(asset->meshes.front().primitives.size() == 1);
 
     auto& primitive = asset->meshes.front().primitives.front();
-    REQUIRE(primitive.attributes.find("POSITION") != primitive.attributes.end());
-    REQUIRE(primitive.attributes["POSITION"] == 1);
+
+	auto position = primitive.findAttribute("POSITION");
+	REQUIRE(position != primitive.attributes.end());
+	REQUIRE((*position).second == 1);
 
     REQUIRE(primitive.targets.size() == 2);
-    REQUIRE(primitive.targets[0].find("POSITION") != primitive.targets[0].end());
-    REQUIRE(primitive.targets[0]["POSITION"] == 2);
-    REQUIRE(primitive.targets[1].find("POSITION") != primitive.targets[1].end());
-    REQUIRE(primitive.targets[1]["POSITION"] == 3);
+
+	auto positionTarget0 = primitive.findTargetAttribute(0, "POSITION");
+    REQUIRE(positionTarget0 != primitive.targets[0].end());
+    REQUIRE((*positionTarget0).second == 2);
+
+	auto positionTarget1 = primitive.findTargetAttribute(1, "POSITION");
+    REQUIRE(positionTarget0 != primitive.targets[1].end());
+    REQUIRE((*positionTarget1).second == 3);
 }
 
 TEST_CASE("Test accessors min/max", "[gltf-loader]") {

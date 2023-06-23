@@ -361,6 +361,9 @@ namespace fastgltf {
         }
 
     public:
+		using iterator = T*;
+		using const_iterator = const T*;
+
         SmallVector() : _data(this->storage.data()) {}
 
         explicit SmallVector(std::size_t size) : _data(this->storage.data()) {
@@ -447,12 +450,12 @@ namespace fastgltf {
             }
         }
 
-        T* begin() noexcept { return _data; }
-        const T* begin() const noexcept { return _data; }
-        const T* cbegin() const noexcept { return _data; }
-        T* end() noexcept { return begin() + size(); }
-        const T* end() const noexcept { return begin() + size(); }
-        const T* cend() const noexcept { return begin() + size(); }
+	    [[nodiscard]] iterator begin() noexcept { return _data; }
+        [[nodiscard]] const_iterator begin() const noexcept { return _data; }
+	    [[nodiscard]] const_iterator cbegin() const noexcept { return _data; }
+	    [[nodiscard]] iterator end() noexcept { return begin() + size(); }
+	    [[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
+	    [[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
 
         [[nodiscard]] std::reverse_iterator<T*> rbegin() { return end(); }
         [[nodiscard]] std::reverse_iterator<const T*> rbegin() const { return end(); }
@@ -471,13 +474,15 @@ namespace fastgltf {
         [[nodiscard]] bool isUsingStack() const noexcept { return data() == this->storage.data(); }
 
         void reserve(std::size_t newCapacity) {
+	        static_assert(std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
+
             // We don't want to reduce capacity with reserve, only with shrink_to_fit.
             if (newCapacity <= capacity()) {
                 return;
             }
 
             // If the new capacity is lower than what we can hold on the stack, we ignore this request.
-            if (newCapacity <= N) {
+            if (newCapacity <= N && isUsingStack()) {
                 _capacity = newCapacity;
                 if (_size > _capacity) {
                     _size = _capacity;
@@ -495,8 +500,12 @@ namespace fastgltf {
             if (size() == 0 && !isUsingStack()) {
                 alloc = static_cast<T*>(std::realloc(_data, newCapacity * sizeof(T)));
             } else {
-                alloc = static_cast<T*>(std::malloc(newCapacity * sizeof(T)));
-                copy(begin(), size(), alloc);
+				alloc = static_cast<T*>(std::malloc(newCapacity * sizeof(T)));
+
+				// Copy the old data into the new memory
+				for (std::size_t i = 0; i < size(); ++i) {
+					new(alloc + i) T((*this)[i]);
+				}
             }
 
             if (!isUsingStack() && _data && size() != 0) {
@@ -509,10 +518,6 @@ namespace fastgltf {
 
         void resize(std::size_t newSize) {
 	        static_assert(std::is_constructible_v<T>, "T has to be trivially constructible");
-            if (newSize == size()) {
-                return;
-            }
-
             if (newSize > size()) {
                 // Reserve enough capacity and copy the new value over.
                 auto oldSize = _size;
@@ -526,10 +531,7 @@ namespace fastgltf {
         }
 
         void resize(std::size_t newSize, const T& value) {
-            if (newSize == size()) {
-                return;
-            }
-
+	        static_assert(std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
             if (newSize > size()) {
                 // Reserve enough capacity and copy the new value over.
                 auto oldSize = _size;
@@ -636,10 +638,10 @@ namespace fastgltf {
 // We'll just use a snake_case type alias for switching the vector type.
 #if FASTGLTF_USE_CUSTOM_SMALLVECTOR
 	template <typename T, std::size_t N = initialSmallVectorStorage>
-	using small_vector = SmallVector<T, N>;
+	using PSmallVector = SmallVector<T, N>;
 #else
     template <typename T, std::size_t N = 0>
-    using small_vector = std::vector<T>;
+    using PSmallVector = std::vector<T>;
 #endif
 #pragma endregion
 
@@ -874,8 +876,8 @@ namespace fastgltf {
     };
 
     struct Animation {
-	    small_vector<AnimationChannel> channels;
-	    small_vector<AnimationSampler> samplers;
+	    PSmallVector<AnimationChannel> channels;
+	    PSmallVector<AnimationSampler> samplers;
 
         std::string name;
     };
@@ -910,7 +912,7 @@ namespace fastgltf {
     };
 
     struct Skin {
-	    small_vector<std::size_t> joints;
+	    PSmallVector<std::size_t> joints;
         std::optional<std::size_t> skeleton;
         std::optional<std::size_t> inverseBindMatrices;
 
@@ -927,7 +929,7 @@ namespace fastgltf {
     };
 
     struct Scene {
-	    small_vector<std::size_t> nodeIndices;
+	    PSmallVector<std::size_t> nodeIndices;
 
         std::string name;
     };
@@ -942,8 +944,8 @@ namespace fastgltf {
          */
         std::optional<std::size_t> lightsIndex;
 
-	    small_vector<std::size_t> children;
-	    small_vector<float> weights;
+	    PSmallVector<std::size_t> children;
+	    PSmallVector<float> weights;
 
         struct TRS {
             std::array<float, 3> translation;
@@ -963,18 +965,39 @@ namespace fastgltf {
     };
 
     struct Primitive {
-        std::unordered_map<std::string, std::size_t> attributes;
+		using attribute_type = std::pair<std::string, std::size_t>;
+
+		// Instead of a map we have a list of attributes here. Each pair contains
+		// the name of the attribute and the corresponding accessor index.
+		SmallVector<attribute_type, 4> attributes;
         PrimitiveType type;
 
-        std::vector<std::unordered_map<std::string, std::size_t>> targets;
+        std::vector<SmallVector<attribute_type, 4>> targets;
 
         std::optional<std::size_t> indicesAccessor;
         std::optional<std::size_t> materialIndex;
-    };
+
+		decltype(attributes)::iterator findAttribute(std::string_view name) {
+			for (decltype(attributes)::iterator it = attributes.begin(); it != attributes.end(); ++it) {
+				if (it->first == name)
+					return it;
+			}
+			return attributes.end();
+		}
+
+		decltype(targets)::value_type::iterator findTargetAttribute(std::size_t targetIndex, std::string_view name) {
+			auto& targetAttributes = targets[targetIndex];
+			for (std::remove_reference_t<decltype(targetAttributes)>::iterator it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
+				if (it->first == name)
+					return it;
+			}
+			return targetAttributes.end();
+		}
+	};
 
     struct Mesh {
-	    small_vector<Primitive, 2> primitives;
-	    small_vector<float> weights;
+	    PSmallVector<Primitive, 2> primitives;
+	    PSmallVector<float> weights;
 
         std::string name;
     };

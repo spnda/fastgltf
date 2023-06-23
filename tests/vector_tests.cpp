@@ -31,7 +31,7 @@ TEST_CASE("Test resize/reserve", "[vector-tests]") {
 
     vec.resize(6, 4);
     REQUIRE(vec.size() == 6);
-    for (auto i = 2; i < vec.size(); ++i) {
+    for (std::size_t i = 2; i < vec.size(); ++i) {
         REQUIRE(vec[i] == 4);
     }
 
@@ -42,19 +42,19 @@ TEST_CASE("Test resize/reserve", "[vector-tests]") {
 
 TEST_CASE("Test constructors", "[vector-tests]") {
     fastgltf::SmallVector<uint32_t, 4> vec = {0, 1, 2, 3};
-    for (auto i = 0; i < vec.size(); ++i) {
+    for (std::size_t i = 0; i < vec.size(); ++i) {
         REQUIRE(vec[i] == i);
     }
 
     fastgltf::SmallVector<uint32_t, 4> vec2(vec);
-    for (auto i = 0; i < vec2.size(); ++i) {
+    for (std::size_t i = 0; i < vec2.size(); ++i) {
         REQUIRE(vec2[i] == i);
     }
 
     fastgltf::SmallVector<uint32_t, 4> vec3 = std::move(vec2);
     REQUIRE(vec2.empty());
     vec3.resize(6);
-    for (auto i = 0; i < 4; ++i) {
+    for (std::size_t i = 0; i < 4; ++i) {
         REQUIRE(vec3[i] == i);
     }
     REQUIRE(vec3[4] == 0);

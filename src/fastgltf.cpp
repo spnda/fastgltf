@@ -956,7 +956,13 @@ fg::Error fg::glTF::validate() {
                         accessor.componentType != ComponentType::UnsignedShort) {
                         return Error::InvalidGltf;
                     }
-                }
+                } else if (startsWith(name, "_")) {
+					// Application-specific attribute semantics MUST start with an underscore, e.g., _TEMPERATURE.
+					// Application-specific attribute semantics MUST NOT use unsigned int component type.
+					if (accessor.componentType == ComponentType::UnsignedInt) {
+						return Error::InvalidGltf;
+					}
+				}
             }
         }
     }
@@ -979,10 +985,10 @@ fg::Error fg::glTF::validate() {
             // "When the node contains skin, all mesh.primitives MUST contain JOINTS_0 and WEIGHTS_0 attributes."
             auto& mesh = parsedAsset->meshes[node.meshIndex.value()];
             for (auto& primitive : mesh.primitives) {
-                auto end = primitive.attributes.end();
-                if (primitive.attributes.find("JOINTS_0") == end || primitive.attributes.find("WEIGHTS_0") == end) {
-                    return Error::InvalidGltf;
-                }
+				auto joints0 = primitive.findAttribute("JOINTS_0");
+				auto weights0 = primitive.findAttribute("WEIGHTS_0");
+				if (joints0 == primitive.attributes.end() || weights0 == primitive.attributes.end())
+					return Error::InvalidGltf;
             }
         }
     }
@@ -2482,7 +2488,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                     SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
-                auto parseAttributes = [](dom::object& object, std::unordered_map<std::string, std::size_t>& map) -> auto {
+                auto parseAttributes = [](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
                     // attributes map. The keys are only validated in the validate() method.
                     for (const auto& field : object) {
@@ -2492,7 +2498,8 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                         if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
                             return Error::InvalidGltf;
                         }
-                        map[std::string { key }] = static_cast<std::size_t>(attributeIndex);
+						attributes.emplace_back(
+							std::make_pair(std::string { key }, static_cast<std::size_t>(attributeIndex)));
                     }
                     return Error::None;
                 };
