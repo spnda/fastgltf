@@ -553,6 +553,33 @@ namespace fastgltf {
             _size = newSize;
         }
 
+		void shrink_to_fit() {
+			// Only have to shrink if there's any unused capacity.
+			if (capacity() == size() || size() == 0) {
+				return;
+			}
+
+			// If we can use the objects memory again, we'll copy everything over.
+			if (size() <= N) {
+				copy(begin(), size(), storage.data());
+				_data = storage.data();
+			} else {
+				// We have to use heap allocated memory.
+				auto* alloc = static_cast<T*>(std::malloc(size() * sizeof(T)));
+				for (std::size_t i = 0; i < size(); ++i) {
+					new(alloc + i) T((*this)[i]);
+				}
+
+				if (_data && !isUsingStack()) {
+					std::free(_data);
+				}
+
+				_data = alloc;
+			}
+
+			_capacity = _size;
+		}
+
         void assign(std::size_t count) {
 			static_assert(std::is_constructible_v<T>, "T has to be trivially constructible");
             resize(count);

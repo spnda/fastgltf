@@ -38,6 +38,9 @@ TEST_CASE("Test resize/reserve", "[vector-tests]") {
     vec.reserve(8);
     REQUIRE(vec.size() == 6);
     REQUIRE(vec.capacity() == 8);
+
+	vec.shrink_to_fit();
+	REQUIRE(vec.capacity() == 6);
 }
 
 TEST_CASE("Test constructors", "[vector-tests]") {
