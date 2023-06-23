@@ -26,17 +26,9 @@
 
 #pragma once
 
-#include <filesystem>
 #include <memory>
-#include <cstddef>
-#include <string_view>
-#include <optional>
-#include <utility>
-#include <variant>
-#include <vector>
 
 #include "types.hpp"
-#include "util.hpp"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -53,7 +45,7 @@ namespace simdjson::dom {
     class array;
     class object;
     class parser;
-}
+} // namespace simdjson::dom
 
 namespace fastgltf {
     struct BinaryGltfChunk;
@@ -450,7 +442,7 @@ namespace fastgltf {
         void setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept;
         void setUserPointer(void* pointer) noexcept;
     };
-}
+} // namespace fastgltf
 
 #ifdef _MSC_VER
 #pragma warning(pop)

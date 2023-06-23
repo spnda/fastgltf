@@ -28,6 +28,8 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
+#include <string_view>
 #include <type_traits>
 
 // Macros to determine C++ standard version

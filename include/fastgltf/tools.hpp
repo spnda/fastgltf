@@ -27,6 +27,7 @@
 #pragma once
 
 #include <cstring>
+#include <iterator>
 
 #include "types.hpp"
 
