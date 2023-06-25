@@ -4,7 +4,7 @@
 #include <glm/gtc/epsilon.hpp>
 #include <glm/ext/scalar_constants.hpp>
 
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include "gltf_path.hpp"
 

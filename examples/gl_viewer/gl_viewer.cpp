@@ -40,7 +40,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 
 constexpr std::string_view vertexShaderSource = R"(

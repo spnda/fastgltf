@@ -15,7 +15,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include <fastgltf/base64.hpp>
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include "gltf_path.hpp"
 

@@ -762,6 +762,34 @@ namespace fastgltf {
         void setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept;
         void setUserPointer(void* pointer) noexcept;
     };
+
+	/**
+	 * A composer for one or more glTF files.
+	 */
+	class Composer {
+		Error errorCode = Error::None;
+		const Asset* asset = nullptr;
+
+		void writeAccessors(std::string& json);
+		void writeBuffers(std::string& json);
+		void writeBufferViews(std::string& json);
+		void writeCameras(std::string& json);
+		void writeImages(std::string& json);
+		void writeLights(std::string& json);
+		void writeMaterials(std::string& json);
+		void writeMeshes(std::string& json);
+		void writeNodes(std::string& json);
+		void writeSamplers(std::string& json);
+		void writeScenes(std::string& json);
+		void writeSkins(std::string& json);
+		void writeTextures(std::string& json);
+
+	public:
+		[[nodiscard]] Error getError() const;
+
+		std::string writeGLTF(const Asset* asset);
+		void writeBinaryGLTF(const Asset* asset);
+	};
 } // namespace fastgltf
 
 #ifdef _MSC_VER

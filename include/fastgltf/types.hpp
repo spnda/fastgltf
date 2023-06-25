@@ -375,6 +375,23 @@ namespace fastgltf {
         		return AccessorType::Invalid;
         }
     }
+
+	static constexpr std::array<std::string_view, 7> accessorTypeNames = {
+		"SCALAR",
+		"VEC2",
+		"VEC3",
+		"VEC4",
+		"MAT2",
+		"MAT3",
+		"MAT4"
+	};
+
+	constexpr std::string_view getAccessorTypeName(AccessorType type) noexcept {
+		if (type == AccessorType::Invalid)
+			return "";
+		auto idx = to_underlying(type) & 0xFF;
+		return accessorTypeNames[idx - 1];
+	}
 #pragma endregion
 
 #pragma region Containers
@@ -1315,9 +1332,9 @@ namespace fastgltf {
     };
 
     struct Skin {
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
-	    Optional<std::size_t> skeleton;
 	    Optional<std::size_t> inverseBindMatrices;
+        Optional<std::size_t> skeleton;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
 
         FASTGLTF_STD_PMR_NS::string name;
     };

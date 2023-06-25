@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <fastgltf/types.hpp>
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 
 #include "gltf_path.hpp"
 

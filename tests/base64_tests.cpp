@@ -6,7 +6,7 @@
 
 #include <fastgltf/base64.hpp>
 #include <fastgltf/types.hpp>
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 #include "gltf_path.hpp"
 
 constexpr std::string_view testBase64 = "SGVsbG8gV29ybGQuIEhlbGxvIFdvcmxkLiBIZWxsbyBXb3JsZC4=";

@@ -52,9 +52,7 @@
 static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, "Outdated version of simdjson. Reconfigure project to update.");
 #endif
 
-#include <fastgltf/parser.hpp>
-#include <fastgltf/types.hpp>
-#include <fastgltf/util.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
 
 #if defined(FASTGLTF_IS_X86)
@@ -866,6 +864,14 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		}
 	}
 
+	for (const auto& light : asset.lights) {
+		if (light.type != LightType::Spot) {
+			if (light.innerConeAngle.has_value() || light.outerConeAngle.has_value()) {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
 	for (const auto& material : asset.materials) {
 		auto isInvalidTexture = [&textures = asset.textures](std::optional<std::size_t> textureIndex) {
 			return textureIndex.has_value() && textureIndex.value() >= textures.size();
@@ -1027,7 +1033,11 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 					return Error::InvalidGltf;
 		}
 
-		if (node.skinIndex.has_value() && node.meshIndex.has_value()) {
+		if ((node.skinIndex.has_value() || !node.weights.empty()) && !node.meshIndex.has_value()) {
+			return Error::InvalidGltf;
+		}
+
+		if (node.skinIndex.has_value()) {
 			// "When the node contains skin, all mesh.primitives MUST contain JOINTS_0 and WEIGHTS_0 attributes."
 			const auto& mesh = asset.meshes[node.meshIndex.value()];
 			for (const auto& primitive : mesh.primitives) {
@@ -3468,6 +3478,595 @@ void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) n
 
 void fg::Parser::setUserPointer(void* pointer) noexcept {
     config.userPointer = pointer;
+}
+#pragma endregion
+
+#pragma region Composer
+fg::Error fg::Composer::getError() const {
+	return errorCode;
+}
+
+void fg::Composer::writeAccessors(std::string& json) {
+	if (asset->accessors.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += R"("accessors":[)";
+	for (auto it = asset->accessors.begin(); it != asset->accessors.end(); ++it) {
+		json += '{';
+
+		json += "\"byteOffset\":" + std::to_string(it->byteOffset) + ',';
+		json += "\"count\":" + std::to_string(it->count) + ',';
+		json += R"("type":")" + std::string(getAccessorTypeName(it->type)) + "\",";
+		json += "\"componentType\":" + std::to_string(getGLComponentType(it->componentType));
+
+		if (it->bufferViewIndex.has_value()) {
+			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+
+		json += '}';
+		if (std::distance(asset->accessors.begin(), it) + 1 < asset->accessors.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeBuffers(std::string& json) {
+	if (asset->buffers.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"buffers\":[";
+	for (auto it = asset->buffers.begin(); it != asset->buffers.end(); ++it) {
+		json += '{';
+
+		std::visit(visitor {
+			[&](auto arg) {
+				// Covers BufferView and CustomBuffer.
+				errorCode = Error::InvalidGltf;
+			},
+			[&](const sources::Vector& vector) {
+				// Either we write to a file or we encode the data as a base64 data uri.
+			},
+			[&](const sources::ByteView& view) {
+				// Same as above.
+			},
+			[&](const sources::URI& uri) {
+				json += std::string(R"("uri":")") + std::string(uri.uri.string()) + '"' + ',';
+			}
+		}, it->data);
+
+		json += "\"byteLength\":" + std::to_string(it->byteLength);
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->buffers.begin(), it) + 1 < asset->buffers.size())
+			json += ',';
+	}
+	json += "]";
+}
+
+void fg::Composer::writeBufferViews(std::string& json) {
+	if (asset->bufferViews.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"bufferViews\":[";
+	for (auto it = asset->bufferViews.begin(); it != asset->bufferViews.end(); ++it) {
+		json += '{';
+
+		json += "\"buffer\":" + std::to_string(it->bufferIndex) + ',';
+		json += "\"byteOffset\":" + std::to_string(it->byteOffset) + ',';
+		json += "\"byteLength\":" + std::to_string(it->byteLength);
+
+		if (it->byteStride.has_value()) {
+			json += ",\"byteStride\":" + std::to_string(it->byteStride.value());
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+
+		json += '}';
+		if (std::distance(asset->bufferViews.begin(), it) + 1 < asset->bufferViews.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeCameras(std::string& json) {
+	if (asset->cameras.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"cameras\":[";
+	for (auto it = asset->cameras.begin(); it != asset->cameras.end(); ++it) {
+		json += '{';
+
+		std::visit(visitor {
+			[](auto arg) {},
+			[&](const Camera::Perspective& perspective) {
+				json += "\"perspective\":{";
+
+				if (perspective.aspectRatio.has_value()) {
+					json += "\"aspectRatio\":" + std::to_string(perspective.aspectRatio.value()) + ',';
+				}
+
+				json += "\"yfov\":" + std::to_string(perspective.yfov) + ',';
+
+				if (perspective.zfar.has_value()) {
+					json += "\"zfar\":" + std::to_string(perspective.zfar.value()) + ',';
+				}
+
+				json += "\"znear\":" + std::to_string(perspective.znear);
+
+				json += R"(},"type":"perspective")";
+			},
+			[&](const Camera::Orthographic& orthographic) {
+				json += "\"orthographic\":{";
+				json += "\"xmag\":" + std::to_string(orthographic.xmag) + ',';
+				json += "\"ymag\":" + std::to_string(orthographic.ymag) + ',';
+				json += "\"zfar\":" + std::to_string(orthographic.zfar) + ',';
+				json += "\"znear\":" + std::to_string(orthographic.znear) + ',';
+				json += R"(},"type":"orthographic")";
+			}
+		}, it->camera);
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+
+		json += '}';
+		if (std::distance(asset->cameras.begin(), it) + 1 < asset->cameras.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeImages(std::string& json) {
+	if (asset->images.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"images\":[";
+	for (auto it = asset->images.begin(); it != asset->images.end(); ++it) {
+		json += '{';
+
+		std::visit(visitor {
+			[&](auto arg) {
+				errorCode = Error::InvalidGltf;
+			},
+			[&](const sources::URI& uri) {
+				json += std::string(R"("uri":")") + std::string(uri.uri.string()) + '"';
+			},
+		}, it->data);
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->images.begin(), it) + 1 < asset->images.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeLights(std::string& json) {
+	if (asset->lights.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"lights\":[";
+	for (auto it = asset->lights.begin(); it != asset->lights.end(); ++it) {
+		json += '{';
+
+		// [1.0f, 1.0f, 1.0f] is the default.
+		if (it->color[0] != 1.0f && it->color[1] != 1.0f && it->color[2] != 1.0f) {
+			json += R"("color":[)";
+			json += std::to_string(it->color[0]) + ',' + std::to_string(it->color[1]) + ',' + std::to_string(it->color[2]);
+			json += "],";
+		}
+
+		if (it->intensity != 1.0f) {
+			json += R"("intensity":)" + std::to_string(it->intensity) + ',';
+		}
+
+		switch (it->type) {
+			case LightType::Directional: {
+				json += R"("type":"directional")";
+				break;
+			}
+			case LightType::Spot: {
+				json += R"("type":"spot")";
+				break;
+			}
+			case LightType::Point: {
+				json += R"("type":"point")";
+				break;
+			}
+		}
+
+		if (it->range.has_value()) {
+			json += R"(,"range":)" + std::to_string(it->range.value());
+		}
+
+		if (it->type == LightType::Spot) {
+			if (it->innerConeAngle.has_value())
+				json += R"("innerConeAngle":)" + std::to_string(it->innerConeAngle.value()) + ',';
+
+			if (it->outerConeAngle.has_value())
+				json += R"("outerConeAngle":)" + std::to_string(it->outerConeAngle.value()) + ',';
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->lights.begin(), it) + 1 < asset->lights.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeMaterials(std::string& json) {
+	if (asset->materials.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"materials\":[";
+	for (auto it = asset->materials.begin(); it != asset->materials.end(); ++it) {
+		json += '{';
+
+		if (it->alphaMode != AlphaMode::Opaque) {
+			if (json.back() != '{') json += ',';
+			json += R"("alphaMode":)";
+			if (it->alphaMode == AlphaMode::Blend) {
+				json += "\"BLEND\"";
+			} else if (it->alphaMode == AlphaMode::Mask) {
+				json += "\"MASK\"";
+			}
+		}
+
+		if (it->alphaCutoff != 0.5f) {
+			if (json.back() != '{') json += ',';
+			json += R"("alphaCutoff":)" + std::to_string(it->alphaCutoff);
+		}
+
+		if (it->doubleSided) {
+			if (json.back() != '{') json += ',';
+			json += R"("doubleSided":true)";
+		}
+
+		if (!it->name.empty()) {
+			if (json.back() != '{') json += ',';
+			json += R"("name":")" + it->name + '"';
+		}
+		json += '}';
+		if (std::distance(asset->materials.begin(), it) + 1 < asset->materials.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeMeshes(std::string& json) {
+	if (asset->meshes.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"meshes\":[";
+	for (auto it = asset->meshes.begin(); it != asset->meshes.end(); ++it) {
+		json += '{';
+
+		json += R"("primitives":[)";
+		auto itp = it->primitives.begin();
+		while (itp != it->primitives.end()) {
+			json += '{';
+
+			{
+				json += R"("attributes":{)";
+				for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
+					json += '"' + std::string(ita->first) + "\":" + std::to_string(ita->second);
+					if (std::distance(itp->attributes.begin(), ita) + 1 < itp->attributes.size())
+						json += ',';
+				}
+				json += '}';
+			}
+
+			if (itp->indicesAccessor.has_value()) {
+				json += R"(,"indices":)" + std::to_string(itp->indicesAccessor.value());
+			}
+
+			if (itp->materialIndex.has_value()) {
+				json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
+			}
+
+			if (itp->type != PrimitiveType::Triangles) {
+				json += R"(,"type":)" + std::to_string(to_underlying(itp->type));
+			}
+
+			json += '}';
+			++itp;
+			if (std::distance(it->primitives.begin(), itp) < it->primitives.size())
+				json += ',';
+		}
+		json += ']';
+
+		if (!it->weights.empty()) {
+			if (json.back() != ',')
+				json += ',';
+			json += R"("weights":[)";
+			auto itw = it->weights.begin();
+			while (itw != it->weights.end()) {
+				json += std::to_string(*itw);
+				++itw;
+				if (std::distance(it->weights.begin(), itw) < it->weights.size())
+					json += ',';
+			}
+			json += ']';
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->meshes.begin(), it) + 1 < asset->meshes.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeNodes(std::string& json) {
+	if (asset->nodes.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"nodes\":[";
+	for (auto it = asset->nodes.begin(); it != asset->nodes.end(); ++it) {
+		json += '{';
+
+		if (it->meshIndex.has_value()) {
+			json += R"("mesh":)" + std::to_string(it->meshIndex.value()) + ",";
+		}
+		if (it->cameraIndex.has_value()) {
+			json += R"("camera":)" + std::to_string(it->cameraIndex.value()) + ",";
+		}
+		if (it->skinIndex.has_value()) {
+			json += R"("skin":)" + std::to_string(it->skinIndex.value()) + ",";
+		}
+
+		if (!it->children.empty()) {
+			json += R"("children":[)";
+			auto itc = it->children.begin();
+			while (itc != it->children.end()) {
+				json += std::to_string(*itc);
+				++itc;
+				if (std::distance(it->children.begin(), itc) < it->children.size())
+					json += ',';
+			}
+			json += ']';
+		}
+
+		if (!it->weights.empty()) {
+			if (json.back() != ',')
+				json += ',';
+			json += R"("weights":[)";
+			auto itw = it->weights.begin();
+			while (itw != it->weights.end()) {
+				json += std::to_string(*itw);
+				++itw;
+				if (std::distance(it->weights.begin(), itw) < it->weights.size())
+					json += ',';
+			}
+			json += ']';
+		}
+
+		std::visit(visitor {
+			[&](const Node::TRS& trs) {
+				if (json.back() != ',')
+					json += ',';
+				// TODO: Don't write when values are defaulted.
+				json += R"("rotation":[)";
+				json += std::to_string(trs.rotation[0]) + ',' + std::to_string(trs.rotation[1]) + ',' + std::to_string(trs.rotation[2]) + ',' + std::to_string(trs.rotation[3]);
+				json += "],";
+
+				json += R"("scale":[)";
+				json += std::to_string(trs.scale[0]) + ',' + std::to_string(trs.scale[1]) + ',' + std::to_string(trs.scale[2]);
+				json += "],";
+
+				json += R"("translation":[)";
+				json += std::to_string(trs.translation[0]) + ',' + std::to_string(trs.translation[1]) + ',' + std::to_string(trs.translation[2]);
+				json += "]";
+			},
+			[&](const Node::TransformMatrix& matrix) {
+				if (json.back() != ',')
+					json += ',';
+				json += R"("matrix":[)";
+				for (std::size_t i = 0; i < matrix.size(); ++i) {
+					json += std::to_string(matrix[i]);
+					if (i + 1 < matrix.size()) {
+						json += ',';
+					}
+				}
+				json += ']';
+			},
+		}, it->transform);
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->nodes.begin(), it) + 1 < asset->nodes.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeSamplers(std::string& json) {
+	if (asset->samplers.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"samplers\":[";
+	for (auto it = asset->samplers.begin(); it != asset->samplers.end(); ++it) {
+		json += '{';
+
+		if (it->magFilter.has_value()) {
+			json += R"("magFilter":)" + std::to_string(to_underlying(it->magFilter.value())) + ',';
+		}
+		if (it->minFilter.has_value()) {
+			json += R"("minFilter":)" + std::to_string(to_underlying(it->minFilter.value())) + ',';
+		}
+		json += R"("wrapS":)" + std::to_string(to_underlying(it->wrapS)) + ',';
+		json += R"("wrapT":)" + std::to_string(to_underlying(it->wrapT));
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->samplers.begin(), it) + 1 < asset->samplers.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeScenes(std::string& json) {
+	if (asset->scenes.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"scenes\":[";
+	for (auto it = asset->scenes.begin(); it != asset->scenes.end(); ++it) {
+		json += '{';
+
+		json += R"("nodes":[)";
+		auto itn = it->nodeIndices.begin();
+		while (itn != it->nodeIndices.end()) {
+			json += std::to_string(*itn);
+			++itn;
+			if (std::distance(it->nodeIndices.begin(), itn) < it->nodeIndices.size())
+				json += ',';
+		}
+		json += ']';
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->scenes.begin(), it) + 1 < asset->scenes.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeSkins(std::string& json) {
+	if (asset->skins.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"skins\":[";
+	for (auto it = asset->skins.begin(); it != asset->skins.end(); ++it) {
+		json += '{';
+
+		if (it->inverseBindMatrices.has_value())
+			json += R"("inverseBindMatrices":)" + std::to_string(it->inverseBindMatrices.value()) + ',';
+
+		if (it->skeleton.has_value())
+			json += R"("skeleton":)" + std::to_string(it->skeleton.value()) + ',';
+
+		json += R"("joints":[)";
+		auto itj = it->joints.begin();
+		while (itj != it->joints.end()) {
+			json += std::to_string(*itj);
+			++itj;
+			if (std::distance(it->joints.begin(), itj) < it->joints.size())
+				json += ',';
+		}
+		json += ']';
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->skins.begin(), it) + 1 < asset->skins.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Composer::writeTextures(std::string& json) {
+	if (asset->textures.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"textures\":[";
+	for (auto it = asset->textures.begin(); it != asset->textures.end(); ++it) {
+		json += '{';
+
+		if (it->samplerIndex.has_value())
+			json += R"("sampler":)" + std::to_string(it->samplerIndex.value());
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + it->name + '"';
+		json += '}';
+		if (std::distance(asset->textures.begin(), it) + 1 < asset->textures.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+std::string fg::Composer::writeGLTF(const fastgltf::Asset* pAsset) {
+	assert(pAsset != nullptr);
+	asset = pAsset;
+
+	// Fairly rudimentary approach of just composing the JSON string using a std::string.
+	std::string outputString;
+
+	outputString += "{";
+
+	// Write asset info
+	outputString += "\"asset\":{";
+	if (asset->assetInfo.has_value()) {
+		if (!asset->assetInfo->copyright.empty())
+			outputString += R"("copyright":")" + asset->assetInfo->copyright + "\",";
+		if (!asset->assetInfo->generator.empty())
+			outputString += R"("generator":")" + asset->assetInfo->generator + "\",";
+		outputString += R"("version":")" + asset->assetInfo->gltfVersion + '"';
+	} else {
+		outputString += R"("generator":"fastgltf",)";
+		outputString += R"("version":"2.0")";
+	}
+	outputString += '}';
+
+	writeAccessors(outputString);
+	writeBuffers(outputString);
+	writeBufferViews(outputString);
+	writeCameras(outputString);
+	writeImages(outputString);
+	writeLights(outputString);
+	writeMaterials(outputString);
+	writeMeshes(outputString);
+	writeNodes(outputString);
+	writeSamplers(outputString);
+	writeScenes(outputString);
+	writeSkins(outputString);
+	writeTextures(outputString);
+
+	outputString += "}";
+
+	return outputString;
+}
+
+void fg::Composer::writeBinaryGLTF(const fastgltf::Asset* asset) {
+	assert(asset != nullptr);
+
 }
 #pragma endregion
 
