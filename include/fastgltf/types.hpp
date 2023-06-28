@@ -995,7 +995,7 @@ namespace fastgltf {
     struct Primitive {
 		using attribute_type = std::pair<std::string, std::size_t>;
 
-		// Instead of a map we have a list of attributes here. Each pair contains
+		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
 		SmallVector<attribute_type, 4> attributes;
         PrimitiveType type;
@@ -1005,7 +1005,7 @@ namespace fastgltf {
         std::optional<std::size_t> indicesAccessor;
         std::optional<std::size_t> materialIndex;
 
-		decltype(attributes)::iterator findAttribute(std::string_view name) {
+		[[nodiscard]] auto findAttribute(std::string_view name) {
 			for (decltype(attributes)::iterator it = attributes.begin(); it != attributes.end(); ++it) {
 				if (it->first == name)
 					return it;
@@ -1013,13 +1013,30 @@ namespace fastgltf {
 			return attributes.end();
 		}
 
-		decltype(targets)::value_type::iterator findTargetAttribute(std::size_t targetIndex, std::string_view name) {
+		[[nodiscard]] auto findAttribute(std::string_view name) const {
+			for (decltype(attributes)::const_iterator it = attributes.cbegin(); it != attributes.cend(); ++it) {
+				if (it->first == name)
+					return it;
+			}
+			return attributes.cend();
+		}
+
+		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) {
 			auto& targetAttributes = targets[targetIndex];
 			for (std::remove_reference_t<decltype(targetAttributes)>::iterator it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
 				if (it->first == name)
 					return it;
 			}
 			return targetAttributes.end();
+		}
+
+		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) const {
+			const auto& targetAttributes = targets[targetIndex];
+			for (std::remove_reference_t<decltype(targetAttributes)>::const_iterator it = targetAttributes.cbegin(); it != targetAttributes.cend(); ++it) {
+				if (it->first == name)
+					return it;
+			}
+			return targetAttributes.cend();
 		}
 	};
 
