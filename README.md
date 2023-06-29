@@ -32,7 +32,7 @@ glTF libraries.
 | Matrix accessor utilities        |  🟡³  |    ❌     |    ✔️    |
 | Transform matrices decomposition |   ❌   |    ❌     |    ✔️    |
 
-¹ tinygltf does provide the JSON structure for extension data, but leaves the serialization for you to do.  
+¹ tinygltf does provide the JSON structure for extension data, but leaves the deserialization for you to do.  
 ² fastgltf allows the user to allocate memory for buffers and images.
 It does not provide any mechanism for controlling all the heap allocations the library performs.  
 ³ cgltf supports sparse accessors and matrix data only with some accessor functions, but not all.  
@@ -53,7 +53,7 @@ which is a big aspect of guaranteeing code-correctness.
 A big factor for this improvement is the use of types which enforce certain properties about the data, like e.g. `std::variant` or `std::optional`.
 Compared with tinygltf, where, for example, optional values are simply represented by a boolean or a `-1` for indices, this is a big improvement.
 
-The biggest difference, which may not be as relevant to everyone, is the drastic increase in serialization speed.
+The biggest difference, which may not be as relevant to everyone, is the drastic increase in deserialization speed.
 In some cases, fastgltf is at least 2 times quicker than its competitors, while in others it can be as much as 20 times.
 You can read more about fastgltf's performance in the [performance chapter](#performance).
 
@@ -89,7 +89,7 @@ void load(std::filesystem::path path) {
         // The file doesn't exist, couldn't be read, or is not a valid JSON document.
     }
 
-    // With this call to parse(), you let fastgltf serialize the whole JSON document into the
+    // With this call to parse(), you let fastgltf parse the whole JSON document into the
     // glTF data structures. If desired, you can pass OR'd category enums that will exclude
     // certain glTF aspects from being loaded.
     if (gltf->parse() != fastgltf::Error::None) {
@@ -205,7 +205,7 @@ In total, fastgltf provides these functions for working with accessors:
 [spreadsheet-link]: https://docs.google.com/spreadsheets/d/1ocdHGoty-rF0N46ZlAlswzcPHVRsqG_tncy8paD3iMY/edit?usp=sharing
 
 In this chapter, I'll show some graphs on how fastgltf compares to the two most used glTF libraries, cgltf and tinygltf.
-I've disabled loading of images and buffers to only compare the JSON parsing and serialization of the glTF data.
+I've disabled loading of images and buffers to only compare the JSON parsing and deserialization of the glTF data.
 I create these graphs using a spreadsheet that you can find [here][spreadsheet-link].
 These numbers were benchmarked using Catch2's benchmark tool on a Ryzen 5800X (with AVX2) with 32GB of RAM using Clang 16,
 as Clang showed a significant performance improvement over MSVC in every test.
@@ -220,9 +220,7 @@ With this asset, fastgltf is **20.56 times faster** than tinygltf using RapidJSO
 
 [Amazon's Bistro](https://developer.nvidia.com/orca/amazon-lumberyard-bistro)
 (converted to glTF 2.0 using Blender) is another excellent test subject, as it's a 148k line long JSON.
-This shows the raw serialization speed of all the parsers.
-For this benchmark I used the `MinimiseJsonBeforeParsing` option that lets fastgltf minimise the JSON before parsing
-(note that the time it takes to minimise is measured here too).
+This shows the raw deserialization speed of all the parsers.
 In this case fastgltf is **2.1 times faster** than tinygltf and **5.6 times faster** than cgltf.
 
 [![](https://cdn.discordapp.com/attachments/442748131898032138/1088470983024840754/Bistro_load_from_memory_without_images_and_buffer_load_1.png)][spreadsheet-link]
