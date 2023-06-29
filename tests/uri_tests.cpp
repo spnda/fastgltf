@@ -64,7 +64,7 @@ TEST_CASE("Test generic URIs", "[uri-tests]") {
 }
 
 TEST_CASE("Test percent decoding", "[uri-tests]") {
-    std::string test = "%22 %25";
+    std::pmr::string test = "%22 %25";
     fastgltf::URI::decodePercents(test);
     REQUIRE(test == "\" %");
 }

@@ -214,6 +214,67 @@ namespace fastgltf {
         constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
     } // namespace extensions
 
+	class ChunkMemoryResource : public std::pmr::memory_resource {
+		/**
+		 * The default size of the individual blocks we allocate.
+		 */
+		constexpr static std::size_t blockSize = 2048;
+
+		struct Block {
+			std::unique_ptr<std::byte[]> data;
+			std::size_t size;
+
+			std::byte* dataPointer;
+		};
+		SmallVector<Block, 4> blocks;
+		std::size_t blockIdx = 0;
+
+	public:
+		explicit ChunkMemoryResource() {
+			allocateNewBlock();
+		}
+
+		void allocateNewBlock() {
+			auto& block = blocks.emplace_back();
+			block.data = std::unique_ptr<std::byte[]>(new std::byte[blockSize]);
+			block.dataPointer = block.data.get();
+			block.size = blockSize;
+		}
+
+		[[nodiscard]] void* do_allocate(std::size_t bytes, std::size_t alignment) override {
+			auto& block = blocks[blockIdx];
+			auto availableSize = block.dataPointer - block.data.get();
+			if ((availableSize + bytes) > block.size) {
+				// The block can't fit the new allocation. We'll just create a new block and use that.
+				allocateNewBlock();
+				++blockIdx;
+				return do_allocate(bytes, alignment);
+			}
+
+			void* alloc = block.dataPointer;
+			std::size_t space = availableSize;
+			if (std::align(alignment, availableSize, alloc, space) == nullptr) {
+				// Not enough space after alignment
+				allocateNewBlock();
+				++blockIdx;
+				return do_allocate(bytes, alignment);
+			}
+
+			// Get the number of bytes used for padding, and calculate the new offset using that
+			block.dataPointer = block.dataPointer + (availableSize - space) + bytes;
+			return alloc;
+		}
+
+		void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) override {
+			// We currently do nothing, as we don't keep track of what portions of the blocks are still used.
+			// Therefore, we keep all blocks alive until the destruction of this resource (parser).
+		}
+
+		[[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override {
+			return this == std::addressof(other);
+		}
+	};
+
     struct BufferInfo {
         void* mappedMemory;
         CustomBufferId customId;
@@ -229,6 +290,7 @@ namespace fastgltf {
         std::unique_ptr<ParserData> data;
         std::unique_ptr<Asset> parsedAsset;
         DataSource glbBuffer;
+	    ChunkMemoryResource resourceAllocator;
         std::filesystem::path directory;
         Options options;
         Error errorCode = Error::None;

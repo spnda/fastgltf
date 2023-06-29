@@ -241,7 +241,7 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
     BENCHMARK("Parse Bistro") {
-        auto engine = parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions | fastgltf::Options::MinimiseJsonBeforeParsing);
+        auto engine = parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions);
         return engine->parse();
     };
 

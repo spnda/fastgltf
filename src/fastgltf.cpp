@@ -453,7 +453,12 @@ bool fg::URIView::isDataUri() const noexcept {
 
 fg::URI::URI() noexcept = default;
 
-fg::URI::URI(std::string uri) noexcept : uri(std::move(uri)) {
+fg::URI::URI(std::string uri) noexcept : uri(uri) {
+	decodePercents(this->uri);
+	view = this->uri; // Also parses.
+}
+
+fg::URI::URI(std::pmr::string uri) noexcept : uri(std::move(uri)) {
 	decodePercents(this->uri);
 	view = this->uri; // Also parses.
 }
@@ -461,6 +466,10 @@ fg::URI::URI(std::string uri) noexcept : uri(std::move(uri)) {
 fg::URI::URI(std::string_view uri) noexcept : uri(uri) {
 	decodePercents(this->uri);
 	view = this->uri; // Also parses.
+}
+
+fg::URI::URI(fastgltf::URIView view) noexcept : uri(view.view) {
+	readjustViews(view);
 }
 
 // Some C++ stdlib implementations copy in some cases when moving strings, which invalidates the
@@ -521,7 +530,7 @@ void fg::URI::readjustViews(const URIView& other) {
 	view.view = uri;
 }
 
-void fg::URI::decodePercents(std::string& x) noexcept {
+void fg::URI::decodePercents(std::pmr::string& x) noexcept {
 	for (auto it = x.begin(); it != x.end(); ++it) {
 		if (*it == '%') {
 			// Read the next two chars and store them.
@@ -768,12 +777,12 @@ fg::Error fg::glTF::validate() {
 
         if (!std::holds_alternative<std::monostate>(accessor.max)) {
             if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-                && !std::holds_alternative<std::vector<double>>(accessor.max))
+                && !std::holds_alternative<std::pmr::vector<double>>(accessor.max))
                 return Error::InvalidGltf;
         }
         if (!std::holds_alternative<std::monostate>(accessor.min)) {
             if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-                && !std::holds_alternative<std::vector<double>>(accessor.min))
+                && !std::holds_alternative<std::pmr::vector<double>>(accessor.min))
                 return Error::InvalidGltf;
         }
     }
@@ -1207,16 +1216,18 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             dom::array elements;
             if (accessorObject[key].get_array().get(elements) == SUCCESS) {
                 decltype(Accessor::max) variant;
+
+				using double_vec = std::variant_alternative_t<1, decltype(Accessor::max)>;
+				using int64_vec = std::variant_alternative_t<2, decltype(Accessor::max)>;
+
+				auto num = getNumComponents(accessor.type);
                 if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
-                    auto vec = std::vector<double> {};
-                    vec.reserve(getNumComponents(accessor.type));
-                    variant = std::move(vec);
+                    variant = double_vec(num, &resourceAllocator);
                 } else {
-                    auto vec = std::vector<std::int64_t> {};
-                    vec.reserve(getNumComponents(accessor.type));
-                    variant = std::move(vec);
+                    variant = int64_vec(num, &resourceAllocator);
                 }
 
+				std::size_t idx = 0;
                 for (auto element : elements) {
                     auto type = element.type();
                     switch (type) {
@@ -1231,10 +1242,10 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
                             if (element.get_double().get(value) != SUCCESS) {
                                 return Error::InvalidGltf;
                             }
-                            if (!std::holds_alternative<std::vector<double>>(variant)) {
+                            if (!std::holds_alternative<double_vec>(variant)) {
                                 return Error::InvalidGltf;
                             }
-                            std::get<std::vector<double>>(variant).emplace_back(value);
+                            std::get<double_vec>(variant)[idx++] = value;
                             break;
                         }
                         case dom::element_type::INT64: {
@@ -1243,13 +1254,13 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
                                 return Error::InvalidGltf;
                             }
 
-                            if (std::holds_alternative<std::vector<double>>(variant)) {
-                                std::get<std::vector<double>>(variant).emplace_back(static_cast<double>(value));
-                            } else if (std::holds_alternative<std::vector<std::int64_t>>(variant)) {
-                                std::get<std::vector<std::int64_t>>(variant).emplace_back(static_cast<std::int64_t>(value));
-                            } else {
-                                return Error::InvalidGltf;
-                            }
+							if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
+								(*doubles)[idx++] = static_cast<double>(value);
+							} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
+								(*ints)[idx++] = static_cast<std::int64_t>(value);
+							} else {
+								return Error::InvalidGltf;
+							}
                             break;
                         }
                         case dom::element_type::UINT64: {
@@ -1261,13 +1272,13 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
                                 return Error::InvalidGltf;
                             }
 
-                            if (std::holds_alternative<std::vector<double>>(variant)) {
-                                std::get<std::vector<double>>(variant).emplace_back(static_cast<double>(value));
-                            } else if (std::holds_alternative<std::vector<std::int64_t>>(variant)) {
-                                std::get<std::vector<std::int64_t>>(variant).emplace_back(static_cast<std::int64_t>(value));
-                            } else {
-                                return Error::InvalidGltf;
-                            }
+							if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
+								(*doubles)[idx++] = static_cast<double>(value);
+							} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
+								(*ints)[idx++] = static_cast<std::int64_t>(value);
+							} else {
+								return Error::InvalidGltf;
+							}
                             break;
                         }
                         default: return Error::InvalidGltf;
@@ -1344,10 +1355,9 @@ void fg::glTF::parseAccessors(simdjson::dom::array& accessors) {
             accessor.sparse = sparse;
         }
 
-        // name is optional.
         std::string_view name;
         if (accessorObject["name"].get_string().get(name) == SUCCESS) {
-            accessor.name = std::string { name };
+            accessor.name = std::pmr::string(name, &resourceAllocator);
         }
 
         parsedAsset->accessors.emplace_back(std::move(accessor));
@@ -1371,6 +1381,7 @@ void fg::glTF::parseAnimations(simdjson::dom::array& animations) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
+		animation.channels = decltype(animation.channels)(0, &resourceAllocator);
         animation.channels.reserve(channels.size());
         for (auto channelValue : channels) {
             dom::object channelObject;
@@ -1421,6 +1432,7 @@ void fg::glTF::parseAnimations(simdjson::dom::array& animations) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
+		animation.samplers = decltype(animation.samplers)(0, &resourceAllocator);
         animation.samplers.reserve(samplers.size());
         for (auto samplerValue : samplers) {
             dom::object samplerObject;
@@ -1459,12 +1471,9 @@ void fg::glTF::parseAnimations(simdjson::dom::array& animations) {
             animation.samplers.emplace_back(sampler);
         }
 
-        // name is optional.
-        {
-            std::string_view name;
-            if (animationObject["name"].get_string().get(name) == SUCCESS) {
-                animation.name = std::string { name };
-            }
+        std::string_view name;
+        if (animationObject["name"].get_string().get(name) == SUCCESS) {
+            animation.name = std::pmr::string(name, &resourceAllocator);
         }
 
         parsedAsset->animations.emplace_back(std::move(animation));
@@ -1532,10 +1541,9 @@ void fg::glTF::parseBuffers(simdjson::dom::array& buffers) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        // name is optional.
         std::string_view name;
         if (bufferObject["name"].get_string().get(name) == SUCCESS) {
-            buffer.name = std::string { name };
+			buffer.name = std::pmr::string(name, &resourceAllocator);
         }
 
         ++bufferIndex;
@@ -1587,7 +1595,7 @@ void fg::glTF::parseBufferViews(simdjson::dom::array& bufferViews) {
 
         std::string_view string;
         if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
-            view.name = std::string { string };
+            view.name = std::pmr::string(string, &resourceAllocator);
         } else if (error != NO_SUCH_FIELD) {
             SET_ERROR_RETURN(Error::InvalidJson)
         }
@@ -1696,7 +1704,7 @@ void fg::glTF::parseCameras(simdjson::dom::array& cameras) {
 
         std::string_view name;
         if (cameraObject["name"].get_string().get(name) == SUCCESS) {
-            camera.name = std::string { name };
+            camera.name = std::pmr::string(name, &resourceAllocator);
         }
 
         std::string_view type;
@@ -1881,7 +1889,7 @@ void fg::glTF::parseImages(simdjson::dom::array& images) {
         // name is optional.
         std::string_view name;
         if (imageObject["name"].get_string().get(name) == SUCCESS) {
-            image.name = std::string { name };
+            image.name = std::pmr::string(name, &resourceAllocator);
         }
 
         parsedAsset->images.emplace_back(std::move(image));
@@ -1970,7 +1978,7 @@ void fg::glTF::parseLights(simdjson::dom::array& lights) {
 
         std::string_view name;
         if (lightObject["name"].get_string().get(name) == SUCCESS) {
-            light.name = std::string { name };
+            light.name = std::pmr::string(name, &resourceAllocator);
         }
 
         parsedAsset->lights.emplace_back(std::move(light));
@@ -2098,7 +2106,7 @@ void fg::glTF::parseMaterials(simdjson::dom::array& materials) {
 
         std::string_view name;
         if (materialObject["name"].get_string().get(name) == SUCCESS) {
-            material.name = std::string { name };
+            material.name = std::pmr::string(name, &resourceAllocator);
         }
 
         material.unlit = false;
@@ -2479,6 +2487,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
         } else if (meshError != Error::None) {
             SET_ERROR_RETURN(meshError)
         } else {
+	        mesh.primitives = decltype(mesh.primitives)(0, &resourceAllocator);
             mesh.primitives.reserve(array.size());
             for (auto primitiveValue : array) {
                 // Required fields: "attributes"
@@ -2488,9 +2497,11 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                     SET_ERROR_RETURN(Error::InvalidGltf)
                 }
 
-                auto parseAttributes = [](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
+                auto parseAttributes = [this](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
-                    // attributes map. The keys are only validated in the validate() method.
+                    // attribute map. The keys are only validated in the validate() method.
+					attributes = decltype(primitive.attributes)(0, &resourceAllocator);
+					attributes.reserve(object.size());
                     for (const auto& field : object) {
                         const auto key = field.key;
 
@@ -2499,7 +2510,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
                             return Error::InvalidGltf;
                         }
 						attributes.emplace_back(
-							std::make_pair(std::string { key }, static_cast<std::size_t>(attributeIndex)));
+							std::make_pair(std::pmr::string(key, &this->resourceAllocator), static_cast<std::size_t>(attributeIndex)));
                     }
                     return Error::None;
                 };
@@ -2512,6 +2523,8 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
 
                 dom::array targets;
                 if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) {
+					primitive.targets = decltype(primitive.targets)(0, &resourceAllocator);
+					primitive.targets.reserve(targets.size());
                     for (auto targetValue : targets) {
                         if (targetValue.get_object().get(attributesObject) != SUCCESS) {
                             SET_ERROR_RETURN(Error::InvalidGltf)
@@ -2542,6 +2555,7 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
         }
 
         if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) {
+	        mesh.weights = decltype(mesh.weights)(0, &resourceAllocator);
             mesh.weights.reserve(array.size());
             for (auto weightValue : array) {
                 double val;
@@ -2554,10 +2568,9 @@ void fg::glTF::parseMeshes(simdjson::dom::array& meshes) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        // name is optional.
         std::string_view name;
         if (meshObject["name"].get_string().get(name) == SUCCESS) {
-            mesh.name = std::string { name };
+            mesh.name = std::pmr::string(name, &resourceAllocator);
         }
 
         parsedAsset->meshes.emplace_back(std::move(mesh));
@@ -2589,7 +2602,8 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
         dom::array array;
         auto childError = getJsonArray(nodeObject, "children", &array);
         if (childError == Error::None) {
-            node.children.reserve(array.size());
+			node.children = decltype(node.children)(0, &resourceAllocator);
+			node.children.reserve(array.size());
             for (auto childValue : array) {
                 if (childValue.get_uint64().get(index) != SUCCESS) {
                     SET_ERROR_RETURN(Error::InvalidGltf)
@@ -2604,6 +2618,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
         auto weightsError = getJsonArray(nodeObject, "weights", &array);
         if (weightsError != Error::MissingField) {
             if (weightsError != Error::None) {
+	            node.weights = decltype(node.weights)(0, &resourceAllocator);
                 node.weights.reserve(array.size());
                 for (auto weightValue : array) {
                     double val;
@@ -2699,7 +2714,7 @@ void fg::glTF::parseNodes(simdjson::dom::array& nodes) {
 
         std::string_view name;
         if (nodeObject["name"].get_string().get(name) == SUCCESS) {
-            node.name = std::string { name };
+            node.name = std::pmr::string(name, &resourceAllocator);
         }
 
         parsedAsset->nodes.emplace_back(std::move(node));
@@ -2718,10 +2733,9 @@ void fg::glTF::parseSamplers(simdjson::dom::array& samplers) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        // name is optional.
         std::string_view name;
         if (samplerObject["name"].get_string().get(name) == SUCCESS) {
-            sampler.name = std::string { name };
+            sampler.name = std::pmr::string(name, &resourceAllocator);
         }
 
         if (samplerObject["magFilter"].get_uint64().get(number) == SUCCESS) {
@@ -2758,17 +2772,17 @@ void fg::glTF::parseScenes(simdjson::dom::array& scenes) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
 
-        // name is optional.
         std::string_view name;
         if (sceneObject["name"].get_string().get(name) == SUCCESS) {
-            scene.name = std::string { name };
+            scene.name = std::pmr::string(name, &resourceAllocator);
         }
 
         // Parse the array of nodes.
         dom::array nodes;
         auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
         if (nodeError == Error::None) {
-            scene.nodeIndices.reserve(nodes.size());
+            scene.nodeIndices = decltype(scene.nodeIndices)(0, &resourceAllocator);
+			scene.nodeIndices.reserve(nodes.size());
             for (auto nodeValue : nodes) {
                 std::uint64_t index;
                 if (nodeValue.get_uint64().get(index) != SUCCESS) {
@@ -2808,6 +2822,7 @@ void fg::glTF::parseSkins(simdjson::dom::array& skins) {
         if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) {
             SET_ERROR_RETURN(Error::InvalidGltf)
         }
+	    skin.joints = decltype(skin.joints)(0, &resourceAllocator);
         skin.joints.reserve(jointsArray.size());
         for (auto jointValue : jointsArray) {
             if (jointValue.get_uint64().get(index) != SUCCESS) {
@@ -2816,10 +2831,9 @@ void fg::glTF::parseSkins(simdjson::dom::array& skins) {
             skin.joints.emplace_back(index);
         }
 
-        // name is optional.
         std::string_view name;
         if (skinObject["name"].get_string().get(name) == SUCCESS) {
-            skin.name = std::string { name };
+            skin.name = std::pmr::string(name, &resourceAllocator);
         }
         parsedAsset->skins.emplace_back(std::move(skin));
     }
@@ -2866,10 +2880,9 @@ void fg::glTF::parseTextures(simdjson::dom::array& textures) {
             texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
         }
 
-        // name is optional.
         std::string_view name;
         if (textureObject["name"].get_string().get(name) == SUCCESS) {
-            texture.name = std::string { name };
+            texture.name = std::pmr::string(name, &resourceAllocator);
         }
 
         parsedAsset->textures.emplace_back(std::move(texture));
@@ -2961,7 +2974,7 @@ bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::
     if (assetManager == nullptr) {
         return false;
     }
-    
+
     using namespace simdjson;
 
     const auto filenameString = path.string();

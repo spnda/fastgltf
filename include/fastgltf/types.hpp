@@ -31,6 +31,7 @@
 #include <cstring>
 #include <cstdint>
 #include <filesystem>
+#include <memory_resource>
 #include <optional>
 #include <utility>
 #include <variant>
@@ -686,14 +687,23 @@ namespace fastgltf {
 #define FASTGLTF_USE_CUSTOM_SMALLVECTOR 0
 #endif
 
-// We'll just use a snake_case type alias for switching the vector type.
 #if FASTGLTF_USE_CUSTOM_SMALLVECTOR
 	template <typename T, std::size_t N = initialSmallVectorStorage>
-	using PSmallVector = SmallVector<T, N>;
+	using MaybeSmallVector = SmallVector<T, N>;
 #else
-    template <typename T, std::size_t N = 0>
-    using PSmallVector = std::vector<T>;
+	template <typename T, std::size_t N = 0>
+	using MaybeSmallVector = std::vector<T>;
 #endif
+
+	namespace pmr {
+#if FASTGLTF_USE_CUSTOM_SMALLVECTOR
+		template <typename T, std::size_t N = initialSmallVectorStorage>
+		using MaybeSmallVector = pmr::SmallVector<T, N>;
+#else
+		template <typename T, std::size_t N = 0>
+		using MaybeSmallVector = std::pmr::vector<T>;
+#endif
+	} // namespace pmr
 #pragma endregion
 
 #pragma region Structs
@@ -773,7 +783,7 @@ namespace fastgltf {
 	class URI {
 		friend class glTF;
 
-		std::string uri;
+		std::pmr::string uri;
 		URIView view;
 
 		void readjustViews(const URIView& other);
@@ -782,7 +792,9 @@ namespace fastgltf {
 		explicit URI() noexcept;
 
 		explicit URI(std::string uri) noexcept;
+		explicit URI(std::pmr::string uri) noexcept;
 		explicit URI(std::string_view uri) noexcept;
+		explicit URI(URIView view) noexcept;
 
 		URI(const URI& other);
 		URI(URI&& other) noexcept;
@@ -793,7 +805,7 @@ namespace fastgltf {
 
 		operator URIView() const noexcept;
 
-		static void decodePercents(std::string& x) noexcept;
+		static void decodePercents(std::pmr::string& x) noexcept;
 
 		[[nodiscard]] auto string() const noexcept -> std::string_view;
 
@@ -927,16 +939,16 @@ namespace fastgltf {
     };
 
     struct Animation {
-	    PSmallVector<AnimationChannel> channels;
-	    PSmallVector<AnimationSampler> samplers;
+	    pmr::MaybeSmallVector<AnimationChannel> channels;
+	    pmr::MaybeSmallVector<AnimationSampler> samplers;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct AssetInfo {
-        std::string gltfVersion;
-        std::string copyright;
-        std::string generator;
+        std::pmr::string gltfVersion;
+        std::pmr::string copyright;
+        std::pmr::string generator;
     };
 
     struct Camera {
@@ -959,15 +971,15 @@ namespace fastgltf {
          * and/or std::get_if to figure out which camera type is being used.
          */
         std::variant<Perspective, Orthographic> camera;
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Skin {
-	    PSmallVector<std::size_t> joints;
+	    pmr::MaybeSmallVector<std::size_t> joints;
         std::optional<std::size_t> skeleton;
         std::optional<std::size_t> inverseBindMatrices;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Sampler {
@@ -976,13 +988,13 @@ namespace fastgltf {
         Wrap wrapS;
         Wrap wrapT;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Scene {
-	    PSmallVector<std::size_t> nodeIndices;
+	    pmr::MaybeSmallVector<std::size_t> nodeIndices;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Node {
@@ -995,8 +1007,8 @@ namespace fastgltf {
          */
         std::optional<std::size_t> lightsIndex;
 
-	    PSmallVector<std::size_t> children;
-	    PSmallVector<float> weights;
+	    pmr::MaybeSmallVector<std::size_t> children;
+	    pmr::MaybeSmallVector<float> weights;
 
         struct TRS {
             std::array<float, 3> translation;
@@ -1012,18 +1024,18 @@ namespace fastgltf {
          */
         std::variant<TRS, TransformMatrix> transform;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Primitive {
-		using attribute_type = std::pair<std::string, std::size_t>;
+		using attribute_type = std::pair<std::pmr::string, std::size_t>;
 
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
-		SmallVector<attribute_type, 4> attributes;
+		pmr::SmallVector<attribute_type, 4> attributes;
         PrimitiveType type;
 
-        std::vector<SmallVector<attribute_type, 4>> targets;
+        std::pmr::vector<pmr::SmallVector<attribute_type, 4>> targets;
 
         std::optional<std::size_t> indicesAccessor;
         std::optional<std::size_t> materialIndex;
@@ -1064,10 +1076,10 @@ namespace fastgltf {
 	};
 
     struct Mesh {
-	    PSmallVector<Primitive, 2> primitives;
-	    PSmallVector<float> weights;
+		pmr::MaybeSmallVector<Primitive, 2> primitives;
+		pmr::MaybeSmallVector<float> weights;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     /**
@@ -1249,7 +1261,7 @@ namespace fastgltf {
          */
         bool unlit;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Texture {
@@ -1270,13 +1282,13 @@ namespace fastgltf {
          */
         std::optional<std::size_t> samplerIndex;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Image {
         DataSource data;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct SparseAccessor {
@@ -1295,15 +1307,15 @@ namespace fastgltf {
         ComponentType componentType;
         bool normalized;
         
-        std::variant<std::monostate, std::vector<double>, std::vector<std::int64_t>> max;
-        std::variant<std::monostate, std::vector<double>, std::vector<std::int64_t>> min;
+        std::variant<std::monostate, std::pmr::vector<double>, std::pmr::vector<std::int64_t>> max;
+        std::variant<std::monostate, std::pmr::vector<double>, std::pmr::vector<std::int64_t>> min;
 
         // Could have no value for sparse morph targets
         std::optional<std::size_t> bufferViewIndex;
 
         std::optional<SparseAccessor> sparse;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct CompressedBufferView {
@@ -1330,7 +1342,7 @@ namespace fastgltf {
          */
         std::unique_ptr<CompressedBufferView> meshoptCompression;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Buffer {
@@ -1338,7 +1350,7 @@ namespace fastgltf {
 
         DataSource data;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Light {
@@ -1354,7 +1366,7 @@ namespace fastgltf {
         std::optional<float> innerConeAngle;
         std::optional<float> outerConeAngle;
 
-        std::string name;
+        std::pmr::string name;
     };
 
     struct Asset {
