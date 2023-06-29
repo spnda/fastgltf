@@ -247,19 +247,17 @@ inline bool findSparseIndex(ComponentType componentType, const std::byte* bytes,
 
 struct DefaultBufferDataAdapter {
 	const std::byte* operator()(const Buffer& buffer) const {
-		const std::byte* result = nullptr;
-
-		std::visit(visitor {
-			[](auto&) {},
+		return std::visit(visitor {
+			[](auto&) -> const std::byte* {
+				return nullptr;
+			},
 			[&](const sources::Vector& vec) {
-				result = reinterpret_cast<const std::byte*>(vec.bytes.data());
+				return reinterpret_cast<const std::byte*>(vec.bytes.data());
 			},
 			[&](const sources::ByteView& bv) {
-				result = bv.bytes.data();
+				return bv.bytes.data();
 			},
 		}, buffer.data);
-
-		return result;
 	}
 };
 
@@ -472,7 +470,8 @@ requires Element<ElementType>
 void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& func,
 		const BufferDataAdapter& adapter = {}) {
 	using Traits = ElementTraits<ElementType>;
-	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid Accessor Type");
+	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid accessor type");
+	static_assert(Traits::enum_component_type != ComponentType::Invalid, "Accessor traits must provide a valid component type");
 	static_assert(std::is_default_constructible_v<ElementType>, "Element type must be default constructible");
 	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
 	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
@@ -576,7 +575,8 @@ requires Element<ElementType>
 void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		const BufferDataAdapter& adapter = {}) {
 	using Traits = ElementTraits<ElementType>;
-	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid Accessor Type");
+	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid accessor type");
+	static_assert(Traits::enum_component_type != ComponentType::Invalid, "Accessor traits must provide a valid component type");
 	static_assert(std::is_default_constructible_v<ElementType>, "Element type must be default constructible");
 	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
 	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
@@ -588,14 +588,10 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 	auto* dstBytes = reinterpret_cast<std::byte*>(dest);
 
 	if (accessor.sparse && accessor.sparse->count > 0) {
-		std::size_t index = 0;
-		iterateAccessor<ElementType>(asset, accessor, [&](auto&& value) {
+		return iterateAccessorWithIndex<ElementType>(asset, accessor, [&](auto&& value, std::size_t index) {
 			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * index);
 			*pDest = std::forward<ElementType>(value);
-			++index;
 		}, adapter);
-
-		return;
 	}
 
 	auto elemSize = getElementByteSize(accessor.type, accessor.componentType);
