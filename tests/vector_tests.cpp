@@ -64,7 +64,7 @@ TEST_CASE("Test constructors", "[vector-tests]") {
     REQUIRE(vec3[5] == 0);
 }
 
-TEST_CASE("Embedded SmallVector", "[vector-tests]") {
+TEST_CASE("Nested SmallVector", "[vector-tests]") {
     fastgltf::SmallVector<fastgltf::SmallVector<uint32_t, 2>, 4> vectors(6, {4}); // This should heap allocate straight away.
     REQUIRE(vectors.size() == 6);
     for (auto& vector : vectors) {
@@ -102,4 +102,14 @@ TEST_CASE("Test shrinking vectors", "[vector-tests]") {
 	REQUIRE(RefCountedObject::aliveObjects == 5);
 	objects.resize(4);
 	REQUIRE(RefCountedObject::aliveObjects == 4);
+}
+
+TEST_CASE("Test vectors with polymorphic allocators", "[vector-tests]") {
+	fastgltf::pmr::SmallVector<std::uint32_t, 4> ints;
+	ints.assign(10, 5);
+	REQUIRE(ints.size() == 10);
+	REQUIRE(ints.data() != nullptr);
+	for (auto& i : ints) {
+		REQUIRE(i == 5);
+	}
 }

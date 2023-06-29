@@ -340,11 +340,13 @@ namespace fastgltf {
      * primitives. Therefore, this is a quite basic implementation of a small vector which is mostly
      * standard (C++17) conforming.
      */
-    template <typename T, std::size_t N = initialSmallVectorStorage>
+    template <typename T, std::size_t N = initialSmallVectorStorage, typename Allocator = std::allocator<T>>
     class SmallVector final {
         static_assert(N != 0, "Cannot create a SmallVector with 0 initial capacity");
 
         alignas(T) std::array<std::byte, N * sizeof(T)> storage;
+
+		Allocator allocator;
 
         T* _data;
         std::size_t _size = 0, _capacity = N;
@@ -368,25 +370,21 @@ namespace fastgltf {
 
         SmallVector() : _data(reinterpret_cast<T*>(storage.data())) {}
 
-        explicit SmallVector(std::size_t size) : _data(reinterpret_cast<T*>(storage.data())) {
-            assign(size);
+		explicit SmallVector(const Allocator& allocator) noexcept : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {}
+
+        explicit SmallVector(std::size_t size, const Allocator& allocator = Allocator()) : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {
+            resize(size);
         }
 
-        explicit SmallVector(std::size_t size, const T& value) : _data(reinterpret_cast<T*>(storage.data())) {
+        SmallVector(std::size_t size, const T& value, const Allocator& allocator = Allocator()) : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {
             assign(size, value);
         }
 
-        SmallVector(std::initializer_list<T> init) : _data(reinterpret_cast<T*>(storage.data())) {
+        SmallVector(std::initializer_list<T> init, const Allocator& allocator = Allocator()) : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {
             assign(init);
         }
 
         SmallVector(const SmallVector& other) noexcept : _data(reinterpret_cast<T*>(storage.data())) {
-            if (!isUsingStack() && _data) {
-				std::destroy(begin(), end());
-                std::free(_data);
-                _data = nullptr;
-                _size = _capacity = 0;
-            }
             resize(other.size());
             copy(other.begin(), other.size(), begin());
         }
@@ -411,8 +409,8 @@ namespace fastgltf {
             if (std::addressof(other) != this) {
                 if (!isUsingStack() && _data) {
 	                std::destroy(begin(), end());
-                    std::free(_data);
-                    _data = nullptr;
+					allocator.deallocate(_data, _capacity);
+                    _data = reinterpret_cast<T*>(storage.data());
                     _size = _capacity = 0;
                 }
 
@@ -447,8 +445,7 @@ namespace fastgltf {
                 std::destroy(begin(), end());
 
                 // Not using the stack, we'll have to free.
-                std::free(_data);
-                _data = nullptr;
+	            allocator.deallocate(_data, _capacity);
             }
         }
 
@@ -495,33 +492,25 @@ namespace fastgltf {
             // We use geometric growth, similarly to std::vector.
             newCapacity = std::size_t(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
 
-            // If we don't hold any items, yet, we can use realloc to expand. If we do hold any
-            // items, we can't use realloc because it'll invalidate the previous allocation and we
-            // can't copy the data into the new allocation.
-            T* alloc;
-            if (size() == 0 && !isUsingStack()) {
-                alloc = static_cast<T*>(std::realloc(_data, newCapacity * sizeof(T)));
-            } else {
-				alloc = static_cast<T*>(std::malloc(newCapacity * sizeof(T)));
+			T* alloc = allocator.allocate(newCapacity);
 
-				// Copy/Move the old data into the new memory
-				for (std::size_t i = 0; i < size(); ++i) {
-					auto& x = (*this)[i];
-					if constexpr (std::is_nothrow_move_constructible_v<T>) {
-						new(alloc + i) T(std::move(x));
-					} else if constexpr (std::is_copy_constructible_v<T>) {
-						new(alloc + i) T(x);
-					} else {
-						new(alloc + i) T(std::move(x));
-					}
+			// Copy/Move the old data into the new memory
+			for (std::size_t i = 0; i < size(); ++i) {
+				auto& x = (*this)[i];
+				if constexpr (std::is_nothrow_move_constructible_v<T>) {
+					new(alloc + i) T(std::move(x));
+				} else if constexpr (std::is_copy_constructible_v<T>) {
+					new(alloc + i) T(x);
+				} else {
+					new(alloc + i) T(std::move(x));
 				}
+			}
 
-				// Destroy all objects in the old allocation
-				std::destroy(begin(), end());
-            }
+			// Destroy all objects in the old allocation
+			std::destroy(begin(), end());
 
             if (!isUsingStack() && _data && size() != 0) {
-                std::free(_data); // Free our previous allocation.
+				allocator.deallocate(_data, _capacity);
             }
 
             _data = alloc;
@@ -591,14 +580,14 @@ namespace fastgltf {
 				_data = reinterpret_cast<T*>(storage.data());
 			} else {
 				// We have to use heap allocated memory.
-				auto* alloc = static_cast<T*>(std::malloc(size() * sizeof(T)));
+				auto* alloc = allocator.allocate(size());
 				for (std::size_t i = 0; i < size(); ++i) {
 					new(alloc + i) T((*this)[i]);
 				}
 
 				if (_data && !isUsingStack()) {
 					std::destroy(begin(), end());
-					std::free(_data);
+					allocator.deallocate(_data, _capacity);
 				}
 
 				_data = alloc;
@@ -631,7 +620,7 @@ namespace fastgltf {
 			std::destroy(begin(), end());
 
 			if (!isUsingStack() && size() != 0) {
-				std::free(_data);
+				allocator.deallocate(_data, _capacity);
 				_data = reinterpret_cast<T*>(storage.data());
 			}
 
@@ -687,6 +676,11 @@ namespace fastgltf {
             return end()[-1];
         }
     };
+
+	namespace pmr {
+		template<typename T, std::size_t N>
+		using SmallVector = SmallVector<T, N, std::pmr::polymorphic_allocator<T>>;
+	} // namespace pmr
 
 #ifndef FASTGLTF_USE_CUSTOM_SMALLVECTOR
 #define FASTGLTF_USE_CUSTOM_SMALLVECTOR 0
