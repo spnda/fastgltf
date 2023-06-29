@@ -73,3 +73,33 @@ TEST_CASE("Embedded SmallVector", "[vector-tests]") {
         vector.reserve(6);
     }
 }
+
+struct RefCountedObject {
+	static inline std::size_t aliveObjects = 0;
+
+	RefCountedObject() {
+		++aliveObjects;
+	}
+
+	RefCountedObject(const RefCountedObject& other) {
+		++aliveObjects;
+	}
+
+	RefCountedObject(RefCountedObject&& other) = delete;
+
+	~RefCountedObject() {
+		--aliveObjects;
+	}
+};
+
+TEST_CASE("Test shrinking vectors", "[vector-tests]") {
+	fastgltf::SmallVector<RefCountedObject, 4> objects;
+	for (std::size_t i = 0; i < 4; ++i) {
+		objects.emplace_back();
+	}
+	REQUIRE(RefCountedObject::aliveObjects == 4);
+	objects.emplace_back();
+	REQUIRE(RefCountedObject::aliveObjects == 5);
+	objects.resize(4);
+	REQUIRE(RefCountedObject::aliveObjects == 4);
+}
