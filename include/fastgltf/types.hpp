@@ -442,9 +442,7 @@ namespace fastgltf {
         ~SmallVector() {
             if (!isUsingStack() && _data) {
                 // The stack data gets destructed automatically, but the heap data does not.
-                for (auto it = begin(); it != end(); ++it) {
-                    it->~T();
-                }
+                std::destroy(begin(), end());
 
                 // Not using the stack, we'll have to free.
                 std::free(_data);
@@ -476,7 +474,7 @@ namespace fastgltf {
         [[nodiscard]] bool isUsingStack() const noexcept { return data() == this->storage.data(); }
 
         void reserve(std::size_t newCapacity) {
-	        static_assert(std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
+	        static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
 
             // We don't want to reduce capacity with reserve, only with shrink_to_fit.
             if (newCapacity <= capacity()) {
@@ -504,9 +502,16 @@ namespace fastgltf {
             } else {
 				alloc = static_cast<T*>(std::malloc(newCapacity * sizeof(T)));
 
-				// Copy the old data into the new memory
-				for (std::size_t i = 0; i < size(); ++i) {
-					new(alloc + i) T((*this)[i]);
+	            // Copy/Move the old data into the new memory
+	            for (std::size_t i = 0; i < size(); ++i) {
+					auto& x = (*this)[i];
+		            if constexpr (std::is_nothrow_move_constructible_v<T>) {
+		                new(alloc + i) T(std::move(x));
+	                } else if constexpr (std::is_copy_constructible_v<T>) {
+			            new(alloc + i) T(x);
+		            } else {
+						new(alloc + i) T(std::move(x));
+					}
 				}
             }
 
