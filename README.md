@@ -140,7 +140,7 @@ fastgltf::Primitive& primitive = ...;
 
 std::vector<std::uint32_t> indices;
 if (primitive.indicesAccessor.has_value()) {
-    auto& accessor = asset->accessors[p.indicesAccessor.value()];
+    auto& accessor = asset->accessors[primitive.indicesAccessor.value()];
     indices.resize(accessor.count);
 
     fastgltf::iterateAccessorWithIndex<std::uint32_t>(
@@ -164,7 +164,7 @@ struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec
 fastgltf::Primitive& primitive = ...;
 
 std::vector<Vertex> vertices;
-auto& accessor = asset->accessors[primitive.attributes["POSITION"]];
+auto& accessor = asset->accessors[primitive.findAttribute("POSITION").second];
 vertices.resize(accessor.count);
 
 fastgltf::iterateAccessorWithIndex<glm::vec3>(*asset, accessor, [&](glm::vec3&& position, std::size_t idx) {
