@@ -140,7 +140,7 @@ if (primitive.indicesAccessor.has_value()) {
     indices.resize(accessor.count);
 
     fastgltf::iterateAccessorWithIndex<std::uint32_t>(
-            *asset, accessor, [&](std::uint32_t index, std::size_t idx) {
+            asset.get(), accessor, [&](std::uint32_t index, std::size_t idx) {
         indices[idx] = index;
     });
 }
@@ -163,7 +163,7 @@ std::vector<Vertex> vertices;
 auto& accessor = asset->accessors[primitive.findAttribute("POSITION").second];
 vertices.resize(accessor.count);
 
-fastgltf::iterateAccessorWithIndex<glm::vec3>(*asset, accessor, [&](glm::vec3&& position, std::size_t idx) {
+fastgltf::iterateAccessorWithIndex<glm::vec3>(asset.get(), accessor, [&](glm::vec3&& position, std::size_t idx) {
     vertices[idx] = std::forward<glm::vec3>(position);
 });
 ```
@@ -172,7 +172,7 @@ There's also an overload of `iterateAccessor` which returns an iterable type on 
 
 ```cpp
 // Using iterators directly
-auto iterable = fastgltf::iterateAccessor(*asset, accessor);
+auto iterable = fastgltf::iterateAccessor(asset.get(), accessor);
 for (auto it = iterable.begin(); it != iterable.end(); ++it) {
     auto idx = std::distance(iterable.begin(), it);
     array[idx] = *it;
@@ -181,7 +181,7 @@ for (auto it = iterable.begin(); it != iterable.end(); ++it) {
 // Using a range-based for loop
 // Note: elements can not be passed by reference and always need to be copied.
 std::size_t idx = 0;
-for (auto element : fastgltf::iterateAccessor(*asset, accessor)) {
+for (auto element : fastgltf::iterateAccessor(asset.get(), accessor)) {
     array[idx++] = element;
 }
 ```
