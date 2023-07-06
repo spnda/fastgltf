@@ -109,12 +109,9 @@ TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 	dataBuffer.copyBytes((uint8_t*) gltfString.data(), gltfString.size());
 
 	fastgltf::Parser parser;
-	auto gltf = parser.loadGLTF(&dataBuffer, "", fastgltf::Options::DontRequireValidAssetMember);
-	REQUIRE(parser.getError() == fastgltf::Error::None);
-	auto result = gltf->parse();
-	REQUIRE(result == fastgltf::Error::None);
+	auto asset = parser.loadGLTF(&dataBuffer, "", fastgltf::Options::DontRequireValidAssetMember);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 
-	auto asset = gltf->getParsedAsset();
 	auto escaped = std::get<fastgltf::sources::URI>(asset->images.front().data);
 
 	const fastgltf::URI original(std::string_view("grande_sphère.png"));

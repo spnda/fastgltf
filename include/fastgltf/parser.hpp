@@ -27,6 +27,7 @@
 #pragma once
 
 #include <memory>
+#include <tuple>
 
 #include "types.hpp"
 
@@ -48,9 +49,25 @@ namespace simdjson::dom {
 } // namespace simdjson::dom
 
 namespace fastgltf {
+	enum class Error : std::uint64_t;
+
+	template <typename T>
+	class Expected;
+} // namespace fastgltf
+
+namespace std {
+	template <typename T>
+	struct tuple_size<fastgltf::Expected<T>> : std::integral_constant<std::size_t, 2> {};
+
+	template <typename T>
+	struct tuple_element<0, fastgltf::Expected<T>> { using type = fastgltf::Error; };
+	template <typename T>
+	struct tuple_element<1, fastgltf::Expected<T>> { using type = T; };
+} // namespace std
+
+namespace fastgltf {
     struct BinaryGltfChunk;
     class GltfDataBuffer;
-    struct ParserData;
 
     enum class Error : std::uint64_t {
         None = 0,
@@ -327,6 +344,69 @@ namespace fastgltf {
 		}
 	};
 
+	template <typename T>
+	class Expected {
+		static_assert(std::is_default_constructible_v<T>);
+		static_assert(!std::is_same_v<Error, T>);
+
+		Error err;
+		T value;
+
+	public:
+		explicit Expected(Error error) : err(error) {}
+		explicit Expected(T&& value) : err(Error::None), value(std::move(value)) {}
+
+		Expected(const Expected<T>& other) = delete;
+		Expected(Expected<T>&& other) noexcept : err(other.err), value(std::move(other.value)) {}
+
+		Expected<T>& operator=(const Expected<T>& other) = delete;
+		Expected<T>& operator=(Expected<T>&& other) noexcept {
+			err = other.err;
+			value = std::move(other.value);
+			return *this;
+		}
+
+		[[nodiscard]] Error error() const noexcept {
+			return err;
+		}
+
+		[[nodiscard]] T& get() noexcept(false) {
+			if (err != Error::None)
+				throw err;
+			return value;
+		}
+
+		[[nodiscard]] T* get_if() noexcept {
+			if (err != Error::None)
+				return nullptr;
+			return std::addressof(value);
+		}
+
+		template <std::size_t I>
+		auto& get() {
+			if constexpr (I == 0) return err;
+			else if constexpr (I == 1) return value;
+		}
+
+		template <std::size_t I>
+		const auto& get() const {
+			if constexpr (I == 0) return err;
+			else if constexpr (I == 1) return value;
+		}
+
+		T* operator->() noexcept {
+			if (err != Error::None)
+				return nullptr;
+			return std::addressof(value);
+		}
+
+		const T* operator->() const noexcept {
+			if (err != Error::None)
+				return nullptr;
+			return std::addressof(value);
+		}
+	};
+
     struct BufferInfo {
         void* mappedMemory;
         CustomBufferId customId;
@@ -335,63 +415,6 @@ namespace fastgltf {
     using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
     using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
     using Base64DecodeCallback = void(std::string_view base64, std::uint8_t* dataOutput, std::size_t padding, std::size_t dataOutputSize, void* userPointer);
-
-    class glTF {
-        friend class Parser;
-
-        std::unique_ptr<ParserData> data;
-        std::unique_ptr<Asset> parsedAsset;
-        DataSource glbBuffer;
-	    ChunkMemoryResource resourceAllocator;
-        std::filesystem::path directory;
-        Options options;
-        Error errorCode = Error::None;
-
-        explicit glTF(std::unique_ptr<ParserData> data, std::filesystem::path directory, Options options);
-
-        static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
-        static void fillCategories(Category& inputCategories) noexcept;
-
-        [[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> std::pair<Error, DataSource>;
-        [[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> std::pair<Error, DataSource>;
-
-        void parseAccessors(simdjson::dom::array& array);
-        void parseAnimations(simdjson::dom::array& array);
-        void parseBuffers(simdjson::dom::array& array);
-        void parseBufferViews(simdjson::dom::array& array);
-        void parseCameras(simdjson::dom::array& array);
-        void parseExtensions(simdjson::dom::object& extensionsObject);
-        void parseImages(simdjson::dom::array& array);
-        void parseLights(simdjson::dom::array& array);
-        void parseMaterials(simdjson::dom::array& array);
-        void parseMeshes(simdjson::dom::array& array);
-        void parseNodes(simdjson::dom::array& array);
-        void parseSamplers(simdjson::dom::array& array);
-        void parseScenes(simdjson::dom::array& array);
-        void parseSkins(simdjson::dom::array& array);
-        void parseTextures(simdjson::dom::array& array);
-
-    public:
-        explicit glTF(const glTF& scene) = delete;
-        glTF& operator=(const glTF& scene) = delete;
-
-        ~glTF();
-
-        [[nodiscard]] std::unique_ptr<Asset> getParsedAsset();
-
-        /**
-         * This function further validates all the input that is parsed from the glTF. Note that
-         * this function will only validate the data that has already been parsed through calls to
-         * glTF::parse(Category categories). Realistically, this should not be necessary in Release
-         * applications, but could be helpful when debugging an asset related issue.
-         */
-        [[nodiscard]] Error validate();
-
-        /**
-         * Parses all of the specified categories. Parses everything by default.
-         */
-        [[nodiscard]] Error parse(Category categories = Category::All);
-    };
 
     /**
      * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
@@ -502,9 +525,34 @@ namespace fastgltf {
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
         std::unique_ptr<simdjson::dom::parser> jsonParser;
 
-        // Callbacks
-        ParserInternalConfig config = {};
-        Error errorCode = Error::None;
+		ParserInternalConfig config = {};
+		DataSource glbBuffer;
+		ChunkMemoryResource resourceAllocator;
+		std::filesystem::path directory;
+		Options options;
+
+		static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
+		static void fillCategories(Category& inputCategories) noexcept;
+
+		[[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> Expected<DataSource>;
+		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
+
+		Error parseAccessors(simdjson::dom::array& array, Asset& asset);
+		Error parseAnimations(simdjson::dom::array& array, Asset& asset);
+		Error parseBuffers(simdjson::dom::array& array, Asset& asset);
+		Error parseBufferViews(simdjson::dom::array& array, Asset& asset);
+		Error parseCameras(simdjson::dom::array& array, Asset& asset);
+		Error parseExtensions(simdjson::dom::object& extensionsObject, Asset& asset);
+		Error parseImages(simdjson::dom::array& array, Asset& asset);
+		Error parseLights(simdjson::dom::array& array, Asset& asset);
+		Error parseMaterials(simdjson::dom::array& array, Asset& asset);
+		Error parseMeshes(simdjson::dom::array& array, Asset& asset);
+		Error parseNodes(simdjson::dom::array& array, Asset& asset);
+		Error parseSamplers(simdjson::dom::array& array, Asset& asset);
+		Error parseScenes(simdjson::dom::array& array, Asset& asset);
+		Error parseSkins(simdjson::dom::array& array, Asset& asset);
+		Error parseTextures(simdjson::dom::array& array, Asset& asset);
+		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
     public:
         explicit Parser(Extensions extensionsToLoad = Extensions::None) noexcept;
@@ -516,16 +564,18 @@ namespace fastgltf {
         ~Parser();
 
         /**
-         * Returns the error that made the parsing fail.
-         */
-        [[nodiscard]] Error getError() const;
-
-        /**
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
          * @return A glTF instance or nullptr if an error occurred.
          */
-        [[nodiscard]] std::unique_ptr<glTF> loadGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None);
-        [[nodiscard]] std::unique_ptr<glTF> loadBinaryGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None);
+        [[nodiscard]] Expected<Asset> loadGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+        [[nodiscard]] Expected<Asset> loadBinaryGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+
+		/**
+		 * This function further validates all the input more strictly that is parsed from the glTF.
+		 * Realistically, this should not be necessary in Release applications, but could be helpful
+		 * when debugging an asset related issue.
+		*/
+		[[nodiscard]] Error validate(const Asset& asset) const;
 
         /**
          * This function can be used to set callbacks so that you can control memory allocation for

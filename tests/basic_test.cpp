@@ -15,6 +15,8 @@
 #include <fastgltf/types.hpp>
 #include "gltf_path.hpp"
 
+constexpr auto noOptions = fastgltf::Options::None;
+
 TEST_CASE("Component type tests", "[gltf-loader]") {
     using namespace fastgltf;
 
@@ -91,8 +93,9 @@ TEST_CASE("Test if glTF type detection works", "[gltf-loader]") {
         REQUIRE(fastgltf::determineGltfFileType(&jsonData) == fastgltf::GltfType::glTF);
 
         auto model = parser.loadGLTF(&jsonData, gltfPath);
-        REQUIRE(parser.getError() == fastgltf::Error::None);
-        REQUIRE(model != nullptr);
+		REQUIRE(model.error() == fastgltf::Error::None);
+        REQUIRE(model.get_if() != nullptr);
+		REQUIRE(parser.validate(model.get()) == fastgltf::Error::None);
     }
 
     SECTION("GLB") {
@@ -103,8 +106,8 @@ TEST_CASE("Test if glTF type detection works", "[gltf-loader]") {
         REQUIRE(fastgltf::determineGltfFileType(&jsonData) == fastgltf::GltfType::GLB);
 
         auto model = parser.loadBinaryGLTF(&jsonData, glbPath);
-        REQUIRE(parser.getError() == fastgltf::Error::None);
-        REQUIRE(model != nullptr);
+        REQUIRE(model.error() == fastgltf::Error::None);
+		REQUIRE(model.get_if() != nullptr);
     }
 
     SECTION("Invalid") {
@@ -122,7 +125,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
         REQUIRE(jsonData->loadFromFile(path / "empty_json.gltf"));
         auto emptyGltf = parser.loadGLTF(jsonData.get(), path);
-        REQUIRE(emptyGltf->parse() == fastgltf::Error::InvalidOrMissingAssetField);
+        REQUIRE(emptyGltf.error() == fastgltf::Error::InvalidOrMissingAssetField);
     }
 
     SECTION("Load basic glTF file") {
@@ -130,8 +133,8 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(basicJsonData->loadFromFile(path / "basic_gltf.gltf"));
 
         auto basicGltf = parser.loadGLTF(basicJsonData.get(), path);
-        REQUIRE(basicGltf != nullptr);
-        REQUIRE(parser.getError() == fastgltf::Error::None);
+        REQUIRE(basicGltf.error() == fastgltf::Error::None);
+		REQUIRE(parser.validate(basicGltf.get()) == fastgltf::Error::None);
     }
 
     SECTION("Loading basic Cube.gltf") {
@@ -139,14 +142,10 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         auto cubeJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
         REQUIRE(cubeJsonData->loadFromFile(cubePath / "Cube.gltf"));
 
-        auto cubeGltf = parser.loadGLTF(cubeJsonData.get(), cubePath);
-        REQUIRE(parser.getError() == fastgltf::Error::None);
-        REQUIRE(cubeGltf != nullptr);
+        auto cube = parser.loadGLTF(cubeJsonData.get(), cubePath, noOptions, fastgltf::Category::OnlyRenderable);
+        REQUIRE(cube.error() == fastgltf::Error::None);
+		REQUIRE(parser.validate(cube.get()) == fastgltf::Error::None);
 
-        REQUIRE(cubeGltf->parse(fastgltf::Category::OnlyRenderable) == fastgltf::Error::None);
-        REQUIRE(cubeGltf->validate() == fastgltf::Error::None);
-
-        auto cube = cubeGltf->getParsedAsset();
         REQUIRE(cube->scenes.size() == 1);
         REQUIRE(cube->scenes.front().nodeIndices.size() == 1);
         REQUIRE(cube->scenes.front().nodeIndices.front() == 0);
@@ -182,14 +181,10 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         auto boxJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
         REQUIRE(boxJsonData->loadFromFile(boxPath / "Box.gltf"));
 
-        auto boxGltf = parser.loadGLTF(boxJsonData.get(), boxPath);
-        REQUIRE(parser.getError() == fastgltf::Error::None);
-        REQUIRE(boxGltf != nullptr);
+        auto box = parser.loadGLTF(boxJsonData.get(), boxPath, noOptions, fastgltf::Category::OnlyRenderable);
+        REQUIRE(box.error() == fastgltf::Error::None);
+		REQUIRE(parser.validate(box.get()) == fastgltf::Error::None);
 
-        REQUIRE(boxGltf->parse(fastgltf::Category::OnlyRenderable) == fastgltf::Error::None);
-        REQUIRE(boxGltf->validate() == fastgltf::Error::None);
-
-        auto box = boxGltf->getParsedAsset();
         REQUIRE(box->defaultScene.has_value());
         REQUIRE(box->defaultScene.value() == 0);
 
@@ -216,14 +211,10 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
     REQUIRE(jsonData->loadFromFile(animatedCube / "AnimatedCube.gltf"));
 
     fastgltf::Parser parser;
-    auto cube = parser.loadGLTF(jsonData.get(), animatedCube);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(cube != nullptr);
+    auto asset = parser.loadGLTF(jsonData.get(), animatedCube, noOptions, fastgltf::Category::OnlyAnimations);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(cube->parse(fastgltf::Category::OnlyAnimations) == fastgltf::Error::None);
-    REQUIRE(cube->validate() == fastgltf::Error::None);
-
-    auto asset = cube->getParsedAsset();
     REQUIRE(!asset->animations.empty());
 
     auto& animation = asset->animations.front();
@@ -247,14 +238,10 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
     REQUIRE(jsonData->loadFromFile(simpleSkin / "SimpleSkin.gltf"));
 
     fastgltf::Parser parser;
-    auto model = parser.loadGLTF(jsonData.get(), simpleSkin);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model != nullptr);
+    auto asset = parser.loadGLTF(jsonData.get(), simpleSkin, noOptions, fastgltf::Category::Skins | fastgltf::Category::Nodes);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(model->parse(fastgltf::Category::Skins | fastgltf::Category::Nodes) == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
-
-    auto asset = model->getParsedAsset();
     REQUIRE(!asset->skins.empty());
 
     auto& skin = asset->skins.front();
@@ -277,14 +264,10 @@ TEST_CASE("Loading glTF cameras", "[gltf-loader]") {
     REQUIRE(jsonData->loadFromFile(cameras / "Cameras.gltf"));
 
     fastgltf::Parser parser;
-    auto model = parser.loadGLTF(jsonData.get(), cameras);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model != nullptr);
+    auto asset = parser.loadGLTF(jsonData.get(), cameras, noOptions, fastgltf::Category::Cameras);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(model->parse(fastgltf::Category::Cameras) == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
-
-    auto asset = model->getParsedAsset();
     REQUIRE(asset->cameras.size() == 2);
 
     REQUIRE(std::holds_alternative<fastgltf::Camera::Perspective>(asset->cameras[0].camera));
@@ -312,22 +295,16 @@ TEST_CASE("Validate whole glTF", "[gltf-loader]") {
 
     fastgltf::Parser parser;
     auto model = parser.loadGLTF(jsonData.get(), sponza);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model != nullptr);
-
-    REQUIRE(model->parse() == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
+    REQUIRE(model.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(model.get()) == fastgltf::Error::None);
 
     auto brainStem = sampleModels / "2.0" / "BrainStem" / "glTF";
     jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->loadFromFile(brainStem / "BrainStem.gltf"));
 
-    model = parser.loadGLTF(jsonData.get(), brainStem);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model != nullptr);
-
-    REQUIRE(model->parse() == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
+    auto model2 = parser.loadGLTF(jsonData.get(), brainStem);
+    REQUIRE(model2.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(model2.get()) == fastgltf::Error::None);
 }
 
 TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
@@ -350,12 +327,11 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     fastgltf::Parser parser;
     parser.setUserPointer(&allocations);
     parser.setBufferAllocationCallback(mapCallback, nullptr);
-    auto model = parser.loadGLTF(jsonData.get(), boxPath);
-    REQUIRE(model != nullptr);
-    REQUIRE(model->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
-    REQUIRE(allocations.size() == 1);
+	auto asset = parser.loadGLTF(jsonData.get(), boxPath, noOptions, fastgltf::Category::Buffers);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
-    auto asset = model->getParsedAsset();
+    REQUIRE(allocations.size() == 1);
     REQUIRE(asset->buffers.size() == 1);
 
     auto& buffer = asset->buffers.front();
@@ -383,11 +359,9 @@ TEST_CASE("Test base64 decoding callbacks", "[gltf-loader]") {
     fastgltf::Parser parser;
     parser.setUserPointer(&decodeCounter);
     parser.setBase64DecodeCallback(decodeCallback);
-    auto model = parser.loadGLTF(jsonData.get(), boxPath);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model != nullptr);
-    REQUIRE(model->parse(fastgltf::Category::Buffers) == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
+    auto model = parser.loadGLTF(jsonData.get(), boxPath, noOptions, fastgltf::Category::Buffers);
+    REQUIRE(model.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(model.get()) == fastgltf::Error::None);
     REQUIRE(decodeCounter != 0);
 }
 
@@ -398,22 +372,13 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
 
         // Parse once without decomposing, once with decomposing the matrix.
         fastgltf::Parser parser;
-        auto modelWithMatrix = parser.loadGLTF(jsonData.get(), path);
-        REQUIRE(modelWithMatrix != nullptr);
-        REQUIRE(parser.getError() == fastgltf::Error::None);
-        REQUIRE(modelWithMatrix != nullptr);
+        auto assetWithMatrix = parser.loadGLTF(jsonData.get(), path, noOptions, fastgltf::Category::Nodes | fastgltf::Category::Cameras);
+        REQUIRE(assetWithMatrix.error() == fastgltf::Error::None);
+		REQUIRE(parser.validate(assetWithMatrix.get()) == fastgltf::Error::None);
 
-        REQUIRE(modelWithMatrix->parse(fastgltf::Category::Nodes | fastgltf::Category::Cameras) == fastgltf::Error::None);
-        REQUIRE(modelWithMatrix->validate() == fastgltf::Error::None);
-        auto assetWithMatrix = modelWithMatrix->getParsedAsset();
-
-        auto modelDecomposed = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DecomposeNodeMatrices);
-        REQUIRE(parser.getError() == fastgltf::Error::None);
-        REQUIRE(modelWithMatrix != nullptr);
-
-        REQUIRE(modelDecomposed->parse(fastgltf::Category::Nodes | fastgltf::Category::Cameras) == fastgltf::Error::None);
-        REQUIRE(modelDecomposed->validate() == fastgltf::Error::None);
-        auto assetDecomposed = modelDecomposed->getParsedAsset();
+        auto assetDecomposed = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DecomposeNodeMatrices, fastgltf::Category::Nodes | fastgltf::Category::Cameras);
+        REQUIRE(assetDecomposed.error() == fastgltf::Error::None);
+		REQUIRE(parser.validate(assetDecomposed.get()) == fastgltf::Error::None);
 
         REQUIRE(assetWithMatrix->cameras.size() == 1);
         REQUIRE(assetDecomposed->cameras.size() == 1);
@@ -490,13 +455,10 @@ TEST_CASE("Validate sparse accessor parsing", "[gltf-loader]") {
     REQUIRE(jsonData->loadFromFile(simpleSparseAccessor / "SimpleSparseAccessor.gltf"));
 
     fastgltf::Parser parser;
-    auto model = parser.loadGLTF(jsonData.get(), simpleSparseAccessor);
-    REQUIRE(model != nullptr);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model->parse(fastgltf::Category::Accessors) == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
+    auto asset = parser.loadGLTF(jsonData.get(), simpleSparseAccessor, noOptions, fastgltf::Category::Accessors);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
-    auto asset = model->getParsedAsset();
     REQUIRE(asset->accessors.size() == 2);
     REQUIRE(!asset->accessors[0].sparse.has_value());
     REQUIRE(asset->accessors[1].sparse.has_value());
@@ -515,13 +477,10 @@ TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
     REQUIRE(jsonData->loadFromFile(simpleMorph / "SimpleMorph.gltf"));
 
     fastgltf::Parser parser;
-    auto model = parser.loadGLTF(jsonData.get(), simpleMorph);
-    REQUIRE(model != nullptr);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model->parse(fastgltf::Category::Meshes) == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
+    auto asset = parser.loadGLTF(jsonData.get(), simpleMorph, noOptions, fastgltf::Category::Meshes);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
-    auto asset = model->getParsedAsset();
     REQUIRE(asset->meshes.size() == 1);
     REQUIRE(asset->meshes.front().weights.size() == 2);
     REQUIRE(asset->meshes.front().primitives.size() == 1);
@@ -549,12 +508,10 @@ TEST_CASE("Test accessors min/max", "[gltf-loader]") {
     REQUIRE(jsonData.loadFromFile(lightsLamp / "LightsPunctualLamp.gltf"));
 
     fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
-    auto model = parser.loadGLTF(&jsonData, lightsLamp);
-    REQUIRE(parser.getError() == fastgltf::Error::None);
-    REQUIRE(model->parse(fastgltf::Category::Accessors) == fastgltf::Error::None);
-    REQUIRE(model->validate() == fastgltf::Error::None);
+    auto asset = parser.loadGLTF(&jsonData, lightsLamp, noOptions, fastgltf::Category::Accessors);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
-    auto asset = model->getParsedAsset();
     REQUIRE(asset->accessors.size() == 15);
     auto& accessors = asset->accessors;
 

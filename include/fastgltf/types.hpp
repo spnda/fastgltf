@@ -1394,8 +1394,46 @@ namespace fastgltf {
         Category availableCategories = Category::None;
 
         explicit Asset() = default;
-        explicit Asset(const Asset& scene) = delete;
-        Asset& operator=(const Asset& scene) = delete;
+        explicit Asset(const Asset& other) = delete;
+        explicit Asset(Asset&& other) : assetInfo(std::move(other.assetInfo)),
+				defaultScene(other.defaultScene),
+				accessors(std::move(other.accessors)),
+				animations(std::move(other.animations)),
+				buffers(std::move(other.buffers)),
+				bufferViews(std::move(other.bufferViews)),
+				cameras(std::move(other.cameras)),
+				images(std::move(other.images)),
+				lights(std::move(other.lights)),
+				materials(std::move(other.materials)),
+				meshes(std::move(other.meshes)),
+				nodes(std::move(other.nodes)),
+				samplers(std::move(other.samplers)),
+				scenes(std::move(other.scenes)),
+				skins(std::move(other.skins)),
+				textures(std::move(other.textures)),
+				availableCategories(other.availableCategories) {}
+
+		Asset& operator=(const Asset& other) = delete;
+		Asset& operator=(Asset&& other) noexcept {
+			assetInfo = std::move(other.assetInfo);
+			defaultScene = other.defaultScene;
+			accessors = std::move(other.accessors);
+			animations = std::move(other.animations);
+			buffers = std::move(other.buffers);
+			bufferViews = std::move(other.bufferViews);
+			cameras = std::move(other.cameras);
+			images = std::move(other.images);
+			lights = std::move(other.lights);
+			materials = std::move(other.materials);
+			meshes = std::move(other.meshes);
+			nodes = std::move(other.nodes);
+			samplers = std::move(other.samplers);
+			scenes = std::move(other.scenes);
+			skins = std::move(other.skins);
+			textures = std::move(other.textures);
+			availableCategories = other.availableCategories;
+			return *this;
+		}
     };
 #pragma endregion
 } // namespace fastgltf

@@ -83,23 +83,24 @@ void load(std::filesystem::path path) {
     data.loadFromFile(path);
 
     // This loads the glTF file into the gltf object and parses the JSON. For GLB files, use
-    // fastgltf::Parser::loadBinaryGLTF instead.
-    auto gltf = parser.loadGLTF(&data, path.parent_path(), fastgltf::Options::None);
-    if (parser.getError() != fastgltf::Error::None) {
-        // The file doesn't exist, couldn't be read, or is not a valid JSON document.
+    // Parser::loadBinaryGLTF instead.
+    auto asset = parser.loadGLTF(&data, path.parent_path(), fastgltf::Options::None);
+    if (auto error = asset.error(); error != fastgltf::Error::None) {
+        // Some error occurred while reading the buffer, parsing the JSON, or validating the data.
     }
 
-    // With this call to parse(), you let fastgltf parse the whole JSON document into the
-    // glTF data structures. If desired, you can pass OR'd category enums that will exclude
-    // certain glTF aspects from being loaded.
-    if (gltf->parse() != fastgltf::Error::None) {
-        // Most likely, the asset does not follow the glTF spec. Though perhaps fastgltf doesn't
-        // handle something correctly, so please let me know.
+    // The glTF 2.0 asset is now ready to be used. Simply call asset.get(), asset.get_if() or
+    // asset-> to get a direct reference to the Asset class. You can then access the glTF data
+    // structures, like, for example, with buffers:
+    for (auto& buffer : asset->buffers) {
+        // Process the buffers.
     }
-    
-    // Optionally, you can now also call the glTF::validate method. This will more strictly
+
+    // Optionally, you can now also call the Parser::validate method. This will more strictly
     // enforce the glTF spec and is not needed most of the time, though I would certainly
     // recommend it in a development environment or when debugging to avoid mishaps.
+
+    //  parser.validate(asset.get());
 
     // You obtain the asset with this call. This can only be done once, and all successive
     // calls will return a nullptr. The parser and glTF object can be destroyed safely after
