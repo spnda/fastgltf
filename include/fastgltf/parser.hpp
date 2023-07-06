@@ -527,7 +527,7 @@ namespace fastgltf {
 
 		ParserInternalConfig config = {};
 		DataSource glbBuffer;
-		ChunkMemoryResource resourceAllocator;
+		std::shared_ptr<ChunkMemoryResource> resourceAllocator;
 		std::filesystem::path directory;
 		Options options;
 

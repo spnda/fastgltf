@@ -1369,7 +1369,17 @@ namespace fastgltf {
         std::pmr::string name;
     };
 
-    struct Asset {
+	class ChunkMemoryResource;
+	class Parser;
+
+	class Asset {
+		friend class Parser;
+
+		// This has to be first in this struct so that it gets destroyed last, leaving all allocations
+		// alive until the end.
+		std::shared_ptr<ChunkMemoryResource> memoryResource;
+
+	public:
         /**
          * This will only ever have no value if Options::DontRequireValidAssetMember was specified.
          */
@@ -1395,7 +1405,9 @@ namespace fastgltf {
 
         explicit Asset() = default;
         explicit Asset(const Asset& other) = delete;
-        explicit Asset(Asset&& other) : assetInfo(std::move(other.assetInfo)),
+        explicit Asset(Asset&& other) :
+				memoryResource(std::move(other.memoryResource)),
+				assetInfo(std::move(other.assetInfo)),
 				defaultScene(other.defaultScene),
 				accessors(std::move(other.accessors)),
 				animations(std::move(other.animations)),
@@ -1415,6 +1427,7 @@ namespace fastgltf {
 
 		Asset& operator=(const Asset& other) = delete;
 		Asset& operator=(Asset&& other) noexcept {
+			memoryResource = std::move(other.memoryResource);
 			assetInfo = std::move(other.assetInfo);
 			defaultScene = other.defaultScene;
 			accessors = std::move(other.accessors);

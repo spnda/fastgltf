@@ -973,6 +973,9 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 	Asset asset;
 
+	// Create a new chunk memory resource for each asset we parse.
+	asset.memoryResource = resourceAllocator = std::make_shared<ChunkMemoryResource>();
+
 	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
 		dom::object assetInfo;
 		AssetInfo info = {};
@@ -1164,9 +1167,9 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
 
 				auto num = getNumComponents(accessor.type);
                 if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
-                    variant = double_vec(num, &resourceAllocator);
+                    variant = double_vec(num, resourceAllocator.get());
                 } else {
-                    variant = int64_vec(num, &resourceAllocator);
+                    variant = int64_vec(num, resourceAllocator.get());
                 }
 
 				std::size_t idx = 0;
@@ -1299,7 +1302,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
 
         std::string_view name;
         if (accessorObject["name"].get_string().get(name) == SUCCESS) {
-            accessor.name = std::pmr::string(name, &resourceAllocator);
+            accessor.name = std::pmr::string(name, resourceAllocator.get());
         }
 
 	    asset.accessors.emplace_back(std::move(accessor));
@@ -1325,7 +1328,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
             return Error::InvalidGltf;
         }
 
-		animation.channels = decltype(animation.channels)(0, &resourceAllocator);
+		animation.channels = decltype(animation.channels)(0, resourceAllocator.get());
         animation.channels.reserve(channels.size());
         for (auto channelValue : channels) {
             dom::object channelObject;
@@ -1376,7 +1379,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
             return Error::InvalidGltf;
         }
 
-		animation.samplers = decltype(animation.samplers)(0, &resourceAllocator);
+		animation.samplers = decltype(animation.samplers)(0, resourceAllocator.get());
         animation.samplers.reserve(samplers.size());
         for (auto samplerValue : samplers) {
             dom::object samplerObject;
@@ -1417,7 +1420,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 
         std::string_view name;
         if (animationObject["name"].get_string().get(name) == SUCCESS) {
-            animation.name = std::pmr::string(name, &resourceAllocator);
+            animation.name = std::pmr::string(name, resourceAllocator.get());
         }
 
 	    asset.animations.emplace_back(std::move(animation));
@@ -1489,7 +1492,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 
         std::string_view name;
         if (bufferObject["name"].get_string().get(name) == SUCCESS) {
-			buffer.name = std::pmr::string(name, &resourceAllocator);
+			buffer.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         ++bufferIndex;
@@ -1543,7 +1546,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
 
         std::string_view string;
         if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
-            view.name = std::pmr::string(string, &resourceAllocator);
+            view.name = std::pmr::string(string, resourceAllocator.get());
         } else if (error != NO_SUCH_FIELD) {
             return Error::InvalidJson;
         }
@@ -1654,7 +1657,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 
         std::string_view name;
         if (cameraObject["name"].get_string().get(name) == SUCCESS) {
-            camera.name = std::pmr::string(name, &resourceAllocator);
+            camera.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         std::string_view type;
@@ -1844,7 +1847,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
         // name is optional.
         std::string_view name;
         if (imageObject["name"].get_string().get(name) == SUCCESS) {
-            image.name = std::pmr::string(name, &resourceAllocator);
+            image.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         asset.images.emplace_back(std::move(image));
@@ -1935,7 +1938,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
 
         std::string_view name;
         if (lightObject["name"].get_string().get(name) == SUCCESS) {
-            light.name = std::pmr::string(name, &resourceAllocator);
+            light.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         asset.lights.emplace_back(std::move(light));
@@ -2065,7 +2068,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
         std::string_view name;
         if (materialObject["name"].get_string().get(name) == SUCCESS) {
-            material.name = std::pmr::string(name, &resourceAllocator);
+            material.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         material.unlit = false;
@@ -2448,7 +2451,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
         } else if (meshError != Error::None) {
             return meshError;
         } else {
-	        mesh.primitives = decltype(mesh.primitives)(0, &resourceAllocator);
+	        mesh.primitives = decltype(mesh.primitives)(0, resourceAllocator.get());
             mesh.primitives.reserve(array.size());
             for (auto primitiveValue : array) {
                 // Required fields: "attributes"
@@ -2461,7 +2464,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                 auto parseAttributes = [this](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
                     // attribute map. The keys are only validated in the validate() method.
-					attributes = decltype(primitive.attributes)(0, &resourceAllocator);
+					attributes = decltype(primitive.attributes)(0, resourceAllocator.get());
 					attributes.reserve(object.size());
                     for (const auto& field : object) {
                         const auto key = field.key;
@@ -2471,7 +2474,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                             return Error::InvalidGltf;
                         }
 						attributes.emplace_back(
-							std::make_pair(std::pmr::string(key, &this->resourceAllocator), static_cast<std::size_t>(attributeIndex)));
+							std::make_pair(std::pmr::string(key, resourceAllocator.get()), static_cast<std::size_t>(attributeIndex)));
                     }
                     return Error::None;
                 };
@@ -2484,7 +2487,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
                 dom::array targets;
                 if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) {
-					primitive.targets = decltype(primitive.targets)(0, &resourceAllocator);
+					primitive.targets = decltype(primitive.targets)(0, resourceAllocator.get());
 					primitive.targets.reserve(targets.size());
                     for (auto targetValue : targets) {
                         if (targetValue.get_object().get(attributesObject) != SUCCESS) {
@@ -2516,7 +2519,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
         }
 
         if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) {
-	        mesh.weights = decltype(mesh.weights)(0, &resourceAllocator);
+	        mesh.weights = decltype(mesh.weights)(0, resourceAllocator.get());
             mesh.weights.reserve(array.size());
             for (auto weightValue : array) {
                 double val;
@@ -2531,7 +2534,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
         std::string_view name;
         if (meshObject["name"].get_string().get(name) == SUCCESS) {
-            mesh.name = std::pmr::string(name, &resourceAllocator);
+            mesh.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         asset.meshes.emplace_back(std::move(mesh));
@@ -2565,7 +2568,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
         dom::array array;
         auto childError = getJsonArray(nodeObject, "children", &array);
         if (childError == Error::None) {
-			node.children = decltype(node.children)(0, &resourceAllocator);
+			node.children = decltype(node.children)(0, resourceAllocator.get());
 			node.children.reserve(array.size());
             for (auto childValue : array) {
                 if (childValue.get_uint64().get(index) != SUCCESS) {
@@ -2581,7 +2584,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
         auto weightsError = getJsonArray(nodeObject, "weights", &array);
         if (weightsError != Error::MissingField) {
             if (weightsError != Error::None) {
-	            node.weights = decltype(node.weights)(0, &resourceAllocator);
+	            node.weights = decltype(node.weights)(0, resourceAllocator.get());
                 node.weights.reserve(array.size());
                 for (auto weightValue : array) {
                     double val;
@@ -2677,7 +2680,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
         std::string_view name;
         if (nodeObject["name"].get_string().get(name) == SUCCESS) {
-            node.name = std::pmr::string(name, &resourceAllocator);
+            node.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         asset.nodes.emplace_back(std::move(node));
@@ -2700,7 +2703,7 @@ fg::Error fg::Parser::parseSamplers(simdjson::dom::array& samplers, Asset& asset
 
         std::string_view name;
         if (samplerObject["name"].get_string().get(name) == SUCCESS) {
-            sampler.name = std::pmr::string(name, &resourceAllocator);
+            sampler.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         if (samplerObject["magFilter"].get_uint64().get(number) == SUCCESS) {
@@ -2741,14 +2744,14 @@ fg::Error fg::Parser::parseScenes(simdjson::dom::array& scenes, Asset& asset) {
 
         std::string_view name;
         if (sceneObject["name"].get_string().get(name) == SUCCESS) {
-            scene.name = std::pmr::string(name, &resourceAllocator);
+            scene.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         // Parse the array of nodes.
         dom::array nodes;
         auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
         if (nodeError == Error::None) {
-            scene.nodeIndices = decltype(scene.nodeIndices)(0, &resourceAllocator);
+            scene.nodeIndices = decltype(scene.nodeIndices)(0, resourceAllocator.get());
 			scene.nodeIndices.reserve(nodes.size());
             for (auto nodeValue : nodes) {
                 std::uint64_t index;
@@ -2791,7 +2794,7 @@ fg::Error fg::Parser::parseSkins(simdjson::dom::array& skins, Asset& asset) {
         if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) {
             return Error::InvalidGltf;
         }
-	    skin.joints = decltype(skin.joints)(0, &resourceAllocator);
+	    skin.joints = decltype(skin.joints)(0, resourceAllocator.get());
         skin.joints.reserve(jointsArray.size());
         for (auto jointValue : jointsArray) {
             if (jointValue.get_uint64().get(index) != SUCCESS) {
@@ -2802,7 +2805,7 @@ fg::Error fg::Parser::parseSkins(simdjson::dom::array& skins, Asset& asset) {
 
         std::string_view name;
         if (skinObject["name"].get_string().get(name) == SUCCESS) {
-            skin.name = std::pmr::string(name, &resourceAllocator);
+            skin.name = std::pmr::string(name, resourceAllocator.get());
         }
         asset.skins.emplace_back(std::move(skin));
     }
@@ -2853,7 +2856,7 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 
         std::string_view name;
         if (textureObject["name"].get_string().get(name) == SUCCESS) {
-            texture.name = std::pmr::string(name, &resourceAllocator);
+            texture.name = std::pmr::string(name, resourceAllocator.get());
         }
 
         asset.textures.emplace_back(std::move(texture));
