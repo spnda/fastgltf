@@ -250,6 +250,22 @@ namespace fastgltf {
 #endif
     }
 
+	template <typename T>
+	[[gnu::const]] inline std::uint8_t popcount(T value) {
+		static_assert(std::is_integral_v<T>);
+#if FASTGLTF_HAS_BIT
+		return std::popcount(value);
+#else
+		std::uint8_t bits = 0;
+		while (value) {
+			if (value & 1)
+				++bits;
+			value >>= 1;
+		}
+		return bits;
+#endif
+	}
+
     /**
      * Essentially the same as std::same<T, U> but it accepts multiple different types for U,
      * checking if T is any of U...

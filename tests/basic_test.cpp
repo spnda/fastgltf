@@ -72,6 +72,14 @@ TEST_CASE("Test all variants of CRC32-C hashing", "[gltf-loader]") {
     }
 }
 
+TEST_CASE("Test extension stringification", "[gltf-loader]") {
+	auto stringified = stringifyExtension(fastgltf::Extensions::EXT_meshopt_compression);
+	REQUIRE(stringified == fastgltf::extensions::EXT_meshopt_compression);
+
+	stringified = stringifyExtension(fastgltf::Extensions::EXT_meshopt_compression | fastgltf::Extensions::EXT_texture_webp);
+	REQUIRE(stringified == fastgltf::extensions::EXT_meshopt_compression);
+}
+
 TEST_CASE("Test if glTF type detection works", "[gltf-loader]") {
     fastgltf::Parser parser;
 

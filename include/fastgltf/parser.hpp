@@ -58,7 +58,7 @@ namespace fastgltf {
         // One or more extensions were not marked as supported by the client application but are
         // required by the glTF.
         MissingExtensions = 2,
-        // A required extensions is not supported by fastgltf.
+        // A required extension is not supported by fastgltf.
         UnknownRequiredExtension = 3,
         InvalidJson = 4,
         InvalidGltf = 5,
@@ -213,6 +213,58 @@ namespace fastgltf {
         constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
         constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
     } // namespace extensions
+
+	// clang-format off
+	// An array of pairs of string representations of extension identifiers and their respective enum
+	// value used for enabling/disabling the loading of it. This also represents all extensions that
+	// fastgltf supports and understands.
+	static constexpr std::array<std::pair<std::string_view, Extensions>, 16> extensionStrings = {{
+		{ extensions::EXT_meshopt_compression,            Extensions::EXT_meshopt_compression },
+		{ extensions::EXT_texture_webp,                   Extensions::EXT_texture_webp },
+		{ extensions::KHR_lights_punctual,                Extensions::KHR_lights_punctual },
+		{ extensions::KHR_materials_clearcoat,            Extensions::KHR_materials_clearcoat },
+		{ extensions::KHR_materials_emissive_strength,    Extensions::KHR_materials_emissive_strength },
+		{ extensions::KHR_materials_ior,                  Extensions::KHR_materials_ior },
+		{ extensions::KHR_materials_iridescence,          Extensions::KHR_materials_iridescence },
+		{ extensions::KHR_materials_sheen,                Extensions::KHR_materials_sheen },
+		{ extensions::KHR_materials_specular,             Extensions::KHR_materials_specular },
+		{ extensions::KHR_materials_transmission,         Extensions::KHR_materials_transmission },
+		{ extensions::KHR_materials_unlit,                Extensions::KHR_materials_unlit },
+		{ extensions::KHR_materials_volume,               Extensions::KHR_materials_volume },
+		{ extensions::KHR_mesh_quantization,              Extensions::KHR_mesh_quantization },
+		{ extensions::KHR_texture_basisu,                 Extensions::KHR_texture_basisu },
+		{ extensions::KHR_texture_transform,              Extensions::KHR_texture_transform },
+		{ extensions::MSFT_texture_dds,                   Extensions::MSFT_texture_dds },
+	}};
+	// clang-format on
+
+	/**
+	 * Returns the name of the passed glTF extension.
+	 *
+	 * @note If {@code extensions} has more than one bit set (multiple extensions), this
+	 * will return the name of the first set bit.
+	 */
+#if FASTGLTF_CPP_20
+	constexpr
+#else
+	inline
+#endif
+	std::string_view stringifyExtension(Extensions extensions) {
+		// Find the first set bit and mask the value to that
+		std::uint8_t position = 0;
+		while (position < std::numeric_limits<std::underlying_type_t<Extensions>>::digits) {
+			if (((to_underlying(extensions) >> position) & 1) != 0) {
+				extensions &= static_cast<Extensions>(1 << position);
+				break;
+			}
+			++position;
+		}
+
+		for (const auto& extensionString : extensionStrings)
+			if (extensionString.second == extensions)
+				return extensionString.first;
+		return "";
+	}
 
 	class ChunkMemoryResource : public std::pmr::memory_resource {
 		/**
