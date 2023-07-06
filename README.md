@@ -101,11 +101,6 @@ void load(std::filesystem::path path) {
     // recommend it in a development environment or when debugging to avoid mishaps.
 
     //  parser.validate(asset.get());
-
-    // You obtain the asset with this call. This can only be done once, and all successive
-    // calls will return a nullptr. The parser and glTF object can be destroyed safely after
-    // this call.
-    std::unique_ptr<fastgltf::Asset> asset = gltf->getParsedAsset();
 }
 ```
 
