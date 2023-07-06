@@ -631,7 +631,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 
 	// We have to perform normalization if the accessor is marked as containing normalized data, which is why
 	// we can't just memcpy then.
-	if (std::is_trivially_copyable_v<ElementType> && !accessor.normalized) {
+	if (std::is_trivially_copyable_v<ElementType> && !accessor.normalized && accessor.componentType == Traits::enum_component_type) {
 		if (srcStride == elemSize && srcStride == TargetStride) {
 			std::memcpy(dest, srcBytes, elemSize * accessor.count);
 		} else {
