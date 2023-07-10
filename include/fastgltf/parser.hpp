@@ -334,7 +334,7 @@ namespace fastgltf {
 			return alloc;
 		}
 
-		void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) override {
+		void do_deallocate([[maybe_unused]] void* p, [[maybe_unused]] std::size_t bytes, [[maybe_unused]] std::size_t alignment) override {
 			// We currently do nothing, as we don't keep track of what portions of the blocks are still used.
 			// Therefore, we keep all blocks alive until the destruction of this resource (parser).
 		}
