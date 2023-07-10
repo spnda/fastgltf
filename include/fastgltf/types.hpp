@@ -707,7 +707,6 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Structs
-	class glTF;
 	class URI;
 
 	/**
@@ -723,7 +722,6 @@ namespace fastgltf {
 	 * doesn't own the allocation.
 	 */
 	class URIView {
-		friend class glTF;
 		friend class URI;
 
 		std::string_view view;
@@ -781,8 +779,6 @@ namespace fastgltf {
 	 * also decodes any percent-encoded characters.
 	 */
 	class URI {
-		friend class glTF;
-
 		std::pmr::string uri;
 		URIView view;
 
