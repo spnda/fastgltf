@@ -258,7 +258,7 @@ namespace fastgltf {
 	/**
 	 * Returns the name of the passed glTF extension.
 	 *
-	 * @note If {@code extensions} has more than one bit set (multiple extensions), this
+	 * @note If \p extensions has more than one bit set (multiple extensions), this
 	 * will return the name of the first set bit.
 	 */
 #if FASTGLTF_CPP_20
@@ -428,6 +428,13 @@ namespace fastgltf {
         Invalid,
     };
 
+	/**
+	 * This function starts reading into the buffer and tries to determine what type of glTF container it is.
+	 * This should be used to know whether to call Parser::loadGLTF or Parser::loadBinaryGLTF.
+	 *
+	 * @return The type of the glTF file, either glTF, GLB, or Invalid if it was not determinable. If this function
+	 * returns Invalid it is highly likely that the buffer does not actually represent a valid glTF file.
+	 */
     GltfType determineGltfFileType(GltfDataBuffer* buffer);
 
     /**
@@ -460,17 +467,19 @@ namespace fastgltf {
         /**
          * Saves the pointer including its range. Does not copy any data. This requires the
          * original allocation to outlive the parsing of the glTF, so after the last relevant
-         * call to fastgltf::glTF::parse. However, this function asks for a capacity size, as
-         * the JSON parsing requires some padding. See getGltfBufferPadding for more information.
+         * call to fastgltf::Parser::loadGLTF. However, this function asks for a capacity size, as
+         * the JSON parsing requires some padding. See fastgltf::getGltfBufferPadding for more information.
          * If the capacity does not have enough padding, the function will instead copy the bytes
          * with the copyBytes method. Also, it will set the padding bytes all to 0, so be sure to
          * not use that for any other data.
          */
         bool fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept;
+
         /**
-         * This will create a copy of the passed bytes and allocate a adequately sized buffer.
+         * This will create a copy of the passed bytes and allocate an adequately sized buffer.
          */
         bool copyBytes(const std::uint8_t* bytes, std::size_t byteCount) noexcept;
+
         /**
          * Loads the file with a optional byte offset into a memory buffer.
          */
@@ -565,10 +574,17 @@ namespace fastgltf {
 
         /**
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
-         * @return A glTF instance or nullptr if an error occurred.
+         *
+         * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
          */
         [[nodiscard]] Expected<Asset> loadGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
-        [[nodiscard]] Expected<Asset> loadBinaryGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+
+		/**
+		 * Loads a glTF file embedded within a GLB container, which may contain the first buffer of the glTF asset.
+		 *
+         * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
+		 */
+		[[nodiscard]] Expected<Asset> loadBinaryGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
 
 		/**
 		 * This function further validates all the input more strictly that is parsed from the glTF.
@@ -583,23 +599,25 @@ namespace fastgltf {
          * the callbacks to map a GPU buffer through Vulkan or DirectX so that fastgltf can write
          * the buffer directly to the GPU to avoid a copy into RAM first. To remove the callbacks
          * for a specific load, call this method with both parameters as nullptr before load*GLTF.
-         * Using fastgltf::Parser::setUserPointer you can also set a user pointer to access your
+         * Using Parser::setUserPointer you can also set a user pointer to access your
          * own class or other data you may need.
          *
          * @param mapCallback function called when the parser requires a buffer to write data
          * embedded in a GLB file or decoded from a base64 URI, cannot be nullptr.
          * @param unmapCallback function called when the parser is done with writing into a
          * buffer, can be nullptr.
-         * @note For advanced users
+         * @note This is likely only useful for advanced users who know what they're doing.
          */
         void setBufferAllocationCallback(BufferMapCallback* mapCallback, BufferUnmapCallback* unmapCallback = nullptr) noexcept;
 
         /**
-         * Allows setting callbacks for base64 decoding. This can be useful if you have another
-         * base64 decoder optimised for a certain platform or architecture, or want to use your own
-         * scheduler to schedule multiple threads for working on decoding the data.
-         * Using fastgltf::Parser::setUserPointer you can also set a user pointer to access your
-         * own class or other data you may need.
+         * Allows setting callbacks for base64 decoding.
+         * This can be useful if you have another base64 decoder optimised for a certain platform or architecture,
+         * or want to use your own scheduler to schedule multiple threads for working on decoding individual chunks of the data.
+         * Using Parser::setUserPointer you can also set a user pointer to access your own class or other data you may need.
+         *
+         * It is still recommended to use fastgltf's base64 decoding features as they're highly optimised
+         * for SSE4, AVX2, and ARM Neon.
          *
          * @param decodeCallback function called when the parser tries to decode a base64 buffer
          */

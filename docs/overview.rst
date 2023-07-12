@@ -75,8 +75,8 @@ glTF libraries.
      - 🟡³
      - ❌
      - ✔️
-   * - Transform matrices decomposition
-     - ❌
+   * - Node transform utilities
+     - ✔️
      - ❌
      - ✔️
 
@@ -85,7 +85,6 @@ glTF libraries.
 It does not provide any mechanism for controlling all the heap allocations the library performs.
 ³ cgltf supports sparse accessors and matrix data only with some accessor functions, but not all.
 
-A more detailed list of all features fastgltf supports can be found :ref:`here <features>`.
 You can read more about the accessor utilities from fastgltf :ref:`here <accessor-tools>`.
 
 fastgltf follows C++'s concept of "you don't pay for what you don't use" by only doing the absolute minimum by default.
@@ -173,7 +172,7 @@ Accessor tools
 fastgltf provides a utility header for working with accessors.
 The header contains various functions and utilities for reading, copying, and converting accessor data.
 All of these tools also directly support sparse accessors to help add support for these without having to understand how they work.
-These utilities are meant to drastically simplify using glTF
+These utilities are meant to drastically simplify using glTF accessors and buffers.
 
 You can learn more about this feature of fastgltf in the dedicated chapter: :doc:`tools`.
 However, to give a quick overview this is a simple example of how to load the indices of a primitive:
@@ -220,10 +219,3 @@ This shows the raw deserialization speed of all the parsers.
 In this case fastgltf is **2.1 times faster** than tinygltf and **5.6 times faster** than cgltf.
 
 .. image:: https://cdn.discordapp.com/attachments/442748131898032138/1088470983024840754/Bistro_load_from_memory_without_images_and_buffer_load_1.png
-
-
-.. _features:
-
-Features
-========
-

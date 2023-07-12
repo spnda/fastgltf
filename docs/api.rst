@@ -74,6 +74,8 @@ SmallVector
 GltfDataBuffer
 ==============
 
+.. doxygenfunction:: fastgltf::getGltfBufferPadding
+
 .. doxygenclass:: fastgltf::GltfDataBuffer
    :members:
    :undoc-members:
@@ -85,3 +87,8 @@ Parser
 .. doxygenclass:: fastgltf::Parser
    :members:
    :undoc-members:
+
+.. doxygenfunction:: fastgltf::determineGltfFileType
+
+.. doxygenstruct:: fastgltf::BufferInfo
+   :members:

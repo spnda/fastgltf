@@ -1,6 +1,6 @@
-**********
+**************
 Accessor tools
-**********
+**************
 
 .. contents:: Table of Contents
 
