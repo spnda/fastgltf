@@ -1121,12 +1121,12 @@ namespace fastgltf {
         std::array<float, 4> baseColorFactor;
 
         /**
-         * The factor fot eh metalness of the material. Defaults to 1
+         * The factor for the metalness of the material. Defaults to 1
          */
         float metallicFactor;
 
         /**
-         * The factor fot eh roughness of the material. Defaults to 1
+         * The factor for the roughness of the material. Defaults to 1
          */
         float roughnessFactor;
 
