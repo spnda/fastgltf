@@ -24,7 +24,7 @@ For example, ``glm::vec3`` would be a vector of 3 floats, which would be defined
 
 Note that, by default, these functions will only be able to load from buffers where the source is either a ``sources::ByteView`` or a ``sources::Vector``.
 For other data sources, you'll need to provide a functor similar to the already provided ``DefaultBufferDataAdapter`` to the last parameter of each function.
-
+For more detailed documentation about this see :ref:`this section <bufferdataadapter>`.
 
 getAccessorElement
 ==================
@@ -34,8 +34,6 @@ It handles sparse accessors and can properly convert the type.
 
 .. doxygenfunction:: getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index, const BufferDataAdapter& adapter) -> ElementType
 
-
-.. _iterate-accessor:
 
 iterateAccessor
 ===============
@@ -88,6 +86,34 @@ These iterators can be obtained using ``iterateAccessor``, and can be used like 
 .. code:: c++
 
    std::size_t idx = 0;
-   for (auto element : fastgltf::iterateAccessor(*asset, accessor)) {
+   for (auto element : fastgltf::iterateAccessor(asset.get(), accessor)) {
        array[idx++] = element;
    }
+
+
+.. _bufferdataadapter:
+
+BufferDataAdapter interface
+===========================
+
+The accessor tools acquire the binary data through this functional interface.
+By default, fastgltf provides a ``DefaultBufferDataAdapter`` struct.
+The accessor functions also default to using this class,
+however it is important to note that this default interface only works with buffers or images that have a ``sources::Vectors`` or a ``sources::ByteView`` in the ``DataSource`` member.
+
+.. doxygenstruct:: fastgltf::DefaultBufferDataAdapter
+   :members:
+   :undoc-members:
+
+If you do not provide Options::LoadExternalBuffers to the Parser while loading the glTF,
+external buffers will be available as ``sources::URI`` and will not work with the ``DefaultBufferDataAdapter``.
+Therefore, you'll either have to set that option or provide a custom functional interface that properly returns a pointer to the memory.
+
+As this is a functional interface it is possible to also use lambdas for this:
+
+.. code:: c++
+
+   std::vector<std::byte> fileBytes;
+   fastgltf::copyFromAccessor(asset.get(), accessor, [&](const fastgltf::Buffer& buffer) const {
+       return fileBytes.data();
+   });
