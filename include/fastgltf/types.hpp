@@ -575,7 +575,7 @@ namespace fastgltf {
 				return;
 			}
 
-			// If we can use the objects memory again, we'll copy everything over.
+			// If we can use the object's memory again, we'll copy everything over.
 			if (size() <= N) {
 				copy(begin(), size(), reinterpret_cast<T*>(storage.data()));
 				_data = reinterpret_cast<T*>(storage.data());
@@ -914,11 +914,13 @@ namespace fastgltf {
 
     /**
      * Represents the data source of a buffer or image. These could be a buffer view, a file path
-     * (including offsets), a ordinary vector (if Options::LoadExternalBuffers or Options::LoadGLBBuffers
-     * was specified), or the ID of a custom buffer. Note that you, as a user, should never encounter
-     * this variant holding the std::monostate, as that would be a ill-formed glTF, which fastgltf
-     * already checks for while parsing. Note that for buffers, this variant will never hold a BufferView,
-     * as only images are able to reference buffer views as a source.
+     * (including offsets), a ordinary vector (if #Options::LoadExternalBuffers or #Options::LoadGLBBuffers
+     * was specified), or the ID of a custom buffer.
+     *
+     * @note As a user, you should never encounter this variant holding the std::monostate, as that would be a ill-formed glTF,
+     * which fastgltf already checks for while parsing.
+     *
+     * @note For buffers, this variant will never hold a sources::BufferView, as only images are able to reference buffer views as a source.
      */
     using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Vector, sources::CustomBuffer, sources::ByteView>;
 
@@ -1208,9 +1210,14 @@ namespace fastgltf {
 
         /**
          * The values used to determine the transparency of the material.
-         * Defaults to Opaque, and 0.5 for alpha cutoff.
+         * Defaults to #AlphaMode::Opaque.
          */
         AlphaMode alphaMode;
+
+		/**
+		 * The alpha value that determines the upper limit for fragments that
+		 * should be discarded for transparency. Defaults to 0.5.
+		 */
         float alphaCutoff;
 
         /**
@@ -1377,7 +1384,7 @@ namespace fastgltf {
 
 	public:
         /**
-         * This will only ever have no value if Options::DontRequireValidAssetMember was specified.
+         * This will only ever have no value if #Options::DontRequireValidAssetMember was specified.
          */
         std::optional<AssetInfo> assetInfo;
         std::optional<std::size_t> defaultScene;
@@ -1401,7 +1408,7 @@ namespace fastgltf {
 
         explicit Asset() = default;
         explicit Asset(const Asset& other) = delete;
-        explicit Asset(Asset&& other) :
+        Asset(Asset&& other) noexcept :
 				memoryResource(std::move(other.memoryResource)),
 				assetInfo(std::move(other.assetInfo)),
 				defaultScene(other.defaultScene),
