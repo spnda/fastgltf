@@ -1001,9 +1001,9 @@ namespace fastgltf {
         std::optional<std::size_t> cameraIndex;
 
         /**
-         * Only ever empty when KHR_lights_punctual is enabled and used by the asset.
+         * Only ever non-empty when KHR_lights_punctual is enabled and used by the asset.
          */
-        std::optional<std::size_t> lightsIndex;
+        std::optional<std::size_t> lightIndex;
 
 	    pmr::MaybeSmallVector<std::size_t> children;
 	    pmr::MaybeSmallVector<float> weights;
