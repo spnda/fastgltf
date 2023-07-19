@@ -2673,7 +2673,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
             if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) {
                 std::uint64_t light;
                 if (lightsObject["light"].get_uint64().get(light) == SUCCESS) {
-                    node.lightsIndex = static_cast<std::size_t>(light);
+                    node.lightIndex = static_cast<std::size_t>(light);
                 }
             }
         }
