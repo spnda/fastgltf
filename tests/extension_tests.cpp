@@ -80,8 +80,8 @@ TEST_CASE("Test KHR_lights_punctual", "[gltf-loader]") {
     REQUIRE(asset->nodes.size() > 4);
 
     auto& nodes = asset->nodes;
-    REQUIRE(nodes[3].lightsIndex.has_value());
-    REQUIRE(nodes[3].lightsIndex.value() == 0);
+    REQUIRE(nodes[3].lightIndex.has_value());
+    REQUIRE(nodes[3].lightIndex.value() == 0);
 
     auto& lights = asset->lights;
     REQUIRE(lights[0].name == "Point");
