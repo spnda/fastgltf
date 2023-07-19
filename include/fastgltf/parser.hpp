@@ -462,6 +462,13 @@ namespace fastgltf {
         
     public:
         explicit GltfDataBuffer() noexcept;
+
+		/**
+		 * Constructs a new GltfDataBuffer from a span object, copying its data as there
+		 * is no guarantee for the allocation size to have the adequate padding.
+		 */
+		explicit GltfDataBuffer(span<std::byte> data) noexcept;
+
         virtual ~GltfDataBuffer() noexcept;
 
         /**

@@ -2875,6 +2875,19 @@ std::size_t fg::getGltfBufferPadding() noexcept {
 fg::GltfDataBuffer::GltfDataBuffer() noexcept = default;
 fg::GltfDataBuffer::~GltfDataBuffer() noexcept = default;
 
+fg::GltfDataBuffer::GltfDataBuffer(span<std::byte> data) noexcept {
+	dataSize = data.size();
+
+	allocatedSize = data.size() + getGltfBufferPadding();
+	buffer = decltype(buffer)(new std::byte[allocatedSize]);
+	auto* ptr = buffer.get();
+
+	std::memcpy(ptr, data.data(), dataSize);
+	std::memset(ptr + dataSize, 0, allocatedSize - dataSize);
+
+	bufferPointer = ptr;
+}
+
 bool fg::GltfDataBuffer::fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept {
     using namespace simdjson;
     if (bytes == nullptr || byteCount == 0 || capacity == 0)
@@ -2897,7 +2910,7 @@ bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCo
 
     // Allocate a byte array with a bit of padding.
     dataSize = byteCount;
-    allocatedSize = byteCount + simdjson::SIMDJSON_PADDING;
+    allocatedSize = byteCount + getGltfBufferPadding();
     buffer = decltype(buffer)(new std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     bufferPointer = buffer.get();
 
@@ -2925,7 +2938,7 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
     file.seekg(static_cast<std::streamsize>(byteOffset), std::ifstream::beg);
 
     dataSize = static_cast<std::uint64_t>(length) - byteOffset;
-    allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
+    allocatedSize = dataSize + getGltfBufferPadding();
     buffer = decltype(buffer)(new std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
     if (!buffer)
         return false;
