@@ -1060,7 +1060,8 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 				return Expected<Asset>(Error::InvalidGltf);
 			}
 
-			parseExtensions(extensionsObject, asset);
+			if (auto error = parseExtensions(extensionsObject, asset); error != Error::None)
+				return Expected<Asset>(error);
 			continue;
 		}
 
