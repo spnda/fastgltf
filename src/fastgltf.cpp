@@ -1897,13 +1897,13 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
             }
 
             double innerConeAngle;
-            if (lightObject["innerConeAngle"].get_double().get(innerConeAngle) != SUCCESS) {
+            if (spotObject["innerConeAngle"].get_double().get(innerConeAngle) != SUCCESS) {
                 return Error::InvalidGltf;
             }
             light.innerConeAngle = static_cast<float>(innerConeAngle);
 
             double outerConeAngle;
-            if (lightObject["outerConeAngle"].get_double().get(outerConeAngle) != SUCCESS) {
+            if (spotObject["outerConeAngle"].get_double().get(outerConeAngle) != SUCCESS) {
                 return Error::InvalidGltf;
             }
             light.outerConeAngle = static_cast<float>(outerConeAngle);
