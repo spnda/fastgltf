@@ -1118,19 +1118,19 @@ namespace fastgltf {
 
     struct PBRData {
         /**
-         * The factors for the base color of then material. Defaults to 1,1,1,1
+         * The factors for the base color of then material.
          */
-        std::array<float, 4> baseColorFactor;
+        std::array<float, 4> baseColorFactor = {{ 1, 1, 1, 1 }};
 
         /**
-         * The factor for the metalness of the material. Defaults to 1
+         * The factor for the metalness of the material.
          */
-        float metallicFactor;
+        float metallicFactor = 1.0f;
 
         /**
-         * The factor for the roughness of the material. Defaults to 1
+         * The factor for the roughness of the material.
          */
-        float roughnessFactor;
+        float roughnessFactor = 1.0f;
 
         std::optional<TextureInfo> baseColorTexture;
         std::optional<TextureInfo> metallicRoughnessTexture;
@@ -1191,10 +1191,9 @@ namespace fastgltf {
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
-         * from Physically Based Rendering (PBR) methodology. When undefined, all the default
-         * values of pbrMetallicRoughness MUST apply.
+         * from Physically Based Rendering (PBR) methodology.
          */
-        std::optional<PBRData> pbrData;
+        PBRData pbrData;
 
         /**
          * The tangent space normal texture.

@@ -802,14 +802,12 @@ fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
 			return Error::InvalidGltf;
 		if (material.occlusionTexture.has_value() && isInvalidTexture(material.occlusionTexture->textureIndex))
 			return Error::InvalidGltf;
-		if (material.pbrData.has_value()) {
-			if (material.pbrData->baseColorTexture.has_value() &&
-			    isInvalidTexture(material.pbrData->baseColorTexture->textureIndex))
-				return Error::InvalidGltf;
-			if (material.pbrData->metallicRoughnessTexture.has_value() &&
-			    isInvalidTexture(material.pbrData->metallicRoughnessTexture->textureIndex))
-				return Error::InvalidGltf;
-		}
+		if (material.pbrData.baseColorTexture.has_value() &&
+		    isInvalidTexture(material.pbrData.baseColorTexture->textureIndex))
+			return Error::InvalidGltf;
+		if (material.pbrData.metallicRoughnessTexture.has_value() &&
+		    isInvalidTexture(material.pbrData.metallicRoughnessTexture->textureIndex))
+			return Error::InvalidGltf;
 	}
 
 	for (const auto& mesh : asset.meshes) {
@@ -2007,20 +2005,14 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
                     pbr.baseColorFactor[i] = static_cast<float>(val);
                 }
-            } else {
-                pbr.baseColorFactor = {{ 1, 1, 1, 1 }};
             }
 
             double factor;
             if (pbrMetallicRoughness["metallicFactor"].get_double().get(factor) == SUCCESS) {
                 pbr.metallicFactor = static_cast<float>(factor);
-            } else {
-                pbr.metallicFactor = 1.0F;
             }
             if (pbrMetallicRoughness["roughnessFactor"].get_double().get(factor) == SUCCESS) {
                 pbr.roughnessFactor = static_cast<float>(factor);
-            } else {
-                pbr.roughnessFactor = 1.0F;
             }
 
             if (auto error = parseTextureObject(pbrMetallicRoughness, "baseColorTexture", &textureObject, config.extensions); error == Error::None) {

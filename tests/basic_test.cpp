@@ -166,11 +166,10 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(cube->materials.size() == 1);
         auto& material = cube->materials.front();
         REQUIRE(material.name == "Cube");
-        REQUIRE(material.pbrData.has_value());
-        REQUIRE(material.pbrData->baseColorTexture.has_value());
-        REQUIRE(material.pbrData->baseColorTexture->textureIndex == 0);
-        REQUIRE(material.pbrData->metallicRoughnessTexture.has_value());
-        REQUIRE(material.pbrData->metallicRoughnessTexture->textureIndex == 1);
+        REQUIRE(material.pbrData.baseColorTexture.has_value());
+        REQUIRE(material.pbrData.baseColorTexture->textureIndex == 0);
+        REQUIRE(material.pbrData.metallicRoughnessTexture.has_value());
+        REQUIRE(material.pbrData.metallicRoughnessTexture->textureIndex == 1);
         REQUIRE(!material.normalTexture.has_value());
         REQUIRE(!material.emissiveTexture.has_value());
         REQUIRE(!material.occlusionTexture.has_value());
@@ -197,9 +196,8 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
         REQUIRE(box->materials.size() == 1);
         REQUIRE(box->materials[0].name == "Red");
-        REQUIRE(box->materials[0].pbrData.has_value());
-        REQUIRE(box->materials[0].pbrData->baseColorFactor[3] == 1.0f);
-        REQUIRE(box->materials[0].pbrData->metallicFactor == 0.0f);
+        REQUIRE(box->materials[0].pbrData.baseColorFactor[3] == 1.0f);
+        REQUIRE(box->materials[0].pbrData.metallicFactor == 0.0f);
     }
 }
 
