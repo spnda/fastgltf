@@ -6,11 +6,11 @@ on:
       - main
     paths:
       - 'docs/*'
-      - 'include/*'
+      - 'include/fastgltf/*.hpp'
   pull_request:
     paths:
       - 'docs/*'
-      - 'include/*'
+      - 'include/fastgltf/*.hpp'
   workflow_dispatch:
 
 jobs:
