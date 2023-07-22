@@ -380,13 +380,11 @@ void fg::base64::fallback_decode_inplace(std::string_view encoded, std::uint8_t*
 
     // We use i here to track how many we've parsed and to batch 4 chars together.
     const auto encodedSize = encoded.size();
-    std::size_t i = 0U, cursor = 0U;
-    for (auto pos = 0U; pos < encodedSize;) {
-        sixBitChars[i++] = encoded[pos]; ++pos;
-        if (i != 4)
-            continue;
+    std::size_t cursor = 0U;
+    for (auto pos = 0U; pos < encodedSize; pos += 4) {
+		std::memcpy(sixBitChars.data(), &encoded[pos], 4 * sizeof(char));
 
-        for (i = 0; i < 4; i++) {
+        for (std::size_t i = 0; i < 4; i++) {
             assert(static_cast<std::size_t>(sixBitChars[i]) < base64lut.size());
             sixBitChars[i] = base64lut[sixBitChars[i]];
         }
@@ -395,17 +393,12 @@ void fg::base64::fallback_decode_inplace(std::string_view encoded, std::uint8_t*
         eightBitChars[1] = ((sixBitChars[1] & 0xf) << 4) + ((sixBitChars[2] & 0x3c) >> 2);
         eightBitChars[2] = ((sixBitChars[2] & 0x3) << 6) + sixBitChars[3];
 
-        // This adds 3 elements to the output vector. It also checks to not write zeroes that are
-        // generate from the padding.
-        std::size_t charsToWrite = 3;
-        if (pos == encodedSize) {
-            charsToWrite = 4 - (padding + 1);
-        }
+        // Write the 3 chars to the output memory, making sure to not write over the end, assuming
+		// that the array is correctly sized.
+        std::size_t charsToWrite = 3 - ((pos + 4 == encodedSize) ? padding : 0);
         for (std::size_t j = 0; j < charsToWrite; ++j) {
             output[cursor++] = eightBitChars[j];
         }
-
-        i = 0;
     }
 }
 
