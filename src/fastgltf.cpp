@@ -619,7 +619,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 
     auto length = static_cast<std::streamsize>(std::filesystem::file_size(path, error));
     if (error) {
-	    return Expected<DataSource> { Error::InvalidPath };
+	    return Expected<DataSource> { Error::InvalidURI };
     }
 
     std::ifstream file(path, std::ios::binary);

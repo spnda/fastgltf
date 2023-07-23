@@ -70,21 +70,22 @@ namespace fastgltf {
     class GltfDataBuffer;
 
     enum class Error : std::uint64_t {
-        None = 0,
-        InvalidPath = 1,
-        // One or more extensions were not marked as supported by the client application but are
-        // required by the glTF.
-        MissingExtensions = 2,
-        // A required extension is not supported by fastgltf.
-        UnknownRequiredExtension = 3,
-        InvalidJson = 4,
-        InvalidGltf = 5,
-        InvalidOrMissingAssetField = 6,
-        InvalidGLB = 6,
-        MissingField = 7,
-        MissingExternalBuffer = 8,
-        UnsupportedVersion = 9,
-        InvalidURI = 10,
+		None = 0,
+		InvalidPath = 1, ///< The glTF directory passed to load*GLTF is invalid.
+		MissingExtensions = 2, ///< One or more extensions are required by the glTF but not enabled in the Parser.
+		UnknownRequiredExtension = 3, ///< An extension required by the glTF is not supported by fastgltf.
+		InvalidJson = 4, ///< An error occurred while parsing the JSON.
+		InvalidGltf = 5, ///< The glTF is either missing something or has invalid data.
+		InvalidOrMissingAssetField = 6, ///< The glTF asset object is missing or invalid.
+		InvalidGLB = 7, ///< The GLB container is invalid.
+		/**
+		 * A field is missing in the JSON.
+		 * @note This is only used internally.
+		 */
+		MissingField = 8,
+		MissingExternalBuffer = 9, ///< With Options::LoadExternalBuffers, a external buffer was not found.
+		UnsupportedVersion = 10, ///< The glTF version is not supported by fastgltf.
+		InvalidURI = 11, ///< A URI from a buffer or image failed to be parsed.
     };
 
     // clang-format off
