@@ -1136,6 +1136,12 @@ namespace fastgltf {
         std::optional<TextureInfo> metallicRoughnessTexture;
     };
 
+	struct MaterialAnisotropy {
+		float anisotropyStrength;
+		float anisotropyRotation;
+		std::optional<TextureInfo> anisotropyTexture;
+	};
+
     /**
      * Specular information from KHR_materials_specular.
      */
@@ -1223,6 +1229,8 @@ namespace fastgltf {
          * Determines whether back-face culling should be disabled when using this material.
          */
         bool doubleSided;
+
+		std::unique_ptr<MaterialAnisotropy> anisotropy;
 
         std::unique_ptr<MaterialClearcoat> clearcoat;
 

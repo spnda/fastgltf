@@ -2067,6 +2067,39 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
         material.unlit = false;
         dom::object extensionsObject;
         if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
+			if (hasBit(config.extensions, Extensions::KHR_materials_anisotropy)) {
+				dom::object anisotropyObject;
+				auto anisotropyError = extensionsObject[extensions::KHR_materials_anisotropy].get_object().get(anisotropyObject);
+				if (anisotropyError == SUCCESS) {
+					auto anisotropy = std::make_unique<MaterialAnisotropy>();
+
+					double anisotropyStrength;
+					if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength); error == SUCCESS) {
+						anisotropy->anisotropyStrength = static_cast<float>(anisotropyStrength);
+					} else if (error == NO_SUCH_FIELD) {
+						anisotropy->anisotropyStrength = 0.0f;
+					} else {
+						return Error::InvalidJson;
+					}
+
+					double anisotropyRotation;
+					if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation); error == SUCCESS) {
+						anisotropy->anisotropyRotation = static_cast<float>(anisotropyRotation);
+					} else if (error == NO_SUCH_FIELD) {
+						anisotropy->anisotropyRotation = 0.0f;
+					} else {
+						return Error::InvalidJson;
+					}
+
+					TextureInfo anisotropyTexture;
+					if (auto error = parseTextureObject(anisotropyObject, "anisotropyTexture", &anisotropyTexture, config.extensions); error == Error::None) {
+						anisotropy->anisotropyTexture = std::move(anisotropyTexture);
+					} else if (error != Error::MissingField) {
+						return error;
+					}
+				}
+			}
+
             if (hasBit(config.extensions, Extensions::KHR_materials_clearcoat)) {
                 dom::object clearcoatObject;
                 auto clearcoatError = extensionsObject[extensions::KHR_materials_clearcoat].get_object().get(clearcoatObject);
@@ -2079,7 +2112,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     } else if (error == NO_SUCH_FIELD) {
                         clearcoat->clearcoatFactor = 0.0f;
                     } else {
-                        return Error::InvalidGltf;
+                        return Error::InvalidJson;
                     }
 
                     TextureInfo clearcoatTexture;
@@ -2095,7 +2128,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     } else if (error == NO_SUCH_FIELD) {
                         clearcoat->clearcoatRoughnessFactor = 0.0f;
                     } else {
-                        return Error::InvalidGltf;
+                        return Error::InvalidJson;
                     }
 
                     TextureInfo clearcoatRoughnessTexture;
