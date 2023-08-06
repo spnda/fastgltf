@@ -308,7 +308,7 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
             return false;
         }
 
-        viewer->asset = std::move(asset.get());
+        viewer->asset = asset.get();
     }
 
     // Some buffers are already allocated during parsing of the glTF, like e.g. base64 buffers

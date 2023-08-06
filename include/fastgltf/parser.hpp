@@ -350,6 +350,12 @@ namespace fastgltf {
 		}
 	};
 
+	/**
+	 * A type that stores an error together with an expected value.
+	 * To use this type, first call error() to inspect if any errors have occurred.
+	 * If error() is not fastgltf::Error::None,
+	 * calling get(), operator->(), and operator*() is undefined behaviour.
+	 */
 	template <typename T>
 	class Expected {
 		static_assert(std::is_default_constructible_v<T>);
@@ -376,12 +382,18 @@ namespace fastgltf {
 			return err;
 		}
 
-		[[nodiscard]] T& get() noexcept(false) {
-			if (err != Error::None)
-				throw err;
-			return value;
+		/**
+		 * Returns the moved value of T.
+		 * When error() returns anything but Error::None, the returned value is undefined.
+		 */
+		[[nodiscard]] T get() noexcept {
+			assert(err == Error::None);
+			return std::move(value);
 		}
 
+		/**
+		 * Returns the address of the value of T, or nullptr if error() returns anything but Error::None.
+		 */
 		[[nodiscard]] T* get_if() noexcept {
 			if (err != Error::None)
 				return nullptr;
@@ -389,27 +401,42 @@ namespace fastgltf {
 		}
 
 		template <std::size_t I>
-		auto& get() {
+		auto& get() noexcept {
 			if constexpr (I == 0) return err;
 			else if constexpr (I == 1) return value;
 		}
 
 		template <std::size_t I>
-		const auto& get() const {
+		const auto& get() const noexcept {
 			if constexpr (I == 0) return err;
 			else if constexpr (I == 1) return value;
 		}
 
+		/**
+		 * Returns the address of the value of T.
+		 * When error() returns anything but Error::None, the returned value is undefined.
+		 */
 		T* operator->() noexcept {
-			if (err != Error::None)
-				return nullptr;
+			assert(err == Error::None);
 			return std::addressof(value);
 		}
 
+		/**
+		 * Returns the address of the const value of T.
+		 * When error() returns anything but Error::None, the returned value is undefined.
+		 */
 		const T* operator->() const noexcept {
-			if (err != Error::None)
-				return nullptr;
+			assert(err == Error::None);
 			return std::addressof(value);
+		}
+
+		T&& operator*() && noexcept {
+			assert(err = Error::None);
+			return std::move(value);
+		}
+
+		operator bool() const noexcept {
+			return err == Error::None;
 		}
 	};
 
