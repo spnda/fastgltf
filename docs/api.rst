@@ -169,6 +169,8 @@ Category
 .. doxygenenum:: fastgltf::Category
 
 
+.. _options:
+
 Options
 -------
 
