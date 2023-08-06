@@ -383,12 +383,12 @@ namespace fastgltf {
 		}
 
 		/**
-		 * Returns the moved value of T.
+		 * Returns a reference to the value of T.
 		 * When error() returns anything but Error::None, the returned value is undefined.
 		 */
-		[[nodiscard]] T get() noexcept {
+		[[nodiscard]] T& get() noexcept {
 			assert(err == Error::None);
-			return std::move(value);
+			return value;
 		}
 
 		/**

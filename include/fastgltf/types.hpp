@@ -640,13 +640,21 @@ namespace fastgltf {
 
         [[nodiscard]] T& at(std::size_t idx) {
             if (idx >= size()) {
+#ifdef __cpp_exceptions
                 throw std::out_of_range("Index is out of range for SmallVector");
+#else
+				std::abort();
+#endif
             }
             return begin()[idx];
         }
         [[nodiscard]] const T& at(std::size_t idx) const {
             if (idx >= size()) {
+#ifdef __cpp_exceptions
                 throw std::out_of_range("Index is out of range for SmallVector");
+#else
+	            std::abort();
+#endif
             }
             return begin()[idx];
         }
