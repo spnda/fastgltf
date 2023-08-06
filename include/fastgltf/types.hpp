@@ -337,15 +337,16 @@ namespace fastgltf {
 	static constexpr auto initialSmallVectorStorage = 8;
 
     /**
-     * A custom small vector class for fastgltf, as there often only are 1-3 node children and mesh
-     * primitives. Therefore, this is a quite basic implementation of a small vector which is mostly
-     * standard (C++17) conforming.
+     * A custom vector class for fastgltf, which can store up to N objects within itself.
+     * This is useful for cases where the vector is expected to only ever hold a tiny amount of small objects,
+     * such as a node's children.
+     * SmallVector is also mostly conformant to C++17's std::vector, and can therefore be used as a drop-in replacement.
      */
     template <typename T, std::size_t N = initialSmallVectorStorage, typename Allocator = std::allocator<T>>
     class SmallVector final {
         static_assert(N != 0, "Cannot create a SmallVector with 0 initial capacity");
 
-        alignas(T) std::array<std::byte, N * sizeof(T)> storage;
+        alignas(T) std::array<std::byte, N * sizeof(T)> storage = {};
 
 		Allocator allocator;
 
