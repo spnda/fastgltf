@@ -83,12 +83,46 @@ namespace fastgltf {
 		 * @note This is only used internally.
 		 */
 		MissingField = 8,
-		MissingExternalBuffer = 9, ///< With Options::LoadExternalBuffers, a external buffer was not found.
+		MissingExternalBuffer = 9, ///< With Options::LoadExternalBuffers, an external buffer was not found.
 		UnsupportedVersion = 10, ///< The glTF version is not supported by fastgltf.
 		InvalidURI = 11, ///< A URI from a buffer or image failed to be parsed.
     };
 
-    // clang-format off
+	inline std::string_view getErrorName(Error error) {
+		switch (error) {
+			case Error::None: return "None";
+			case Error::InvalidPath: return "InvalidPath";
+			case Error::MissingExtensions: return "MissingExtensions";
+			case Error::UnknownRequiredExtension: return "UnknownRequiredExtension";
+			case Error::InvalidJson: return "InvalidJson";
+			case Error::InvalidGltf: return "InvalidGltf";
+			case Error::InvalidOrMissingAssetField: return "InvalidOrMissingAssetField";
+			case Error::InvalidGLB: return "InvalidGLB";
+			case Error::MissingField: return "MissingField";
+			case Error::MissingExternalBuffer: return "MissingExternalBuffer";
+			case Error::UnsupportedVersion: return "UnsupportedVersion";
+			case Error::InvalidURI: return "InvalidURI";
+		}
+	}
+
+	inline std::string_view getErrorMessage(Error error) {
+		switch (error) {
+			case Error::None: return "";
+			case Error::InvalidPath: return "The glTF directory passed to load*GLTF is invalid";
+			case Error::MissingExtensions: return "One or more extensions are required by the glTF but not enabled in the Parser.";
+			case Error::UnknownRequiredExtension: return "An extension required by the glTF is not supported by fastgltf.";
+			case Error::InvalidJson: return "An error occurred while parsing the JSON.";
+			case Error::InvalidGltf: return "The glTF is either missing something or has invalid data.";
+			case Error::InvalidOrMissingAssetField: return "The glTF asset object is missing or invalid.";
+			case Error::InvalidGLB: return "The GLB container is invalid.";
+			case Error::MissingField: return "";
+			case Error::MissingExternalBuffer: return "An external buffer was not found.";
+			case Error::UnsupportedVersion: return "The glTF version is not supported by fastgltf.";
+			case Error::InvalidURI: return "A URI from a buffer or image failed to be parsed.";
+		}
+	}
+
+	// clang-format off
     enum class Extensions : std::uint64_t {
         None = 0,
 
