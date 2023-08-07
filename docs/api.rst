@@ -245,3 +245,24 @@ SmallVector
    :members:
    :undoc-members:
 
+
+Optional
+--------
+
+.. doxygentypedef:: fastgltf::Optional
+
+
+OptionalFlagValue
+-----------------
+
+.. doxygenstruct:: fastgltf::OptionalFlagValue
+   :members:
+   :undoc-members:
+
+
+OptionalWithFlagValue
+---------------------
+
+.. doxygenclass:: fastgltf::OptionalWithFlagValue
+   :members:
+   :undoc-members:

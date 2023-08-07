@@ -341,6 +341,7 @@ namespace fastgltf {
      * This is useful for cases where the vector is expected to only ever hold a tiny amount of small objects,
      * such as a node's children.
      * SmallVector is also mostly conformant to C++17's std::vector, and can therefore be used as a drop-in replacement.
+     * @note It is also available with polymorphic allocators in the fastgltf::pmr namespace.
      */
     template <typename T, std::size_t N = initialSmallVectorStorage, typename Allocator = std::allocator<T>>
     class SmallVector final {
@@ -713,6 +714,283 @@ namespace fastgltf {
 		using MaybeSmallVector = std::pmr::vector<T>;
 #endif
 	} // namespace pmr
+
+	template<typename, typename = void>
+	struct OptionalFlagValue {
+		static constexpr std::nullopt_t missing_value = std::nullopt;
+	};
+
+	template<>
+	struct OptionalFlagValue<std::size_t> {
+		static constexpr auto missing_value = std::numeric_limits<std::size_t>::max();
+	};
+
+	template<>
+	struct OptionalFlagValue<float, std::enable_if_t<std::numeric_limits<float>::is_iec559>> {
+		// This float is a quiet NaN with a specific bit pattern to be able to differentiate
+		// between this flag value and any result from FP operations.
+		static constexpr auto missing_value = static_cast<float>(0x7fedb6db);
+	};
+
+	template<>
+	struct OptionalFlagValue<double, std::enable_if_t<std::numeric_limits<double>::is_iec559>> {
+		static constexpr auto missing_value = static_cast<double>(0x7ffdb6db6db6db6d);
+	};
+
+	template<>
+	struct OptionalFlagValue<Filter> {
+		static constexpr auto missing_value = static_cast<Filter>(std::numeric_limits<std::underlying_type_t<Filter>>::max());
+	};
+
+	template<>
+	struct OptionalFlagValue<BufferTarget> {
+		static constexpr auto missing_value = static_cast<BufferTarget>(std::numeric_limits<std::underlying_type_t<BufferTarget>>::max());
+	};
+
+	/**
+	 * A custom optional class for fastgltf,
+	 * which uses so-called "flag values" which are specific values of T that will never be present as an actual value.
+	 * We can therefore use those values as flags for whether there is an actual value stored,
+	 * instead of the additional bool used by std::optional.
+	 *
+	 * These flag values are obtained from the specializations of OptionalFlagValue.
+	 * If no specialization for T of OptionalFlagValue is provided, a static assert will be triggered.
+	 * In those cases, use std::optional or fastgltf::Optional instead.
+	 */
+	template<typename T>
+	class OptionalWithFlagValue final {
+		static_assert(!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
+			"OptionalWithFlagValue can only be used when there is an appropriate specialization of OptionalFlagValue<T>.");
+
+		struct NonTrivialDummy {
+			constexpr NonTrivialDummy() noexcept {}
+		};
+
+		union {
+			NonTrivialDummy dummy;
+			std::remove_const_t<T> _value;
+		};
+
+	public:
+		OptionalWithFlagValue() noexcept {
+			reset();
+		}
+
+		OptionalWithFlagValue(std::nullopt_t) noexcept {
+			reset();
+		}
+
+		template <typename U = T, std::enable_if_t<std::is_copy_constructible_v<T>, int> = 0>
+		OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
+			if (other.has_value()) {
+				new (std::addressof(_value)) T(*other);
+			} else {
+				reset();
+			}
+		}
+
+		template <typename U = T, std::enable_if_t<std::is_move_constructible_v<T>, int> = 0>
+		OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
+			if (other.has_value()) {
+				new (std::addressof(_value)) T(std::move(*other));
+			} else {
+				reset();
+			}
+		}
+
+		template<typename... Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
+		explicit OptionalWithFlagValue(std::in_place_t, Args&& ... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+			: _value(std::forward<Args>(args)...) {}
+
+		template <typename U = T, std::enable_if_t<std::is_constructible_v<T, U&&>, int> = 0>
+		OptionalWithFlagValue(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
+			new (std::addressof(_value)) T(std::forward<U>(_new));
+		}
+
+		~OptionalWithFlagValue() {
+			reset();
+		}
+
+		OptionalWithFlagValue& operator=(std::nullopt_t) noexcept {
+			reset();
+			return *this;
+		}
+
+		template<typename U = T, std::enable_if_t<std::is_constructible_v<T, U&&>, int> = 0>
+		OptionalWithFlagValue& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
+			if (has_value()) {
+				_value = std::forward<U>(_new);
+			} else {
+				new(std::addressof(_value)) T(std::forward<U>(_new));
+			}
+			return *this;
+		}
+
+		template <typename U, std::enable_if_t<std::conjunction_v<std::is_constructible<T, const U&>, std::is_assignable<T&, const U&>>, int> = 0>
+		OptionalWithFlagValue& operator=(const OptionalWithFlagValue<U>& other) {
+			if (other.has_value()) {
+				if (has_value()) {
+					_value = other._value;
+				} else {
+					new(std::addressof(_value)) T(other._value);
+				}
+			} else {
+				reset();
+			}
+			return *this;
+		}
+
+		template <typename U, std::enable_if_t<std::conjunction_v<std::is_constructible<T, U>, std::is_assignable<T&, U>>, int> = 0>
+		OptionalWithFlagValue& operator=(OptionalWithFlagValue<U>&& other) noexcept(std::is_nothrow_assignable_v<T&, T> && std::is_nothrow_constructible_v<T, T>) {
+			if (other.has_value()) {
+				if (has_value()) {
+					_value = std::move(other._value);
+				} else {
+					new(std::addressof(_value)) T(other._value);
+				}
+			} else {
+				reset();
+			}
+			return *this;
+		}
+
+		[[nodiscard]] bool has_value() const {
+			return this->_value != OptionalFlagValue<T>::missing_value;
+		}
+
+		[[nodiscard]] T& value()& {
+			if (!has_value()) {
+				throw std::bad_optional_access();
+			}
+			return _value;
+		}
+
+		[[nodiscard]] const T& value() const& {
+			if (!has_value()) {
+				throw std::bad_optional_access();
+			}
+			return _value;
+		}
+
+		[[nodiscard]] T&& value()&& {
+			if (!has_value()) {
+				throw std::bad_optional_access();
+			}
+			return std::move(_value);
+		}
+
+		[[nodiscard]] const T&& value() const&& {
+			if (!has_value()) {
+				throw std::bad_optional_access();
+			}
+			return std::move(_value);
+		}
+
+		template<typename U>
+		[[nodiscard]] T value_or(U&& default_value) const& {
+			return has_value() ? **this : static_cast<T>(std::forward<U>(default_value));
+		}
+
+		template<typename U>
+		[[nodiscard]] T value_or(U&& default_value)&& {
+			return has_value() ? std::move(**this) : static_cast<T>(std::forward<U>(default_value));
+		}
+
+		void swap(OptionalWithFlagValue<T>& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
+		                                                    std::is_nothrow_swappable_v<T>) {
+			static_assert(std::is_move_constructible_v<T>);
+			if (has_value() && other.has_value()) {
+				std::swap(_value, other._value);
+			} else if (has_value() && !other.has_value()) {
+				other._value = std::move(_value);
+			} else if (!has_value() && other.has_value()) {
+				_value = std::move(other._value);
+			}
+		}
+
+		void reset() noexcept {
+			this->_value = OptionalFlagValue<T>::missing_value;
+		}
+
+		template <typename... Args>
+		T& emplace(Args&&... args) {
+			new (std::addressof(_value)) T(std::forward<Args>(args)...);
+		}
+
+		template <typename U, typename... Args>
+		T& emplace(std::initializer_list<U> list, Args&&... args) {
+			static_assert(std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>);
+			new (std::addressof(_value)) T(list, std::forward<Args>(args)...);
+		}
+
+		explicit operator bool() const noexcept {
+			return has_value();
+		}
+
+		T* operator->() noexcept {
+			return std::addressof(_value);
+		}
+
+		const T* operator->() const noexcept {
+			return std::addressof(_value);
+		}
+
+		T& operator*()& noexcept {
+			return _value;
+		}
+
+		const T& operator*() const& noexcept {
+			return _value;
+		}
+
+		T&& operator*()&& noexcept {
+			return std::move(_value);
+		}
+
+		const T&& operator*() const&& noexcept {
+			return std::move(_value);
+		}
+	};
+
+	template <typename T, typename U>
+	bool operator==(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() && (*opt) == value;
+	}
+
+	template <typename T, typename U>
+	bool operator!=(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return !(opt == value);
+	}
+
+	template <typename T, typename U>
+	bool operator<(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() && (*opt) < value;
+	}
+
+	template <typename T, typename U>
+	bool operator<=(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() && (*opt) <= value;
+	}
+
+	template <typename T, typename U>
+	bool operator>(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() && (*opt) > value;
+	}
+
+	template <typename T, typename U>
+	bool operator>=(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() && (*opt) >= value;
+	}
+
+	/**
+	 * A type alias which checks if there is a specialization of OptionalFlagValue for T and "switches"
+	 * between fastgltf::OptionalWithFlagValue and std::optional.
+	 */
+	template <typename T>
+	using Optional = std::conditional_t<
+		!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
+		OptionalWithFlagValue<T>,
+		std::optional<T>>;
 #pragma endregion
 
 #pragma region Structs
@@ -966,10 +1244,10 @@ namespace fastgltf {
             float znear;
         };
         struct Perspective {
-            std::optional<float> aspectRatio;
+            Optional<float> aspectRatio;
             float yfov;
             // If omitted, use an infinite projection matrix.
-            std::optional<float> zfar;
+            Optional<float> zfar;
             float znear;
         };
 
@@ -983,15 +1261,15 @@ namespace fastgltf {
 
     struct Skin {
 	    pmr::MaybeSmallVector<std::size_t> joints;
-        std::optional<std::size_t> skeleton;
-        std::optional<std::size_t> inverseBindMatrices;
+	    Optional<std::size_t> skeleton;
+	    Optional<std::size_t> inverseBindMatrices;
 
         std::pmr::string name;
     };
 
     struct Sampler {
-        std::optional<Filter> magFilter;
-        std::optional<Filter> minFilter;
+	    Optional<Filter> magFilter;
+	    Optional<Filter> minFilter;
         Wrap wrapS;
         Wrap wrapT;
 
@@ -1005,14 +1283,14 @@ namespace fastgltf {
     };
 
     struct Node {
-        std::optional<std::size_t> meshIndex;
-        std::optional<std::size_t> skinIndex;
-        std::optional<std::size_t> cameraIndex;
+        Optional<std::size_t> meshIndex;
+	    Optional<std::size_t> skinIndex;
+	    Optional<std::size_t> cameraIndex;
 
         /**
          * Only ever non-empty when KHR_lights_punctual is enabled and used by the asset.
          */
-        std::optional<std::size_t> lightIndex;
+        Optional<std::size_t> lightIndex;
 
 	    pmr::MaybeSmallVector<std::size_t> children;
 	    pmr::MaybeSmallVector<float> weights;
@@ -1044,8 +1322,8 @@ namespace fastgltf {
 
         std::pmr::vector<pmr::SmallVector<attribute_type, 4>> targets;
 
-        std::optional<std::size_t> indicesAccessor;
-        std::optional<std::size_t> materialIndex;
+        Optional<std::size_t> indicesAccessor;
+        Optional<std::size_t> materialIndex;
 
 		[[nodiscard]] auto findAttribute(std::string_view name) {
 			for (decltype(attributes)::iterator it = attributes.begin(); it != attributes.end(); ++it) {
@@ -1111,7 +1389,7 @@ namespace fastgltf {
         /**
          * Overrides the textureInfo texCoord value if supplied.
          */
-        std::optional<std::size_t> texCoordIndex;
+        Optional<std::size_t> texCoordIndex;
     };
 
     struct TextureInfo {
@@ -1141,14 +1419,14 @@ namespace fastgltf {
          */
         float roughnessFactor = 1.0f;
 
-        std::optional<TextureInfo> baseColorTexture;
-        std::optional<TextureInfo> metallicRoughnessTexture;
+        Optional<TextureInfo> baseColorTexture;
+        Optional<TextureInfo> metallicRoughnessTexture;
     };
 
 	struct MaterialAnisotropy {
 		float anisotropyStrength;
 		float anisotropyRotation;
-		std::optional<TextureInfo> anisotropyTexture;
+		Optional<TextureInfo> anisotropyTexture;
 	};
 
     /**
@@ -1156,9 +1434,9 @@ namespace fastgltf {
      */
     struct MaterialSpecular {
         float specularFactor;
-        std::optional<TextureInfo> specularTexture;
+        Optional<TextureInfo> specularTexture;
         std::array<float, 3> specularColorFactor;
-        std::optional<TextureInfo> specularColorTexture;
+        Optional<TextureInfo> specularColorTexture;
     };
 
     /**
@@ -1166,11 +1444,11 @@ namespace fastgltf {
      */
     struct MaterialIridescence {
         float iridescenceFactor;
-        std::optional<TextureInfo> iridescenceTexture;
+        Optional<TextureInfo> iridescenceTexture;
         float iridescenceIor;
         float iridescenceThicknessMinimum;
         float iridescenceThicknessMaximum;
-        std::optional<TextureInfo> iridescenceThicknessTexture;
+        Optional<TextureInfo> iridescenceThicknessTexture;
     };
 
     /**
@@ -1178,29 +1456,29 @@ namespace fastgltf {
      */
     struct MaterialVolume {
         float thicknessFactor;
-        std::optional<TextureInfo> thicknessTexture;
+        Optional<TextureInfo> thicknessTexture;
         float attenuationDistance;
         std::array<float, 3> attenuationColor;
     };
 
     struct MaterialTransmission {
         float transmissionFactor;
-        std::optional<TextureInfo> transmissionTexture;
+        Optional<TextureInfo> transmissionTexture;
     };
 
     struct MaterialClearcoat {
         float clearcoatFactor;
-        std::optional<TextureInfo> clearcoatTexture;
+        Optional<TextureInfo> clearcoatTexture;
         float clearcoatRoughnessFactor;
-        std::optional<TextureInfo> clearcoatRoughnessTexture;
-        std::optional<TextureInfo> clearcoatNormalTexture;
+        Optional<TextureInfo> clearcoatRoughnessTexture;
+        Optional<TextureInfo> clearcoatNormalTexture;
     };
 
     struct MaterialSheen {
         std::array<float, 3> sheenColorFactor;
-        std::optional<TextureInfo> sheenColorTexture;
+        Optional<TextureInfo> sheenColorTexture;
         float sheenRoughnessFactor;
-        std::optional<TextureInfo> sheenRoughnessTexture;
+        Optional<TextureInfo> sheenRoughnessTexture;
     };
 
     struct Material {
@@ -1213,9 +1491,9 @@ namespace fastgltf {
         /**
          * The tangent space normal texture.
          */
-        std::optional<TextureInfo> normalTexture;
-        std::optional<TextureInfo> occlusionTexture;
-        std::optional<TextureInfo> emissiveTexture;
+        Optional<TextureInfo> normalTexture;
+        Optional<TextureInfo> occlusionTexture;
+        Optional<TextureInfo> emissiveTexture;
 
         /**
          * The factors for the emissive color of the material. Defaults to 0,0,0
@@ -1268,12 +1546,12 @@ namespace fastgltf {
         /**
          * The emissive strength from the KHR_materials_emissive_strength extension.
          */
-        std::optional<float> emissiveStrength;
+        Optional<float> emissiveStrength;
 
         /**
          * The index of refraction as specified through KHR_materials_ior.
          */
-        std::optional<float> ior;
+        Optional<float> ior;
 
         /**
          * Only applicable if KHR_materials_unlit is enabled.
@@ -1288,18 +1566,18 @@ namespace fastgltf {
          * When empty, an extension or other mechanism SHOULD supply an alternate texture source,
          * otherwise behavior is undefined.
          */
-        std::optional<std::size_t> imageIndex;
+        Optional<std::size_t> imageIndex;
 
         /**
          * If the imageIndex is specified by the KTX2 or DDS glTF extensions, this is supposed to
          * be used as a fallback if those file containers are not supported.
          */
-        std::optional<std::size_t> fallbackImageIndex;
+        Optional<std::size_t> fallbackImageIndex;
 
         /**
          * If no sampler is specified, use a default sampler with repeat wrap and auto filter.
          */
-        std::optional<std::size_t> samplerIndex;
+        Optional<std::size_t> samplerIndex;
 
         std::pmr::string name;
     };
@@ -1330,9 +1608,9 @@ namespace fastgltf {
         std::variant<std::monostate, std::pmr::vector<double>, std::pmr::vector<std::int64_t>> min;
 
         // Could have no value for sparse morph targets
-        std::optional<std::size_t> bufferViewIndex;
+        Optional<std::size_t> bufferViewIndex;
 
-        std::optional<SparseAccessor> sparse;
+        Optional<SparseAccessor> sparse;
 
         std::pmr::string name;
     };
@@ -1353,8 +1631,8 @@ namespace fastgltf {
         std::size_t byteOffset;
         std::size_t byteLength;
 
-        std::optional<std::size_t> byteStride;
-        std::optional<BufferTarget> target;
+        Optional<std::size_t> byteStride;
+        Optional<BufferTarget> target;
 
         /**
          * Data from EXT_meshopt_compression, and nullptr if the extension was not enabled or used.
@@ -1380,10 +1658,10 @@ namespace fastgltf {
         /** Point and spot lights use candela (lm/sr) while directional use lux (lm/m^2) */
         float intensity;
         /** Range for point and spot lights. If not present, range is infinite. */
-        std::optional<float> range;
+        Optional<float> range;
 
-        std::optional<float> innerConeAngle;
-        std::optional<float> outerConeAngle;
+        Optional<float> innerConeAngle;
+        Optional<float> outerConeAngle;
 
         std::pmr::string name;
     };
@@ -1402,8 +1680,8 @@ namespace fastgltf {
         /**
          * This will only ever have no value if #Options::DontRequireValidAssetMember was specified.
          */
-        std::optional<AssetInfo> assetInfo;
-        std::optional<std::size_t> defaultScene;
+        Optional<AssetInfo> assetInfo;
+        Optional<std::size_t> defaultScene;
         std::vector<Accessor> accessors;
         std::vector<Animation> animations;
         std::vector<Buffer> buffers;
