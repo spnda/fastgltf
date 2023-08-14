@@ -22,9 +22,11 @@ For example, ``glm::vec3`` would be a vector of 3 floats, which would be defined
    struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> {};
 
 
-Note that, by default, these functions will only be able to load from buffers where the source is either a ``sources::ByteView`` or a ``sources::Vector``.
-For other data sources, you'll need to provide a functor similar to the already provided ``DefaultBufferDataAdapter`` to the last parameter of each function.
-For more detailed documentation about this see :ref:`this section <bufferdataadapter>`.
+.. warning::
+
+   Note that, by default, these functions will only be able to load from buffers where the source is either a ``sources::ByteView`` or a ``sources::Vector``.
+   For other data sources, you'll need to provide a functor similar to the already provided ``DefaultBufferDataAdapter`` to the last parameter of each function.
+   For more detailed documentation about this see :ref:`this section <bufferdataadapter>`.
 
 getAccessorElement
 ==================
@@ -114,6 +116,7 @@ As this is a functional interface it is possible to also use lambdas for this:
 .. code:: c++
 
    std::vector<std::byte> fileBytes;
-   fastgltf::copyFromAccessor(asset.get(), accessor, [&](const fastgltf::Buffer& buffer) const {
+   std::vector<std::uint8_t> accessorData(accessor.count);
+   fastgltf::copyFromAccessor(asset.get(), accessor, accessorData.data(), [&](const fastgltf::Buffer& buffer) const {
        return fileBytes.data();
    });
