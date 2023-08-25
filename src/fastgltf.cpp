@@ -57,8 +57,8 @@ static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, 
 #include <fastgltf/util.hpp>
 #include <fastgltf/base64.hpp>
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-#include <smmintrin.h>
+#if defined(FASTGLTF_IS_X86)
+#include <nmmintrin.h> // SSE4.2 for the CRC-32C instructions
 #endif
 
 namespace fg = fastgltf;

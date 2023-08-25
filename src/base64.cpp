@@ -32,8 +32,19 @@
 #include <cmath>
 #include <functional>
 
+#include "simdjson.h"
+
+#include <fastgltf/base64.hpp>
+
 #if defined(FASTGLTF_IS_X86)
+// The idea behind manually including all headers with the required intrinsics
+// is that the usual intrin.h will only include these under Clang when -mavx or
+// -mavx2 is specified, which in turn would have the entire program be compiled
+// with these instructions used in optimisations.
 #include <immintrin.h>
+#include <smmintrin.h>
+#include <avxintrin.h>
+#include <avx2intrin.h>
 #elif defined(FASTGLTF_IS_A64)
 #include <arm_neon.h> // Includes arm64_neon.h on MSVC
 #endif
@@ -42,10 +53,6 @@
 #pragma warning(push)
 #pragma warning(disable : 5030)
 #endif
-
-#include "simdjson.h"
-
-#include <fastgltf/base64.hpp>
 
 namespace fg = fastgltf;
 
