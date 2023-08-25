@@ -304,11 +304,11 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         }
 
         if (asset.error() != fastgltf::Error::None) {
-            std::cerr << "Failed to load glTF: " << fastgltf::to_underlying(asset.error()) << std::endl;
+            std::cerr << "Failed to load glTF: " << fastgltf::getErrorMessage(asset.error()) << std::endl;
             return false;
         }
 
-        viewer->asset = asset.get();
+        viewer->asset = std::move(asset.get());
     }
 
     // Some buffers are already allocated during parsing of the glTF, like e.g. base64 buffers
@@ -345,9 +345,9 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
     outMesh.primitives.resize(mesh.primitives.size());
 
     for (auto it = mesh.primitives.begin(); it != mesh.primitives.end(); ++it) {
-		auto positionIt = it->findAttribute("POSITION");
-        if (positionIt == it->attributes.end())
-            continue;
+		auto* positionIt = it->findAttribute("POSITION");
+		// A mesh primitive is required to hold the POSITION attribute.
+		assert(positionIt != it->attributes.end());
 
         // We only support indexed geometry.
         if (!it->indicesAccessor.has_value()) {
@@ -366,8 +366,8 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         if (it->materialIndex.has_value()) {
             primitive.materialUniformsIndex = it->materialIndex.value();
             auto& material = viewer->asset.materials[it->materialIndex.value()];
-            if (material.pbrData.has_value() && material.pbrData->baseColorTexture.has_value()) {
-                auto& texture = viewer->asset.textures[material.pbrData->baseColorTexture->textureIndex];
+            if (material.pbrData.baseColorTexture.has_value()) {
+                auto& texture = viewer->asset.textures[material.pbrData.baseColorTexture->textureIndex];
                 if (!texture.imageIndex.has_value())
                     return false;
                 primitive.albedoTexture = viewer->textures[texture.imageIndex.value()].texture;
@@ -527,13 +527,9 @@ bool loadMaterial(Viewer* viewer, fastgltf::Material& material) {
     MaterialUniforms uniforms = {};
     uniforms.alphaCutoff = material.alphaCutoff;
 
-    if (material.pbrData.has_value()) {
-        uniforms.baseColorFactor = glm::make_vec4(material.pbrData->baseColorFactor.data());
-        if (material.pbrData->baseColorTexture.has_value()) {
-            uniforms.flags |= MaterialUniformFlags::HasBaseColorTexture;
-        }
-    } else {
-        uniforms.baseColorFactor = glm::fvec4(1.0f);
+    uniforms.baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data());
+    if (material.pbrData.baseColorTexture.has_value()) {
+        uniforms.flags |= MaterialUniformFlags::HasBaseColorTexture;
     }
 
     viewer->materials.emplace_back(uniforms);
