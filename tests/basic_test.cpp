@@ -558,3 +558,18 @@ TEST_CASE("Test accessors min/max", "[gltf-loader]") {
         REQUIRE(max->back() == 1.0);
     }
 }
+
+#include <fstream>
+
+TEST_CASE("Test unicode characters", "[gltf-loader]") {
+	auto lightsLamp = sampleModels / "2.0" / L"Unicode❤♻Test" / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(lightsLamp / L"Unicode❤♻Test.gltf"));
+
+	fastgltf::Parser parser;
+	auto asset = parser.loadGLTF(&jsonData, lightsLamp);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->materials[0].name == "Unicode❤♻Material");
+}

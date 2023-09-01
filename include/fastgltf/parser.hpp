@@ -526,7 +526,7 @@ namespace fastgltf {
         std::unique_ptr<std::byte[]> buffer;
 
         std::filesystem::path filePath = {};
-        
+
     public:
         explicit GltfDataBuffer() noexcept;
 
