@@ -443,10 +443,10 @@ namespace fastgltf {
         }
 
         ~SmallVector() {
-            if (!isUsingStack() && _data) {
-                // The stack data gets destructed automatically, but the heap data does not.
-                std::destroy(begin(), end());
+			// As we use an array of std::byte for the stack storage, we have to destruct those manually too.
+			std::destroy(begin(), end());
 
+            if (!isUsingStack() && _data) {
                 // Not using the stack, we'll have to free.
 	            allocator.deallocate(_data, _capacity);
             }
