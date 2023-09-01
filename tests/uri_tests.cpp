@@ -3,6 +3,8 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/parser.hpp>
 
+#include "gltf_path.hpp"
+
 TEST_CASE("Test basic URIs", "[uri-tests]") {
     const fastgltf::URI uri1(std::string_view(""));
     REQUIRE(uri1.scheme().empty());
@@ -114,8 +116,38 @@ TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 
 	auto escaped = std::get<fastgltf::sources::URI>(asset->images.front().data);
 
+	// This only tests wether the default ctor of fastgltf::URI can handle percent-encoding correctly.
 	const fastgltf::URI original(std::string_view("grande_sphère.png"));
 	const fastgltf::URI encoded(std::string_view("grande_sph%C3%A8re.png"));
 	REQUIRE(original.string() == escaped.uri.string());
 	REQUIRE(original.string() == encoded.string());
+}
+
+TEST_CASE("Test percent-encoded URIs in glTF", "[uri-tests]") {
+	auto boxWithSpaces = sampleModels / "2.0" / "Box With Spaces" / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(boxWithSpaces / "Box With Spaces.gltf"));
+
+	fastgltf::Parser parser;
+	auto asset = parser.loadGLTF(&jsonData, boxWithSpaces);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->images.size() == 3);
+
+	auto* image0 = std::get_if<fastgltf::sources::URI>(&asset->images[0].data);
+	REQUIRE(image0 != nullptr);
+	REQUIRE(image0->uri.path() == "Normal Map.png");
+
+	auto* image1 = std::get_if<fastgltf::sources::URI>(&asset->images[1].data);
+	REQUIRE(image1 != nullptr);
+	REQUIRE(image1->uri.path() == "glTF Logo With Spaces.png");
+
+	auto* image2 = std::get_if<fastgltf::sources::URI>(&asset->images[2].data);
+	REQUIRE(image2 != nullptr);
+	REQUIRE(image2->uri.path() == "Roughness Metallic.png");
+
+	auto* buffer0 = std::get_if<fastgltf::sources::URI>(&asset->buffers[0].data);
+	REQUIRE(buffer0 != nullptr);
+	REQUIRE(buffer0->uri.path() == "Box With Spaces.bin");
 }

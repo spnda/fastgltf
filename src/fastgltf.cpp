@@ -482,7 +482,15 @@ fg::URI& fg::URI::operator=(const URI& other) {
 
 fg::URI& fg::URI::operator=(const URIView& other) {
 	uri = other.view;
-	readjustViews(other);
+	auto oldSize = uri.size();
+	decodePercents(uri);
+	if (uri.size() == oldSize) {
+		readjustViews(other);
+	} else {
+		// We removed some encoded chars, which have now invalidated all the string views.
+		// Therefore, the URI needs to be parsed again.
+		view = this->uri;
+	}
 	return *this;
 }
 
@@ -1444,9 +1452,8 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
         std::uint64_t byteLength;
         if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) {
             return Error::InvalidGltf;
-        } else {
-            buffer.byteLength = static_cast<std::size_t>(byteLength);
         }
+		buffer.byteLength = static_cast<std::size_t>(byteLength);
 
         // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
         // file. Otherwise, data must be specified in the "uri" field.
