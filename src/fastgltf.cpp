@@ -618,7 +618,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
 }
 
 fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noexcept {
-    auto path = directory / uri.path();
+    auto path = directory / fs::u8path(uri.path());
     std::error_code error;
     // If we were instructed to load external buffers and the files don't exist, we'll return an error.
     if (!fs::exists(path, error) || error) {

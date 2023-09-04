@@ -569,5 +569,10 @@ TEST_CASE("Test unicode characters", "[gltf-loader]") {
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
 
+	REQUIRE(!asset->materials.empty());
 	REQUIRE(asset->materials[0].name == u8"Unicode❤♻Material");
+
+	REQUIRE(!asset->buffers.empty());
+	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers[0].data);
+	REQUIRE(bufferUri.uri.path() == u8"Unicode❤♻Binary.bin");
 }
