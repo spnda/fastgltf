@@ -977,7 +977,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	using namespace simdjson;
 	fillCategories(categories);
 
-	Asset asset;
+	Asset asset {};
 
 	// Create a new chunk memory resource for each asset we parse.
 	asset.memoryResource = resourceAllocator = std::make_shared<ChunkMemoryResource>();
