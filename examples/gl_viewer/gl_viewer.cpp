@@ -454,23 +454,6 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 }
 
 bool loadImage(Viewer* viewer, fastgltf::Image& image) {
-    auto getInternalFormat = [](int channels) {
-        switch (channels) {
-            case 2: return GL_RG;
-            case 3: return GL_RGB;
-            case 4: return GL_RGBA;
-            default: return GL_RGB;
-        }
-    };
-    auto getSizedInternalFormat = [](int channels) {
-        // This assumes that stb always returns GL_UNSIGNED_BYTE data
-        switch (channels) {
-            case 2: return GL_RG8;
-            case 3: return GL_RGB8;
-            case 4: return GL_RGBA8;
-            default: return GL_RGB8;
-        }
-    };
     auto getLevelCount = [](int width, int height) -> GLsizei {
         return static_cast<GLsizei>(1 + floor(log2(width > height ? width : height)));
     };
@@ -485,16 +468,16 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
             int width, height, nrChannels;
 
             const std::string path(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
-            unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
-            glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
-            glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
+            unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
+            glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
+            glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
         },
         [&](fastgltf::sources::Vector& vector) {
             int width, height, nrChannels;
-            unsigned char *data = stbi_load_from_memory(vector.bytes.data(), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 0);
-            glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
-            glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
+            unsigned char *data = stbi_load_from_memory(vector.bytes.data(), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
+            glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
+            glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
         },
         [&](fastgltf::sources::BufferView& view) {
@@ -508,9 +491,9 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
                 [](auto& arg) {},
                 [&](fastgltf::sources::Vector& vector) {
                     int width, height, nrChannels;
-                    unsigned char *data = stbi_load_from_memory(vector.bytes.data() + bufferView.byteOffset, static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 0);
-                    glTextureStorage2D(texture, getLevelCount(width, height), getSizedInternalFormat(nrChannels), width, height);
-                    glTextureSubImage2D(texture, 0, 0, 0, width, height, getInternalFormat(nrChannels), GL_UNSIGNED_BYTE, data);
+                    unsigned char* data = stbi_load_from_memory(vector.bytes.data() + bufferView.byteOffset, static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
+                    glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
+                    glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
                     stbi_image_free(data);
                 }
             }, buffer.data);
@@ -616,6 +599,7 @@ int main(int argc, char* argv[]) {
     }
 
     glEnable(GL_DEBUG_OUTPUT);
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(glMessageCallback, nullptr);
 
     // Compile the shaders
