@@ -583,7 +583,14 @@ namespace fastgltf {
          */
         bool loadFromAndroidAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
     };
-    #endif
+	#endif
+
+	/**
+	 * This function further validates all the input more strictly that is parsed from the glTF.
+	 * Realistically, this should not be necessary in Release applications, but could be helpful
+	 * when debugging an asset related issue.
+	*/
+	[[nodiscard]] Error validate(const Asset& asset);
 
     /**
      * Some internals the parser passes on to each glTF instance.
@@ -659,13 +666,6 @@ namespace fastgltf {
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
 		 */
 		[[nodiscard]] Expected<Asset> loadBinaryGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
-
-		/**
-		 * This function further validates all the input more strictly that is parsed from the glTF.
-		 * Realistically, this should not be necessary in Release applications, but could be helpful
-		 * when debugging an asset related issue.
-		*/
-		[[nodiscard]] Error validate(const Asset& asset) const;
 
         /**
          * This function can be used to set callbacks so that you can control memory allocation for

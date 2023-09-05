@@ -1681,6 +1681,9 @@ namespace fastgltf {
          * This will only ever have no value if #Options::DontRequireValidAssetMember was specified.
          */
         Optional<AssetInfo> assetInfo;
+		std::pmr::vector<std::pmr::string> extensionsUsed;
+		std::pmr::vector<std::pmr::string> extensionsRequired;
+
         Optional<std::size_t> defaultScene;
         std::vector<Accessor> accessors;
         std::vector<Animation> animations;
@@ -1705,6 +1708,8 @@ namespace fastgltf {
         Asset(Asset&& other) noexcept :
 				memoryResource(std::move(other.memoryResource)),
 				assetInfo(std::move(other.assetInfo)),
+				extensionsUsed(std::move(other.extensionsUsed)),
+				extensionsRequired(std::move(other.extensionsRequired)),
 				defaultScene(other.defaultScene),
 				accessors(std::move(other.accessors)),
 				animations(std::move(other.animations)),
@@ -1726,6 +1731,8 @@ namespace fastgltf {
 		Asset& operator=(Asset&& other) noexcept {
 			memoryResource = std::move(other.memoryResource);
 			assetInfo = std::move(other.assetInfo);
+			extensionsUsed = std::move(other.extensionsUsed);
+			extensionsRequired = std::move(other.extensionsRequired);
 			defaultScene = other.defaultScene;
 			accessors = std::move(other.accessors);
 			animations = std::move(other.animations);

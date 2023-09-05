@@ -708,7 +708,16 @@ fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
     }
 }
 
-fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
+fg::Error fg::validate(const fastgltf::Asset& asset) {
+	auto isExtensionUsed = [&used = asset.extensionsUsed](std::string_view extension) {
+		for (const auto& extensionUsed : used) {
+			if (extension == extensionUsed) {
+				return true;
+			}
+		}
+		return false;
+	};
+
 	for (const auto& accessor : asset.accessors) {
 		if (accessor.type == AccessorType::Invalid)
 			return Error::InvalidGltf;
@@ -752,7 +761,7 @@ fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
 		if (bufferView.bufferIndex >= asset.buffers.size())
 			return Error::InvalidGltf;
 
-		if (bufferView.meshoptCompression != nullptr && hasBit(config.extensions, Extensions::EXT_meshopt_compression))
+		if (bufferView.meshoptCompression != nullptr && isExtensionUsed(extensions::EXT_meshopt_compression))
 			return Error::InvalidGltf;
 
 		if (bufferView.meshoptCompression) {
@@ -839,7 +848,7 @@ fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
 				if (name == "POSITION") {
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
-					if (!hasBit(config.extensions, Extensions::KHR_mesh_quantization)) {
+					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
 						if (accessor.componentType != ComponentType::Float)
 							return Error::InvalidGltf;
 					} else {
@@ -849,7 +858,7 @@ fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
 				} else if (name == "NORMAL") {
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
-					if (!hasBit(config.extensions, Extensions::KHR_mesh_quantization)) {
+					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
 						if (accessor.componentType != ComponentType::Float)
 							return Error::InvalidGltf;
 					} else {
@@ -861,7 +870,7 @@ fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
 				} else if (name == "TANGENT") {
 					if (accessor.type != AccessorType::Vec4)
 						return Error::InvalidGltf;
-					if (!hasBit(config.extensions, Extensions::KHR_mesh_quantization)) {
+					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
 						if (accessor.componentType != ComponentType::Float)
 							return Error::InvalidGltf;
 					} else {
@@ -873,7 +882,7 @@ fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
 				} else if (startsWith(name, "TEXCOORD_")) {
 					if (accessor.type != AccessorType::Vec2)
 						return Error::InvalidGltf;
-					if (!hasBit(config.extensions, Extensions::KHR_mesh_quantization)) {
+					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
 						if (accessor.componentType != ComponentType::Float &&
 						    accessor.componentType != ComponentType::UnsignedByte &&
 						    accessor.componentType != ComponentType::UnsignedShort) {
@@ -935,10 +944,10 @@ fg::Error fg::Parser::validate(const fastgltf::Asset& asset) const {
 
 		if (node.skinIndex.has_value() && node.meshIndex.has_value()) {
 			// "When the node contains skin, all mesh.primitives MUST contain JOINTS_0 and WEIGHTS_0 attributes."
-			auto& mesh = asset.meshes[node.meshIndex.value()];
-			for (auto& primitive : mesh.primitives) {
-				auto joints0 = primitive.findAttribute("JOINTS_0");
-				auto weights0 = primitive.findAttribute("WEIGHTS_0");
+			const auto& mesh = asset.meshes[node.meshIndex.value()];
+			for (const auto& primitive : mesh.primitives) {
+				const auto* joints0 = primitive.findAttribute("JOINTS_0");
+				const auto* weights0 = primitive.findAttribute("WEIGHTS_0");
 				if (joints0 == primitive.attributes.end() || weights0 == primitive.attributes.end())
 					return Error::InvalidGltf;
 			}
@@ -1096,6 +1105,30 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			KEY_SWITCH_CASE(Scenes, scenes)
 			KEY_SWITCH_CASE(Skins, skins)
 			KEY_SWITCH_CASE(Textures, textures)
+			case force_consteval<crc32c("extensionsUsed")>: {
+				for (auto usedValue : array) {
+					std::string_view usedString;
+					if (auto eError = usedValue.get_string().get(usedString); eError == SUCCESS) {
+						std::pmr::string string(usedString, resourceAllocator.get());
+						asset.extensionsUsed.emplace_back(std::move(string));
+					} else {
+						error = Error::InvalidGltf;
+					}
+				}
+				break;
+			}
+			case force_consteval<crc32c("extensionsRequired")>: {
+				for (auto requiredValue : array) {
+					std::string_view requiredString;
+					if (auto eError = requiredValue.get_string().get(requiredString); eError == SUCCESS) {
+						std::pmr::string string(requiredString, resourceAllocator.get());
+						asset.extensionsRequired.emplace_back(std::move(string));
+					} else {
+						error = Error::InvalidGltf;
+					}
+				}
+				break;
+			}
 			default:
 				break;
 		}

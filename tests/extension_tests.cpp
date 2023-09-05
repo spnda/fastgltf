@@ -19,7 +19,7 @@ TEST_CASE("Loading KHR_texture_basisu glTF files", "[gltf-loader]") {
         auto asset = parser.loadGLTF(jsonData.get(), path, fastgltf::Options::DontRequireValidAssetMember,
 									 fastgltf::Category::Textures | fastgltf::Category::Images);
         REQUIRE(asset.error() == fastgltf::Error::None);
-		REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
         REQUIRE(asset->textures.size() == 19);
         REQUIRE(!asset->images.empty());
@@ -54,7 +54,7 @@ TEST_CASE("Loading KHR_texture_transform glTF files", "[gltf-loader]") {
     fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_transform);
     auto asset = parser.loadGLTF(jsonData.get(), transformTest, fastgltf::Options::DontRequireValidAssetMember, fastgltf::Category::Materials);
     REQUIRE(asset.error() == fastgltf::Error::None);
-	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
     REQUIRE(!asset->materials.empty());
 
@@ -73,7 +73,7 @@ TEST_CASE("Test KHR_lights_punctual", "[gltf-loader]") {
     fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
     auto asset = parser.loadGLTF(&jsonData, lightsLamp, fastgltf::Options::None, fastgltf::Category::Nodes);
     REQUIRE(asset.error() == fastgltf::Error::None);
-	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
     REQUIRE(asset->lights.size() == 5);
     REQUIRE(asset->nodes.size() > 4);
@@ -99,7 +99,7 @@ TEST_CASE("Test KHR_materials_specular", "[gltf-loader]") {
     fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_specular);
     auto asset = parser.loadGLTF(&jsonData, specularTest, fastgltf::Options::None, fastgltf::Category::Materials);
     REQUIRE(asset.error() == fastgltf::Error::None);
-	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
     REQUIRE(asset->materials.size() >= 12);
 
@@ -128,7 +128,7 @@ TEST_CASE("Test KHR_materials_ior and KHR_materials_iridescence", "[gltf-loader]
     fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_iridescence | fastgltf::Extensions::KHR_materials_ior);
     auto asset = parser.loadGLTF(&jsonData, specularTest, fastgltf::Options::None, fastgltf::Category::Materials);
     REQUIRE(asset.error() == fastgltf::Error::None);
-	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
     REQUIRE(asset->materials.size() >= 50);
 
@@ -158,7 +158,7 @@ TEST_CASE("Test KHR_materials_volume and KHR_materials_transmission", "[gltf-loa
     fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_volume | fastgltf::Extensions::KHR_materials_transmission);
     auto asset = parser.loadGLTF(&jsonData, beautifulGame, fastgltf::Options::None, fastgltf::Category::Materials);
     REQUIRE(asset.error() == fastgltf::Error::None);
-	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
     REQUIRE(asset->materials.size() >= 5);
 
@@ -181,7 +181,7 @@ TEST_CASE("Test KHR_materials_clearcoat", "[gltf-loader]") {
     fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_clearcoat);
     auto asset = parser.loadGLTF(&jsonData, clearcoatTest, fastgltf::Options::None, fastgltf::Category::Materials);
     REQUIRE(asset.error() == fastgltf::Error::None);
-	REQUIRE(parser.validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
     REQUIRE(asset->materials.size() >= 7);
 
