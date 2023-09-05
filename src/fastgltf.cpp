@@ -1045,11 +1045,6 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 	Category readCategories = Category::None;
 	for (const auto& object : root) {
-		// We've read everything the user asked for, we can safely exit the loop.
-		if (readCategories == categories) {
-			break;
-		}
-
 		auto hashedKey = crcStringFunction(object.key);
 		if (hashedKey == force_consteval<crc32c("scene")>) {
 			std::uint64_t defaultScene;
