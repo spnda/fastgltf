@@ -1312,7 +1312,7 @@ namespace fastgltf {
         /**
          * Only ever non-empty when EXT_mesh_gpu_instancing is enabled and used by the asset.
          */
-        pmr::SmallVector<std::pair<std::pmr::string, std::size_t>, 4> instancingAttributes;
+        std::pmr::vector<std::pair<std::pmr::string, std::size_t>> instancingAttributes;
 
         std::pmr::string name;
  
