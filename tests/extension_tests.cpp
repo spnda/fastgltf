@@ -213,4 +213,7 @@ TEST_CASE("Test EXT_mesh_gpu_instancing", "[gltf-loader]") {
 
     auto& nodes = asset->nodes;
     REQUIRE(nodes[0].instancingAttributes.size() == 3u);
+    REQUIRE(nodes[0].findInstancingAttribute("TRANSLATION") != nodes[0].instancingAttributes.cend());
+    REQUIRE(nodes[0].findInstancingAttribute("SCALE") != nodes[0].instancingAttributes.cend());
+    REQUIRE(nodes[0].findInstancingAttribute("ROTATION") != nodes[0].instancingAttributes.cend());
 }
