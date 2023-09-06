@@ -217,3 +217,45 @@ TEST_CASE("Test EXT_mesh_gpu_instancing", "[gltf-loader]") {
     REQUIRE(nodes[0].findInstancingAttribute("SCALE") != nodes[0].instancingAttributes.cend());
     REQUIRE(nodes[0].findInstancingAttribute("ROTATION") != nodes[0].instancingAttributes.cend());
 }
+
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+TEST_CASE("Test KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
+    auto specularGlossinessTest = sampleModels / "2.0" / "SpecGlossVsMetalRough" / "glTF";
+    fastgltf::GltfDataBuffer jsonData;
+    REQUIRE(jsonData.loadFromFile(specularGlossinessTest / "SpecGlossVsMetalRough.gltf"));
+
+    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_pbrSpecularGlossiness | fastgltf::Extensions::KHR_materials_specular);
+    auto asset = parser.loadGLTF(&jsonData, specularGlossinessTest);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+    REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+    REQUIRE(asset->materials.size() == 4);
+
+    auto& materials = asset->materials;
+    REQUIRE(materials[0].specularGlossiness != nullptr);
+    REQUIRE(materials[0].specularGlossiness->diffuseFactor[0] == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->diffuseFactor[1] == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->diffuseFactor[2] == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->diffuseFactor[3] == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->specularFactor[0] == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->specularFactor[1] == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->specularFactor[2] == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->glossinessFactor == 1.0f);
+    REQUIRE(materials[0].specularGlossiness->diffuseTexture.has_value());
+    REQUIRE(materials[0].specularGlossiness->diffuseTexture.value().textureIndex == 5);
+    REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.has_value());
+    REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.value().textureIndex == 6);
+
+    REQUIRE(materials[3].specularGlossiness != nullptr);
+    REQUIRE(materials[3].specularGlossiness->diffuseFactor[0] == 1.0f);
+    REQUIRE(materials[3].specularGlossiness->diffuseFactor[1] == 1.0f);
+    REQUIRE(materials[3].specularGlossiness->diffuseFactor[2] == 1.0f);
+    REQUIRE(materials[3].specularGlossiness->diffuseFactor[3] == 1.0f);
+    REQUIRE(materials[3].specularGlossiness->specularFactor[0] == 0.0f);
+    REQUIRE(materials[3].specularGlossiness->specularFactor[1] == 0.0f);
+    REQUIRE(materials[3].specularGlossiness->specularFactor[2] == 0.0f);
+    REQUIRE(materials[3].specularGlossiness->glossinessFactor == 0.0f);
+    REQUIRE(materials[3].specularGlossiness->diffuseTexture.has_value());
+    REQUIRE(materials[3].specularGlossiness->diffuseTexture.value().textureIndex == 7);
+}
+#endif

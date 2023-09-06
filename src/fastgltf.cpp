@@ -2483,6 +2483,81 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     return Error::InvalidJson;
                 }
             }
+
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+            if (hasBit(config.extensions, Extensions::KHR_materials_pbrSpecularGlossiness)) {
+                dom::object specularGlossinessObject;
+                auto specularGlossinessError = extensionsObject[extensions::KHR_materials_pbrSpecularGlossiness].get_object().get(specularGlossinessObject);
+                if (specularGlossinessError == SUCCESS) {
+                    auto specularGlossiness = std::make_unique<MaterialSpecularGlossiness>();
+
+                    dom::array diffuseFactor;
+                    if (auto error = specularGlossinessObject["diffuseFactor"].get_array().get(diffuseFactor); error == SUCCESS) {
+                        std::size_t i = 0;
+                        for (auto factor : diffuseFactor) {
+                            if (i >= specularGlossiness->diffuseFactor.size()) {
+                                return Error::InvalidGltf;
+                            }
+                            double value;
+                            if (factor.get_double().get(value) != SUCCESS) {
+                                return Error::InvalidGltf;
+                            }
+                            specularGlossiness->diffuseFactor[i++] = static_cast<float>(value);
+                        }
+                    } else if (error == NO_SUCH_FIELD) {
+                        specularGlossiness->diffuseFactor = std::array<float, 4>{{ 1.0f, 1.0f, 1.0f, 1.0f }};
+                    } else {
+                        return Error::InvalidGltf;
+                    }
+
+                    TextureInfo diffuseTexture;
+                    if (auto error = parseTextureObject(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) {
+                        specularGlossiness->diffuseTexture = std::move(diffuseTexture);
+                    } else if (error != Error::MissingField) {
+                        return error;
+                    }
+
+                    dom::array specularFactor;
+                    if (auto error = specularGlossinessObject["specularFactor"].get_array().get(specularFactor); error == SUCCESS) {
+                        std::size_t i = 0;
+                        for (auto factor : specularFactor) {
+                            if (i >= specularGlossiness->specularFactor.size()) {
+                                return Error::InvalidGltf;
+                            }
+                            double value;
+                            if (factor.get_double().get(value) != SUCCESS) {
+                                return Error::InvalidGltf;
+                            }
+                            specularGlossiness->specularFactor[i++] = static_cast<float>(value);
+                        }
+                    } else if (error == NO_SUCH_FIELD) {
+                        specularGlossiness->specularFactor = std::array<float, 3>{{ 1.0f, 1.0f, 1.0f }};
+                    } else {
+                        return Error::InvalidGltf;
+                    }
+
+                    double glossinessFactor;
+                    if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) {
+                        specularGlossiness->glossinessFactor = static_cast<float>(glossinessFactor);
+                    } else if (error == NO_SUCH_FIELD) {
+                        specularGlossiness->glossinessFactor = 1.0f;
+                    } else {
+                        return Error::InvalidGltf;
+                    }
+
+                    TextureInfo specularGlossinessTexture;
+                    if (auto error = parseTextureObject(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) {
+                        specularGlossiness->specularGlossinessTexture = std::move(specularGlossinessTexture);
+                    } else if (error != Error::MissingField) {
+                        return error;
+                    }
+
+                    material.specularGlossiness = std::move(specularGlossiness);
+                } else if (specularGlossinessError != NO_SUCH_FIELD) {
+                    return Error::InvalidJson;
+                }
+            }
+#endif
         } else if (extensionError != NO_SUCH_FIELD) {
             return Error::InvalidJson;
         }
