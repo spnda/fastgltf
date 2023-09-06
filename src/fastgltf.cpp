@@ -2737,6 +2737,31 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     node.lightIndex = static_cast<std::size_t>(light);
                 }
             }
+
+            dom::object gpuInstancingObject;
+            if (extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject) == SUCCESS) {
+                dom::object attributesObject;
+                if (gpuInstancingObject["attributes"].get_object().get(attributesObject) == SUCCESS) {
+                    auto parseAttributes = [this](dom::object& object, decltype(node.instancingAttributes)& attributes) -> auto {
+                        // We iterate through the JSON object and write each key/pair value into the
+                        // attribute map. The keys are only validated in the validate() method.
+                        attributes = decltype(node.instancingAttributes)(0, resourceAllocator.get());
+                        attributes.reserve(object.size());
+                        for (const auto& field : object) {
+                            const auto key = field.key;
+
+                            std::uint64_t attributeIndex;
+                            if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
+                                return Error::InvalidGltf;
+                            }
+                            attributes.emplace_back(
+                                std::make_pair(std::pmr::string(key, resourceAllocator.get()), static_cast<std::size_t>(attributeIndex)));
+                        }
+                        return Error::None;
+                    };
+                    parseAttributes(attributesObject, node.instancingAttributes);
+                }
+            }
         }
 
         std::string_view name;

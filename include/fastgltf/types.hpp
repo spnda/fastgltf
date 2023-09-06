@@ -1309,8 +1309,29 @@ namespace fastgltf {
          */
         std::variant<TRS, TransformMatrix> transform;
 
+        /**
+         * Only ever non-empty when EXT_mesh_gpu_instancing is enabled and used by the asset.
+         */
+        std::pmr::vector<std::pair<std::pmr::string, std::size_t>> instancingAttributes;
+
         std::pmr::string name;
-    };
+ 
+        [[nodiscard]] auto findInstancingAttribute(std::string_view name) noexcept {
+            for (decltype(instancingAttributes)::iterator it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
+                if (it->first == name)
+                    return it;
+            }
+            return instancingAttributes.end();
+        }
+
+        [[nodiscard]] auto findInstancingAttribute(std::string_view name) const noexcept {
+            for (decltype(instancingAttributes)::const_iterator it = instancingAttributes.cbegin(); it != instancingAttributes.cend(); ++it) {
+                if (it->first == name)
+                    return it;
+            }
+            return instancingAttributes.cend();
+        }
+   };
 
     struct Primitive {
 		using attribute_type = std::pair<std::pmr::string, std::size_t>;
@@ -1325,7 +1346,7 @@ namespace fastgltf {
         Optional<std::size_t> indicesAccessor;
         Optional<std::size_t> materialIndex;
 
-		[[nodiscard]] auto findAttribute(std::string_view name) {
+		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
 			for (decltype(attributes)::iterator it = attributes.begin(); it != attributes.end(); ++it) {
 				if (it->first == name)
 					return it;
@@ -1333,7 +1354,7 @@ namespace fastgltf {
 			return attributes.end();
 		}
 
-		[[nodiscard]] auto findAttribute(std::string_view name) const {
+		[[nodiscard]] auto findAttribute(std::string_view name) const noexcept {
 			for (decltype(attributes)::const_iterator it = attributes.cbegin(); it != attributes.cend(); ++it) {
 				if (it->first == name)
 					return it;
@@ -1341,7 +1362,7 @@ namespace fastgltf {
 			return attributes.cend();
 		}
 
-		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) {
+		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) noexcept {
 			auto& targetAttributes = targets[targetIndex];
 			for (std::remove_reference_t<decltype(targetAttributes)>::iterator it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
 				if (it->first == name)
@@ -1350,7 +1371,7 @@ namespace fastgltf {
 			return targetAttributes.end();
 		}
 
-		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) const {
+		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) const noexcept {
 			const auto& targetAttributes = targets[targetIndex];
 			for (std::remove_reference_t<decltype(targetAttributes)>::const_iterator it = targetAttributes.cbegin(); it != targetAttributes.cend(); ++it) {
 				if (it->first == name)

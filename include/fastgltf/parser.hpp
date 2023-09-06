@@ -176,6 +176,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md
 	    KHR_materials_anisotropy = 1 << 18,
+
+        // See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Vendor/EXT_mesh_gpu_instancing/README.md
+        EXT_mesh_gpu_instancing = 1 << 19,
     };
     // clang-format on
 
@@ -251,6 +254,7 @@ namespace fastgltf {
 
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {
+        constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
         constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
         constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
         constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
@@ -274,7 +278,8 @@ namespace fastgltf {
 	// An array of pairs of string representations of extension identifiers and their respective enum
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
-	static constexpr std::array<std::pair<std::string_view, Extensions>, 17> extensionStrings = {{
+	static constexpr std::array<std::pair<std::string_view, Extensions>, 18> extensionStrings = {{
+		{ extensions::EXT_mesh_gpu_instancing,            Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,            Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                   Extensions::EXT_texture_webp },
 		{ extensions::KHR_lights_punctual,                Extensions::KHR_lights_punctual },

@@ -197,3 +197,23 @@ TEST_CASE("Test KHR_materials_clearcoat", "[gltf-loader]") {
     REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->textureIndex == 2);
     REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->texCoordIndex == 0);
 }
+
+TEST_CASE("Test EXT_mesh_gpu_instancing", "[gltf-loader]") {
+    auto simpleInstancingTest = sampleModels / "2.0" / "SimpleInstancing" / "glTF";
+    fastgltf::GltfDataBuffer jsonData;
+    REQUIRE(jsonData.loadFromFile(simpleInstancingTest / "SimpleInstancing.gltf"));
+
+    fastgltf::Parser parser(fastgltf::Extensions::EXT_mesh_gpu_instancing);
+    auto asset = parser.loadGLTF(&jsonData, simpleInstancingTest, fastgltf::Options::None, fastgltf::Category::Accessors | fastgltf::Category::Nodes);
+    REQUIRE(asset.error() == fastgltf::Error::None);
+    REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+    REQUIRE(asset->accessors.size() >= 6);
+    REQUIRE(asset->nodes.size() >= 1);
+
+    auto& nodes = asset->nodes;
+    REQUIRE(nodes[0].instancingAttributes.size() == 3u);
+    REQUIRE(nodes[0].findInstancingAttribute("TRANSLATION") != nodes[0].instancingAttributes.cend());
+    REQUIRE(nodes[0].findInstancingAttribute("SCALE") != nodes[0].instancingAttributes.cend());
+    REQUIRE(nodes[0].findInstancingAttribute("ROTATION") != nodes[0].instancingAttributes.cend());
+}
