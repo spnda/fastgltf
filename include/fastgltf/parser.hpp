@@ -182,7 +182,7 @@ namespace fastgltf {
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
         // See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness/README.md
-        KHR_materials_pbrSpecularGlossiness = 1 << 19,
+        KHR_materials_pbrSpecularGlossiness = 1 << 20,
 #endif
     };
     // clang-format on
@@ -277,6 +277,7 @@ namespace fastgltf {
         constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
         constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
         constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
+
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
         constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
 #endif
@@ -310,6 +311,7 @@ namespace fastgltf {
 		{ extensions::KHR_texture_basisu,                 Extensions::KHR_texture_basisu },
 		{ extensions::KHR_texture_transform,              Extensions::KHR_texture_transform },
 		{ extensions::MSFT_texture_dds,                   Extensions::MSFT_texture_dds },
+
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
 		{ extensions::KHR_materials_pbrSpecularGlossiness,Extensions::KHR_materials_pbrSpecularGlossiness },
 #endif
