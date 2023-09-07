@@ -1508,10 +1508,10 @@ namespace fastgltf {
      */
     struct MaterialSpecularGlossiness {
         std::array<float, 4> diffuseFactor;
-        std::optional<TextureInfo> diffuseTexture;
+        Optional<TextureInfo> diffuseTexture;
         std::array<float, 3> specularFactor;
         float glossinessFactor;
-        std::optional<TextureInfo> specularGlossinessTexture;
+        Optional<TextureInfo> specularGlossinessTexture;
     };
 #endif
 
