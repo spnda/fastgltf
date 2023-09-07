@@ -174,11 +174,16 @@ namespace fastgltf {
         // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_unlit/README.md
         KHR_materials_unlit = 1 << 17,
 
-		// See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md
-	    KHR_materials_anisotropy = 1 << 18,
+        // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md
+        KHR_materials_anisotropy = 1 << 18,
 
         // See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Vendor/EXT_mesh_gpu_instancing/README.md
         EXT_mesh_gpu_instancing = 1 << 19,
+
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+        // See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness/README.md
+        KHR_materials_pbrSpecularGlossiness = 1 << 20,
+#endif
     };
     // clang-format on
 
@@ -272,13 +277,22 @@ namespace fastgltf {
         constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
         constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
         constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
+
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+        constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
+#endif
     } // namespace extensions
 
 	// clang-format off
 	// An array of pairs of string representations of extension identifiers and their respective enum
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
-	static constexpr std::array<std::pair<std::string_view, Extensions>, 18> extensionStrings = {{
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+	static constexpr size_t SUPPORTED_EXTENSION_COUNT = 19;
+#else
+	static constexpr size_t SUPPORTED_EXTENSION_COUNT = 18;
+#endif
+	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,            Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,            Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                   Extensions::EXT_texture_webp },
@@ -297,6 +311,10 @@ namespace fastgltf {
 		{ extensions::KHR_texture_basisu,                 Extensions::KHR_texture_basisu },
 		{ extensions::KHR_texture_transform,              Extensions::KHR_texture_transform },
 		{ extensions::MSFT_texture_dds,                   Extensions::MSFT_texture_dds },
+
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+		{ extensions::KHR_materials_pbrSpecularGlossiness,Extensions::KHR_materials_pbrSpecularGlossiness },
+#endif
 	}};
 	// clang-format on
 

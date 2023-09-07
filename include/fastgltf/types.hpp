@@ -1502,6 +1502,19 @@ namespace fastgltf {
         Optional<TextureInfo> sheenRoughnessTexture;
     };
 
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+    /**
+     * Specular/Glossiness information from KHR_materials_pbrSpecularGlossiness.
+     */
+    struct MaterialSpecularGlossiness {
+        std::array<float, 4> diffuseFactor;
+        Optional<TextureInfo> diffuseTexture;
+        std::array<float, 3> specularFactor;
+        float glossinessFactor;
+        Optional<TextureInfo> specularGlossinessTexture;
+    };
+#endif
+
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
@@ -1553,6 +1566,13 @@ namespace fastgltf {
          * Specular information from KHR_materials_specular.
          */
         std::unique_ptr<MaterialSpecular> specular;
+
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+        /**
+         * Specular/Glossiness information from KHR_materials_pbrSpecularGlossiness.
+         */
+        std::unique_ptr<MaterialSpecularGlossiness> specularGlossiness;
+#endif
 
         /**
          * Specular information from KHR_materials_transmission.
