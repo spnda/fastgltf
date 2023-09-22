@@ -287,7 +287,7 @@ namespace fastgltf {
     };
 
     constexpr ComponentType getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
-        std::size_t index = componentType - 5120;
+        const auto index = componentType - getGLComponentType(ComponentType::Byte);
         if (index >= components.size())
             return ComponentType::Invalid;
         return components[index];
@@ -1316,17 +1316,17 @@ namespace fastgltf {
 
         std::pmr::string name;
  
-        [[nodiscard]] auto findInstancingAttribute(std::string_view name) noexcept {
-            for (decltype(instancingAttributes)::iterator it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
-                if (it->first == name)
+        [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
+            for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
+                if (it->first == attributeName)
                     return it;
             }
             return instancingAttributes.end();
         }
 
-        [[nodiscard]] auto findInstancingAttribute(std::string_view name) const noexcept {
-            for (decltype(instancingAttributes)::const_iterator it = instancingAttributes.cbegin(); it != instancingAttributes.cend(); ++it) {
-                if (it->first == name)
+        [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) const noexcept {
+            for (auto it = instancingAttributes.cbegin(); it != instancingAttributes.cend(); ++it) {
+                if (it->first == attributeName)
                     return it;
             }
             return instancingAttributes.cend();
