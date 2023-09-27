@@ -42,7 +42,7 @@ glTF libraries.
    * - glTF 2.0 writing
      - ✔️
      - ✔️
-     - ❌
+     - ✔️
    * - Extension support
      - ✔️
      - 🟡¹

@@ -142,11 +142,11 @@ Asset
    :undoc-members:
 
 
-Parser
+Reading & Writing
 ======
 
-This section contains all types that one requires to load a glTF file using fastgltf.
-This includes the Parser class, options, and data buffers.
+This section contains all types that one requires to read or write a glTF file using fastgltf.
+This includes the Parser class, Composer class, options, and data buffers.
 
 
 Error
@@ -206,6 +206,14 @@ Parser
 
 .. doxygenstruct:: fastgltf::BufferInfo
    :members:
+
+
+Composer
+--------
+
+.. doxygenclass:: fastgltf::Composer
+   :members:
+   :undoc-members:
 
 
 Utility

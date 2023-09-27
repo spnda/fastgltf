@@ -764,7 +764,7 @@ namespace fastgltf {
     };
 
 	/**
-	 * A composer for one or more glTF files.
+	 * A composer for serializing one or more glTF files into JSON and GLB forms.
 	 */
 	class Composer {
 		Error errorCode = Error::None;
