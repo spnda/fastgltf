@@ -1931,20 +1931,27 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
             }
 
             double innerConeAngle;
-            if (spotObject["innerConeAngle"].get_double().get(innerConeAngle) != SUCCESS) {
+            if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) {
+                light.innerConeAngle = static_cast<float>(innerConeAngle);
+            } else if (error == NO_SUCH_FIELD) {
+                light.innerConeAngle = 0.0f;
+            } else {
                 return Error::InvalidGltf;
             }
-            light.innerConeAngle = static_cast<float>(innerConeAngle);
 
             double outerConeAngle;
-            if (spotObject["outerConeAngle"].get_double().get(outerConeAngle) != SUCCESS) {
+            if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) {
+                light.outerConeAngle = static_cast<float>(outerConeAngle);
+            } else if (error == NO_SUCH_FIELD) {
+                static constexpr double pi = 3.141592653589793116;
+                light.outerConeAngle = static_cast<float>(pi / 4.0);
+            } else {
                 return Error::InvalidGltf;
             }
-            light.outerConeAngle = static_cast<float>(outerConeAngle);
         }
 
         dom::array colorArray;
-        if (lightObject["color"].get_array().get(colorArray) == SUCCESS) {
+        if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) {
             if (colorArray.size() != 3U) {
                 return Error::InvalidGltf;
             }
@@ -1956,13 +1963,17 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
                     return Error::InvalidGltf;
                 }
             }
+        } else if (error == NO_SUCH_FIELD) {
+            light.color = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
+        } else {
+            return Error::InvalidGltf;
         }
 
         double intensity;
         if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) {
             light.intensity = static_cast<float>(intensity);
         } else {
-            light.intensity = 0.0;
+            light.intensity = 0.0f;
         }
 
         double range;
