@@ -102,6 +102,7 @@ namespace fastgltf {
 			case Error::MissingExternalBuffer: return "MissingExternalBuffer";
 			case Error::UnsupportedVersion: return "UnsupportedVersion";
 			case Error::InvalidURI: return "InvalidURI";
+			default: FASTGLTF_UNREACHABLE
 		}
 	}
 
@@ -119,6 +120,7 @@ namespace fastgltf {
 			case Error::MissingExternalBuffer: return "An external buffer was not found.";
 			case Error::UnsupportedVersion: return "The glTF version is not supported by fastgltf.";
 			case Error::InvalidURI: return "A URI from a buffer or image failed to be parsed.";
+			default: FASTGLTF_UNREACHABLE
 		}
 	}
 

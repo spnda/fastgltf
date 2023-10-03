@@ -45,6 +45,12 @@
 #define FASTGLTF_CPP_20 0
 #endif
 
+#if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
+#define FASTGLTF_CPP_23 1
+#else
+#define FASTGLTF_CPP_23 0
+#endif
+
 #if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
 #define FASTGLTF_HAS_BIT 1
 #include <bit>
@@ -57,6 +63,16 @@
 #include <concepts>
 #else
 #define FASTGLTF_HAS_CONCEPTS 0
+#endif
+
+#if FASTGLTF_CPP_23
+#define FASTGLTF_UNREACHABLE std::unreachable();
+#elif defined(__GNUC__)
+#define FASTGLTF_UNREACHABLE __builtin_unreachable();
+#elif defined(_MSC_VER)
+#define FASTGLTF_UNREACHABLE __assume(false);
+#else
+#define FASTGLTF_UNREACHABLE assert(0);
 #endif
 
 #ifdef _MSC_VER
