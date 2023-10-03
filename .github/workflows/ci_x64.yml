@@ -79,14 +79,14 @@ jobs:
   build_linux:
     strategy:
       matrix:
-        c_compiler: [gcc-9, gcc-10, clang-12]
+        c_compiler: [gcc-9, gcc-10, clang-13]
         include:
           - cxx_compiler: g++-9
             c_compiler: gcc-9
           - cxx_compiler: g++-10
             c_compiler: gcc-10
-          - cxx_compiler: clang++-12
-            c_compiler: clang-12
+          - cxx_compiler: clang++-13
+            c_compiler: clang-13
 
     runs-on: ubuntu-latest
     env:
@@ -127,14 +127,14 @@ jobs:
   build_linux_deprecated_extensions:
     strategy:
       matrix:
-        c_compiler: [gcc-9, gcc-10, clang-12]
+        c_compiler: [gcc-9, gcc-10, clang-13]
         include:
           - cxx_compiler: g++-9
             c_compiler: gcc-9
           - cxx_compiler: g++-10
             c_compiler: gcc-10
-          - cxx_compiler: clang++-12
-            c_compiler: clang-12
+          - cxx_compiler: clang++-13
+            c_compiler: clang-13
 
     runs-on: ubuntu-latest
     env:

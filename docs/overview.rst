@@ -115,7 +115,7 @@ Usage
 
 fastgltf is a pure C++17 library and only depends on simdjson.
 By using the included CMake 3.11 script, simdjson is automatically downloaded while configuring by default.
-The library is tested on GCC 9, GCC 10, Clang 12, and MSVC 14 (Visual Studio 2022) using CI.
+The library is tested on GCC 9, GCC 10, Clang 13, and MSVC 14 (Visual Studio 2022) using CI.
 fastgltf is also available from vcpkg_ and conan_.
 
 The following snippet illustrates how to use fastgltf to load a glTF file.
