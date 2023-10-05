@@ -937,6 +937,9 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 				// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview
 				const auto& accessor = asset.accessors[index];
 				if (name == "POSITION") {
+					// Animation input and vertex position attribute accessors MUST have accessor.min and accessor.max defined.
+					if (std::holds_alternative<std::monostate>(accessor.max) || std::holds_alternative<std::monostate>(accessor.min))
+						return Error::InvalidGltf;
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
 					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
@@ -1046,6 +1049,12 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 				if (joints0 == primitive.attributes.end() || weights0 == primitive.attributes.end())
 					return Error::InvalidGltf;
 			}
+		}
+	}
+
+	for (const auto& sampler : asset.samplers) {
+		if (sampler.magFilter.has_value() && (sampler.magFilter != Filter::Nearest && sampler.magFilter != Filter::Linear)) {
+			return Error::InvalidGltf;
 		}
 	}
 
@@ -3496,14 +3505,40 @@ void fg::Composer::writeAccessors(std::string& json) {
 	for (auto it = asset->accessors.begin(); it != asset->accessors.end(); ++it) {
 		json += '{';
 
-		json += "\"byteOffset\":" + std::to_string(it->byteOffset) + ',';
+		if (it->byteOffset != 0) {
+			json += "\"byteOffset\":" + std::to_string(it->byteOffset) + ',';
+		}
+
 		json += "\"count\":" + std::to_string(it->count) + ',';
 		json += R"("type":")" + std::string(getAccessorTypeName(it->type)) + "\",";
 		json += "\"componentType\":" + std::to_string(getGLComponentType(it->componentType));
 
+		if (it->normalized) {
+			json += ",\"normalized\":true";
+		}
+
 		if (it->bufferViewIndex.has_value()) {
 			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
 		}
+
+		auto writeMinMax = [&](const decltype(Accessor::max)& ref, std::string_view name) {
+			if (std::holds_alternative<std::monostate>(ref))
+				return;
+			json += ",\"" + std::string(name) + "\":[";
+			std::visit(visitor {
+				[](std::monostate) {},
+				[&](auto arg) {
+					for (auto it = arg.begin(); it != arg.end(); ++it) {
+						json += std::to_string(*it);
+						if (std::distance(arg.begin(), it) + 1 < arg.size())
+							json += ',';
+					}
+				}
+			}, it->max);
+			json += ']';
+		};
+		writeMinMax(it->max, "max");
+		writeMinMax(it->min, "min");
 
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
@@ -3563,11 +3598,18 @@ void fg::Composer::writeBufferViews(std::string& json) {
 		json += '{';
 
 		json += "\"buffer\":" + std::to_string(it->bufferIndex) + ',';
-		json += "\"byteOffset\":" + std::to_string(it->byteOffset) + ',';
 		json += "\"byteLength\":" + std::to_string(it->byteLength);
+
+		if (it->byteOffset != 0) {
+			json += ",\"byteOffset\":" + std::to_string(it->byteOffset);
+		}
 
 		if (it->byteStride.has_value()) {
 			json += ",\"byteStride\":" + std::to_string(it->byteStride.value());
+		}
+
+		if (it->target.has_value()) {
+			json += ",\"target\":" + std::to_string(to_underlying(it->target.value()));
 		}
 
 		if (!it->name.empty())
@@ -3833,13 +3875,17 @@ void fg::Composer::writeNodes(std::string& json) {
 		json += '{';
 
 		if (it->meshIndex.has_value()) {
-			json += R"("mesh":)" + std::to_string(it->meshIndex.value()) + ",";
+			json += R"("mesh":)" + std::to_string(it->meshIndex.value());
 		}
 		if (it->cameraIndex.has_value()) {
-			json += R"("camera":)" + std::to_string(it->cameraIndex.value()) + ",";
+			if (json.back() != ',')
+				json += ',';
+			json += R"("camera":)" + std::to_string(it->cameraIndex.value());
 		}
 		if (it->skinIndex.has_value()) {
-			json += R"("skin":)" + std::to_string(it->skinIndex.value()) + ",";
+			if (json.back() != ',')
+				json += ',';
+			json += R"("skin":)" + std::to_string(it->skinIndex.value());
 		}
 
 		if (!it->children.empty()) {
@@ -3870,20 +3916,29 @@ void fg::Composer::writeNodes(std::string& json) {
 
 		std::visit(visitor {
 			[&](const Node::TRS& trs) {
-				if (json.back() != ',')
-					json += ',';
-				// TODO: Don't write when values are defaulted.
-				json += R"("rotation":[)";
-				json += std::to_string(trs.rotation[0]) + ',' + std::to_string(trs.rotation[1]) + ',' + std::to_string(trs.rotation[2]) + ',' + std::to_string(trs.rotation[3]);
-				json += "],";
+				if (trs.rotation != std::array<float, 4>{{.0f, .0f, .0f, 1.0f}}) {
+					if (json.back() != ',')
+						json += ',';
+					json += R"("rotation":[)";
+					json += std::to_string(trs.rotation[0]) + ',' + std::to_string(trs.rotation[1]) + ',' + std::to_string(trs.rotation[2]) + ',' + std::to_string(trs.rotation[3]);
+					json += "]";
+				}
 
-				json += R"("scale":[)";
-				json += std::to_string(trs.scale[0]) + ',' + std::to_string(trs.scale[1]) + ',' + std::to_string(trs.scale[2]);
-				json += "],";
+				if (trs.scale != std::array<float, 3>{{1.0f, 1.0f, 1.0f}}) {
+					if (json.back() != ',')
+						json += ',';
+					json += R"("scale":[)";
+					json += std::to_string(trs.scale[0]) + ',' + std::to_string(trs.scale[1]) + ',' + std::to_string(trs.scale[2]);
+					json += "]";
+				}
 
-				json += R"("translation":[)";
-				json += std::to_string(trs.translation[0]) + ',' + std::to_string(trs.translation[1]) + ',' + std::to_string(trs.translation[2]);
-				json += "]";
+				if (trs.translation != std::array<float, 3>{{.0f, .0f, .0f}}) {
+					if (json.back() != ',')
+						json += ',';
+					json += R"("translation":[)";
+					json += std::to_string(trs.translation[0]) + ',' + std::to_string(trs.translation[1]) + ',' + std::to_string(trs.translation[2]);
+					json += "]";
+				}
 			},
 			[&](const Node::TransformMatrix& matrix) {
 				if (json.back() != ',')
@@ -3899,8 +3954,11 @@ void fg::Composer::writeNodes(std::string& json) {
 			},
 		}, it->transform);
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+		if (!it->name.empty()) {
+			if (json.back() != ',')
+				json += ',';
+			json += R"("name":")" + it->name + '"';
+		}
 		json += '}';
 		if (std::distance(asset->nodes.begin(), it) + 1 < asset->nodes.size())
 			json += ',';
@@ -3924,11 +3982,15 @@ void fg::Composer::writeSamplers(std::string& json) {
 		if (it->minFilter.has_value()) {
 			json += R"("minFilter":)" + std::to_string(to_underlying(it->minFilter.value())) + ',';
 		}
-		json += R"("wrapS":)" + std::to_string(to_underlying(it->wrapS)) + ',';
-		json += R"("wrapT":)" + std::to_string(to_underlying(it->wrapT));
+		if (it->wrapS != Wrap::Repeat) {
+			json += R"("wrapS":)" + std::to_string(to_underlying(it->wrapS)) + ',';
+		}
+		if (it->wrapT != Wrap::Repeat) {
+			json += R"("wrapTS":)" + std::to_string(to_underlying(it->wrapT)) + ',';
+		}
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"("name":")" + it->name + '"';
 		json += '}';
 		if (std::distance(asset->samplers.begin(), it) + 1 < asset->samplers.size())
 			json += ',';
@@ -3941,6 +4003,10 @@ void fg::Composer::writeScenes(std::string& json) {
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
+
+	if (asset->defaultScene.has_value()) {
+		json += "\"scene\":" + std::to_string(asset->defaultScene.value()) + ',';
+	}
 
 	json += "\"scenes\":[";
 	for (auto it = asset->scenes.begin(); it != asset->scenes.end(); ++it) {
