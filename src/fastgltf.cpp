@@ -225,7 +225,13 @@ namespace fastgltf {
 		return Error::InvalidJson;
 	}
 
-	fg::Error parseTextureObject(simdjson::dom::object& object, std::string_view key, TextureInfo* info, Extensions extensions) noexcept {
+	enum class TextureInfoType {
+		Standard = 0,
+		NormalTexture = 1,
+		OcclusionTexture = 2,
+	};
+
+	fg::Error parseTextureInfo(simdjson::dom::object& object, std::string_view key, TextureInfo* info, Extensions extensions, TextureInfoType type = TextureInfoType::Standard) noexcept {
 		using namespace simdjson;
 
 		dom::object child;
@@ -249,12 +255,20 @@ namespace fastgltf {
 			info->texCoordIndex = 0;
 		}
 
-		// scale only applies to normal textures.
-		double scale = 1.0F;
-		if (child["scale"].get_double().get(scale) == SUCCESS) {
-			info->scale = static_cast<float>(scale);
-		} else {
-			info->scale = 1.0F;
+		if (type == TextureInfoType::NormalTexture) {
+			double scale = 1.0F;
+			if (child["scale"].get_double().get(scale) == SUCCESS) {
+				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<float>(scale);
+			} else {
+				reinterpret_cast<NormalTextureInfo*>(info)->scale = 1.0F;
+			}
+		} else if (type == TextureInfoType::OcclusionTexture) {
+			double strength = 1.0F;
+			if (child["strength"].get_double().get(strength) == SUCCESS) {
+				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<float>(strength);
+			} else {
+				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = 1.0F;
+			}
 		}
 
 		dom::object extensionsObject;
@@ -2019,24 +2033,32 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
             material.emissiveFactor = {{ 0, 0, 0 }};
         }
 
-        TextureInfo textureObject = {};
-        if (auto error = parseTextureObject(materialObject, "normalTexture", &textureObject, config.extensions); error == Error::None) {
-            material.normalTexture = std::move(textureObject);
-        } else if (error != Error::MissingField) {
-            return error;
-        }
+	    {
+		    NormalTextureInfo normalTextureInfo = {};
+		    if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) {
+			    material.normalTexture = std::move(normalTextureInfo);
+		    } else if (error != Error::MissingField) {
+			    return error;
+		    }
+	    }
 
-        if (auto error = parseTextureObject(materialObject, "occlusionTexture", &textureObject, config.extensions); error == Error::None) {
-            material.occlusionTexture = std::move(textureObject);
-        } else if (error != Error::MissingField) {
-            return error;
-        }
+	    {
+			OcclusionTextureInfo occlusionTextureInfo = {};
+	        if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) {
+	            material.occlusionTexture = std::move(occlusionTextureInfo);
+	        } else if (error != Error::MissingField) {
+	            return error;
+	        }
+	    }
 
-        if (auto error = parseTextureObject(materialObject, "emissiveTexture", &textureObject, config.extensions); error == Error::None) {
-            material.emissiveTexture = std::move(textureObject);
-        } else if (error != Error::MissingField) {
-            return error;
-        }
+	    {
+		    TextureInfo textureInfo = {};
+	        if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) {
+	            material.emissiveTexture = std::move(textureInfo);
+	        } else if (error != Error::MissingField) {
+	            return error;
+	        }
+	    }
 
         dom::object pbrMetallicRoughness;
         if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) {
@@ -2061,14 +2083,15 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                 pbr.roughnessFactor = static_cast<float>(factor);
             }
 
-            if (auto error = parseTextureObject(pbrMetallicRoughness, "baseColorTexture", &textureObject, config.extensions); error == Error::None) {
-                pbr.baseColorTexture = std::move(textureObject);
+	        TextureInfo textureInfo;
+            if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) {
+                pbr.baseColorTexture = std::move(textureInfo);
             } else if (error != Error::MissingField) {
                 return error;
             }
 
-            if (auto error = parseTextureObject(pbrMetallicRoughness, "metallicRoughnessTexture", &textureObject, config.extensions); error == Error::None) {
-                pbr.metallicRoughnessTexture = std::move(textureObject);
+            if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) {
+                pbr.metallicRoughnessTexture = std::move(textureInfo);
             } else if (error != Error::MissingField) {
                 return error;
             }
@@ -2138,7 +2161,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 					}
 
 					TextureInfo anisotropyTexture;
-					if (auto error = parseTextureObject(anisotropyObject, "anisotropyTexture", &anisotropyTexture, config.extensions); error == Error::None) {
+					if (auto error = parseTextureInfo(anisotropyObject, "anisotropyTexture", &anisotropyTexture, config.extensions); error == Error::None) {
 						anisotropy->anisotropyTexture = std::move(anisotropyTexture);
 					} else if (error != Error::MissingField) {
 						return error;
@@ -2162,7 +2185,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo clearcoatTexture;
-                    if (auto error = parseTextureObject(clearcoatObject, "clearcoatTexture", &clearcoatTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(clearcoatObject, "clearcoatTexture", &clearcoatTexture, config.extensions); error == Error::None) {
                         clearcoat->clearcoatTexture = std::move(clearcoatTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2178,14 +2201,14 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo clearcoatRoughnessTexture;
-                    if (auto error = parseTextureObject(clearcoatObject, "clearcoatRoughnessTexture", &clearcoatRoughnessTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(clearcoatObject, "clearcoatRoughnessTexture", &clearcoatRoughnessTexture, config.extensions); error == Error::None) {
                         clearcoat->clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
                     } else if (error != Error::MissingField) {
                         return error;
                     }
 
                     TextureInfo clearcoatNormalTexture;
-                    if (auto error = parseTextureObject(clearcoatObject, "clearcoatNormalTexture", &clearcoatNormalTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(clearcoatObject, "clearcoatNormalTexture", &clearcoatNormalTexture, config.extensions); error == Error::None) {
                         clearcoat->clearcoatNormalTexture = std::move(clearcoatNormalTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2247,7 +2270,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo iridescenceTexture;
-                    if (auto error = parseTextureObject(iridescenceObject, "specularTexture", &iridescenceTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(iridescenceObject, "specularTexture", &iridescenceTexture, config.extensions); error == Error::None) {
                         iridescence->iridescenceTexture = std::move(iridescenceTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2281,7 +2304,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo iridescenceThicknessTexture;
-                    if (auto error = parseTextureObject(iridescenceObject, "specularTexture", &iridescenceThicknessTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(iridescenceObject, "specularTexture", &iridescenceThicknessTexture, config.extensions); error == Error::None) {
                         iridescence->iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2319,7 +2342,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo sheenColorTexture;
-                    if (auto error = parseTextureObject(sheenObject, "sheenColorTexture", &sheenColorTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(sheenObject, "sheenColorTexture", &sheenColorTexture, config.extensions); error == Error::None) {
                         sheen->sheenColorTexture = std::move(sheenColorTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2335,7 +2358,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo sheenRoughnessTexture;
-                    if (auto error = parseTextureObject(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture, config.extensions); error == Error::None) {
                         sheen->sheenRoughnessTexture = std::move(sheenRoughnessTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2363,7 +2386,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo specularTexture;
-                    if (auto error = parseTextureObject(specularObject, "specularTexture", &specularTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(specularObject, "specularTexture", &specularTexture, config.extensions); error == Error::None) {
                         specular->specularTexture = std::move(specularTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2389,7 +2412,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo specularColorTexture;
-                    if (auto error = parseTextureObject(specularObject, "specularColorTexture", &specularColorTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(specularObject, "specularColorTexture", &specularColorTexture, config.extensions); error == Error::None) {
                         specular->specularColorTexture = std::move(specularColorTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2417,7 +2440,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo transmissionTexture;
-                    if (auto error = parseTextureObject(transmissionObject, "transmissionTexture", &transmissionTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(transmissionObject, "transmissionTexture", &transmissionTexture, config.extensions); error == Error::None) {
                         transmission->transmissionTexture = std::move(transmissionTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2455,7 +2478,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo thicknessTexture;
-                    if (auto error = parseTextureObject(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) {
                         volume->thicknessTexture = std::move(thicknessTexture);
                     } else if (error != Error::MissingField) {
                         return error;

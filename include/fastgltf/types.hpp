@@ -1416,13 +1416,20 @@ namespace fastgltf {
     struct TextureInfo {
         std::size_t textureIndex;
         std::size_t texCoordIndex;
-        float scale;
 
         /**
          * Data from KHR_texture_transform, and nullptr if the extension wasn't enabled or used.
          */
         std::unique_ptr<TextureTransform> transform;
     };
+
+	struct NormalTextureInfo : TextureInfo {
+		float scale;
+	};
+
+	struct OcclusionTextureInfo : TextureInfo {
+		float strength;
+	};
 
     struct PBRData {
         /**
@@ -1525,8 +1532,8 @@ namespace fastgltf {
         /**
          * The tangent space normal texture.
          */
-        Optional<TextureInfo> normalTexture;
-        Optional<TextureInfo> occlusionTexture;
+        Optional<NormalTextureInfo> normalTexture;
+        Optional<OcclusionTextureInfo> occlusionTexture;
         Optional<TextureInfo> emissiveTexture;
 
         /**

@@ -490,7 +490,7 @@ namespace fastgltf {
 		}
 
 		T&& operator*() && noexcept {
-			assert(err = Error::None);
+			assert(err == Error::None);
 			return std::move(value);
 		}
 
