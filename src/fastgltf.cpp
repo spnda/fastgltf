@@ -300,6 +300,20 @@ namespace fastgltf {
 
 		return Error::None;
 	}
+
+	void writeTextureInfo(std::string& json, const TextureInfo* info, TextureInfoType type = TextureInfoType::Standard) {
+		json += '{';
+		json += "\"index\":" + std::to_string(info->textureIndex);
+		if (info->texCoordIndex != 0) {
+			json += ",\"texCoord\":" + std::to_string(info->texCoordIndex);
+		}
+		if (type == TextureInfoType::NormalTexture) {
+			json += ",\"scale\":" + std::to_string(reinterpret_cast<const NormalTextureInfo*>(info)->scale);
+		} else if (type == TextureInfoType::OcclusionTexture) {
+			json += ",\"strength\":" + std::to_string(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
+		}
+		json += '}';
+	}
 } // namespace fastgltf
 
 #pragma region URI
@@ -3766,8 +3780,65 @@ void fg::Composer::writeMaterials(std::string& json) {
 	for (auto it = asset->materials.begin(); it != asset->materials.end(); ++it) {
 		json += '{';
 
-		if (it->alphaMode != AlphaMode::Opaque) {
+		json += "\"pbrMetallicRoughness\":{";
+		if (it->pbrData.baseColorFactor != std::array<float, 4>{{1.0f, 1.0f, 1.0f, 1.0f}}) {
+			json += R"("baseColorFactor":[)";
+			json += std::to_string(it->pbrData.baseColorFactor[0]) + ',' + std::to_string(it->pbrData.baseColorFactor[1]) + ',' +
+				std::to_string(it->pbrData.baseColorFactor[2]) + ',' + std::to_string(it->pbrData.baseColorFactor[3]);
+			json += "],";
+		}
+
+		if (it->pbrData.baseColorTexture.has_value()) {
 			if (json.back() != '{') json += ',';
+			json += "\"baseColorTexture\":";
+			writeTextureInfo(json, &it->pbrData.baseColorTexture.value());
+		}
+
+		if (it->pbrData.metallicFactor != 1.0f) {
+			if (json.back() != '{') json += ',';
+			json += "\"metallicFactor\":" + std::to_string(it->pbrData.metallicFactor);
+		}
+
+		if (it->pbrData.roughnessFactor != 1.0f) {
+			if (json.back() != '{') json += ',';
+			json += "\"roughnessFactor\":" + std::to_string(it->pbrData.roughnessFactor);
+		}
+
+		if (it->pbrData.metallicRoughnessTexture.has_value()) {
+			if (json.back() != '{') json += ',';
+			json += "\"metallicRoughnessTexture\":";
+			writeTextureInfo(json, &it->pbrData.metallicRoughnessTexture.value());
+		}
+
+		json += '}';
+
+		if (it->normalTexture.has_value()) {
+			if (json.back() != ',') json += ',';
+			json += "\"normalTexture\":";
+			writeTextureInfo(json, &it->normalTexture.value(), TextureInfoType::NormalTexture);
+		}
+
+		if (it->occlusionTexture.has_value()) {
+			if (json.back() != ',') json += ',';
+			json += "\"occlusionTexture\":";
+			writeTextureInfo(json, &it->occlusionTexture.value(), TextureInfoType::OcclusionTexture);
+		}
+
+		if (it->emissiveTexture.has_value()) {
+			if (json.back() != ',') json += ',';
+			json += "\"emissiveTexture\":";
+			writeTextureInfo(json, &it->emissiveTexture.value());
+		}
+
+		if (it->emissiveFactor != std::array<float, 3>{{.0f, .0f, .0f}}) {
+			if (json.back() != ',') json += ',';
+			json += R"("emissiveFactor":[)";
+			json += std::to_string(it->emissiveFactor[0]) + ',' + std::to_string(it->emissiveFactor[1]) + ',' + std::to_string(it->emissiveFactor[2]);
+			json += "],";
+		}
+
+		if (it->alphaMode != AlphaMode::Opaque) {
+			if (json.back() != ',') json += ',';
 			json += R"("alphaMode":)";
 			if (it->alphaMode == AlphaMode::Blend) {
 				json += "\"BLEND\"";
@@ -3777,17 +3848,17 @@ void fg::Composer::writeMaterials(std::string& json) {
 		}
 
 		if (it->alphaCutoff != 0.5f) {
-			if (json.back() != '{') json += ',';
+			if (json.back() != ',') json += ',';
 			json += R"("alphaCutoff":)" + std::to_string(it->alphaCutoff);
 		}
 
 		if (it->doubleSided) {
-			if (json.back() != '{') json += ',';
+			if (json.back() != ',') json += ',';
 			json += R"("doubleSided":true)";
 		}
 
 		if (!it->name.empty()) {
-			if (json.back() != '{') json += ',';
+			if (json.back() != ',') json += ',';
 			json += R"("name":")" + it->name + '"';
 		}
 		json += '}';
