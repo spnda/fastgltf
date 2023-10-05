@@ -2545,7 +2545,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo diffuseTexture;
-                    if (auto error = parseTextureObject(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) {
                         specularGlossiness->diffuseTexture = std::move(diffuseTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2580,7 +2580,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo specularGlossinessTexture;
-                    if (auto error = parseTextureObject(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) {
                         specularGlossiness->specularGlossinessTexture = std::move(specularGlossinessTexture);
                     } else if (error != Error::MissingField) {
                         return error;
