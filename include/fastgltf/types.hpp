@@ -252,12 +252,12 @@ namespace fastgltf {
      * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
      */
     constexpr std::uint8_t getNumComponents(AccessorType type) noexcept {
-        return (to_underlying(type) >> 8) & 0xFF;
+        return (to_underlying(type) >> 8U) & 0xFFU;
     }
 
     constexpr std::uint16_t getComponentBitSize(ComponentType componentType) noexcept {
         auto masked = to_underlying(componentType) & 0xFFFF0000;
-        return masked >> 16;
+        return static_cast<std::uint16_t>(masked >> 16U);
     }
 
     constexpr std::uint16_t getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
@@ -312,16 +312,16 @@ namespace fastgltf {
         switch (accessorTypeName[0]) {
             case 'S': return AccessorType::Scalar;
             case 'V': {
-                auto componentCount = accessorTypeName[3] - '2';
-                if (1ULL + componentCount >= accessorTypes.size())
+                auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
+                if (componentCount + 1 >= accessorTypes.size())
                     return AccessorType::Invalid;
-                return accessorTypes[1ULL + componentCount];
+                return accessorTypes[componentCount + 1];
             }
             case 'M': {
-                auto componentCount = accessorTypeName[3] - '2';
-                if (4ULL + componentCount >= accessorTypes.size())
+                auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
+                if (componentCount + 4 >= accessorTypes.size())
                     return AccessorType::Invalid;
-                return accessorTypes[4ULL + componentCount];
+                return accessorTypes[componentCount + 4];
             }
         }
 

@@ -377,7 +377,7 @@ namespace fastgltf {
 
 		[[nodiscard]] void* do_allocate(std::size_t bytes, std::size_t alignment) override {
 			auto& block = blocks[blockIdx];
-			auto availableSize = block.dataPointer - block.data.get();
+			auto availableSize = static_cast<std::size_t>(block.dataPointer - block.data.get());
 			if ((availableSize + bytes) > block.size) {
 				// The block can't fit the new allocation. We'll just create a new block and use that.
 				allocateNewBlock();

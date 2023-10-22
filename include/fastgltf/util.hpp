@@ -211,7 +211,7 @@ namespace fastgltf {
     [[gnu::hot, gnu::const]] constexpr std::uint32_t crc32c(std::string_view str) noexcept {
         std::uint32_t crc = 0;
         for (auto c : str)
-            crc = (crc >> 8) ^ crcHashTable[(crc ^ c) & 0xff];
+            crc = (crc >> 8) ^ crcHashTable[(crc ^ static_cast<std::uint8_t>(c)) & 0xff];
         return crc;
     }
 
