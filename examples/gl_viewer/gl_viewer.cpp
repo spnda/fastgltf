@@ -263,14 +263,22 @@ glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
      * to exist at the same time according to the spec */
     if (const auto* pMatrix = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
         return base * glm::mat4x4(glm::make_mat4x4(pMatrix->data()));
-    } else if (const auto* pTransform = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
+    }
+
+	if (const auto* pTransform = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
+		// Warning: The quaternion to mat4x4 conversion here is not correct with all versions of glm.
+		// glTF provides the quaternion as (x, y, z, w), which is the same layout glm used up to version 0.9.9.8.
+		// However, with commit 59ddeb7 (May 2021) the default order was changed to (w, x, y, z).
+		// You could either define GLM_FORCE_QUAT_DATA_XYZW to return to the old layout,
+		// or you could use the recently added static factory constructor glm::quat::wxyz(w, x, y, z),
+		// which guarantees the parameter order.
         return base
             * glm::translate(glm::mat4(1.0f), glm::make_vec3(pTransform->translation.data()))
             * glm::toMat4(glm::make_quat(pTransform->rotation.data()))
             * glm::scale(glm::mat4(1.0f), glm::make_vec3(pTransform->scale.data()));
-    } else {
-        return base;
     }
+
+	return base;
 }
 
 bool loadGltf(Viewer* viewer, std::string_view cPath) {
