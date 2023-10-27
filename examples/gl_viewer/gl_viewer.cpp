@@ -295,7 +295,8 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
             fastgltf::Options::AllowDouble |
             fastgltf::Options::LoadGLBBuffers |
             fastgltf::Options::LoadExternalBuffers |
-            fastgltf::Options::LoadExternalImages;
+            fastgltf::Options::LoadExternalImages |
+			fastgltf::Options::GenerateMeshIndices;
 
         fastgltf::GltfDataBuffer data;
         data.loadFromFile(path);
@@ -372,7 +373,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         primitive.primitiveType = fastgltf::to_underlying(it->type);
         primitive.vertexArray = vao;
         if (it->materialIndex.has_value()) {
-            primitive.materialUniformsIndex = it->materialIndex.value();
+            primitive.materialUniformsIndex = it->materialIndex.value() + 1; // Adjust for default material
             auto& material = viewer->asset.materials[it->materialIndex.value()];
             if (material.pbrData.baseColorTexture.has_value()) {
                 auto& texture = viewer->asset.textures[material.pbrData.baseColorTexture->textureIndex];
@@ -380,7 +381,9 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
                     return false;
                 primitive.albedoTexture = viewer->textures[texture.imageIndex.value()].texture;
             }
-        }
+        } else {
+			primitive.materialUniformsIndex = 0;
+		}
 
         {
             // Position
@@ -647,6 +650,12 @@ int main(int argc, char* argv[]) {
         std::cerr << "Failed to parse glTF" << std::endl;
         return -1;
     }
+
+	// Add a default material
+	auto& defaultMaterial = viewer.materials.emplace_back();
+	defaultMaterial.baseColorFactor = glm::vec4(1.0f);
+	defaultMaterial.alphaCutoff = 0.0f;
+	defaultMaterial.flags = 0;
 
     // We load images first.
     auto& asset = viewer.asset;

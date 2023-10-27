@@ -250,6 +250,13 @@ namespace fastgltf {
          * to LoadExternalBuffers.
          */
         LoadExternalImages              = 1 << 7,
+
+		/**
+		 * Lets fastgltf generate indices for all mesh primitives without indices. This currently
+		 * does not de-duplicate the vertices. This is entirely for compatibility and simplifying the
+		 * loading process.
+		 */
+		GenerateMeshIndices             = 1 << 8,
     };
     // clang-format on
 
@@ -651,6 +658,8 @@ namespace fastgltf {
 
 		[[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> Expected<DataSource>;
 		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
+
+		Error generateMeshIndices(Asset& asset) const;
 
 		Error parseAccessors(simdjson::dom::array& array, Asset& asset);
 		Error parseAnimations(simdjson::dom::array& array, Asset& asset);

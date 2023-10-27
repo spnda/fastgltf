@@ -722,6 +722,51 @@ fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
     }
 }
 
+fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
+	for (auto& mesh : asset.meshes) {
+		for (auto& primitive : mesh.primitives) {
+			if (primitive.indicesAccessor.has_value())
+				continue;
+
+			auto* positionAttribute = primitive.findAttribute("POSITION");
+			if (positionAttribute == primitive.attributes.end()) {
+				return Error::InvalidGltf;
+			}
+			auto& positionAccessor = asset.accessors[positionAttribute->second];
+
+			sources::Vector generatedIndices;
+			generatedIndices.bytes.resize(positionAccessor.count * getElementByteSize(positionAccessor.type, positionAccessor.componentType));
+			fastgltf::span<std::uint32_t> indices { reinterpret_cast<std::uint32_t*>(generatedIndices.bytes.data()),
+													generatedIndices.bytes.size() / sizeof(std::uint32_t) };
+			for (std::size_t i = 0; i < positionAccessor.count; ++i) {
+				indices[i] = i;
+			}
+
+			auto bufferIdx = asset.buffers.size();
+
+			auto bufferViewIdx = asset.bufferViews.size();
+			auto& bufferView = asset.bufferViews.emplace_back();
+			bufferView.byteLength = generatedIndices.bytes.size();
+			bufferView.bufferIndex = bufferIdx;
+			bufferView.byteOffset = 0;
+
+			auto accessorIdx = asset.accessors.size();
+			auto& accessor = asset.accessors.emplace_back();
+			accessor.byteOffset = 0;
+			accessor.count = positionAccessor.count;
+			accessor.type = AccessorType::Scalar;
+			accessor.componentType = ComponentType::UnsignedInt;
+			accessor.normalized = false;
+			accessor.bufferViewIndex = bufferViewIdx;
+
+			auto& buffer = asset.buffers.emplace_back();
+			buffer.byteLength = generatedIndices.bytes.size();
+			buffer.data = std::move(generatedIndices);
+			primitive.indicesAccessor = accessorIdx;
+		}
+	}
+}
+
 fg::Error fg::validate(const fastgltf::Asset& asset) {
 	auto isExtensionUsed = [&used = asset.extensionsUsed](std::string_view extension) {
 		for (const auto& extensionUsed : used) {
@@ -1154,6 +1199,10 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	}
 
 	asset.availableCategories = readCategories;
+
+	if (hasBit(options, Options::GenerateMeshIndices)) {
+		generateMeshIndices(asset);
+	}
 
 	return Expected(std::move(asset));
 }
