@@ -4048,20 +4048,25 @@ void fg::Composer::writeSamplers(std::string& json) {
 		json += '{';
 
 		if (it->magFilter.has_value()) {
-			json += R"("magFilter":)" + std::to_string(to_underlying(it->magFilter.value())) + ',';
+			json += R"("magFilter":)" + std::to_string(to_underlying(it->magFilter.value()));
 		}
 		if (it->minFilter.has_value()) {
-			json += R"("minFilter":)" + std::to_string(to_underlying(it->minFilter.value())) + ',';
+			if (json.back() != '{') json += ',';
+			json += R"("minFilter":)" + std::to_string(to_underlying(it->minFilter.value()));
 		}
 		if (it->wrapS != Wrap::Repeat) {
-			json += R"("wrapS":)" + std::to_string(to_underlying(it->wrapS)) + ',';
+			if (json.back() != '{') json += ',';
+			json += R"("wrapS":)" + std::to_string(to_underlying(it->wrapS));
 		}
 		if (it->wrapT != Wrap::Repeat) {
-			json += R"("wrapTS":)" + std::to_string(to_underlying(it->wrapT)) + ',';
+			if (json.back() != '{') json += ',';
+			json += R"("wrapTS":)" + std::to_string(to_underlying(it->wrapT));
 		}
 
-		if (!it->name.empty())
+		if (!it->name.empty()) {
+			if (json.back() != '{') json += ',';
 			json += R"("name":")" + it->name + '"';
+		}
 		json += '}';
 		if (std::distance(asset->samplers.begin(), it) + 1 < asset->samplers.size())
 			json += ',';
@@ -4149,6 +4154,28 @@ void fg::Composer::writeTextures(std::string& json) {
 
 		if (it->samplerIndex.has_value())
 			json += R"("sampler":)" + std::to_string(it->samplerIndex.value());
+
+		if (it->imageIndex.has_value()) {
+			if (json.back() != '{') json += ',';
+			json += R"("source":)" + std::to_string(it->imageIndex.value());
+		}
+
+		if (it->basisuImageIndex.has_value() || it->ddsImageIndex.has_value() || it->webpImageIndex.has_value()) {
+			if (json.back() == '}') json += ',';
+			json += R"("extensions":{)";
+			if (it->basisuImageIndex.has_value()) {
+				json += R"("KHR_texture_basisu":{"source":)" + std::to_string(it->basisuImageIndex.value()) + '}';
+			}
+			if (it->ddsImageIndex.has_value()) {
+				if (json.back() == '}') json += ',';
+				json += R"("MSFT_texture_dds":{"source":)" + std::to_string(it->ddsImageIndex.value()) + '}';
+			}
+			if (it->webpImageIndex.has_value()) {
+				if (json.back() == '}') json += ',';
+				json += R"("EXT_texture_webp":{"source":)" + std::to_string(it->webpImageIndex.value()) + '}';
+			}
+			json += "}";
+		}
 
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
