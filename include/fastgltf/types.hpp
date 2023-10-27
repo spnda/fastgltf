@@ -1610,22 +1610,32 @@ namespace fastgltf {
     };
 
     struct Texture {
-        /**
-         * When empty, an extension or other mechanism SHOULD supply an alternate texture source,
-         * otherwise behavior is undefined.
-         */
-        Optional<std::size_t> imageIndex;
+		/**
+		 * If no sampler is specified, use a default sampler with repeat wrap and auto filter.
+		 */
+		 Optional<std::size_t> samplerIndex;
 
-        /**
-         * If the imageIndex is specified by the KTX2 or DDS glTF extensions, this is supposed to
-         * be used as a fallback if those file containers are not supported.
-         */
-        Optional<std::size_t> fallbackImageIndex;
+		/**
+		 * The index of the image used by this texture. Either this will have a value,
+		 * or one of the following extensions will define a texture index. If no extensions
+		 * were enabled while parsing, this will always have a value.
+		 */
+		Optional<std::size_t> imageIndex;
 
-        /**
-         * If no sampler is specified, use a default sampler with repeat wrap and auto filter.
-         */
-        Optional<std::size_t> samplerIndex;
+		/**
+		 * An optional texture index from the KHR_texture_basisu extension.
+		 */
+		Optional<std::size_t> basisuImageIndex;
+
+		/**
+		 * An optional texture index from the MSFT_texture_dds extension.
+		 */
+		Optional<std::size_t> ddsImageIndex;
+
+		/**
+		 * An optional texture index from the EXT_texture_webp extension.
+		 */
+		Optional<std::size_t> webpImageIndex;
 
         std::pmr::string name;
     };

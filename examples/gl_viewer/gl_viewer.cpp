@@ -377,8 +377,8 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
             auto& material = viewer->asset.materials[it->materialIndex.value()];
             if (material.pbrData.baseColorTexture.has_value()) {
                 auto& texture = viewer->asset.textures[material.pbrData.baseColorTexture->textureIndex];
-                if (!texture.imageIndex.has_value())
-                    return false;
+				if (!texture.imageIndex.has_value())
+					return false;
                 primitive.albedoTexture = viewer->textures[texture.imageIndex.value()].texture;
             }
         } else {

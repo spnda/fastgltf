@@ -180,7 +180,7 @@ namespace fastgltf {
 			}
 
 			if (!extensionNotPresent) {
-				texture.imageIndex = imageIndex;
+				texture.basisuImageIndex = imageIndex;
 				return true;
 			}
 		}
@@ -192,7 +192,7 @@ namespace fastgltf {
 			}
 
 			if (!extensionNotPresent) {
-				texture.imageIndex = imageIndex;
+				texture.ddsImageIndex = imageIndex;
 				return true;
 			}
 		}
@@ -204,7 +204,7 @@ namespace fastgltf {
 			}
 
 			if (!extensionNotPresent) {
-				texture.imageIndex = imageIndex;
+				texture.webpImageIndex = imageIndex;
 				return true;
 			}
 		}
@@ -1032,9 +1032,21 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 	for (const auto& texture : asset.textures) {
 		if (texture.samplerIndex.has_value() && texture.samplerIndex.value() >= asset.samplers.size())
 			return Error::InvalidGltf;
+		// imageIndex needs to be defined, unless one of the texture extensions were enabled and define another image index.
+		if (isExtensionUsed(extensions::KHR_texture_basisu) || isExtensionUsed(extensions::MSFT_texture_dds) || isExtensionUsed(extensions::EXT_texture_webp)) {
+			if (!texture.imageIndex.has_value() && (!texture.basisuImageIndex.has_value() && !texture.ddsImageIndex.has_value() && !texture.webpImageIndex.has_value())) {
+				return Error::InvalidGltf;
+			}
+		} else if (!texture.imageIndex.has_value()) {
+			return Error::InvalidGltf;
+		}
 		if (texture.imageIndex.has_value() && texture.imageIndex.value() >= asset.images.size())
 			return Error::InvalidGltf;
-		if (texture.fallbackImageIndex.has_value() && texture.fallbackImageIndex.value() >= asset.images.size())
+		if (texture.basisuImageIndex.has_value() && texture.basisuImageIndex.value() >= asset.images.size())
+			return Error::InvalidGltf;
+		if (texture.ddsImageIndex.has_value() && texture.ddsImageIndex.value() >= asset.images.size())
+			return Error::InvalidGltf;
+		if (texture.webpImageIndex.has_value() && texture.webpImageIndex.value() >= asset.images.size())
 			return Error::InvalidGltf;
 	}
 
@@ -3082,10 +3094,6 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
         // If we have extensions, we'll use the normal "source" as the fallback and then parse
         // the extensions for any "source" field.
         if (hasExtensions) {
-            if (texture.imageIndex.has_value()) {
-                // If the source was specified we'll use that as a fallback.
-                texture.fallbackImageIndex = texture.imageIndex;
-            }
             if (!parseTextureExtensions(texture, extensionsObject, config.extensions)) {
                 return Error::InvalidGltf;
             }
