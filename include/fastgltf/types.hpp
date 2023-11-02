@@ -83,6 +83,12 @@
 #define FASTGLTF_VERSION 0.6.0
 
 namespace fastgltf {
+#if defined(FASTGLTF_USE_64BIT_FLOAT) && FASTGLTF_USE_64BIT_FLOAT
+	using num = double;
+#else
+	using num = float;
+#endif
+
 #pragma region Enums
     // clang-format off
     enum class PrimitiveType : std::uint8_t {
@@ -1268,17 +1274,17 @@ namespace fastgltf {
 
     struct Camera {
         struct Orthographic {
-            float xmag;
-            float ymag;
-            float zfar;
-            float znear;
+            num xmag;
+            num ymag;
+            num zfar;
+            num znear;
         };
         struct Perspective {
-            Optional<float> aspectRatio;
-            float yfov;
+            Optional<num> aspectRatio;
+            num yfov;
             // If omitted, use an infinite projection matrix.
-            Optional<float> zfar;
-            float znear;
+            Optional<num> zfar;
+            num znear;
         };
 
         /**
@@ -1323,14 +1329,14 @@ namespace fastgltf {
         Optional<std::size_t> lightIndex;
 
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> children;
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<float> weights;
+	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
         struct TRS {
-            std::array<float, 3> translation;
-            std::array<float, 4> rotation;
-            std::array<float, 3> scale;
+            std::array<num, 3> translation;
+            std::array<num, 4> rotation;
+            std::array<num, 3> scale;
         };
-        using TransformMatrix = std::array<float, 16>;
+        using TransformMatrix = std::array<num, 16>;
 
         /**
          * Variant holding either the three TRS components; transform, rotation, and scale, or a
@@ -1413,7 +1419,7 @@ namespace fastgltf {
 
     struct Mesh {
 		FASTGLTF_FG_PMR_NS::MaybeSmallVector<Primitive, 2> primitives;
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<float> weights;
+	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
         FASTGLTF_STD_PMR_NS::string name;
     };
@@ -1425,17 +1431,17 @@ namespace fastgltf {
         /**
          * The offset of the UV coordinate origin as a factor of the texture dimensions.
          */
-        float rotation;
+        num rotation;
 
         /**
          * Rotate the UVs by this many radians counter-clockwise around the origin. This is equivalent to a similar rotation of the image clockwise.
          */
-        std::array<float, 2> uvOffset;
+        std::array<num, 2> uvOffset;
 
         /**
          * The scale factor applied to the components of the UV coordinates.
          */
-        std::array<float, 2> uvScale;
+        std::array<num, 2> uvScale;
 
         /**
          * Overrides the textureInfo texCoord value if supplied.
@@ -1454,36 +1460,36 @@ namespace fastgltf {
     };
 
 	struct NormalTextureInfo : TextureInfo {
-		float scale;
+		num scale;
 	};
 
 	struct OcclusionTextureInfo : TextureInfo {
-		float strength;
+		num strength;
 	};
 
     struct PBRData {
         /**
          * The factors for the base color of then material.
          */
-        std::array<float, 4> baseColorFactor = {{ 1, 1, 1, 1 }};
+        std::array<num, 4> baseColorFactor = {{ 1, 1, 1, 1 }};
 
         /**
          * The factor for the metalness of the material.
          */
-        float metallicFactor = 1.0f;
+        num metallicFactor = 1.0f;
 
         /**
          * The factor for the roughness of the material.
          */
-        float roughnessFactor = 1.0f;
+        num roughnessFactor = 1.0f;
 
         Optional<TextureInfo> baseColorTexture;
         Optional<TextureInfo> metallicRoughnessTexture;
     };
 
 	struct MaterialAnisotropy {
-		float anisotropyStrength;
-		float anisotropyRotation;
+		num anisotropyStrength;
+		num anisotropyRotation;
 		Optional<TextureInfo> anisotropyTexture;
 	};
 
@@ -1491,9 +1497,9 @@ namespace fastgltf {
      * Specular information from KHR_materials_specular.
      */
     struct MaterialSpecular {
-        float specularFactor;
+        num specularFactor;
         Optional<TextureInfo> specularTexture;
-        std::array<float, 3> specularColorFactor;
+        std::array<num, 3> specularColorFactor;
         Optional<TextureInfo> specularColorTexture;
     };
 
@@ -1501,11 +1507,11 @@ namespace fastgltf {
      * Iridescence information from KHR_materials_iridescence
      */
     struct MaterialIridescence {
-        float iridescenceFactor;
+        num iridescenceFactor;
         Optional<TextureInfo> iridescenceTexture;
-        float iridescenceIor;
-        float iridescenceThicknessMinimum;
-        float iridescenceThicknessMaximum;
+        num iridescenceIor;
+        num iridescenceThicknessMinimum;
+        num iridescenceThicknessMaximum;
         Optional<TextureInfo> iridescenceThicknessTexture;
     };
 
@@ -1513,29 +1519,29 @@ namespace fastgltf {
      * Volume information from KHR_materials_volume
      */
     struct MaterialVolume {
-        float thicknessFactor;
+        num thicknessFactor;
         Optional<TextureInfo> thicknessTexture;
-        float attenuationDistance;
-        std::array<float, 3> attenuationColor;
+        num attenuationDistance;
+        std::array<num, 3> attenuationColor;
     };
 
     struct MaterialTransmission {
-        float transmissionFactor;
+        num transmissionFactor;
         Optional<TextureInfo> transmissionTexture;
     };
 
     struct MaterialClearcoat {
-        float clearcoatFactor;
+        num clearcoatFactor;
         Optional<TextureInfo> clearcoatTexture;
-        float clearcoatRoughnessFactor;
+        num clearcoatRoughnessFactor;
         Optional<TextureInfo> clearcoatRoughnessTexture;
         Optional<TextureInfo> clearcoatNormalTexture;
     };
 
     struct MaterialSheen {
-        std::array<float, 3> sheenColorFactor;
+        std::array<num, 3> sheenColorFactor;
         Optional<TextureInfo> sheenColorTexture;
-        float sheenRoughnessFactor;
+        num sheenRoughnessFactor;
         Optional<TextureInfo> sheenRoughnessTexture;
     };
 
@@ -1544,10 +1550,10 @@ namespace fastgltf {
      * Specular/Glossiness information from KHR_materials_pbrSpecularGlossiness.
      */
     struct MaterialSpecularGlossiness {
-        std::array<float, 4> diffuseFactor;
+        std::array<num, 4> diffuseFactor;
         Optional<TextureInfo> diffuseTexture;
-        std::array<float, 3> specularFactor;
-        float glossinessFactor;
+        std::array<num, 3> specularFactor;
+        num glossinessFactor;
         Optional<TextureInfo> specularGlossinessTexture;
     };
 #endif
@@ -1569,7 +1575,7 @@ namespace fastgltf {
         /**
          * The factors for the emissive color of the material. Defaults to 0,0,0
          */
-        std::array<float, 3> emissiveFactor;
+        std::array<num, 3> emissiveFactor;
 
         /**
          * The values used to determine the transparency of the material.
@@ -1581,7 +1587,7 @@ namespace fastgltf {
 		 * The alpha value that determines the upper limit for fragments that
 		 * should be discarded for transparency. Defaults to 0.5.
 		 */
-        float alphaCutoff;
+        num alphaCutoff;
 
         /**
          * Determines whether back-face culling should be disabled when using this material.
@@ -1624,12 +1630,12 @@ namespace fastgltf {
         /**
          * The emissive strength from the KHR_materials_emissive_strength extension.
          */
-        Optional<float> emissiveStrength;
+        Optional<num> emissiveStrength;
 
         /**
          * The index of refraction as specified through KHR_materials_ior.
          */
-        Optional<float> ior;
+        Optional<num> ior;
 
         /**
          * Only applicable if KHR_materials_unlit is enabled.
@@ -1741,15 +1747,15 @@ namespace fastgltf {
     struct Light {
         LightType type;
         /** RGB light color in linear space. */
-        std::array<float, 3> color;
+        std::array<num, 3> color;
 
         /** Point and spot lights use candela (lm/sr) while directional use lux (lm/m^2) */
-        float intensity;
+        num intensity;
         /** Range for point and spot lights. If not present, range is infinite. */
-        Optional<float> range;
+        Optional<num> range;
 
-        Optional<float> innerConeAngle;
-        Optional<float> outerConeAngle;
+        Optional<num> innerConeAngle;
+        Optional<num> outerConeAngle;
 
         FASTGLTF_STD_PMR_NS::string name;
     };

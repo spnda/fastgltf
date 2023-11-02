@@ -1783,20 +1783,20 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
             Camera::Perspective perspective = {};
             double value;
             if (perspectiveCamera["aspectRatio"].get_double().get(value) == SUCCESS) {
-                perspective.aspectRatio = static_cast<float>(value);
+                perspective.aspectRatio = static_cast<fastgltf::num>(value);
             }
             if (perspectiveCamera["zfar"].get_double().get(value) == SUCCESS) {
-                perspective.zfar = static_cast<float>(value);
+                perspective.zfar = static_cast<fastgltf::num>(value);
             }
 
             if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) {
-                perspective.yfov = static_cast<float>(value);
+                perspective.yfov = static_cast<fastgltf::num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
             if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) {
-                perspective.znear = static_cast<float>(value);
+                perspective.znear = static_cast<fastgltf::num>(value);
             } else {
                 return Error::InvalidGltf;
             }
@@ -1811,25 +1811,25 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
             Camera::Orthographic orthographic = {};
             double value;
             if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) {
-                orthographic.xmag = static_cast<float>(value);
+                orthographic.xmag = static_cast<fastgltf::num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
             if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) {
-                orthographic.ymag = static_cast<float>(value);
+                orthographic.ymag = static_cast<fastgltf::num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
             if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) {
-                orthographic.zfar = static_cast<float>(value);
+                orthographic.zfar = static_cast<fastgltf::num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
             if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) {
-                orthographic.znear = static_cast<float>(value);
+                orthographic.znear = static_cast<fastgltf::num>(value);
             } else {
                 return Error::InvalidGltf;
             }
@@ -2007,7 +2007,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
 
             double innerConeAngle;
             if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) {
-                light.innerConeAngle = static_cast<float>(innerConeAngle);
+                light.innerConeAngle = static_cast<fastgltf::num>(innerConeAngle);
             } else if (error == NO_SUCH_FIELD) {
                 light.innerConeAngle = 0.0f;
             } else {
@@ -2016,10 +2016,10 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
 
             double outerConeAngle;
             if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) {
-                light.outerConeAngle = static_cast<float>(outerConeAngle);
+                light.outerConeAngle = static_cast<fastgltf::num>(outerConeAngle);
             } else if (error == NO_SUCH_FIELD) {
                 static constexpr double pi = 3.141592653589793116;
-                light.outerConeAngle = static_cast<float>(pi / 4.0);
+                light.outerConeAngle = static_cast<fastgltf::num>(pi / 4.0);
             } else {
                 return Error::InvalidGltf;
             }
@@ -2033,7 +2033,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
             for (std::size_t i = 0U; i < colorArray.size(); ++i) {
                 double color;
                 if (colorArray.at(i).get_double().get(color) == SUCCESS) {
-                    light.color[i] = static_cast<float>(color);
+                    light.color[i] = static_cast<fastgltf::num>(color);
                 } else {
                     return Error::InvalidGltf;
                 }
@@ -2046,14 +2046,14 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
 
         double intensity;
         if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) {
-            light.intensity = static_cast<float>(intensity);
+            light.intensity = static_cast<fastgltf::num>(intensity);
         } else {
             light.intensity = 0.0f;
         }
 
         double range;
         if (lightObject["range"].get_double().get(range) == SUCCESS) {
-            light.range = static_cast<float>(range);
+            light.range = static_cast<fastgltf::num>(range);
         }
 
         std::string_view name;
@@ -2088,7 +2088,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                 if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) {
                     return Error::InvalidGltf;
                 }
-                material.emissiveFactor[i] = static_cast<float>(val);
+                material.emissiveFactor[i] = static_cast<fastgltf::num>(val);
             }
         } else {
             material.emissiveFactor = {{ 0, 0, 0 }};
@@ -2132,16 +2132,16 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) {
                         return Error::InvalidGltf;
                     }
-                    pbr.baseColorFactor[i] = static_cast<float>(val);
+                    pbr.baseColorFactor[i] = static_cast<fastgltf::num>(val);
                 }
             }
 
             double factor;
             if (pbrMetallicRoughness["metallicFactor"].get_double().get(factor) == SUCCESS) {
-                pbr.metallicFactor = static_cast<float>(factor);
+                pbr.metallicFactor = static_cast<fastgltf::num>(factor);
             }
             if (pbrMetallicRoughness["roughnessFactor"].get_double().get(factor) == SUCCESS) {
-                pbr.roughnessFactor = static_cast<float>(factor);
+                pbr.roughnessFactor = static_cast<fastgltf::num>(factor);
             }
 
 	        TextureInfo textureInfo;
@@ -2177,7 +2177,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
         double alphaCutoff = 0.5;
         if (materialObject["alphaCutoff"].get_double().get(alphaCutoff) == SUCCESS) {
-            material.alphaCutoff = static_cast<float>(alphaCutoff);
+            material.alphaCutoff = static_cast<fastgltf::num>(alphaCutoff);
         } else {
             material.alphaCutoff = 0.5F;
         }
@@ -2205,7 +2205,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 					double anisotropyStrength;
 					if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength); error == SUCCESS) {
-						anisotropy->anisotropyStrength = static_cast<float>(anisotropyStrength);
+						anisotropy->anisotropyStrength = static_cast<fastgltf::num>(anisotropyStrength);
 					} else if (error == NO_SUCH_FIELD) {
 						anisotropy->anisotropyStrength = 0.0f;
 					} else {
@@ -2214,7 +2214,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 					double anisotropyRotation;
 					if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation); error == SUCCESS) {
-						anisotropy->anisotropyRotation = static_cast<float>(anisotropyRotation);
+						anisotropy->anisotropyRotation = static_cast<fastgltf::num>(anisotropyRotation);
 					} else if (error == NO_SUCH_FIELD) {
 						anisotropy->anisotropyRotation = 0.0f;
 					} else {
@@ -2238,7 +2238,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double clearcoatFactor;
                     if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error == SUCCESS) {
-                        clearcoat->clearcoatFactor = static_cast<float>(clearcoatFactor);
+                        clearcoat->clearcoatFactor = static_cast<fastgltf::num>(clearcoatFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         clearcoat->clearcoatFactor = 0.0f;
                     } else {
@@ -2254,7 +2254,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double clearcoatRoughnessFactor;
                     if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(clearcoatRoughnessFactor); error == SUCCESS) {
-                        clearcoat->clearcoatRoughnessFactor = static_cast<float>(clearcoatRoughnessFactor);
+                        clearcoat->clearcoatRoughnessFactor = static_cast<fastgltf::num>(clearcoatRoughnessFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         clearcoat->clearcoatRoughnessFactor = 0.0f;
                     } else {
@@ -2288,7 +2288,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double emissiveStrength;
                     auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
                     if (error == SUCCESS) {
-                        material.emissiveStrength = static_cast<float>(emissiveStrength);
+                        material.emissiveStrength = static_cast<fastgltf::num>(emissiveStrength);
                     } else if (error == NO_SUCH_FIELD) {
                         material.emissiveStrength = 1.0f;
                     }
@@ -2304,7 +2304,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double ior;
                     auto error = iorObject["ior"].get_double().get(ior);
                     if (error == SUCCESS) {
-                        material.ior = static_cast<float>(ior);
+                        material.ior = static_cast<fastgltf::num>(ior);
                     } else if (error == NO_SUCH_FIELD) {
                         material.ior = 1.5f;
                     } else {
@@ -2323,7 +2323,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double iridescenceFactor;
                     if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor); error == SUCCESS) {
-                        iridescence->iridescenceFactor = static_cast<float>(iridescenceFactor);
+                        iridescence->iridescenceFactor = static_cast<fastgltf::num>(iridescenceFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         iridescence->iridescenceFactor = 0.0f;
                     } else {
@@ -2339,7 +2339,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double iridescenceIor;
                     if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error == SUCCESS) {
-                        iridescence->iridescenceIor = static_cast<float>(iridescenceIor);
+                        iridescence->iridescenceIor = static_cast<fastgltf::num>(iridescenceIor);
                     } else if (error == NO_SUCH_FIELD) {
                         iridescence->iridescenceIor = 1.3f;
                     } else {
@@ -2348,7 +2348,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double iridescenceThicknessMinimum;
                     if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(iridescenceThicknessMinimum); error == SUCCESS) {
-                        iridescence->iridescenceThicknessMinimum = static_cast<float>(iridescenceThicknessMinimum);
+                        iridescence->iridescenceThicknessMinimum = static_cast<fastgltf::num>(iridescenceThicknessMinimum);
                     } else if (error == NO_SUCH_FIELD) {
                         iridescence->iridescenceThicknessMinimum = 100.0f;
                     } else {
@@ -2357,7 +2357,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double iridescenceThicknessMaximum;
                     if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(iridescenceThicknessMaximum); error == SUCCESS) {
-                        iridescence->iridescenceThicknessMaximum = static_cast<float>(iridescenceThicknessMaximum);
+                        iridescence->iridescenceThicknessMaximum = static_cast<fastgltf::num>(iridescenceThicknessMaximum);
                     } else if (error == NO_SUCH_FIELD) {
                         iridescence->iridescenceThicknessMaximum = 400.0f;
                     } else {
@@ -2394,7 +2394,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             if (factor.get_double().get(value) != SUCCESS) {
                                 return Error::InvalidGltf;
                             }
-                            sheen->sheenColorFactor[i++] = static_cast<float>(value);
+                            sheen->sheenColorFactor[i++] = static_cast<fastgltf::num>(value);
                         }
                     } else if (error == NO_SUCH_FIELD) {
                         sheen->sheenColorFactor = std::array<float, 3>{{ 0.0f, 0.0f, 0.0f }};
@@ -2411,7 +2411,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double sheenRoughnessFactor;
                     if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor); error == SUCCESS) {
-                        sheen->sheenRoughnessFactor = static_cast<float>(sheenRoughnessFactor);
+                        sheen->sheenRoughnessFactor = static_cast<fastgltf::num>(sheenRoughnessFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         sheen->sheenRoughnessFactor = 0.0f;
                     } else {
@@ -2439,7 +2439,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double specularFactor;
                     if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error == SUCCESS) {
-                        specular->specularFactor = static_cast<float>(specularFactor);
+                        specular->specularFactor = static_cast<fastgltf::num>(specularFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         specular->specularFactor = 1.0f;
                     } else {
@@ -2464,7 +2464,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             if (factor.get_double().get(value) != SUCCESS) {
                                 return Error::InvalidGltf;
                             }
-                            specular->specularColorFactor[i++] = static_cast<float>(value);
+                            specular->specularColorFactor[i++] = static_cast<fastgltf::num>(value);
                         }
                     } else if (error == NO_SUCH_FIELD) {
                         specular->specularColorFactor = std::array<float, 3>{{ 1.0f, 1.0f, 1.0f }};
@@ -2493,7 +2493,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double transmissionFactor;
                     if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor); error == SUCCESS) {
-                        transmission->transmissionFactor = static_cast<float>(transmissionFactor);
+                        transmission->transmissionFactor = static_cast<fastgltf::num>(transmissionFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         transmission->transmissionFactor = 0.0f;
                     } else {
@@ -2531,7 +2531,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double thicknessFactor;
                     if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) {
-                        volume->thicknessFactor = static_cast<float>(thicknessFactor);
+                        volume->thicknessFactor = static_cast<fastgltf::num>(thicknessFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         volume->thicknessFactor = 0.0f;
                     } else {
@@ -2547,7 +2547,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double attenuationDistance;
                     if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) {
-                        volume->attenuationDistance = static_cast<float>(attenuationDistance);
+                        volume->attenuationDistance = static_cast<fastgltf::num>(attenuationDistance);
                     } else if (error == NO_SUCH_FIELD) {
                         volume->attenuationDistance = +std::numeric_limits<float>::infinity();
                     } else {
@@ -2565,7 +2565,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             if (factor.get_double().get(value) != SUCCESS) {
                                 return Error::InvalidGltf;
                             }
-                            (volume->attenuationColor)[i++] = static_cast<float>(value);
+                            (volume->attenuationColor)[i++] = static_cast<fastgltf::num>(value);
                         }
                     } else if (error == NO_SUCH_FIELD) {
                         volume->attenuationColor = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
@@ -2597,7 +2597,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             if (factor.get_double().get(value) != SUCCESS) {
                                 return Error::InvalidGltf;
                             }
-                            specularGlossiness->diffuseFactor[i++] = static_cast<float>(value);
+                            specularGlossiness->diffuseFactor[i++] = static_cast<fastgltf::num>(value);
                         }
                     } else if (error == NO_SUCH_FIELD) {
                         specularGlossiness->diffuseFactor = std::array<float, 4>{{ 1.0f, 1.0f, 1.0f, 1.0f }};
@@ -2623,7 +2623,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             if (factor.get_double().get(value) != SUCCESS) {
                                 return Error::InvalidGltf;
                             }
-                            specularGlossiness->specularFactor[i++] = static_cast<float>(value);
+                            specularGlossiness->specularFactor[i++] = static_cast<fastgltf::num>(value);
                         }
                     } else if (error == NO_SUCH_FIELD) {
                         specularGlossiness->specularFactor = std::array<float, 3>{{ 1.0f, 1.0f, 1.0f }};
@@ -2633,7 +2633,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
                     double glossinessFactor;
                     if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) {
-                        specularGlossiness->glossinessFactor = static_cast<float>(glossinessFactor);
+                        specularGlossiness->glossinessFactor = static_cast<fastgltf::num>(glossinessFactor);
                     } else if (error == NO_SUCH_FIELD) {
                         specularGlossiness->glossinessFactor = 1.0f;
                     } else {
@@ -2757,7 +2757,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                 if (weightValue.get_double().get(val) != SUCCESS) {
                     return Error::InvalidGltf;
                 }
-                mesh.weights.emplace_back(static_cast<float>(val));
+                mesh.weights.emplace_back(static_cast<fastgltf::num>(val));
             }
         } else if (meshError != Error::MissingField && meshError != Error::None) {
             return Error::InvalidGltf;
@@ -2822,7 +2822,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     if (weightValue.get_double().get(val) != SUCCESS) {
                         return Error::InvalidGltf;
                     }
-                    node.weights.emplace_back(static_cast<float>(val));
+                    node.weights.emplace_back(static_cast<fastgltf::num>(val));
                 }
             } else {
                 return Error::InvalidGltf;
@@ -2838,7 +2838,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                 if (num.get_double().get(val) != SUCCESS) {
                     break;
                 }
-                transformMatrix[i] = static_cast<float>(val);
+                transformMatrix[i] = static_cast<fastgltf::num>(val);
                 ++i;
             }
 
@@ -2860,7 +2860,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     if (num.get_double().get(val) != SUCCESS) {
                         return Error::InvalidGltf;
                     }
-                    trs.scale[i] = static_cast<float>(val);
+                    trs.scale[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
             } else {
@@ -2874,7 +2874,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     if (num.get_double().get(val) != SUCCESS) {
                         return Error::InvalidGltf;
                     }
-                    trs.translation[i] = static_cast<float>(val);
+                    trs.translation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
             } else {
@@ -2888,7 +2888,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     if (num.get_double().get(val) != SUCCESS) {
                         return Error::InvalidGltf;
                     }
-                    trs.rotation[i] = static_cast<float>(val);
+                    trs.rotation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
             } else {
