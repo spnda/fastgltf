@@ -1182,7 +1182,8 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 				for (auto usedValue : array) {
 					std::string_view usedString;
 					if (auto eError = usedValue.get_string().get(usedString); eError == SUCCESS) {
-						asset.extensionsUsed.emplace_back FASTGLTF_CONSTRUCT_PMR_RESOURCE(, resourceAllocator.get(), usedString);
+						FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(string, resourceAllocator.get(), usedString);
+						asset.extensionsUsed.emplace_back(std::move(string));
 					} else {
 						error = Error::InvalidGltf;
 					}
@@ -1193,7 +1194,8 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 				for (auto requiredValue : array) {
 					std::string_view requiredString;
 					if (auto eError = requiredValue.get_string().get(requiredString); eError == SUCCESS) {
-						asset.extensionsRequired.emplace_back FASTGLTF_CONSTRUCT_PMR_RESOURCE(, resourceAllocator.get(), requiredString);
+						FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(string, resourceAllocator.get(), requiredString);
+						asset.extensionsRequired.emplace_back(std::move(string));
 					} else {
 						error = Error::InvalidGltf;
 					}
@@ -2692,7 +2694,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                     return Error::InvalidGltf;
                 }
 
-                auto parseAttributes = [](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
+                auto parseAttributes = [this](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
                     // attribute map. The keys are only validated in the validate() method.
 					attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
