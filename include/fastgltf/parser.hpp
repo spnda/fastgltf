@@ -355,6 +355,7 @@ namespace fastgltf {
 		return "";
 	}
 
+#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 	class ChunkMemoryResource : public std::pmr::memory_resource {
 		/**
 		 * The default size of the individual blocks we allocate.
@@ -415,6 +416,7 @@ namespace fastgltf {
 			return this == std::addressof(other);
 		}
 	};
+#endif
 
 	/**
 	 * A type that stores an error together with an expected value.
@@ -649,7 +651,9 @@ namespace fastgltf {
 
 		ParserInternalConfig config = {};
 		DataSource glbBuffer;
+#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 		std::shared_ptr<ChunkMemoryResource> resourceAllocator;
+#endif
 		std::filesystem::path directory;
 		Options options;
 
