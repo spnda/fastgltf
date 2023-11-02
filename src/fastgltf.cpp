@@ -462,11 +462,6 @@ fg::URI::URI(std::string uri) noexcept : uri(std::move(uri)) {
 	view = this->uri; // Also parses.
 }
 
-fg::URI::URI(std::pmr::string uri) noexcept : uri(uri) {
-	decodePercents(this->uri);
-	view = this->uri; // Also parses.
-}
-
 fg::URI::URI(std::string_view uri) noexcept : uri(uri) {
 	decodePercents(this->uri);
 	view = this->uri; // Also parses.

@@ -47,6 +47,9 @@
 #define FASTGLTF_MISSING_MEMORY_RESOURCE 0
 #else
 #define FASTGLTF_MISSING_MEMORY_RESOURCE 1
+#if defined(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL)
+#undef FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
+#endif
 #define FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL 1
 #endif
 
@@ -1111,7 +1114,6 @@ namespace fastgltf {
 		explicit URI() noexcept;
 
 		explicit URI(std::string uri) noexcept;
-		explicit URI(std::pmr::string uri) noexcept;
 		explicit URI(std::string_view uri) noexcept;
 		explicit URI(URIView view) noexcept;
 
