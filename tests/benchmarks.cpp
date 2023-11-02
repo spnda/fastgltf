@@ -332,10 +332,13 @@ TEST_CASE("Compare base64 decoding performance", "[gltf-benchmark]") {
 		generatedData.push_back(base64Characters[distribution(gen)]);
 	}
 
+#ifdef HAS_TINYGLTF
 	BENCHMARK("Run tinygltf's base64 decoder") {
 		return tinygltf::base64_decode(generatedData);
 	};
+#endif
 
+#ifdef HAS_CGLTF
 	cgltf_options options {};
 	BENCHMARK("Run cgltf's base64 decoder") {
 		auto padding = fastgltf::base64::getPadding(generatedData);
@@ -345,6 +348,14 @@ TEST_CASE("Compare base64 decoding performance", "[gltf-benchmark]") {
 		auto* outputData = output.data();
 		return cgltf_load_buffer_base64(&options, generatedData.size(), generatedData.data(), reinterpret_cast<void**>(&outputData));
 	};
+#endif
+
+#ifdef HAS_GLTFRS
+	BENCHMARK("Run base64 Rust library decoder") {
+		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(generatedData.data()), generatedData.size());
+		return rust::gltf::run_base64(slice);
+	};
+#endif
 
 	BENCHMARK("Run fastgltf's fallback base64 decoder") {
 		return fastgltf::base64::fallback_decode(generatedData);
