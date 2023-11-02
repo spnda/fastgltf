@@ -760,6 +760,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			primitive.indicesAccessor = accessorIdx;
 		}
 	}
+	return Error::None;
 }
 
 fg::Error fg::validate(const fastgltf::Asset& asset) {
@@ -1210,7 +1211,9 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	asset.availableCategories = readCategories;
 
 	if (hasBit(options, Options::GenerateMeshIndices)) {
-		generateMeshIndices(asset);
+		if (auto error = generateMeshIndices(asset); error != Error::None) {
+			return Expected<Asset>(error);
+		}
 	}
 
 	return Expected(std::move(asset));
