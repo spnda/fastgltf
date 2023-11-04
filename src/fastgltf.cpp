@@ -1118,6 +1118,9 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			if (!known) {
 				return Expected<Asset>(Error::UnknownRequiredExtension);
 			}
+
+			FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(requiredExtension, resourceAllocator.get(), string);
+			asset.extensionsRequired.emplace_back(std::move(requiredExtension));
 		}
 	}
 
@@ -1187,15 +1190,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 				break;
 			}
 			case force_consteval<crc32c("extensionsRequired")>: {
-				for (auto requiredValue : array) {
-					std::string_view requiredString;
-					if (auto eError = requiredValue.get_string().get(requiredString); eError == SUCCESS) {
-						FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(string, resourceAllocator.get(), requiredString);
-						asset.extensionsRequired.emplace_back(std::move(string));
-					} else {
-						error = Error::InvalidGltf;
-					}
-				}
+				// These are already parsed before this section.
 				break;
 			}
 			default:
@@ -1558,6 +1553,19 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
         }
 		buffer.byteLength = static_cast<std::size_t>(byteLength);
 
+		// The spec for EXT_meshopt_compression allows so-called 'fallback buffers' which only exist to
+		// act as a valid fallback for compressed buffer views, but actually do not contain any data.
+		// In these cases, there is either simply no URI, or a fallback boolean is added to the extensions'
+		// extension field.
+		// In these cases, fastgltf could just leave the std::monostate in the DataSource.
+		// However, to make the actual use of these buffers clear, we'll use an empty fallback type.
+		bool meshoptCompressionRequired = false;
+		for (const auto& extension : asset.extensionsRequired) {
+			if (extension == extensions::EXT_meshopt_compression) {
+				meshoptCompressionRequired = true;
+			}
+		}
+
         // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
         // file. Otherwise, data must be specified in the "uri" field.
         std::string_view uriString;
@@ -1590,7 +1598,10 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
             }
         } else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
             buffer.data = std::move(glbBuffer);
-        } else {
+        } else if (meshoptCompressionRequired) {
+			// This buffer is not a GLB buffer and has no URI source and is therefore a fallback.
+			buffer.data = sources::Fallback();
+		} else {
             // All other buffers have to contain an uri field.
             return Error::InvalidGltf;
         }

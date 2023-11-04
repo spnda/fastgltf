@@ -25,7 +25,6 @@
  */
 
 #include <chrono>
-#include <fstream>
 #include <iostream>
 
 #include <glad/gl.h>
@@ -91,9 +90,9 @@ constexpr std::string_view fragmentShaderSource = R"(
 
 void glMessageCallback(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam) {
     if (severity == GL_DEBUG_SEVERITY_HIGH) {
-        std::cerr << message << std::endl;
+        std::cerr << message << '\n';
     } else {
-        std::cout << message << std::endl;
+        std::cout << message << '\n';
     }
 }
 
@@ -106,7 +105,7 @@ bool checkGlCompileErrors(GLuint shader) {
     if (success != GL_TRUE) {
         glGetShaderInfoLog(shader, length, nullptr, log.data());
         std::cout << "Shader compilation error: " << "\n"
-                  << log << "\n -- --------------------------------------------------- -- " << std::endl;
+                  << log << "\n -- --------------------------------------------------- -- " << '\n';
         return false;
     }
     return true;
@@ -121,7 +120,7 @@ bool checkGlLinkErrors(GLuint target) {
     if (success != GL_TRUE) {
         glGetShaderInfoLog(target, length, nullptr, log.data());
         std::cout << "Shader program linking error: " << "\n"
-                  << log << "\n -- --------------------------------------------------- -- " << std::endl;
+                  << log << "\n -- --------------------------------------------------- -- " << '\n';
         return false;
     }
     return true;
@@ -282,7 +281,12 @@ glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
 }
 
 bool loadGltf(Viewer* viewer, std::string_view cPath) {
-    std::cout << "Loading " << cPath << std::endl;
+	if (!std::filesystem::exists(cPath)) {
+		std::cout << "Failed to find " << cPath << '\n';
+		return false;
+	}
+
+    std::cout << "Loading " << cPath << '\n';
 
     // Parse the glTF file and get the constructed asset
     {
@@ -308,12 +312,12 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         } else if (type == fastgltf::GltfType::GLB) {
 	        asset = parser.loadBinaryGLTF(&data, path.parent_path(), gltfOptions);
         } else {
-            std::cerr << "Failed to determine glTF container" << std::endl;
+            std::cerr << "Failed to determine glTF container" << '\n';
             return false;
         }
 
         if (asset.error() != fastgltf::Error::None) {
-            std::cerr << "Failed to load glTF: " << fastgltf::getErrorMessage(asset.error()) << std::endl;
+            std::cerr << "Failed to load glTF: " << fastgltf::getErrorMessage(asset.error()) << '\n';
             return false;
         }
 
@@ -565,14 +569,14 @@ void drawNode(Viewer* viewer, size_t nodeIndex, glm::mat4 matrix) {
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "No gltf file specified." << std::endl;
+        std::cerr << "No gltf file specified." << '\n';
         return -1;
     }
     auto gltfFile = std::string_view { argv[1] };
     Viewer viewer;
 
     if (glfwInit() != GLFW_TRUE) {
-        std::cerr << "Failed to initialize glfw." << std::endl;
+        std::cerr << "Failed to initialize glfw." << '\n';
         return -1;
     }
 
@@ -583,7 +587,7 @@ int main(int argc, char* argv[]) {
 
     GLFWwindow* window = glfwCreateWindow(static_cast<int>(static_cast<float>(vidMode->width) * 0.9f), static_cast<int>(static_cast<float>(vidMode->height) * 0.9f), "gl_viewer", nullptr, nullptr);
     if (window == nullptr) {
-        std::cerr << "Failed to create window" << std::endl;
+        std::cerr << "Failed to create window" << '\n';
         return -1;
     }
     glfwSetWindowUserPointer(window, &viewer);
@@ -596,16 +600,16 @@ int main(int argc, char* argv[]) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (!gladLoadGL(glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize OpenGL context." << std::endl;
+        std::cerr << "Failed to initialize OpenGL context." << '\n';
         return -1;
     }
 
     const auto *glRenderer = glGetString(GL_RENDERER);
     const auto *glVersion = glGetString(GL_VERSION);
-    std::cout << "GL Renderer: " << glRenderer << "\nGL Version: " << glVersion << std::endl;
+    std::cout << "GL Renderer: " << glRenderer << "\nGL Version: " << glVersion << '\n';
 
     if (GLAD_GL_VERSION_4_6 != 1) {
-        std::cerr << "Missing support for GL 4.6" << std::endl;
+        std::cerr << "Missing support for GL 4.6" << '\n';
         return -1;
     }
 
@@ -647,7 +651,7 @@ int main(int argc, char* argv[]) {
     // Load the glTF file
     auto start = std::chrono::high_resolution_clock::now();
     if (!loadGltf(&viewer, gltfFile)) {
-        std::cerr << "Failed to parse glTF" << std::endl;
+        std::cerr << "Failed to parse glTF" << '\n';
         return -1;
     }
 
@@ -669,7 +673,7 @@ int main(int argc, char* argv[]) {
         loadMesh(&viewer, mesh);
     }
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
-    std::cout << "Loaded glTF file in " << diff.count() << "ms." << std::endl;
+    std::cout << "Loaded glTF file in " << diff.count() << "ms." << '\n';
 
     // Create the material uniform buffer
     viewer.materialBuffers.resize(viewer.materials.size(), GL_NONE);

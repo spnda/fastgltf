@@ -1235,6 +1235,8 @@ namespace fastgltf {
             span<const std::byte> bytes;
             MimeType mimeType;
         };
+
+		struct Fallback {};
     } // namespace sources
 
     /**
@@ -1247,7 +1249,7 @@ namespace fastgltf {
      *
      * @note For buffers, this variant will never hold a sources::BufferView, as only images are able to reference buffer views as a source.
      */
-    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Vector, sources::CustomBuffer, sources::ByteView>;
+    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Vector, sources::CustomBuffer, sources::ByteView, sources::Fallback>;
 
     struct AnimationChannel {
         std::size_t samplerIndex;
