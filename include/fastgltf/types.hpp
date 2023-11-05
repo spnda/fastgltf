@@ -39,6 +39,13 @@
 // Utils header already includes some headers, which we'll try and avoid including twice.
 #include "util.hpp"
 
+#if defined(_GLIBCXX_USE_CXX11_ABI) && !_GLIBCXX_USE_CXX11_ABI
+// polymorphic allocators are only supported with the 'new' GCC ABI.
+// Older compilers (older than GCC 5.1) default to the old ABI and sometimes the old ABI is
+// explicitly selected on even the newest compilers, which we want to support.
+#define FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL 1
+#endif
+
 #ifndef FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 #define FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL 0
 #endif
