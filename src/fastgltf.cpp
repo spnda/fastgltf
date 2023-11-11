@@ -3212,10 +3212,6 @@ bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOf
     std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
     return true;
 }
-
-std::size_t fg::GltfDataBuffer::getBufferSize() const noexcept {
-    return dataSize;
-}
 #pragma endregion
 
 #pragma region AndroidGltfDataBuffer

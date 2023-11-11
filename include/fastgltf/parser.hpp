@@ -597,7 +597,9 @@ namespace fastgltf {
          * Returns the size, in bytes,
          * @return
          */
-        [[nodiscard]] inline std::size_t getBufferSize() const noexcept;
+        [[nodiscard]] inline std::size_t getBufferSize() const noexcept {
+			return dataSize;
+		}
 
         [[nodiscard]] explicit operator span<std::byte>() {
             return span<std::byte>(bufferPointer, dataSize);

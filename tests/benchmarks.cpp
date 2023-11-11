@@ -70,6 +70,12 @@ void setTinyGLTFCallbacks(tinygltf::TinyGLTF& gltf) {
 #include "gltf-rs-bridge/lib.h"
 #endif
 
+#ifdef HAS_ASSIMP
+#include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/Base64.hpp>
+#endif
+
 std::vector<uint8_t> readFileAsBytes(std::filesystem::path path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open())
@@ -129,6 +135,12 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
 		return rust::gltf::run(slice);
 	};
 #endif
+
+#ifdef HAS_ASSIMP
+	BENCHMARK("Parse NewSponza with assimp") {
+		return aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), jsonData->getBufferSize(), 0, nullptr);
+	};
+#endif
 }
 
 TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
@@ -175,6 +187,14 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
 		return rust::gltf::run(slice);
 	};
 #endif
+
+#ifdef HAS_ASSIMP
+	BENCHMARK("2CylinderEngine with assimp") {
+		const auto* scene = aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), jsonData->getBufferSize(), 0, nullptr);
+		REQUIRE(scene != nullptr);
+		return scene;
+	};
+#endif
 }
 
 TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
@@ -218,6 +238,12 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
 	BENCHMARK("Parse Buggy.gltf with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size() - padding);
 		return rust::gltf::run(slice);
+	};
+#endif
+
+#ifdef HAS_ASSIMP
+	BENCHMARK("Parse Buggy.gltf with assimp") {
+		return aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), jsonData->getBufferSize(), 0, nullptr);
 	};
 #endif
 }
@@ -267,6 +293,12 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
 	BENCHMARK("Parse Bistro with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size() - padding);
 		return rust::gltf::run(slice);
+	};
+#endif
+
+#ifdef HAS_ASSIMP
+	BENCHMARK("Parse Bistro with assimp") {
+		return aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), jsonData->getBufferSize(), 0, nullptr);
 	};
 #endif
 }
@@ -354,6 +386,12 @@ TEST_CASE("Compare base64 decoding performance", "[gltf-benchmark]") {
 	BENCHMARK("Run base64 Rust library decoder") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(generatedData.data()), generatedData.size());
 		return rust::gltf::run_base64(slice);
+	};
+#endif
+
+#ifdef HAS_ASSIMP
+	BENCHMARK("Run Assimp's base64 decoder") {
+		return Assimp::Base64::Decode(generatedData);
 	};
 #endif
 

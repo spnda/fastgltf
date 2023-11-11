@@ -48,4 +48,16 @@ if (FASTGLTF_ENABLE_GLTF_RS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf-rs/src/
     target_compile_definitions(fastgltf_tests PRIVATE HAS_GLTFRS=1)
 endif()
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/assimp")
+    message(STATUS "fastgltf: Found assimp")
+    # Only enable glTF importer
+    set(ASSIMP_NO_EXPORT ON CACHE BOOL "")
+    set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "")
+    set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "")
+    set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "")
+    add_subdirectory(gltf_loaders/assimp)
+    target_link_libraries(fastgltf_tests PRIVATE assimp::assimp)
+    target_compile_definitions(fastgltf_tests PRIVATE HAS_ASSIMP=1)
+endif()
+
 add_source_directory(TARGET fastgltf_tests FOLDER ".")
