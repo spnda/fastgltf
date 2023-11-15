@@ -1569,6 +1569,12 @@ namespace fastgltf {
     };
 #endif
 
+	struct MaterialPackedTextures {
+		Optional<TextureInfo> occlusionRoughnessMetallicTexture;
+		Optional<TextureInfo> roughnessMetallicOcclusionTexture;
+		Optional<TextureInfo> normalTexture;
+	};
+
     struct Material {
         /**
          * A set of parameter values that are used to define the metallic-roughness material model
@@ -1647,6 +1653,14 @@ namespace fastgltf {
          * The index of refraction as specified through KHR_materials_ior.
          */
         Optional<num> ior;
+
+		/**
+		 * The index of a packed texture from the MSFT_packing_normalRoughnessMetallic extension,
+		 * providing normal, roughness and metallic data.
+		 */
+		Optional<TextureInfo> packedNormalMetallicRoughnessTexture;
+
+		std::unique_ptr<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
 
         /**
          * Only applicable if KHR_materials_unlit is enabled.

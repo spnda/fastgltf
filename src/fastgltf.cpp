@@ -2590,6 +2590,45 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                 }
             }
 
+			if (hasBit(config.extensions, Extensions::MSFT_packing_normalRoughnessMetallic)) {
+				dom::object normalRoughnessMetallic;
+				if (extensionsObject[extensions::MSFT_packing_normalRoughnessMetallic].get_object().get(normalRoughnessMetallic) == SUCCESS) {
+					TextureInfo textureInfo = {};
+					if (auto error = parseTextureInfo(normalRoughnessMetallic, "normalRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
+						material.packedNormalMetallicRoughnessTexture = std::move(textureInfo);
+					} else if (error != Error::MissingField) {
+						return error;
+					}
+				}
+			}
+
+			if (hasBit(config.extensions, Extensions::MSFT_packing_occlusionRoughnessMetallic)) {
+				dom::object occlusionRoughnessMetallic;
+				if (extensionsObject[extensions::MSFT_packing_occlusionRoughnessMetallic].get_object().get(occlusionRoughnessMetallic) == SUCCESS) {
+					auto packedTextures = std::make_unique<MaterialPackedTextures>();
+					TextureInfo textureInfo = {};
+					if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
+						packedTextures->occlusionRoughnessMetallicTexture = std::move(textureInfo);
+					} else if (error != Error::MissingField) {
+						return error;
+					}
+
+					if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "roughnessMetallicOcclusionTexture", &textureInfo, config.extensions); error == Error::None) {
+						packedTextures->roughnessMetallicOcclusionTexture = std::move(textureInfo);
+					} else if (error != Error::MissingField) {
+						return error;
+					}
+
+					if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "normalTexture", &textureInfo, config.extensions); error == Error::None) {
+						packedTextures->normalTexture = std::move(textureInfo);
+					} else if (error != Error::MissingField) {
+						return error;
+					}
+
+					material.packedOcclusionRoughnessMetallicTextures = std::move(packedTextures);
+				}
+			}
+
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
             if (hasBit(config.extensions, Extensions::KHR_materials_pbrSpecularGlossiness)) {
                 dom::object specularGlossinessObject;
