@@ -734,7 +734,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			fastgltf::span<std::uint32_t> indices { reinterpret_cast<std::uint32_t*>(generatedIndices.bytes.data()),
 													generatedIndices.bytes.size() / sizeof(std::uint32_t) };
 			for (std::size_t i = 0; i < positionAccessor.count; ++i) {
-				indices[i] = i;
+				indices[i] = static_cast<std::uint32_t>(i);
 			}
 
 			auto bufferIdx = asset.buffers.size();
