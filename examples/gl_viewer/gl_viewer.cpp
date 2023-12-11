@@ -415,9 +415,8 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
             }
         }
 
-        {
+        if (const auto* texcoord0 = it->findAttribute("TEXCOORD_0"); texcoord0 != it->attributes.end()) {
             // Tex coord
-			auto texcoord0 = it->findAttribute("TEXCOORD_0");
 			auto& texCoordAccessor = asset.accessors[texcoord0->second];
             if (!texCoordAccessor.bufferViewIndex.has_value())
                 continue;
