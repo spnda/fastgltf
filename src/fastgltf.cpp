@@ -783,6 +783,24 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		if (accessor.bufferViewIndex.has_value() &&
 		    accessor.bufferViewIndex.value() >= asset.bufferViews.size())
 			return Error::InvalidGltf;
+		if (accessor.byteOffset != 0) {
+			// The offset of an accessor into a bufferView (i.e., accessor.byteOffset)
+			// and the offset of an accessor into a buffer (i.e., accessor.byteOffset + bufferView.byteOffset)
+			// MUST be a multiple of the size of the accessor’s component type.
+			auto componentByteSize = getComponentBitSize(accessor.componentType) / 8;
+			if (accessor.byteOffset % componentByteSize != 0)
+				return Error::InvalidGltf;
+
+			if (accessor.bufferViewIndex.has_value()) {
+				const auto& bufferView = asset.bufferViews[accessor.bufferViewIndex.value()];
+				if ((accessor.byteOffset + bufferView.byteOffset) % componentByteSize != 0)
+					return Error::InvalidGltf;
+
+				// When byteStride is defined, it MUST be a multiple of the size of the accessor’s component type.
+				if (bufferView.byteStride.has_value() && bufferView.byteStride.value() % componentByteSize != 0)
+					return Error::InvalidGltf;
+			}
+		}
 
 		if (!std::holds_alternative<std::monostate>(accessor.max)) {
 			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
