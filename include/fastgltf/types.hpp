@@ -1440,12 +1440,12 @@ namespace fastgltf {
      */
     struct TextureTransform {
         /**
-         * The offset of the UV coordinate origin as a factor of the texture dimensions.
+         * Rotate the UVs by this many radians counter-clockwise around the origin. This is equivalent to a similar rotation of the image clockwise.
          */
         num rotation;
 
         /**
-         * Rotate the UVs by this many radians counter-clockwise around the origin. This is equivalent to a similar rotation of the image clockwise.
+         * The offset of the UV coordinate origin as a factor of the texture dimensions.
          */
         std::array<num, 2> uvOffset;
 
