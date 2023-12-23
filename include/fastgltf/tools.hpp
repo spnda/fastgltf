@@ -588,7 +588,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		return;
 	}
 
-	auto* dstBytes = reinterpret_cast<std::byte*>(dest);
+	auto* dstBytes = static_cast<std::byte*>(dest);
 
 	if (accessor.sparse && accessor.sparse->count > 0) {
 		return iterateAccessorWithIndex<ElementType>(asset, accessor, [&](auto&& value, std::size_t index) {

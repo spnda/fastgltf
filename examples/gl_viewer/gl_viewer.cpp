@@ -236,7 +236,7 @@ void cursorCallback(GLFWwindow* window, double xpos, double ypos) {
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     void* ptr = glfwGetWindowUserPointer(window);
     auto* viewer = static_cast<Viewer*>(ptr);
-    constexpr glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    static constexpr auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
     auto& acceleration = viewer->accelerationVector;
     switch (key) {

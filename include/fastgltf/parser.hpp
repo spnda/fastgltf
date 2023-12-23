@@ -359,9 +359,9 @@ namespace fastgltf {
 			++position;
 		}
 
-		for (const auto& extensionString : extensionStrings)
-			if (extensionString.second == extensions)
-				return extensionString.first;
+		for (const auto& [string, value] : extensionStrings)
+			if (value == extensions)
+				return string;
 		return "";
 	}
 
@@ -533,7 +533,7 @@ namespace fastgltf {
      * container format which has two or more chunks of binary data, where one represents buffers
      * and the other contains the JSON string.
      */
-    enum class GltfType {
+    enum class GltfType : std::uint8_t {
         glTF,
         GLB,
         Invalid,
@@ -607,7 +607,7 @@ namespace fastgltf {
          * Returns the size, in bytes,
          * @return
          */
-        [[nodiscard]] inline std::size_t getBufferSize() const noexcept {
+        [[nodiscard]] std::size_t getBufferSize() const noexcept {
 			return dataSize;
 		}
 
@@ -667,7 +667,7 @@ namespace fastgltf {
 		std::shared_ptr<ChunkMemoryResource> resourceAllocator;
 #endif
 		std::filesystem::path directory;
-		Options options;
+		Options options = Options::None;
 
 		static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 		static void fillCategories(Category& inputCategories) noexcept;

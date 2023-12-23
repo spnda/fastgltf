@@ -247,7 +247,7 @@ namespace fastgltf {
 #if FASTGLTF_HAS_CONCEPTS
     requires std::integral<T>
 #endif
-    [[gnu::const]] inline std::uint8_t clz(T value) {
+    [[gnu::const]] std::uint8_t clz(T value) {
         static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
         return static_cast<std::uint8_t>(std::countl_zero(value));
@@ -267,7 +267,7 @@ namespace fastgltf {
     }
 
 	template <typename T>
-	[[gnu::const]] inline std::uint8_t popcount(T value) {
+	[[gnu::const]] std::uint8_t popcount(T value) {
 		static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
 		return static_cast<std::uint8_t>(std::popcount(value));
@@ -327,6 +327,15 @@ namespace fastgltf {
         static_assert(std::is_enum_v<T>); \
         return static_cast<T>(op to_underlying(a)); \
     }
+
+	// Simple non-constexpr bit_cast implementation.
+	template<typename To, typename From>
+	To bit_cast(const From& from) noexcept {
+		static_assert(std::is_trivially_constructible_v<To>);
+		To dst;
+		std::memcpy(&dst, &from, sizeof(To));
+		return dst;
+	}
 } // namespace fastgltf
 
 #ifdef _MSC_VER

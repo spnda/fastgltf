@@ -108,7 +108,7 @@ TEST_CASE("Validate URI copying/moving", "[uri-tests]") {
 TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 	const std::string_view gltfString = R"({"images": [{"uri": "grande_sph\u00E8re.png"}]})";
 	fastgltf::GltfDataBuffer dataBuffer;
-	dataBuffer.copyBytes((uint8_t*) gltfString.data(), gltfString.size());
+	dataBuffer.copyBytes(reinterpret_cast<const uint8_t*>(gltfString.data()), gltfString.size());
 
 	fastgltf::Parser parser;
 	auto asset = parser.loadGLTF(&dataBuffer, "", fastgltf::Options::DontRequireValidAssetMember);

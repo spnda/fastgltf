@@ -180,7 +180,7 @@ namespace fastgltf {
         ElementArrayBuffer = 34963,
     };
 
-    enum class MimeType : std::uint16_t {
+    enum class MimeType : std::uint8_t {
         None = 0,
         JPEG = 1,
         PNG = 2,
@@ -190,7 +190,7 @@ namespace fastgltf {
         OctetStream = 6,
     };
 
-    enum class AnimationInterpolation : std::uint16_t {
+    enum class AnimationInterpolation : std::uint8_t {
         /**
          * The animated values are linearly interpolated between keyframes. When targeting a
          * rotation, spherical linear interpolation (slerp) SHOULD be used to interpolate quaternions.
@@ -210,7 +210,7 @@ namespace fastgltf {
         CubicSpline = 2,
     };
 
-    enum class AnimationPath : std::uint16_t {
+    enum class AnimationPath : std::uint8_t {
         /**
          * The values are the translation along the X, Y, and Z axes.
          */
@@ -293,21 +293,23 @@ namespace fastgltf {
      * Gets the number of components for each element for the given accessor type. For example, with
      * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
      */
-    constexpr std::uint8_t getNumComponents(AccessorType type) noexcept {
-        return (to_underlying(type) >> 8U) & 0xFFU;
+    constexpr auto getNumComponents(AccessorType type) noexcept {
+    	static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint16_t>);
+        return static_cast<std::uint8_t>(to_underlying(type) >> 8U);
     }
 
-    constexpr std::uint16_t getComponentBitSize(ComponentType componentType) noexcept {
-        auto masked = to_underlying(componentType) & 0xFFFF0000;
-        return static_cast<std::uint16_t>(masked >> 16U);
+    constexpr auto getComponentBitSize(ComponentType componentType) noexcept {
+    	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
+    	return static_cast<std::uint16_t>(to_underlying(componentType) >> 16U);
     }
 
-    constexpr std::uint16_t getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
+    constexpr auto getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
         return static_cast<std::uint16_t>(getNumComponents(type)) * (getComponentBitSize(componentType) / 8);
     }
 
-    constexpr std::uint16_t getGLComponentType(ComponentType type) noexcept {
-        return to_underlying(type) & 0xFFFF;
+    constexpr auto getGLComponentType(ComponentType type) noexcept {
+    	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
+        return static_cast<std::uint16_t>(to_underlying(type));
     }
 
     /**
@@ -328,10 +330,11 @@ namespace fastgltf {
         ComponentType::Double,
     };
 
-    constexpr ComponentType getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
+    constexpr auto getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
         const auto index = componentType - getGLComponentType(ComponentType::Byte);
-        if (index >= components.size())
+        if (index >= components.size()) {
             return ComponentType::Invalid;
+		}
         return components[index];
     }
 
@@ -349,25 +352,27 @@ namespace fastgltf {
     /**
      * Gets the AccessorType by its string representation found in glTF files.
      */
-    constexpr AccessorType getAccessorType(std::string_view accessorTypeName) noexcept {
+    constexpr auto getAccessorType(std::string_view accessorTypeName) noexcept {
         assert(!accessorTypeName.empty());
         switch (accessorTypeName[0]) {
             case 'S': return AccessorType::Scalar;
             case 'V': {
-                auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-                if (componentCount + 1 >= accessorTypes.size())
+                const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
+                if (componentCount + 1 >= accessorTypes.size()) {
                     return AccessorType::Invalid;
+                }
                 return accessorTypes[componentCount + 1];
             }
             case 'M': {
-                auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-                if (componentCount + 4 >= accessorTypes.size())
+                const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
+                if (componentCount + 4 >= accessorTypes.size()) {
                     return AccessorType::Invalid;
+                }
                 return accessorTypes[componentCount + 4];
             }
+        	default:
+        		return AccessorType::Invalid;
         }
-
-        return AccessorType::Invalid;
     }
 #pragma endregion
 
@@ -535,7 +540,7 @@ namespace fastgltf {
             }
 
             // We use geometric growth, similarly to std::vector.
-            newCapacity = std::size_t(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
+            newCapacity = std::size_t(1) << std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity);
 
 			T* alloc = allocator.allocate(newCapacity);
 
@@ -677,8 +682,8 @@ namespace fastgltf {
             // We reserve enough capacity for the new element, and then just increment the size.
 			reserve(_size + 1);
 			++_size;
-            T& result = *(new (std::addressof(back())) T(std::forward<Args>(args)...));
-            return (result);
+            new (std::addressof(back())) T(std::forward<Args>(args)...);
+            return (back());
         }
 
         [[nodiscard]] T& at(std::size_t idx) {
@@ -961,12 +966,14 @@ namespace fastgltf {
 		template <typename... Args>
 		T& emplace(Args&&... args) {
 			new (std::addressof(_value)) T(std::forward<Args>(args)...);
+			return _value;
 		}
 
 		template <typename U, typename... Args>
 		T& emplace(std::initializer_list<U> list, Args&&... args) {
 			static_assert(std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>);
 			new (std::addressof(_value)) T(list, std::forward<Args>(args)...);
+			return _value;
 		}
 
 		explicit operator bool() const noexcept {
@@ -1010,22 +1017,22 @@ namespace fastgltf {
 
 	template <typename T, typename U>
 	bool operator<(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && (*opt) < value;
+		return opt.has_value() && *opt < value;
 	}
 
 	template <typename T, typename U>
 	bool operator<=(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && (*opt) <= value;
+		return opt.has_value() && *opt <= value;
 	}
 
 	template <typename T, typename U>
 	bool operator>(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && (*opt) > value;
+		return opt.has_value() && *opt > value;
 	}
 
 	template <typename T, typename U>
 	bool operator>=(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && (*opt) >= value;
+		return opt.has_value() && *opt >= value;
 	}
 
 	/**
@@ -1122,7 +1129,7 @@ namespace fastgltf {
 
 		explicit URI(std::string uri) noexcept;
 		explicit URI(std::string_view uri) noexcept;
-		explicit URI(URIView view) noexcept;
+		explicit URI(const URIView& view) noexcept;
 
 		URI(const URI& other);
 		URI(URI&& other) noexcept;
@@ -1394,7 +1401,7 @@ namespace fastgltf {
         Optional<std::size_t> materialIndex;
 
 		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
-			for (decltype(attributes)::iterator it = attributes.begin(); it != attributes.end(); ++it) {
+			for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 				if (it->first == name)
 					return it;
 			}
@@ -1402,7 +1409,7 @@ namespace fastgltf {
 		}
 
 		[[nodiscard]] auto findAttribute(std::string_view name) const noexcept {
-			for (decltype(attributes)::const_iterator it = attributes.cbegin(); it != attributes.cend(); ++it) {
+			for (auto it = attributes.cbegin(); it != attributes.cend(); ++it) {
 				if (it->first == name)
 					return it;
 			}
@@ -1411,7 +1418,7 @@ namespace fastgltf {
 
 		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) noexcept {
 			auto& targetAttributes = targets[targetIndex];
-			for (std::remove_reference_t<decltype(targetAttributes)>::iterator it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
+			for (auto it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
 				if (it->first == name)
 					return it;
 			}
@@ -1420,7 +1427,7 @@ namespace fastgltf {
 
 		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) const noexcept {
 			const auto& targetAttributes = targets[targetIndex];
-			for (std::remove_reference_t<decltype(targetAttributes)>::const_iterator it = targetAttributes.cbegin(); it != targetAttributes.cend(); ++it) {
+			for (auto it = targetAttributes.cbegin(); it != targetAttributes.cend(); ++it) {
 				if (it->first == name)
 					return it;
 			}

@@ -76,7 +76,7 @@ void setTinyGLTFCallbacks(tinygltf::TinyGLTF& gltf) {
 #include <assimp/Base64.hpp>
 #endif
 
-std::vector<uint8_t> readFileAsBytes(std::filesystem::path path) {
+std::vector<uint8_t> readFileAsBytes(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error(std::string { "Failed to open file: " } + path.string());
@@ -357,7 +357,7 @@ TEST_CASE("Compare base64 decoding performance", "[gltf-benchmark]") {
 	// We'll generate a random base64 buffer
 	std::random_device device;
 	std::mt19937 gen(device());
-	std::uniform_int_distribution<> distribution(0, base64Characters.size() - 1);
+	std::uniform_int_distribution<std::size_t> distribution(0, base64Characters.size() - 1);
 	std::string generatedData;
 	generatedData.reserve(bufferSize);
 	for (std::size_t i = 0; i < bufferSize; ++i) {
