@@ -303,7 +303,10 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
 			fastgltf::Options::GenerateMeshIndices;
 
         fastgltf::GltfDataBuffer data;
-        data.loadFromFile(path);
+        if (!data.loadFromFile(path)) {
+			std::cerr << "Failed to load file from path" << '\n';
+			return false;
+		}
 
         auto type = fastgltf::determineGltfFileType(&data);
 		fastgltf::Expected<fastgltf::Asset> asset(fastgltf::Error::None);
@@ -585,7 +588,11 @@ int main(int argc, char* argv[]) {
 
     glfwWindowHint(GLFW_SAMPLES, 4);
 
-    GLFWwindow* window = glfwCreateWindow(static_cast<int>(static_cast<float>(vidMode->width) * 0.9f), static_cast<int>(static_cast<float>(vidMode->height) * 0.9f), "gl_viewer", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(
+		static_cast<int>(static_cast<float>(vidMode->width) * 0.9f),
+		static_cast<int>(static_cast<float>(vidMode->height) * 0.9f),
+		"gl_viewer", nullptr, nullptr);
+
     if (window == nullptr) {
         std::cerr << "Failed to create window" << '\n';
         return -1;

@@ -12,6 +12,11 @@ example_deps_urls = {
     'glm': "https://github.com/g-truc/glm/releases/download/0.9.9.8/glm-0.9.9.8.zip",
     'stb': "https://github.com/nothings/stb/archive/refs/heads/master.zip",
     'glad': "https://github.com/Dav1dde/glad/archive/refs/heads/glad2.zip",
+    'vulkan-headers': "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/heads/main.zip",
+    'volk': "https://github.com/zeux/volk/archive/refs/heads/master.zip",
+    'vk-bootstrap': "https://github.com/charles-lunarg/vk-bootstrap/archive/refs/heads/main.zip",
+    'vulkanmemoryallocator': "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/archive/refs/tags/v3.0.1.zip",
+    'enkits': "https://github.com/dougbinks/enkiTS/archive/refs/heads/master.zip",
 }
 test_deps_urls = {
     'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.3.2.zip",

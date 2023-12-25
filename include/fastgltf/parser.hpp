@@ -591,17 +591,17 @@ namespace fastgltf {
          * with the copyBytes method. Also, it will set the padding bytes all to 0, so be sure to
          * not use that for any other data.
          */
-        bool fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept;
+        [[nodiscard]] bool fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept;
 
         /**
          * This will create a copy of the passed bytes and allocate an adequately sized buffer.
          */
-        bool copyBytes(const std::uint8_t* bytes, std::size_t byteCount) noexcept;
+        [[nodiscard]] bool copyBytes(const std::uint8_t* bytes, std::size_t byteCount) noexcept;
 
         /**
          * Loads the file with a optional byte offset into a memory buffer.
          */
-        bool loadFromFile(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
+        [[nodiscard]] bool loadFromFile(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
 
         /**
          * Returns the size, in bytes,

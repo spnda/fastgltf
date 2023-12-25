@@ -26,8 +26,12 @@ The **fastgltf** library is licensed under the MIT License.
 Libraries embedded in fastgltf:
 - [simdjson](https://github.com/simdjson/simdjson): Licensed under Apache 2.0.
 
-Libraries used in examples and tests:
+Libraries used in examples and tests, but not included in this repository:
 - [Catch2](https://github.com/catchorg/Catch2): Licensed under BSL-1.0.
+- [enkiTS](https://github.com/dougbinks/enkiTS): Licensed under Zlib.
 - [glad](https://github.com/Dav1dde/glad): Licensed under MIT.
 - [glfw](https://github.com/glfw/glfw): Licensed under Zlib.
 - [glm](https://github.com/g-truc/glm): Licensed under MIT.
+- [volk](https://github.com/zeux/volk): Licensed under MIT.
+- [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers): Licensed under MIT/Apache 2.
+- [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator): Licensed under MIT.
