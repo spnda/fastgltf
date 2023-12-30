@@ -3504,12 +3504,22 @@ void fg::Parser::setUserPointer(void* pointer) noexcept {
 }
 #pragma endregion
 
-#pragma region Composer
-fg::Error fg::Composer::getError() const {
-	return errorCode;
+#pragma region Exporter
+void fg::Exporter::setBufferPath(std::filesystem::path folder) {
+    if (!folder.is_relative()) {
+        return;
+    }
+    bufferFolder = std::move(folder);
 }
 
-void fg::Composer::writeAccessors(std::string& json) {
+void fg::Exporter::setImagePath(std::filesystem::path folder) {
+    if (!folder.is_relative()) {
+        return;
+    }
+    bufferFolder = std::move(folder);
+}
+
+void fg::Exporter::writeAccessors(std::string& json) {
 	if (asset->accessors.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3564,7 +3574,7 @@ void fg::Composer::writeAccessors(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeBuffers(std::string& json) {
+void fg::Exporter::writeBuffers(std::string& json) {
 	if (asset->buffers.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3574,19 +3584,25 @@ void fg::Composer::writeBuffers(std::string& json) {
 	for (auto it = asset->buffers.begin(); it != asset->buffers.end(); ++it) {
 		json += '{';
 
+        auto bufferIdx = std::distance(asset->buffers.begin(), it);
 		std::visit(visitor {
 			[&](auto arg) {
 				// Covers BufferView and CustomBuffer.
 				errorCode = Error::InvalidGltf;
 			},
 			[&](const sources::Vector& vector) {
-				// Either we write to a file or we encode the data as a base64 data uri.
+                auto path = getBufferFilePath(bufferIdx);
+                json += std::string(R"("uri":")") + path.string() + '"' + ',';
+                bufferPaths.emplace_back(path);
 			},
 			[&](const sources::ByteView& view) {
-				// Same as above.
+                auto path = getBufferFilePath(bufferIdx);
+                json += std::string(R"("uri":")") + path.string() + '"' + ',';
+                bufferPaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + std::string(uri.uri.string()) + '"' + ',';
+                bufferPaths.emplace_back(std::nullopt);
 			}
 		}, it->data);
 
@@ -3601,7 +3617,7 @@ void fg::Composer::writeBuffers(std::string& json) {
 	json += "]";
 }
 
-void fg::Composer::writeBufferViews(std::string& json) {
+void fg::Exporter::writeBufferViews(std::string& json) {
 	if (asset->bufferViews.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3636,7 +3652,7 @@ void fg::Composer::writeBufferViews(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeCameras(std::string& json) {
+void fg::Exporter::writeCameras(std::string& json) {
 	if (asset->cameras.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3685,7 +3701,7 @@ void fg::Composer::writeCameras(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeImages(std::string& json) {
+void fg::Exporter::writeImages(std::string& json) {
 	if (asset->images.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3695,12 +3711,23 @@ void fg::Composer::writeImages(std::string& json) {
 	for (auto it = asset->images.begin(); it != asset->images.end(); ++it) {
 		json += '{';
 
+        auto imageIdx = std::distance(asset->images.begin(), it);
 		std::visit(visitor {
 			[&](auto arg) {
 				errorCode = Error::InvalidGltf;
 			},
+            [&](const sources::BufferView& bufferView) {
+                json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + '"';
+                imagePaths.emplace_back(std::nullopt);
+            },
+            [&](const sources::Vector& vector) {
+                auto path = getImageFilePath(imageIdx, vector.mimeType);
+                json += std::string(R"("uri":")") + path.string() + '"';
+                imagePaths.emplace_back(path);
+            },
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + std::string(uri.uri.string()) + '"';
+                imagePaths.emplace_back(std::nullopt);
 			},
 		}, it->data);
 
@@ -3713,7 +3740,7 @@ void fg::Composer::writeImages(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeLights(std::string& json) {
+void fg::Exporter::writeLights(std::string& json) {
 	if (asset->lights.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3770,7 +3797,7 @@ void fg::Composer::writeLights(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeMaterials(std::string& json) {
+void fg::Exporter::writeMaterials(std::string& json) {
 	if (asset->materials.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3868,7 +3895,7 @@ void fg::Composer::writeMaterials(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeMeshes(std::string& json) {
+void fg::Exporter::writeMeshes(std::string& json) {
 	if (asset->meshes.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -3935,7 +3962,7 @@ void fg::Composer::writeMeshes(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeNodes(std::string& json) {
+void fg::Exporter::writeNodes(std::string& json) {
 	if (asset->nodes.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -4037,7 +4064,7 @@ void fg::Composer::writeNodes(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeSamplers(std::string& json) {
+void fg::Exporter::writeSamplers(std::string& json) {
 	if (asset->samplers.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -4074,7 +4101,7 @@ void fg::Composer::writeSamplers(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeScenes(std::string& json) {
+void fg::Exporter::writeScenes(std::string& json) {
 	if (asset->scenes.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -4107,7 +4134,7 @@ void fg::Composer::writeScenes(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeSkins(std::string& json) {
+void fg::Exporter::writeSkins(std::string& json) {
 	if (asset->skins.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -4142,7 +4169,7 @@ void fg::Composer::writeSkins(std::string& json) {
 	json += ']';
 }
 
-void fg::Composer::writeTextures(std::string& json) {
+void fg::Exporter::writeTextures(std::string& json) {
 	if (asset->textures.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
@@ -4186,51 +4213,135 @@ void fg::Composer::writeTextures(std::string& json) {
 	json += ']';
 }
 
-std::string fg::Composer::writeGLTF(const fastgltf::Asset* pAsset) {
-	assert(pAsset != nullptr);
-	asset = pAsset;
-
-	// Fairly rudimentary approach of just composing the JSON string using a std::string.
-	std::string outputString;
-
-	outputString += "{";
-
-	// Write asset info
-	outputString += "\"asset\":{";
-	if (asset->assetInfo.has_value()) {
-		if (!asset->assetInfo->copyright.empty())
-			outputString += R"("copyright":")" + asset->assetInfo->copyright + "\",";
-		if (!asset->assetInfo->generator.empty())
-			outputString += R"("generator":")" + asset->assetInfo->generator + "\",";
-		outputString += R"("version":")" + asset->assetInfo->gltfVersion + '"';
-	} else {
-		outputString += R"("generator":"fastgltf",)";
-		outputString += R"("version":"2.0")";
-	}
-	outputString += '}';
-
-	writeAccessors(outputString);
-	writeBuffers(outputString);
-	writeBufferViews(outputString);
-	writeCameras(outputString);
-	writeImages(outputString);
-	writeLights(outputString);
-	writeMaterials(outputString);
-	writeMeshes(outputString);
-	writeNodes(outputString);
-	writeSamplers(outputString);
-	writeScenes(outputString);
-	writeSkins(outputString);
-	writeTextures(outputString);
-
-	outputString += "}";
-
-	return outputString;
+fs::path fg::Exporter::getBufferFilePath(std::size_t index) {
+    const auto& bufferName = asset->buffers[index].name;
+    std::string name = bufferName.empty() ? "buffer" : std::string(bufferName);
+    return bufferFolder / (name + std::to_string(index) + ".bin");
 }
 
-void fg::Composer::writeBinaryGLTF(const fastgltf::Asset* asset) {
-	assert(asset != nullptr);
+fs::path fg::Exporter::getImageFilePath(std::size_t index, MimeType mimeType) {
+    std::string_view extension;
+    switch (mimeType) {
+        default:
+        case MimeType::None:
+            extension = ".bin";
+            break;
+        case MimeType::JPEG:
+            extension = ".jpeg";
+            break;
+        case MimeType::PNG:
+            extension = ".png";
+            break;
+    }
 
+    const auto& imageName = asset->images[index].name;
+    std::string name = imageName.empty() ? "image" : std::string(imageName);
+    return imageFolder / (name + std::to_string(index) + std::string(extension));
+}
+
+fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset* pAsset) {
+    assert(pAsset != nullptr);
+    asset = pAsset;
+
+    bufferPaths.clear();
+    imagePaths.clear();
+
+    // Fairly rudimentary approach of just composing the JSON string using a std::string.
+    std::string outputString;
+
+    outputString += "{";
+
+    // Write asset info
+    outputString += "\"asset\":{";
+    if (asset->assetInfo.has_value()) {
+        if (!asset->assetInfo->copyright.empty())
+            outputString += R"("copyright":")" + asset->assetInfo->copyright + "\",";
+        if (!asset->assetInfo->generator.empty())
+            outputString += R"("generator":")" + asset->assetInfo->generator + "\",";
+        outputString += R"("version":")" + asset->assetInfo->gltfVersion + '"';
+    } else {
+        outputString += R"("generator":"fastgltf",)";
+        outputString += R"("version":"2.0")";
+    }
+    outputString += '}';
+
+    writeAccessors(outputString);
+    writeBuffers(outputString);
+    writeBufferViews(outputString);
+    writeCameras(outputString);
+    writeImages(outputString);
+    writeLights(outputString);
+    writeMaterials(outputString);
+    writeMeshes(outputString);
+    writeNodes(outputString);
+    writeSamplers(outputString);
+    writeScenes(outputString);
+    writeSkins(outputString);
+    writeTextures(outputString);
+
+    outputString += "}";
+
+    if (errorCode != Error::None) {
+        return Expected<ExportResult<std::string>> { errorCode };
+    }
+
+    ExportResult<std::string> result;
+    result.output = std::move(outputString);
+    result.bufferPaths = std::move(bufferPaths);
+    result.imagePaths = std::move(imagePaths);
+    return Expected { std::move(result) };
+}
+
+fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeBinaryGLTF(const Asset* pAsset) {
+    assert(pAsset != nullptr);
+
+    bufferPaths.clear();
+    imagePaths.clear();
+
+    ExportResult<std::vector<std::byte>> result;
+    // result.output = std::move(outputString);
+    result.bufferPaths = std::move(bufferPaths);
+    result.imagePaths = std::move(imagePaths);
+    return Expected { std::move(result) };
+}
+
+fg::Error fg::FileExporter::writeGLTF(const Asset* pAsset, fs::path target) {
+    assert(pAsset != nullptr);
+
+    auto expected = Exporter::writeGLTF(pAsset);
+
+    if (!expected) {
+        return expected.error();
+    }
+    auto& result = expected.get();
+
+    std::ofstream file(target, std::ios::out);
+    if (!file.is_open()) {
+        return fg::Error::InvalidPath;
+    }
+
+    file << result.output;
+    file.close();
+
+    writeFiles(result, target.parent_path());
+    return Error::None;
+}
+
+fg::Error fg::FileExporter::writeBinaryGLTF(const Asset* pAsset, fs::path target) {
+	assert(pAsset != nullptr);
+    auto expected = Exporter::writeBinaryGLTF(pAsset);
+
+    if (!expected) {
+        return expected.error();
+    }
+    auto& result = expected.get();
+
+    std::ofstream file(target, std::ios::out | std::ios::binary);
+    file.write(reinterpret_cast<const char*>(result.output.data()),
+               static_cast<std::streamsize>(result.output.size()));
+
+    writeFiles(result, target.parent_path());
+    return Error::None;
 }
 #pragma endregion
 

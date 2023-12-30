@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <fstream>
 #include <memory>
 #include <tuple>
 
@@ -763,32 +764,123 @@ namespace fastgltf {
         void setUserPointer(void* pointer) noexcept;
     };
 
-	/**
-	 * A composer for serializing one or more glTF files into JSON and GLB forms.
-	 */
-	class Composer {
-		Error errorCode = Error::None;
-		const Asset* asset = nullptr;
+    template <typename T>
+    struct ExportResult {
+        T output;
 
-		void writeAccessors(std::string& json);
-		void writeBuffers(std::string& json);
-		void writeBufferViews(std::string& json);
-		void writeCameras(std::string& json);
-		void writeImages(std::string& json);
-		void writeLights(std::string& json);
-		void writeMaterials(std::string& json);
-		void writeMeshes(std::string& json);
-		void writeNodes(std::string& json);
-		void writeSamplers(std::string& json);
-		void writeScenes(std::string& json);
-		void writeSkins(std::string& json);
-		void writeTextures(std::string& json);
+        std::vector<std::optional<std::filesystem::path>> bufferPaths;
+        std::vector<std::optional<std::filesystem::path>> imagePaths;
+    };
+
+    /**
+     * A exporter for serializing one or more glTF files into JSON and GLB forms.
+     */
+    class Exporter {
+    protected:
+        Error errorCode = Error::None;
+        const Asset* asset = nullptr;
+
+        std::filesystem::path bufferFolder = "";
+        std::filesystem::path imageFolder = "";
+
+        std::vector<std::optional<std::filesystem::path>> bufferPaths;
+        std::vector<std::optional<std::filesystem::path>> imagePaths;
+
+        void writeAccessors(std::string& json);
+        void writeBuffers(std::string& json);
+        void writeBufferViews(std::string& json);
+        void writeCameras(std::string& json);
+        void writeImages(std::string& json);
+        void writeLights(std::string& json);
+        void writeMaterials(std::string& json);
+        void writeMeshes(std::string& json);
+        void writeNodes(std::string& json);
+        void writeSamplers(std::string& json);
+        void writeScenes(std::string& json);
+        void writeSkins(std::string& json);
+        void writeTextures(std::string& json);
+
+        std::filesystem::path getBufferFilePath(std::size_t index);
+        std::filesystem::path getImageFilePath(std::size_t index, MimeType mimeType);
+
+    public:
+        /**
+         * Sets the base folder where images URIs should be based of from,
+         * relative to the glTF's directory.
+         *
+         * If folder.is_relative() returns false, this has no effect.
+         */
+        void setBufferPath(std::filesystem::path folder);
+        /**
+         * Sets the base folder where images URIs should be based of from,
+         * relative to the glTF's directory.
+         *
+         * If folder.is_relative() returns false, this has no effect.
+         */
+        void setImagePath(std::filesystem::path folder);
+
+        /**
+         * Converts the Asset into a glTF JSON string.
+         */
+        Expected<ExportResult<std::string>> writeGLTF(const Asset* asset);
+        Expected<ExportResult<std::vector<std::byte>>> writeBinaryGLTF(const Asset* asset);
+    };
+
+	/**
+	 * A exporter for serializing one or more glTF files into JSON and GLB forms.
+	 * This exporter builds upon Exporter by writing all files automatically to the
+	 * given paths.
+	 */
+	class FileExporter : public Exporter {
+        template <typename T>
+        void writeFiles(ExportResult<T>& result, std::filesystem::path baseFolder) {
+            for (std::size_t i = 0; i < asset->buffers.size(); ++i) {
+                auto& path = result.bufferPaths[i];
+                if (!path.has_value()) {
+                    continue;
+                }
+
+                std::visit(visitor {
+                        [&](auto& arg) {},
+                        [&](const fastgltf::sources::Vector& vector) {
+                            std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+                            file.write(reinterpret_cast<const char*>(vector.bytes.data()),
+                                       static_cast<std::streamsize>(vector.bytes.size()));
+                            file.close();
+                        },
+                        [&](const sources::ByteView& view) {
+                            std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+                            file.write(reinterpret_cast<const char*>(view.bytes.data()),
+                                       static_cast<std::streamsize>(view.bytes.size()));
+                            file.close();
+                        },
+                }, asset->buffers[i].data);
+            }
+
+            for (std::size_t i = 0; i < asset->images.size(); ++i) {
+                auto& path = result.imagePaths[i];
+                if (!path.has_value()) {
+                    continue;
+                }
+
+                std::visit(visitor {
+                        [&](auto& arg) {},
+                        [&](const fastgltf::sources::Vector& vector) {
+                            std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+                            file.write(reinterpret_cast<const char*>(vector.bytes.data()),
+                                       static_cast<std::streamsize>(vector.bytes.size()));
+                            file.close();
+                        },
+                }, asset->images[i].data);
+            }
+        }
+
+        using Exporter::writeGLTF;
+        using Exporter::writeBinaryGLTF;
 
 	public:
-		[[nodiscard]] Error getError() const;
-
-		std::string writeGLTF(const Asset* asset);
-		void writeBinaryGLTF(const Asset* asset);
+		Error writeGLTF(const Asset* asset, std::filesystem::path target);
+        Error writeBinaryGLTF(const Asset* asset, std::filesystem::path target);
 	};
 } // namespace fastgltf
 

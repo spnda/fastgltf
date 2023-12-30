@@ -146,7 +146,7 @@ Reading & Writing
 ======
 
 This section contains all types that one requires to read or write a glTF file using fastgltf.
-This includes the Parser class, Composer class, options, and data buffers.
+This includes the Parser class, Exporter class, options, and data buffers.
 
 
 Error
@@ -208,13 +208,16 @@ Parser
    :members:
 
 
-Composer
+Exporter
 --------
 
-.. doxygenclass:: fastgltf::Composer
+.. doxygenclass:: fastgltf::Exporter
    :members:
    :undoc-members:
 
+.. doxygenclass:: fastgltf::FileExporter
+   :members:
+   :undoc-members:
 
 Utility
 =======

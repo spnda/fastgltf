@@ -32,6 +32,7 @@ tests/gltf/good-froge/
 tests/gltf/deccer-cubes/
 tests/gltf/bistro/
 tests/gltf_loaders/
+tests/gltf/export
 
 # gltf Rust wrapper
 tests/gltf-rs/target
