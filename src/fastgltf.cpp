@@ -3558,7 +3558,7 @@ void fg::Exporter::writeAccessors(std::string& json) {
 							json += ',';
 					}
 				}
-			}, it->max);
+			}, ref);
 			json += ']';
 		};
 		writeMinMax(it->max, "max");
@@ -3987,6 +3987,8 @@ void fg::Exporter::writeNodes(std::string& json) {
 		}
 
 		if (!it->children.empty()) {
+            if (json.back() != '{')
+                json += ',';
 			json += R"("children":[)";
 			auto itc = it->children.begin();
 			while (itc != it->children.end()) {
@@ -3999,8 +4001,8 @@ void fg::Exporter::writeNodes(std::string& json) {
 		}
 
 		if (!it->weights.empty()) {
-			if (json.back() != ',')
-				json += ',';
+            if (json.back() != '{')
+                json += ',';
 			json += R"("weights":[)";
 			auto itw = it->weights.begin();
 			while (itw != it->weights.end()) {
@@ -4015,31 +4017,31 @@ void fg::Exporter::writeNodes(std::string& json) {
 		std::visit(visitor {
 			[&](const Node::TRS& trs) {
 				if (trs.rotation != std::array<float, 4>{{.0f, .0f, .0f, 1.0f}}) {
-					if (json.back() != ',')
-						json += ',';
+                    if (json.back() != '{')
+                        json += ',';
 					json += R"("rotation":[)";
 					json += std::to_string(trs.rotation[0]) + ',' + std::to_string(trs.rotation[1]) + ',' + std::to_string(trs.rotation[2]) + ',' + std::to_string(trs.rotation[3]);
 					json += "]";
 				}
 
 				if (trs.scale != std::array<float, 3>{{1.0f, 1.0f, 1.0f}}) {
-					if (json.back() != ',')
-						json += ',';
+                    if (json.back() != '{')
+                        json += ',';
 					json += R"("scale":[)";
 					json += std::to_string(trs.scale[0]) + ',' + std::to_string(trs.scale[1]) + ',' + std::to_string(trs.scale[2]);
 					json += "]";
 				}
 
 				if (trs.translation != std::array<float, 3>{{.0f, .0f, .0f}}) {
-					if (json.back() != ',')
-						json += ',';
+                    if (json.back() != '{')
+                        json += ',';
 					json += R"("translation":[)";
 					json += std::to_string(trs.translation[0]) + ',' + std::to_string(trs.translation[1]) + ',' + std::to_string(trs.translation[2]);
 					json += "]";
 				}
 			},
 			[&](const Node::TransformMatrix& matrix) {
-				if (json.back() != ',')
+				if (json.back() != '{')
 					json += ',';
 				json += R"("matrix":[)";
 				for (std::size_t i = 0; i < matrix.size(); ++i) {
@@ -4053,8 +4055,8 @@ void fg::Exporter::writeNodes(std::string& json) {
 		}, it->transform);
 
 		if (!it->name.empty()) {
-			if (json.back() != ',')
-				json += ',';
+            if (json.back() != '{')
+                json += ',';
 			json += R"("name":")" + it->name + '"';
 		}
 		json += '}';
