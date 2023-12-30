@@ -540,7 +540,7 @@ namespace fastgltf {
             }
 
             // We use geometric growth, similarly to std::vector.
-            newCapacity = std::size_t(1) << std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity);
+            newCapacity = std::size_t(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
 
 			T* alloc = allocator.allocate(newCapacity);
 

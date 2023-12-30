@@ -305,17 +305,7 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         fastgltf::GltfDataBuffer data;
         data.loadFromFile(path);
 
-        auto type = fastgltf::determineGltfFileType(&data);
-		fastgltf::Expected<fastgltf::Asset> asset(fastgltf::Error::None);
-        if (type == fastgltf::GltfType::glTF) {
-	        asset = parser.loadGLTF(&data, path.parent_path(), gltfOptions);
-        } else if (type == fastgltf::GltfType::GLB) {
-	        asset = parser.loadBinaryGLTF(&data, path.parent_path(), gltfOptions);
-        } else {
-            std::cerr << "Failed to determine glTF container" << '\n';
-            return false;
-        }
-
+        auto asset = parser.loadGltf(&data, path.parent_path(), gltfOptions);
         if (asset.error() != fastgltf::Error::None) {
             std::cerr << "Failed to load glTF: " << fastgltf::getErrorMessage(asset.error()) << '\n';
             return false;

@@ -3344,7 +3344,21 @@ fg::Parser& fg::Parser::operator=(Parser&& other) noexcept {
 
 fg::Parser::~Parser() = default;
 
-fg::Expected<fg::Asset> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
+fg::Expected<fg::Asset> fg::Parser::loadGltf(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
+    auto type = fastgltf::determineGltfFileType(buffer);
+
+    if (type == fastgltf::GltfType::glTF) {
+        return loadGltfJson(buffer, std::move(directory), options, categories);
+    }
+
+    if (type == fastgltf::GltfType::GLB) {
+        return loadGltfBinary(buffer, std::move(directory), options, categories);
+    }
+
+    return Expected<Asset> { Error::InvalidFileData };
+}
+
+fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
     using namespace simdjson;
 
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
@@ -3353,7 +3367,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path di
     }
 
 	this->options = options;
-	this->directory = directory;
+	this->directory = std::move(directory);
 
     // If we own the allocation of the JSON data, we'll try to minify the JSON, which, in most cases,
     // will speed up the parsing by a small amount.
@@ -3377,7 +3391,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGLTF(GltfDataBuffer* buffer, fs::path di
 	return parse(root, categories);
 }
 
-fg::Expected<fg::Asset> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
+fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
     using namespace simdjson;
 
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
@@ -3386,7 +3400,7 @@ fg::Expected<fg::Asset> fg::Parser::loadBinaryGLTF(GltfDataBuffer* buffer, fs::p
     }
 
 	this->options = options;
-	this->directory = directory;
+    this->directory = std::move(directory);
 
 	std::size_t offset = 0UL;
     auto read = [&buffer, &offset](void* dst, std::size_t size) mutable {

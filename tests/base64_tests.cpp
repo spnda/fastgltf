@@ -78,7 +78,7 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     REQUIRE(btJsonData->loadFromFile(boxTextured / "BoxTextured.gltf"));
 
     SECTION("Validate large buffer load from glTF") {
-        auto asset = parser.loadGLTF(tceJsonData.get(), cylinderEngine, fastgltf::Options::None, fastgltf::Category::Buffers);
+        auto asset = parser.loadGltfJson(tceJsonData.get(), cylinderEngine, fastgltf::Options::None, fastgltf::Category::Buffers);
         REQUIRE(asset.error() == fastgltf::Error::None);
 
         REQUIRE(asset->buffers.size() == 1);
@@ -93,7 +93,7 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     }
 
     SECTION("Validate base64 buffer and image load from glTF") {
-        auto asset = parser.loadGLTF(btJsonData.get(), boxTextured, fastgltf::Options::None, fastgltf::Category::Images | fastgltf::Category::Buffers);
+        auto asset = parser.loadGltfJson(btJsonData.get(), boxTextured, fastgltf::Options::None, fastgltf::Category::Images | fastgltf::Category::Buffers);
         REQUIRE(asset.error() == fastgltf::Error::None);
 
         REQUIRE(asset->buffers.size() == 1);

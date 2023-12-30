@@ -57,7 +57,7 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
     REQUIRE(jsonData.loadFromFile(lightsLamp / "LightsPunctualLamp.gltf"));
 
     fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
-    auto asset = parser.loadGLTF(&jsonData, lightsLamp, fastgltf::Options::LoadExternalBuffers,
+    auto asset = parser.loadGltfJson(&jsonData, lightsLamp, fastgltf::Options::LoadExternalBuffers,
 								 fastgltf::Category::Buffers | fastgltf::Category::BufferViews | fastgltf::Category::Accessors);
     REQUIRE(asset.error() == fastgltf::Error::None);
 
@@ -133,7 +133,7 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
     REQUIRE(jsonData->loadFromFile(simpleSparseAccessor / "SimpleSparseAccessor.gltf"));
 
     fastgltf::Parser parser;
-    auto asset = parser.loadGLTF(jsonData.get(), simpleSparseAccessor, fastgltf::Options::LoadExternalBuffers,
+    auto asset = parser.loadGltfJson(jsonData.get(), simpleSparseAccessor, fastgltf::Options::LoadExternalBuffers,
 								 fastgltf::Category::Buffers | fastgltf::Category::BufferViews | fastgltf::Category::Accessors);
     REQUIRE(asset.error() == fastgltf::Error::None);
 

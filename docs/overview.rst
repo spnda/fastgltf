@@ -137,10 +137,10 @@ The following snippet illustrates how to use fastgltf to load a glTF file.
        fastgltf::GltfDataBuffer data;
        data.loadFromFile(path);
 
-       // This loads the glTF file into the gltf object and parses the JSON. For GLB files, use
-       // Parser::loadBinaryGLTF instead.
-       // You can detect the type of glTF using fastgltf::determineGltfFileType.
-       auto asset = parser.loadGLTF(&data, path.parent_path(), fastgltf::Options::None);
+       // This loads the glTF file into the gltf object and parses the JSON.
+       // It automatically detects whether this is a JSON-based or binary glTF.
+       // If you know the type, you can also use loadGltfJson or loadGltfBinary.
+       auto asset = parser.loadGltf(&data, path.parent_path(), fastgltf::Options::None);
        if (auto error = asset.error(); error != fastgltf::Error::None) {
            // Some error occurred while reading the buffer, parsing the JSON, or validating the data.
        }

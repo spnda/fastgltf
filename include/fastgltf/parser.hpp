@@ -86,6 +86,7 @@ namespace fastgltf {
 		MissingExternalBuffer = 9, ///< With Options::LoadExternalBuffers, an external buffer was not found.
 		UnsupportedVersion = 10, ///< The glTF version is not supported by fastgltf.
 		InvalidURI = 11, ///< A URI from a buffer or image failed to be parsed.
+		InvalidFileData = 12, ///< The file data is invalid, or the file type could not be determined.
     };
 
 	inline std::string_view getErrorName(Error error) {
@@ -102,6 +103,7 @@ namespace fastgltf {
 			case Error::MissingExternalBuffer: return "MissingExternalBuffer";
 			case Error::UnsupportedVersion: return "UnsupportedVersion";
 			case Error::InvalidURI: return "InvalidURI";
+            case Error::InvalidFileData: return "InvalidFileData";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}
@@ -120,6 +122,7 @@ namespace fastgltf {
 			case Error::MissingExternalBuffer: return "An external buffer was not found.";
 			case Error::UnsupportedVersion: return "The glTF version is not supported by fastgltf.";
 			case Error::InvalidURI: return "A URI from a buffer or image failed to be parsed.";
+            case Error::InvalidFileData: return "The file data is invalid, or the file type could not be determined.";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}
@@ -541,7 +544,9 @@ namespace fastgltf {
 
 	/**
 	 * This function starts reading into the buffer and tries to determine what type of glTF container it is.
-	 * This should be used to know whether to call Parser::loadGLTF or Parser::loadBinaryGLTF.
+	 * This should be used to know whether to call Parser::loadGltfJson or Parser::loadGltfBinary.
+	 *
+	 * @note Usually, you'll want to just use Parser::loadGltf, which will call this itself.
 	 *
 	 * @return The type of the glTF file, either glTF, GLB, or Invalid if it was not determinable. If this function
 	 * returns Invalid it is highly likely that the buffer does not actually represent a valid glTF file.
@@ -585,7 +590,7 @@ namespace fastgltf {
         /**
          * Saves the pointer including its range. Does not copy any data. This requires the
          * original allocation to outlive the parsing of the glTF, so after the last relevant
-         * call to fastgltf::Parser::loadGLTF. However, this function asks for a capacity size, as
+         * call to fastgltf::Parser::loadGltf. However, this function asks for a capacity size, as
          * the JSON parsing requires some padding. See fastgltf::getGltfBufferPadding for more information.
          * If the capacity does not have enough padding, the function will instead copy the bytes
          * with the copyBytes method. Also, it will set the padding bytes all to 0, so be sure to
@@ -704,18 +709,27 @@ namespace fastgltf {
         ~Parser();
 
         /**
+         * Loads a glTF file from pre-loaded bytes.
+         *
+         * This function tries to detect wether the bytes represent a standard JSON glTF or a binary glTF.
+         *
+         * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
+         */
+        [[nodiscard]] Expected<Asset> loadGltf(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+
+        /**
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
          *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
          */
-        [[nodiscard]] Expected<Asset> loadGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+        [[nodiscard]] Expected<Asset> loadGltfJson(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
 
 		/**
 		 * Loads a glTF file embedded within a GLB container, which may contain the first buffer of the glTF asset.
 		 *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
 		 */
-		[[nodiscard]] Expected<Asset> loadBinaryGLTF(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+		[[nodiscard]] Expected<Asset> loadGltfBinary(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
 
         /**
          * This function can be used to set callbacks so that you can control memory allocation for

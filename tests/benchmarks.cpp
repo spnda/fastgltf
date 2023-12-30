@@ -107,7 +107,7 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
     BENCHMARK("Parse NewSponza") {
-        return parser.loadGLTF(jsonData.get(), intelSponza, benchmarkOptions);
+        return parser.loadGltfJson(jsonData.get(), intelSponza, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
@@ -157,7 +157,7 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
     BENCHMARK("Parse 2CylinderEngine and decode base64") {
-        return parser.loadGLTF(jsonData.get(), cylinderEngine, benchmarkOptions);
+        return parser.loadGltfJson(jsonData.get(), cylinderEngine, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
@@ -211,7 +211,7 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
     BENCHMARK("Parse Buggy.gltf") {
-        return parser.loadGLTF(jsonData.get(), buggyPath, benchmarkOptions);
+        return parser.loadGltfJson(jsonData.get(), buggyPath, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
@@ -266,7 +266,7 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
     BENCHMARK("Parse Bistro") {
-		return parser.loadGLTF(jsonData.get(), bistroPath, benchmarkOptions);
+		return parser.loadGltfJson(jsonData.get(), bistroPath, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
@@ -330,11 +330,11 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
 
     fastgltf::Parser parser;
     BENCHMARK("Parse Buggy.gltf with normal JSON") {
-        return parser.loadGLTF(jsonData.get(), buggyPath, benchmarkOptions);
+        return parser.loadGltfJson(jsonData.get(), buggyPath, benchmarkOptions);
     };
 
     BENCHMARK("Parse Buggy.gltf with minified JSON") {
-        return parser.loadGLTF(minifiedJsonData.get(), buggyPath, benchmarkOptions);
+        return parser.loadGltfJson(minifiedJsonData.get(), buggyPath, benchmarkOptions);
     };
 }
 
