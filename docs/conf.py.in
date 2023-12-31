@@ -16,7 +16,5 @@ html_theme_options = {
     'navigation_depth': 5,
 }
 
-fastgltf_sources = "@DOXYGEN_INPUT@".split()
-
 breathe_default_project = "fastgltf"
 breathe_projects = {"fastgltf": "@DOXYGEN_OUTPUT@/xml"}
