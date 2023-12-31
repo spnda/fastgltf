@@ -4,6 +4,7 @@
 ![conan center](https://img.shields.io/conan/v/fastgltf?style=flat-square)
 ![CI_x64 workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_x64.yml?label=CI%20x64&style=flat-square)
 ![CI_arm workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_arm.yml?label=CI%20ARM&style=flat-square)
+[![Documentation Status](https://readthedocs.org/projects/fastgltf/badge/?version=latest)](https://fastgltf.readthedocs.io/latest/?badge=latest)
 
 
 **fastgltf** is a speed and usability focused glTF 2.0 parser written in modern C++17 with minimal dependencies.
@@ -15,7 +16,7 @@ By default, fastgltf will only do the absolute minimum to work with a glTF model
 However, it brings many additional features to ease working with the data,
 including accessor tools, the ability to directly write to mapped GPU buffers, and decomposing transform matrices.
 
-To learn more about fastgltf, its features, performance and API you can read [the docs](https://spnda.github.io/fastgltf).
+To learn more about fastgltf, its features, performance and API you can read [the docs](https://fastgltf.readthedocs.io/v0.6.x/).
 
 ## License
 
