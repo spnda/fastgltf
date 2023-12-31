@@ -32,7 +32,7 @@ add_custom_command(
 
 add_custom_target(generate_docs DEPENDS ${DOXYGEN_INDEX_FILE})
 
-# Find sphinx-build
+# Find sphinx
 find_program(SPHINX_EXECUTABLE
     NAMES sphinx-build
     DOC "Path to sphinx-build executable")
@@ -40,6 +40,8 @@ find_program(SPHINX_EXECUTABLE
 if (NOT SPHINX_EXECUTABLE)
     message(STATUS "fastgltf: Sphinx not found; docs website will not be built")
     return()
+else()
+    message(STATUS "fastgltf: Found Sphinx")
 endif()
 
 set(SPHINX_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/sphinx)
@@ -54,7 +56,7 @@ add_custom_command(
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${DOXYGEN_INDEX_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/index.rst ${CMAKE_CURRENT_SOURCE_DIR}/overview.rst
         ${CMAKE_CURRENT_SOURCE_DIR}/api.rst ${CMAKE_CURRENT_SOURCE_DIR}/tools.rst ${CMAKE_CURRENT_SOURCE_DIR}/options.rst
-    COMMAND sphinx-build -b html
+    COMMAND ${SPHINX_EXECUTABLE} -b html
         -Dbreathe_projects.fastgltf=\"${DOXYGEN_OUTPUT}/xml\"
         ${CMAKE_CURRENT_SOURCE_DIR} ${SPHINX_OUTPUT}
     MAIN_DEPENDENCY ${SPHINX_CONF}
