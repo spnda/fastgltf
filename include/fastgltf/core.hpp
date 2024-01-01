@@ -26,7 +26,6 @@
 
 #pragma once
 
-#include <fstream>
 #include <memory>
 #include <tuple>
 
@@ -268,6 +267,14 @@ namespace fastgltf {
 		 */
 		GenerateMeshIndices             = 1 << 8,
     };
+
+    enum class ExportOptions : std::uint64_t {
+        None                            = 0,
+        /**
+         * Calls fastgltf::validate for the passed asset before writing.
+         */
+        ValidateAsset                   = 1 << 1,
+    };
     // clang-format on
 
     FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Options, Options, |)
@@ -275,6 +282,11 @@ namespace fastgltf {
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, |)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, &)
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Options, ~)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, |)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, &)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, |)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, &)
+    FASTGLTF_UNARY_OP_TEMPLATE_MACRO(ExportOptions, ~)
 
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {
@@ -778,7 +790,6 @@ namespace fastgltf {
     class Exporter {
     protected:
         Error errorCode = Error::None;
-        const Asset* asset = nullptr;
 
         std::filesystem::path bufferFolder = "";
         std::filesystem::path imageFolder = "";
@@ -786,22 +797,22 @@ namespace fastgltf {
         std::vector<std::optional<std::filesystem::path>> bufferPaths;
         std::vector<std::optional<std::filesystem::path>> imagePaths;
 
-        void writeAccessors(std::string& json);
-        void writeBuffers(std::string& json);
-        void writeBufferViews(std::string& json);
-        void writeCameras(std::string& json);
-        void writeImages(std::string& json);
-        void writeLights(std::string& json);
-        void writeMaterials(std::string& json);
-        void writeMeshes(std::string& json);
-        void writeNodes(std::string& json);
-        void writeSamplers(std::string& json);
-        void writeScenes(std::string& json);
-        void writeSkins(std::string& json);
-        void writeTextures(std::string& json);
+        void writeAccessors(const Asset& asset, std::string& json);
+        void writeBuffers(const Asset& asset, std::string& json);
+        void writeBufferViews(const Asset& asset, std::string& json);
+        void writeCameras(const Asset& asset, std::string& json);
+        void writeImages(const Asset& asset, std::string& json);
+        void writeLights(const Asset& asset, std::string& json);
+        void writeMaterials(const Asset& asset, std::string& json);
+        void writeMeshes(const Asset& asset, std::string& json);
+        void writeNodes(const Asset& asset, std::string& json);
+        void writeSamplers(const Asset& asset, std::string& json);
+        void writeScenes(const Asset& asset, std::string& json);
+        void writeSkins(const Asset& asset, std::string& json);
+        void writeTextures(const Asset& asset, std::string& json);
 
-        std::filesystem::path getBufferFilePath(std::size_t index);
-        std::filesystem::path getImageFilePath(std::size_t index, MimeType mimeType);
+        std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
+        std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
 
     public:
         /**
@@ -822,8 +833,8 @@ namespace fastgltf {
         /**
          * Converts the Asset into a glTF JSON string.
          */
-        Expected<ExportResult<std::string>> writeGLTF(const Asset* asset);
-        Expected<ExportResult<std::vector<std::byte>>> writeBinaryGLTF(const Asset* asset);
+        Expected<ExportResult<std::string>> writeGLTF(const Asset& asset, ExportOptions options = ExportOptions::None);
+        Expected<ExportResult<std::vector<std::byte>>> writeBinaryGLTF(const Asset& asset, ExportOptions options = ExportOptions::None);
     };
 
 	/**
@@ -832,55 +843,12 @@ namespace fastgltf {
 	 * given paths.
 	 */
 	class FileExporter : public Exporter {
-        template <typename T>
-        void writeFiles(ExportResult<T>& result, std::filesystem::path baseFolder) {
-            for (std::size_t i = 0; i < asset->buffers.size(); ++i) {
-                auto& path = result.bufferPaths[i];
-                if (!path.has_value()) {
-                    continue;
-                }
-
-                std::visit(visitor {
-                        [&](auto& arg) {},
-                        [&](const fastgltf::sources::Vector& vector) {
-                            std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-                            file.write(reinterpret_cast<const char*>(vector.bytes.data()),
-                                       static_cast<std::streamsize>(vector.bytes.size()));
-                            file.close();
-                        },
-                        [&](const sources::ByteView& view) {
-                            std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-                            file.write(reinterpret_cast<const char*>(view.bytes.data()),
-                                       static_cast<std::streamsize>(view.bytes.size()));
-                            file.close();
-                        },
-                }, asset->buffers[i].data);
-            }
-
-            for (std::size_t i = 0; i < asset->images.size(); ++i) {
-                auto& path = result.imagePaths[i];
-                if (!path.has_value()) {
-                    continue;
-                }
-
-                std::visit(visitor {
-                        [&](auto& arg) {},
-                        [&](const fastgltf::sources::Vector& vector) {
-                            std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-                            file.write(reinterpret_cast<const char*>(vector.bytes.data()),
-                                       static_cast<std::streamsize>(vector.bytes.size()));
-                            file.close();
-                        },
-                }, asset->images[i].data);
-            }
-        }
-
         using Exporter::writeGLTF;
         using Exporter::writeBinaryGLTF;
 
 	public:
-		Error writeGLTF(const Asset* asset, std::filesystem::path target);
-        Error writeBinaryGLTF(const Asset* asset, std::filesystem::path target);
+		Error writeGLTF(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+        Error writeBinaryGLTF(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
 	};
 } // namespace fastgltf
 

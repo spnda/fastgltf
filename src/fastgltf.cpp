@@ -3519,14 +3519,14 @@ void fg::Exporter::setImagePath(std::filesystem::path folder) {
     bufferFolder = std::move(folder);
 }
 
-void fg::Exporter::writeAccessors(std::string& json) {
-	if (asset->accessors.empty())
+void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
+	if (asset.accessors.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += R"("accessors":[)";
-	for (auto it = asset->accessors.begin(); it != asset->accessors.end(); ++it) {
+	for (auto it = asset.accessors.begin(); it != asset.accessors.end(); ++it) {
 		json += '{';
 
 		if (it->byteOffset != 0) {
@@ -3568,35 +3568,35 @@ void fg::Exporter::writeAccessors(std::string& json) {
 			json += R"(,"name":")" + it->name + '"';
 
 		json += '}';
-		if (std::distance(asset->accessors.begin(), it) + 1 < asset->accessors.size())
+		if (std::distance(asset.accessors.begin(), it) + 1 < asset.accessors.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeBuffers(std::string& json) {
-	if (asset->buffers.empty())
+void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
+	if (asset.buffers.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"buffers\":[";
-	for (auto it = asset->buffers.begin(); it != asset->buffers.end(); ++it) {
+	for (auto it = asset.buffers.begin(); it != asset.buffers.end(); ++it) {
 		json += '{';
 
-        auto bufferIdx = std::distance(asset->buffers.begin(), it);
+        auto bufferIdx = std::distance(asset.buffers.begin(), it);
 		std::visit(visitor {
 			[&](auto arg) {
 				// Covers BufferView and CustomBuffer.
 				errorCode = Error::InvalidGltf;
 			},
 			[&](const sources::Vector& vector) {
-                auto path = getBufferFilePath(bufferIdx);
+                auto path = getBufferFilePath(asset, bufferIdx);
                 json += std::string(R"("uri":")") + path.string() + '"' + ',';
                 bufferPaths.emplace_back(path);
 			},
 			[&](const sources::ByteView& view) {
-                auto path = getBufferFilePath(bufferIdx);
+                auto path = getBufferFilePath(asset, bufferIdx);
                 json += std::string(R"("uri":")") + path.string() + '"' + ',';
                 bufferPaths.emplace_back(path);
 			},
@@ -3611,20 +3611,20 @@ void fg::Exporter::writeBuffers(std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
 		json += '}';
-		if (std::distance(asset->buffers.begin(), it) + 1 < asset->buffers.size())
+		if (std::distance(asset.buffers.begin(), it) + 1 < asset.buffers.size())
 			json += ',';
 	}
 	json += "]";
 }
 
-void fg::Exporter::writeBufferViews(std::string& json) {
-	if (asset->bufferViews.empty())
+void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
+	if (asset.bufferViews.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"bufferViews\":[";
-	for (auto it = asset->bufferViews.begin(); it != asset->bufferViews.end(); ++it) {
+	for (auto it = asset.bufferViews.begin(); it != asset.bufferViews.end(); ++it) {
 		json += '{';
 
 		json += "\"buffer\":" + std::to_string(it->bufferIndex) + ',';
@@ -3646,20 +3646,20 @@ void fg::Exporter::writeBufferViews(std::string& json) {
 			json += R"(,"name":")" + it->name + '"';
 
 		json += '}';
-		if (std::distance(asset->bufferViews.begin(), it) + 1 < asset->bufferViews.size())
+		if (std::distance(asset.bufferViews.begin(), it) + 1 < asset.bufferViews.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeCameras(std::string& json) {
-	if (asset->cameras.empty())
+void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
+	if (asset.cameras.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"cameras\":[";
-	for (auto it = asset->cameras.begin(); it != asset->cameras.end(); ++it) {
+	for (auto it = asset.cameras.begin(); it != asset.cameras.end(); ++it) {
 		json += '{';
 
 		std::visit(visitor {
@@ -3695,23 +3695,23 @@ void fg::Exporter::writeCameras(std::string& json) {
 			json += R"(,"name":")" + it->name + '"';
 
 		json += '}';
-		if (std::distance(asset->cameras.begin(), it) + 1 < asset->cameras.size())
+		if (std::distance(asset.cameras.begin(), it) + 1 < asset.cameras.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeImages(std::string& json) {
-	if (asset->images.empty())
+void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
+	if (asset.images.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"images\":[";
-	for (auto it = asset->images.begin(); it != asset->images.end(); ++it) {
+	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
 		json += '{';
 
-        auto imageIdx = std::distance(asset->images.begin(), it);
+        auto imageIdx = std::distance(asset.images.begin(), it);
 		std::visit(visitor {
 			[&](auto arg) {
 				errorCode = Error::InvalidGltf;
@@ -3721,7 +3721,7 @@ void fg::Exporter::writeImages(std::string& json) {
                 imagePaths.emplace_back(std::nullopt);
             },
             [&](const sources::Vector& vector) {
-                auto path = getImageFilePath(imageIdx, vector.mimeType);
+                auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
                 json += std::string(R"("uri":")") + path.string() + '"';
                 imagePaths.emplace_back(path);
             },
@@ -3734,20 +3734,20 @@ void fg::Exporter::writeImages(std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
 		json += '}';
-		if (std::distance(asset->images.begin(), it) + 1 < asset->images.size())
+		if (std::distance(asset.images.begin(), it) + 1 < asset.images.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeLights(std::string& json) {
-	if (asset->lights.empty())
+void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
+	if (asset.lights.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"lights\":[";
-	for (auto it = asset->lights.begin(); it != asset->lights.end(); ++it) {
+	for (auto it = asset.lights.begin(); it != asset.lights.end(); ++it) {
 		json += '{';
 
 		// [1.0f, 1.0f, 1.0f] is the default.
@@ -3791,20 +3791,20 @@ void fg::Exporter::writeLights(std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
 		json += '}';
-		if (std::distance(asset->lights.begin(), it) + 1 < asset->lights.size())
+		if (std::distance(asset.lights.begin(), it) + 1 < asset.lights.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeMaterials(std::string& json) {
-	if (asset->materials.empty())
+void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
+	if (asset.materials.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"materials\":[";
-	for (auto it = asset->materials.begin(); it != asset->materials.end(); ++it) {
+	for (auto it = asset.materials.begin(); it != asset.materials.end(); ++it) {
 		json += '{';
 
 		json += "\"pbrMetallicRoughness\":{";
@@ -3889,20 +3889,20 @@ void fg::Exporter::writeMaterials(std::string& json) {
 			json += R"("name":")" + it->name + '"';
 		}
 		json += '}';
-		if (std::distance(asset->materials.begin(), it) + 1 < asset->materials.size())
+		if (std::distance(asset.materials.begin(), it) + 1 < asset.materials.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeMeshes(std::string& json) {
-	if (asset->meshes.empty())
+void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
+	if (asset.meshes.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"meshes\":[";
-	for (auto it = asset->meshes.begin(); it != asset->meshes.end(); ++it) {
+	for (auto it = asset.meshes.begin(); it != asset.meshes.end(); ++it) {
 		json += '{';
 
 		json += R"("primitives":[)";
@@ -3956,20 +3956,20 @@ void fg::Exporter::writeMeshes(std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
 		json += '}';
-		if (std::distance(asset->meshes.begin(), it) + 1 < asset->meshes.size())
+		if (std::distance(asset.meshes.begin(), it) + 1 < asset.meshes.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeNodes(std::string& json) {
-	if (asset->nodes.empty())
+void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
+	if (asset.nodes.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"nodes\":[";
-	for (auto it = asset->nodes.begin(); it != asset->nodes.end(); ++it) {
+	for (auto it = asset.nodes.begin(); it != asset.nodes.end(); ++it) {
 		json += '{';
 
 		if (it->meshIndex.has_value()) {
@@ -4060,20 +4060,20 @@ void fg::Exporter::writeNodes(std::string& json) {
 			json += R"("name":")" + it->name + '"';
 		}
 		json += '}';
-		if (std::distance(asset->nodes.begin(), it) + 1 < asset->nodes.size())
+		if (std::distance(asset.nodes.begin(), it) + 1 < asset.nodes.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeSamplers(std::string& json) {
-	if (asset->samplers.empty())
+void fg::Exporter::writeSamplers(const Asset& asset, std::string& json) {
+	if (asset.samplers.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"samplers\":[";
-	for (auto it = asset->samplers.begin(); it != asset->samplers.end(); ++it) {
+	for (auto it = asset.samplers.begin(); it != asset.samplers.end(); ++it) {
 		json += '{';
 
 		if (it->magFilter.has_value()) {
@@ -4097,24 +4097,24 @@ void fg::Exporter::writeSamplers(std::string& json) {
 			json += R"("name":")" + it->name + '"';
 		}
 		json += '}';
-		if (std::distance(asset->samplers.begin(), it) + 1 < asset->samplers.size())
+		if (std::distance(asset.samplers.begin(), it) + 1 < asset.samplers.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeScenes(std::string& json) {
-	if (asset->scenes.empty())
+void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
+	if (asset.scenes.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
-	if (asset->defaultScene.has_value()) {
-		json += "\"scene\":" + std::to_string(asset->defaultScene.value()) + ',';
+	if (asset.defaultScene.has_value()) {
+		json += "\"scene\":" + std::to_string(asset.defaultScene.value()) + ',';
 	}
 
 	json += "\"scenes\":[";
-	for (auto it = asset->scenes.begin(); it != asset->scenes.end(); ++it) {
+	for (auto it = asset.scenes.begin(); it != asset.scenes.end(); ++it) {
 		json += '{';
 
 		json += R"("nodes":[)";
@@ -4130,20 +4130,20 @@ void fg::Exporter::writeScenes(std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
 		json += '}';
-		if (std::distance(asset->scenes.begin(), it) + 1 < asset->scenes.size())
+		if (std::distance(asset.scenes.begin(), it) + 1 < asset.scenes.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeSkins(std::string& json) {
-	if (asset->skins.empty())
+void fg::Exporter::writeSkins(const Asset& asset, std::string& json) {
+	if (asset.skins.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"skins\":[";
-	for (auto it = asset->skins.begin(); it != asset->skins.end(); ++it) {
+	for (auto it = asset.skins.begin(); it != asset.skins.end(); ++it) {
 		json += '{';
 
 		if (it->inverseBindMatrices.has_value())
@@ -4165,20 +4165,20 @@ void fg::Exporter::writeSkins(std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
 		json += '}';
-		if (std::distance(asset->skins.begin(), it) + 1 < asset->skins.size())
+		if (std::distance(asset.skins.begin(), it) + 1 < asset.skins.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-void fg::Exporter::writeTextures(std::string& json) {
-	if (asset->textures.empty())
+void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
+	if (asset.textures.empty())
 		return;
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
 	json += "\"textures\":[";
-	for (auto it = asset->textures.begin(); it != asset->textures.end(); ++it) {
+	for (auto it = asset.textures.begin(); it != asset.textures.end(); ++it) {
 		json += '{';
 
 		if (it->samplerIndex.has_value())
@@ -4209,19 +4209,24 @@ void fg::Exporter::writeTextures(std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + it->name + '"';
 		json += '}';
-		if (std::distance(asset->textures.begin(), it) + 1 < asset->textures.size())
+		if (std::distance(asset.textures.begin(), it) + 1 < asset.textures.size())
 			json += ',';
 	}
 	json += ']';
 }
 
-fs::path fg::Exporter::getBufferFilePath(std::size_t index) {
-    const auto& bufferName = asset->buffers[index].name;
+fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) {
+    const auto& bufferName = asset.buffers[index].name;
+    if (bufferName.empty()) {
+        return bufferFolder / ("buffer" + std::to_string(index) + ".bin");
+    } else {
+        return bufferFolder / (bufferName + ".bin");
+    }
     std::string name = bufferName.empty() ? "buffer" : std::string(bufferName);
     return bufferFolder / (name + std::to_string(index) + ".bin");
 }
 
-fs::path fg::Exporter::getImageFilePath(std::size_t index, MimeType mimeType) {
+fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
     std::string_view extension;
     switch (mimeType) {
         default:
@@ -4236,17 +4241,21 @@ fs::path fg::Exporter::getImageFilePath(std::size_t index, MimeType mimeType) {
             break;
     }
 
-    const auto& imageName = asset->images[index].name;
+    const auto& imageName = asset.images[index].name;
     std::string name = imageName.empty() ? "image" : std::string(imageName);
     return imageFolder / (name + std::to_string(index) + std::string(extension));
 }
 
-fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset* pAsset) {
-    assert(pAsset != nullptr);
-    asset = pAsset;
-
+fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset& asset, ExportOptions options) {
     bufferPaths.clear();
     imagePaths.clear();
+
+    if (hasBit(options, ExportOptions::ValidateAsset)) {
+        auto validation = validate(asset);
+        if (validation != Error::None) {
+            return Expected<ExportResult<std::string>>{errorCode};
+        }
+    }
 
     // Fairly rudimentary approach of just composing the JSON string using a std::string.
     std::string outputString;
@@ -4255,31 +4264,31 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset*
 
     // Write asset info
     outputString += "\"asset\":{";
-    if (asset->assetInfo.has_value()) {
-        if (!asset->assetInfo->copyright.empty())
-            outputString += R"("copyright":")" + asset->assetInfo->copyright + "\",";
-        if (!asset->assetInfo->generator.empty())
-            outputString += R"("generator":")" + asset->assetInfo->generator + "\",";
-        outputString += R"("version":")" + asset->assetInfo->gltfVersion + '"';
+    if (asset.assetInfo.has_value()) {
+        if (!asset.assetInfo->copyright.empty())
+            outputString += R"("copyright":")" + asset.assetInfo->copyright + "\",";
+        if (!asset.assetInfo->generator.empty())
+            outputString += R"("generator":")" + asset.assetInfo->generator + "\",";
+        outputString += R"("version":")" + asset.assetInfo->gltfVersion + '"';
     } else {
         outputString += R"("generator":"fastgltf",)";
         outputString += R"("version":"2.0")";
     }
     outputString += '}';
 
-    writeAccessors(outputString);
-    writeBuffers(outputString);
-    writeBufferViews(outputString);
-    writeCameras(outputString);
-    writeImages(outputString);
-    writeLights(outputString);
-    writeMaterials(outputString);
-    writeMeshes(outputString);
-    writeNodes(outputString);
-    writeSamplers(outputString);
-    writeScenes(outputString);
-    writeSkins(outputString);
-    writeTextures(outputString);
+    writeAccessors(asset, outputString);
+    writeBuffers(asset, outputString);
+    writeBufferViews(asset, outputString);
+    writeCameras(asset, outputString);
+    writeImages(asset, outputString);
+    writeLights(asset, outputString);
+    writeMaterials(asset, outputString);
+    writeMeshes(asset, outputString);
+    writeNodes(asset, outputString);
+    writeSamplers(asset, outputString);
+    writeScenes(asset, outputString);
+    writeSkins(asset, outputString);
+    writeTextures(asset, outputString);
 
     outputString += "}";
 
@@ -4294,11 +4303,16 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset*
     return Expected { std::move(result) };
 }
 
-fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeBinaryGLTF(const Asset* pAsset) {
-    assert(pAsset != nullptr);
-
+fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeBinaryGLTF(const Asset& asset, ExportOptions options) {
     bufferPaths.clear();
     imagePaths.clear();
+
+    if (hasBit(options, ExportOptions::ValidateAsset)) {
+        auto validation = validate(asset);
+        if (validation != Error::None) {
+            return Expected<ExportResult<std::vector<std::byte>>>{ errorCode };
+        }
+    }
 
     ExportResult<std::vector<std::byte>> result;
     // result.output = std::move(outputString);
@@ -4307,10 +4321,53 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeBinary
     return Expected { std::move(result) };
 }
 
-fg::Error fg::FileExporter::writeGLTF(const Asset* pAsset, fs::path target) {
-    assert(pAsset != nullptr);
+namespace fastgltf {
+    template<typename T>
+    void writeFiles(const Asset& asset, ExportResult<T> &result, std::filesystem::path baseFolder) {
+        for (std::size_t i = 0; i < asset.buffers.size(); ++i) {
+            auto &path = result.bufferPaths[i];
+            if (!path.has_value()) {
+                continue;
+            }
 
-    auto expected = Exporter::writeGLTF(pAsset);
+            std::visit(visitor{
+                    [&](auto &arg) {},
+                    [&](const fastgltf::sources::Vector &vector) {
+                        std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+                        file.write(reinterpret_cast<const char *>(vector.bytes.data()),
+                                   static_cast<std::streamsize>(vector.bytes.size()));
+                        file.close();
+                    },
+                    [&](const sources::ByteView &view) {
+                        std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+                        file.write(reinterpret_cast<const char *>(view.bytes.data()),
+                                   static_cast<std::streamsize>(view.bytes.size()));
+                        file.close();
+                    },
+            }, asset.buffers[i].data);
+        }
+
+        for (std::size_t i = 0; i < asset.images.size(); ++i) {
+            auto &path = result.imagePaths[i];
+            if (!path.has_value()) {
+                continue;
+            }
+
+            std::visit(visitor{
+                    [&](auto &arg) {},
+                    [&](const fastgltf::sources::Vector &vector) {
+                        std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+                        file.write(reinterpret_cast<const char *>(vector.bytes.data()),
+                                   static_cast<std::streamsize>(vector.bytes.size()));
+                        file.close();
+                    },
+            }, asset.images[i].data);
+        }
+    }
+} // namespace fastgltf
+
+fg::Error fg::FileExporter::writeGLTF(const Asset& asset, fs::path target, ExportOptions options) {
+    auto expected = Exporter::writeGLTF(asset, options);
 
     if (!expected) {
         return expected.error();
@@ -4325,13 +4382,12 @@ fg::Error fg::FileExporter::writeGLTF(const Asset* pAsset, fs::path target) {
     file << result.output;
     file.close();
 
-    writeFiles(result, target.parent_path());
+    writeFiles(asset, result, target.parent_path());
     return Error::None;
 }
 
-fg::Error fg::FileExporter::writeBinaryGLTF(const Asset* pAsset, fs::path target) {
-	assert(pAsset != nullptr);
-    auto expected = Exporter::writeBinaryGLTF(pAsset);
+fg::Error fg::FileExporter::writeBinaryGLTF(const Asset& asset, fs::path target, ExportOptions options) {
+    auto expected = Exporter::writeBinaryGLTF(asset, options);
 
     if (!expected) {
         return expected.error();
@@ -4342,7 +4398,7 @@ fg::Error fg::FileExporter::writeBinaryGLTF(const Asset* pAsset, fs::path target
     file.write(reinterpret_cast<const char*>(result.output.data()),
                static_cast<std::streamsize>(result.output.size()));
 
-    writeFiles(result, target.parent_path());
+    writeFiles(asset, result, target.parent_path());
     return Error::None;
 }
 #pragma endregion
