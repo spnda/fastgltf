@@ -4454,7 +4454,7 @@ namespace fastgltf {
 } // namespace fastgltf
 
 fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options) {
-    auto expected = exporter.writeGltfJson(asset, options);
+    auto expected = Exporter::writeGltfJson(asset, options);
 
     if (!expected) {
         return expected.error();
@@ -4474,7 +4474,7 @@ fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::p
 }
 
 fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options) {
-    auto expected = exporter.writeGltfBinary(asset, options);
+    auto expected = Exporter::writeGltfBinary(asset, options);
 
     if (!expected) {
         return expected.error();

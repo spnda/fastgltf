@@ -864,8 +864,9 @@ namespace fastgltf {
 	 * This exporter builds upon Exporter by writing all files automatically to the
 	 * given paths.
 	 */
-	class FileExporter {
-        Exporter exporter;
+	class FileExporter : public Exporter {
+        using Exporter::writeGltfJson;
+        using Exporter::writeGltfBinary;
 
 	public:
 		Error writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
