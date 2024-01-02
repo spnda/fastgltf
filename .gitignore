@@ -27,7 +27,7 @@ deps/
 
 # Test files
 tests/gltf/intel_sponza/
-tests/gltf/sample-models/
+tests/gltf/glTF-Sample-Models/
 tests/gltf/good-froge/
 tests/gltf/deccer-cubes/
 tests/gltf_loaders/
