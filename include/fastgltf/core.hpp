@@ -270,6 +270,7 @@ namespace fastgltf {
 
     enum class ExportOptions : std::uint64_t {
         None                            = 0,
+
         /**
          * Calls fastgltf::validate for the passed asset before writing.
          */
@@ -279,6 +280,12 @@ namespace fastgltf {
          * Pretty-prints the outputted JSON. This option is ignored for binary glTFs.
          */
         PrettyPrintJson                 = 1 << 2,
+
+        /**
+         * This is used by the internal GLB exporter to let the JSON exporter know to treat the first buffer
+         * as a embedded buffer. This will most likely not be useful for any user.
+         */
+        ExportAsGLB                     = 1 << 3,
     };
     // clang-format on
 
@@ -804,6 +811,7 @@ namespace fastgltf {
     class Exporter {
     protected:
         Error errorCode = Error::None;
+        ExportOptions options = ExportOptions::None;
 
         std::filesystem::path bufferFolder = "";
         std::filesystem::path imageFolder = "";

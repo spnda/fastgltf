@@ -3618,13 +3618,17 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 	for (auto it = asset.buffers.begin(); it != asset.buffers.end(); ++it) {
 		json += '{';
 
-        auto bufferIdx = std::distance(asset.buffers.begin(), it);
+        auto bufferIdx = static_cast<std::size_t>(std::distance(asset.buffers.begin(), it));
 		std::visit(visitor {
 			[&](auto arg) {
 				// Covers BufferView and CustomBuffer.
 				errorCode = Error::InvalidGltf;
 			},
 			[&](const sources::Vector& vector) {
+                if (bufferIdx == 0 && hasBit(options, ExportOptions::ExportAsGLB)) {
+                    bufferPaths.emplace_back(std::nullopt);
+                    return;
+                }
                 auto path = getBufferFilePath(asset, bufferIdx);
                 json += std::string(R"("uri":")") + path.string() + '"' + ',';
                 bufferPaths.emplace_back(path);
@@ -4280,9 +4284,10 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
     return imageFolder / (name + std::to_string(index) + std::string(extension));
 }
 
-fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset& asset, ExportOptions options) {
+fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset& asset, ExportOptions nOptions) {
     bufferPaths.clear();
     imagePaths.clear();
+    options = nOptions;
 
     if (hasBit(options, ExportOptions::ValidateAsset)) {
         auto validation = validate(asset);
@@ -4341,10 +4346,12 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const As
     return Expected { std::move(result) };
 }
 
-fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions options) {
+fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions nOptions) {
     bufferPaths.clear();
     imagePaths.clear();
+    options = nOptions;
 
+    options |= ExportOptions::ExportAsGLB;
     options &= (~ExportOptions::PrettyPrintJson);
 
     ExportResult<std::vector<std::byte>> result;
@@ -4358,8 +4365,10 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
     result.bufferPaths = std::move(json.bufferPaths);
     result.imagePaths = std::move(json.imagePaths);
 
-    const bool withEmbeddedBuffer = false;
-    //const bool withEmbeddedBuffer = !asset.buffers.empty() || asset.buffers.front().byteLength < std::numeric_limits<std::uint32_t>::max();
+    const bool withEmbeddedBuffer = !asset.buffers.empty()
+            && std::get_if<sources::Vector>(&asset.buffers.front().data) != nullptr // We only support writing Vectors as embedded buffers
+            && asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
+
     std::size_t binarySize = sizeof(BinaryGltfHeader) + sizeof(BinaryGltfChunk) + json.output.size();
     if (withEmbeddedBuffer) {
         binarySize += sizeof(BinaryGltfChunk) + asset.buffers.front().byteLength;
@@ -4383,6 +4392,18 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
     write(&jsonChunk, sizeof jsonChunk);
 
     write(json.output.data(), json.output.size() * sizeof(decltype(json.output)::value_type));
+
+    if (withEmbeddedBuffer) {
+        const auto& buffer = asset.buffers.front();
+
+        BinaryGltfChunk dataChunk;
+        dataChunk.chunkType = binaryGltfDataChunkMagic;
+        dataChunk.chunkLength = buffer.byteLength;
+        write(&dataChunk, sizeof dataChunk);
+
+        const auto* vector = std::get_if<sources::Vector>(&buffer.data);
+        write(vector->bytes.data(), buffer.byteLength);
+    }
 
     return Expected { std::move(result) };
 }
