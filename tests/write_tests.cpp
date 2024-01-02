@@ -1,3 +1,5 @@
+#include <cstdint>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <fastgltf/core.hpp>
@@ -13,7 +15,7 @@ TEST_CASE("Test simple glTF composition", "[write-tests]") {
 	asset.bufferViews.emplace_back(std::move(bufferView));
 
 	fastgltf::Exporter exporter;
-	auto result = exporter.writeGLTF(&asset);
+	auto result = exporter.writeGLTF(asset);
 	REQUIRE(result.error() == fastgltf::Error::None);
 	REQUIRE(!result.get().output.empty());
 }
@@ -24,18 +26,18 @@ TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-te
 	REQUIRE(cubeJsonData->loadFromFile(cubePath / "Cube.gltf"));
 
 	fastgltf::Parser parser;
-	auto cube = parser.loadGLTF(cubeJsonData.get(), cubePath);
+	auto cube = parser.loadGltfJson(cubeJsonData.get(), cubePath);
 	REQUIRE(cube.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(cube.get()) == fastgltf::Error::None);
 
 	fastgltf::Exporter exporter;
-	auto expected = exporter.writeGLTF(&(cube.get()));
+	auto expected = exporter.writeGLTF(cube.get());
     REQUIRE(expected.error() == fastgltf::Error::None);
 
 	fastgltf::GltfDataBuffer cube2JsonData;
 	cube2JsonData.copyBytes(reinterpret_cast<const uint8_t*>(expected.get().output.data()),
                             expected.get().output.size());
-	auto cube2 = parser.loadGLTF(&cube2JsonData, cubePath);
+	auto cube2 = parser.loadGltfJson(&cube2JsonData, cubePath);
 	REQUIRE(cube2.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(cube2.get()) == fastgltf::Error::None);
 }
@@ -48,10 +50,10 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
 
     fastgltf::Parser parser;
     auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-    auto cube = parser.loadGLTF(&gltfDataBuffer, cubePath, options);
+    auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
     fastgltf::FileExporter exporter;
-    auto error = exporter.writeGLTF(&cube.get(), path / "export" / "cube.gltf");
+    auto error = exporter.writeGLTF(cube.get(), path / "export" / "cube.gltf", fastgltf::ExportOptions::PrettyPrintJson);
     REQUIRE(error == fastgltf::Error::None);
 }

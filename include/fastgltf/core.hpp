@@ -274,6 +274,11 @@ namespace fastgltf {
          * Calls fastgltf::validate for the passed asset before writing.
          */
         ValidateAsset                   = 1 << 1,
+
+        /**
+         * Pretty-prints the outputted JSON. This option is ignored for binary glTFs.
+         */
+        PrettyPrintJson                 = 1 << 2,
     };
     // clang-format on
 
@@ -776,6 +781,11 @@ namespace fastgltf {
         void setUserPointer(void* pointer) noexcept;
     };
 
+    /**
+     * This converts a compacted JSON string into a more readable pretty format.
+     */
+    void prettyPrintJson(std::string& json);
+
     template <typename T>
     struct ExportResult {
         T output;
@@ -786,6 +796,10 @@ namespace fastgltf {
 
     /**
      * A exporter for serializing one or more glTF files into JSON and GLB forms.
+     *
+     * @note This does not write anything to any files. This class only serializes data
+     * into memory structures, which can then be used to manually write them to disk.
+     * If you want to let fastgltf handle the file writing, too, use fastgltf::FileExporter.
      */
     class Exporter {
     protected:

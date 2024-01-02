@@ -3505,6 +3505,40 @@ void fg::Parser::setUserPointer(void* pointer) noexcept {
 #pragma endregion
 
 #pragma region Exporter
+void fg::prettyPrintJson(std::string& json) {
+    std::size_t i = 0;
+    std::size_t depth = 0;
+    auto insertNewline = [&i, &depth, &json]() {
+        json.insert(i, 1, '\n');
+        json.insert(i + 1, depth, '\t');
+        i += 1 + depth;
+    };
+
+    while (i < json.size()) {
+        if (json[i] == '"') {
+            // Skip to the end of the string
+            do {
+                ++i;
+            } while (json[i] != '"' && json[i - 1] != '\\');
+        }
+
+        if (json[i] == '{' || json[i] == '[') {
+            ++depth;
+            ++i; // Insert \n after the character
+            insertNewline();
+        } else if (json[i] == '}' || json[i] == ']') {
+            --depth;
+            insertNewline();
+            ++i; // Insert \n before the character
+        } else if (json[i] == ',') {
+            ++i; // Insert \n after the character
+            insertNewline();
+        } else {
+            ++i;
+        }
+    }
+}
+
 void fg::Exporter::setBufferPath(std::filesystem::path folder) {
     if (!folder.is_relative()) {
         return;
@@ -3516,7 +3550,7 @@ void fg::Exporter::setImagePath(std::filesystem::path folder) {
     if (!folder.is_relative()) {
         return;
     }
-    bufferFolder = std::move(folder);
+    imageFolder = std::move(folder);
 }
 
 void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
@@ -3874,7 +3908,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			}
 		}
 
-		if (it->alphaCutoff != 0.5f) {
+		if (it->alphaMode == AlphaMode::Mask && it->alphaCutoff != 0.5f) {
 			if (json.back() != ',') json += ',';
 			json += R"("alphaCutoff":)" + std::to_string(it->alphaCutoff);
 		}
@@ -4291,6 +4325,10 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset&
     writeTextures(asset, outputString);
 
     outputString += "}";
+
+    if (hasBit(options, ExportOptions::PrettyPrintJson)) {
+        prettyPrintJson(outputString);
+    }
 
     if (errorCode != Error::None) {
         return Expected<ExportResult<std::string>> { errorCode };
