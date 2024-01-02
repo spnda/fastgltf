@@ -3519,24 +3519,56 @@ void fg::prettyPrintJson(std::string& json) {
             // Skip to the end of the string
             do {
                 ++i;
-            } while (json[i] != '"' && json[i - 1] != '\\');
+                if (json[i] == '"' && json[i - 1] != '\\') {
+                    break;
+                }
+            } while (true);
+            ++i; // Skip over the last "
         }
 
-        if (json[i] == '{' || json[i] == '[') {
-            ++depth;
-            ++i; // Insert \n after the character
-            insertNewline();
-        } else if (json[i] == '}' || json[i] == ']') {
-            --depth;
-            insertNewline();
-            ++i; // Insert \n before the character
-        } else if (json[i] == ',') {
-            ++i; // Insert \n after the character
-            insertNewline();
-        } else {
-            ++i;
+        switch (json[i]) {
+            case '{': case '[':
+                ++depth;
+                ++i; // Insert \n after the character
+                insertNewline();
+                break;
+            case '}': case ']':
+                --depth;
+                insertNewline();
+                ++i; // Insert \n before the character
+                break;
+            case ',':
+                ++i;  // Insert \n after the character
+                insertNewline();
+                break;
+            default:
+                ++i;
+                break;
         }
     }
+}
+
+std::string fg::escapeString(std::string_view string) {
+    std::string ret(string);
+    std::size_t i = 0;
+    do {
+        switch (ret[i]) {
+            case '\"': {
+                const std::string_view s = "\\\"";
+                ret.replace(i, 1, s);
+                i += s.size();
+                break;
+            }
+            case '\\': {
+                const std::string_view s = "\\\\";
+                ret.replace(i, 1, s);
+                i += s.size();
+                break;
+            }
+        }
+        ++i;
+    } while (i < ret.size());
+    return ret;
 }
 
 void fg::Exporter::setBufferPath(std::filesystem::path folder) {
@@ -3599,7 +3631,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 		writeMinMax(it->min, "min");
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 
 		json += '}';
 		if (std::distance(asset.accessors.begin(), it) + 1 < asset.accessors.size())
@@ -3630,16 +3662,16 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
                     return;
                 }
                 auto path = getBufferFilePath(asset, bufferIdx);
-                json += std::string(R"("uri":")") + path.string() + '"' + ',';
+                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
                 bufferPaths.emplace_back(path);
 			},
 			[&](const sources::ByteView& view) {
                 auto path = getBufferFilePath(asset, bufferIdx);
-                json += std::string(R"("uri":")") + path.string() + '"' + ',';
+                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
                 bufferPaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
-				json += std::string(R"("uri":")") + std::string(uri.uri.string()) + '"' + ',';
+				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"' + ',';
                 bufferPaths.emplace_back(std::nullopt);
 			}
 		}, it->data);
@@ -3647,7 +3679,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 		json += "\"byteLength\":" + std::to_string(it->byteLength);
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
 		if (std::distance(asset.buffers.begin(), it) + 1 < asset.buffers.size())
 			json += ',';
@@ -3681,7 +3713,7 @@ void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
 		}
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 
 		json += '}';
 		if (std::distance(asset.bufferViews.begin(), it) + 1 < asset.bufferViews.size())
@@ -3730,7 +3762,7 @@ void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
 		}, it->camera);
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 
 		json += '}';
 		if (std::distance(asset.cameras.begin(), it) + 1 < asset.cameras.size())
@@ -3760,17 +3792,17 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
             },
             [&](const sources::Vector& vector) {
                 auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
-                json += std::string(R"("uri":")") + path.string() + '"';
+                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
                 imagePaths.emplace_back(path);
             },
 			[&](const sources::URI& uri) {
-				json += std::string(R"("uri":")") + std::string(uri.uri.string()) + '"';
+				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
                 imagePaths.emplace_back(std::nullopt);
 			},
 		}, it->data);
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
 		if (std::distance(asset.images.begin(), it) + 1 < asset.images.size())
 			json += ',';
@@ -3827,7 +3859,7 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 		}
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
 		if (std::distance(asset.lights.begin(), it) + 1 < asset.lights.size())
 			json += ',';
@@ -3924,7 +3956,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 
 		if (!it->name.empty()) {
 			if (json.back() != ',') json += ',';
-			json += R"("name":")" + it->name + '"';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
 		}
 		json += '}';
 		if (std::distance(asset.materials.begin(), it) + 1 < asset.materials.size())
@@ -3943,42 +3975,44 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 	for (auto it = asset.meshes.begin(); it != asset.meshes.end(); ++it) {
 		json += '{';
 
-		json += R"("primitives":[)";
-		auto itp = it->primitives.begin();
-		while (itp != it->primitives.end()) {
-			json += '{';
+        if (!it->primitives.empty()) {
+            json += R"("primitives":[)";
+            auto itp = it->primitives.begin();
+            while (itp != it->primitives.end()) {
+                json += '{';
 
-			{
-				json += R"("attributes":{)";
-				for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
-					json += '"' + std::string(ita->first) + "\":" + std::to_string(ita->second);
-					if (std::distance(itp->attributes.begin(), ita) + 1 < itp->attributes.size())
-						json += ',';
-				}
-				json += '}';
-			}
+                {
+                    json += R"("attributes":{)";
+                    for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
+                        json += '"' + std::string(ita->first) + "\":" + std::to_string(ita->second);
+                        if (std::distance(itp->attributes.begin(), ita) + 1 < itp->attributes.size())
+                            json += ',';
+                    }
+                    json += '}';
+                }
 
-			if (itp->indicesAccessor.has_value()) {
-				json += R"(,"indices":)" + std::to_string(itp->indicesAccessor.value());
-			}
+                if (itp->indicesAccessor.has_value()) {
+                    json += R"(,"indices":)" + std::to_string(itp->indicesAccessor.value());
+                }
 
-			if (itp->materialIndex.has_value()) {
-				json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
-			}
+                if (itp->materialIndex.has_value()) {
+                    json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
+                }
 
-			if (itp->type != PrimitiveType::Triangles) {
-				json += R"(,"type":)" + std::to_string(to_underlying(itp->type));
-			}
+                if (itp->type != PrimitiveType::Triangles) {
+                    json += R"(,"type":)" + std::to_string(to_underlying(itp->type));
+                }
 
-			json += '}';
-			++itp;
-			if (std::distance(it->primitives.begin(), itp) < it->primitives.size())
-				json += ',';
-		}
-		json += ']';
+                json += '}';
+                ++itp;
+                if (std::distance(it->primitives.begin(), itp) < it->primitives.size())
+                    json += ',';
+            }
+            json += ']';
+        }
 
 		if (!it->weights.empty()) {
-			if (json.back() != ',')
+			if (json.back() != '{')
 				json += ',';
 			json += R"("weights":[)";
 			auto itw = it->weights.begin();
@@ -3991,8 +4025,11 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 			json += ']';
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+		if (!it->name.empty()) {
+            if (json.back() != '{')
+                json += ',';
+            json += R"("name":")" + fg::escapeString(it->name) + '"';
+        }
 		json += '}';
 		if (std::distance(asset.meshes.begin(), it) + 1 < asset.meshes.size())
 			json += ',';
@@ -4095,7 +4132,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 		if (!it->name.empty()) {
             if (json.back() != '{')
                 json += ',';
-			json += R"("name":")" + it->name + '"';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
 		}
 		json += '}';
 		if (std::distance(asset.nodes.begin(), it) + 1 < asset.nodes.size())
@@ -4132,7 +4169,7 @@ void fg::Exporter::writeSamplers(const Asset& asset, std::string& json) {
 
 		if (!it->name.empty()) {
 			if (json.back() != '{') json += ',';
-			json += R"("name":")" + it->name + '"';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
 		}
 		json += '}';
 		if (std::distance(asset.samplers.begin(), it) + 1 < asset.samplers.size())
@@ -4166,7 +4203,7 @@ void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
 		json += ']';
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
 		if (std::distance(asset.scenes.begin(), it) + 1 < asset.scenes.size())
 			json += ',';
@@ -4201,7 +4238,7 @@ void fg::Exporter::writeSkins(const Asset& asset, std::string& json) {
 		json += ']';
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
 		if (std::distance(asset.skins.begin(), it) + 1 < asset.skins.size())
 			json += ',';
@@ -4245,7 +4282,7 @@ void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
 		}
 
 		if (!it->name.empty())
-			json += R"(,"name":")" + it->name + '"';
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
 		if (std::distance(asset.textures.begin(), it) + 1 < asset.textures.size())
 			json += ',';
@@ -4305,9 +4342,9 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const As
     outputString += "\"asset\":{";
     if (asset.assetInfo.has_value()) {
         if (!asset.assetInfo->copyright.empty())
-            outputString += R"("copyright":")" + asset.assetInfo->copyright + "\",";
+            outputString += R"("copyright":")" + fg::escapeString(asset.assetInfo->copyright) + "\",";
         if (!asset.assetInfo->generator.empty())
-            outputString += R"("generator":")" + asset.assetInfo->generator + "\",";
+            outputString += R"("generator":")" + fg::escapeString(asset.assetInfo->generator) + "\",";
         outputString += R"("version":")" + asset.assetInfo->gltfVersion + '"';
     } else {
         outputString += R"("generator":"fastgltf",)";

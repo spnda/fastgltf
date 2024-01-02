@@ -74,3 +74,19 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto error = exporter.writeGltfBinary(cube.get(), path / "export_glb" / "cube.glb");
     REQUIRE(error == fastgltf::Error::None);
 }
+
+TEST_CASE("Test string escape", "[write-tests]") {
+    std::string x = "\"stuff\\";
+    std::string escaped = fastgltf::escapeString(x);
+    REQUIRE(escaped == "\\\"stuff\\\\");
+}
+
+#include <sstream>
+#include <fstream>
+TEST_CASE("Test pretty-print", "[write-tests]") {
+    /*std::ifstream t("C:\\Users\\sean1\\Downloads\\E1M1\\E1M1.gltf");
+    std::stringstream buffer;
+    buffer << t.rdbuf();
+    std::string json = buffer.str();
+    fastgltf::prettyPrintJson(json);*/
+}
