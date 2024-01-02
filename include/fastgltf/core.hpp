@@ -847,8 +847,8 @@ namespace fastgltf {
         /**
          * Converts the Asset into a glTF JSON string.
          */
-        Expected<ExportResult<std::string>> writeGLTF(const Asset& asset, ExportOptions options = ExportOptions::None);
-        Expected<ExportResult<std::vector<std::byte>>> writeBinaryGLTF(const Asset& asset, ExportOptions options = ExportOptions::None);
+        Expected<ExportResult<std::string>> writeGltfJson(const Asset& asset, ExportOptions options = ExportOptions::None);
+        Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
     };
 
 	/**
@@ -856,13 +856,12 @@ namespace fastgltf {
 	 * This exporter builds upon Exporter by writing all files automatically to the
 	 * given paths.
 	 */
-	class FileExporter : public Exporter {
-        using Exporter::writeGLTF;
-        using Exporter::writeBinaryGLTF;
+	class FileExporter {
+        Exporter exporter;
 
 	public:
-		Error writeGLTF(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
-        Error writeBinaryGLTF(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+		Error writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+        Error writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
 	};
 } // namespace fastgltf
 

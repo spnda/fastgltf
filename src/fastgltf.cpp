@@ -4280,7 +4280,7 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
     return imageFolder / (name + std::to_string(index) + std::string(extension));
 }
 
-fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset& asset, ExportOptions options) {
+fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset& asset, ExportOptions options) {
     bufferPaths.clear();
     imagePaths.clear();
 
@@ -4341,21 +4341,49 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGLTF(const Asset&
     return Expected { std::move(result) };
 }
 
-fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeBinaryGLTF(const Asset& asset, ExportOptions options) {
+fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions options) {
     bufferPaths.clear();
     imagePaths.clear();
 
-    if (hasBit(options, ExportOptions::ValidateAsset)) {
-        auto validation = validate(asset);
-        if (validation != Error::None) {
-            return Expected<ExportResult<std::vector<std::byte>>>{ errorCode };
-        }
-    }
+    options &= (~ExportOptions::PrettyPrintJson);
 
     ExportResult<std::vector<std::byte>> result;
-    // result.output = std::move(outputString);
-    result.bufferPaths = std::move(bufferPaths);
-    result.imagePaths = std::move(imagePaths);
+
+    // Generate the JSON.
+    auto expected = writeGltfJson(asset, options);
+    if (expected.error() != Error::None) {
+        return Expected<ExportResult<std::vector<std::byte>>> { expected.error() };
+    }
+    auto& json = expected.get();
+    result.bufferPaths = std::move(json.bufferPaths);
+    result.imagePaths = std::move(json.imagePaths);
+
+    const bool withEmbeddedBuffer = false;
+    //const bool withEmbeddedBuffer = !asset.buffers.empty() || asset.buffers.front().byteLength < std::numeric_limits<std::uint32_t>::max();
+    std::size_t binarySize = sizeof(BinaryGltfHeader) + sizeof(BinaryGltfChunk) + json.output.size();
+    if (withEmbeddedBuffer) {
+        binarySize += sizeof(BinaryGltfChunk) + asset.buffers.front().byteLength;
+    }
+
+    result.output.resize(binarySize);
+    auto write = [output = result.output.data()](const void* data, std::size_t size) mutable {
+        std::memcpy(output, data, size);
+        output += size;
+    };
+
+    BinaryGltfHeader header;
+    header.magic = binaryGltfHeaderMagic;
+    header.version = 2;
+    header.length = binarySize;
+    write(&header, sizeof header);
+
+    BinaryGltfChunk jsonChunk;
+    jsonChunk.chunkType = binaryGltfJsonChunkMagic;
+    jsonChunk.chunkLength = json.output.size();
+    write(&jsonChunk, sizeof jsonChunk);
+
+    write(json.output.data(), json.output.size() * sizeof(decltype(json.output)::value_type));
+
     return Expected { std::move(result) };
 }
 
@@ -4404,8 +4432,8 @@ namespace fastgltf {
     }
 } // namespace fastgltf
 
-fg::Error fg::FileExporter::writeGLTF(const Asset& asset, fs::path target, ExportOptions options) {
-    auto expected = Exporter::writeGLTF(asset, options);
+fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options) {
+    auto expected = exporter.writeGltfJson(asset, options);
 
     if (!expected) {
         return expected.error();
@@ -4424,8 +4452,8 @@ fg::Error fg::FileExporter::writeGLTF(const Asset& asset, fs::path target, Expor
     return Error::None;
 }
 
-fg::Error fg::FileExporter::writeBinaryGLTF(const Asset& asset, fs::path target, ExportOptions options) {
-    auto expected = Exporter::writeBinaryGLTF(asset, options);
+fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options) {
+    auto expected = exporter.writeGltfBinary(asset, options);
 
     if (!expected) {
         return expected.error();
@@ -4433,6 +4461,10 @@ fg::Error fg::FileExporter::writeBinaryGLTF(const Asset& asset, fs::path target,
     auto& result = expected.get();
 
     std::ofstream file(target, std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        return fg::Error::InvalidPath;
+    }
+
     file.write(reinterpret_cast<const char*>(result.output.data()),
                static_cast<std::streamsize>(result.output.size()));
 

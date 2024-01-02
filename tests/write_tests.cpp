@@ -15,7 +15,7 @@ TEST_CASE("Test simple glTF composition", "[write-tests]") {
 	asset.bufferViews.emplace_back(std::move(bufferView));
 
 	fastgltf::Exporter exporter;
-	auto result = exporter.writeGLTF(asset);
+	auto result = exporter.writeGltfJson(asset);
 	REQUIRE(result.error() == fastgltf::Error::None);
 	REQUIRE(!result.get().output.empty());
 }
@@ -31,7 +31,7 @@ TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-te
 	REQUIRE(fastgltf::validate(cube.get()) == fastgltf::Error::None);
 
 	fastgltf::Exporter exporter;
-	auto expected = exporter.writeGLTF(cube.get());
+	auto expected = exporter.writeGltfJson(cube.get());
     REQUIRE(expected.error() == fastgltf::Error::None);
 
 	fastgltf::GltfDataBuffer cube2JsonData;
@@ -54,6 +54,23 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     REQUIRE(cube.error() == fastgltf::Error::None);
 
     fastgltf::FileExporter exporter;
-    auto error = exporter.writeGLTF(cube.get(), path / "export" / "cube.gltf", fastgltf::ExportOptions::PrettyPrintJson);
+    auto error = exporter.writeGltfJson(cube.get(), path / "export" / "cube.gltf",
+                                        fastgltf::ExportOptions::PrettyPrintJson);
+    REQUIRE(error == fastgltf::Error::None);
+}
+
+TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
+    auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
+
+    fastgltf::GltfDataBuffer gltfDataBuffer;
+    gltfDataBuffer.loadFromFile(cubePath / "Cube.gltf");
+
+    fastgltf::Parser parser;
+    auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
+    auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
+    REQUIRE(cube.error() == fastgltf::Error::None);
+
+    fastgltf::FileExporter exporter;
+    auto error = exporter.writeGltfBinary(cube.get(), path / "export_glb" / "cube.glb");
     REQUIRE(error == fastgltf::Error::None);
 }
