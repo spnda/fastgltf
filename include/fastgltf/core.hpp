@@ -841,6 +841,8 @@ namespace fastgltf {
         std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
         std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
 
+        std::string writeJson(const Asset& asset);
+
     public:
         /**
          * Sets the base folder where images URIs should be based of from,
@@ -858,9 +860,13 @@ namespace fastgltf {
         void setImagePath(std::filesystem::path folder);
 
         /**
-         * Converts the Asset into a glTF JSON string.
+         * Generates a glTF JSON string from the given asset.
          */
         Expected<ExportResult<std::string>> writeGltfJson(const Asset& asset, ExportOptions options = ExportOptions::None);
+
+        /**
+         * Generates a glTF binary (GLB) blob from the given asset.
+         */
         Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
     };
 
@@ -874,6 +880,9 @@ namespace fastgltf {
         using Exporter::writeGltfBinary;
 
 	public:
+        /**
+         * Writes a glTF JSON string generated from the given asset to the file pointed to by target.
+         */
 		Error writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
         Error writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
 	};
