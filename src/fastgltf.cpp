@@ -238,26 +238,26 @@ namespace fastgltf {
 			return Error::InvalidGltf;
 		}
 
-		if (child["texCoord"].get_uint64().get(index) == SUCCESS) {
+		if (auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) {
 			info->texCoordIndex = static_cast<std::size_t>(index);
-		} else {
-			info->texCoordIndex = 0;
+		} else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidJson;
 		}
 
 		if (type == TextureInfoType::NormalTexture) {
-			double scale = 1.0F;
-			if (child["scale"].get_double().get(scale) == SUCCESS) {
+            double scale;
+			if (auto error = child["scale"].get_double().get(scale); error == SUCCESS) {
 				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<float>(scale);
-			} else {
-				reinterpret_cast<NormalTextureInfo*>(info)->scale = 1.0F;
+			} else if (error != NO_SUCH_FIELD) {
+                return Error::InvalidGltf;
 			}
 		} else if (type == TextureInfoType::OcclusionTexture) {
-			double strength = 1.0F;
-			if (child["strength"].get_double().get(strength) == SUCCESS) {
+			double strength;
+			if (auto error = child["strength"].get_double().get(strength); error == SUCCESS) {
 				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<float>(strength);
-			} else {
-				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = 1.0F;
-			}
+			} else if (error != NO_SUCH_FIELD) {
+                return Error::InvalidGltf;
+            }
 		}
 
 		dom::object extensionsObject;
@@ -1262,10 +1262,10 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
 
         // byteOffset is optional, but defaults to 0
         std::uint64_t byteOffset;
-        if (accessorObject["byteOffset"].get_uint64().get(byteOffset) != SUCCESS) {
-            accessor.byteOffset = 0U;
-        } else {
+        if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) {
             accessor.byteOffset = static_cast<std::size_t>(byteOffset);
+        } else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
 
         // Type of min and max should always be the same.
@@ -1353,8 +1353,8 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
             return error;
         }
 
-        if (accessorObject["normalized"].get_bool().get(accessor.normalized) != SUCCESS) {
-            accessor.normalized = false;
+        if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
 
 		// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
@@ -1382,10 +1382,10 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
             }
             sparse.indicesBufferView = static_cast<std::size_t>(value);
 
-            if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
-                sparse.indicesByteOffset = 0;
-            } else {
+            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) {
                 sparse.indicesByteOffset = static_cast<std::size_t>(value);
+            } else if (error != NO_SUCH_FIELD) {
+                return Error::InvalidGltf;
             }
 
             if (child["componentType"].get_uint64().get(value) != SUCCESS) {
@@ -1403,10 +1403,10 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
             }
             sparse.valuesBufferView = static_cast<std::size_t>(value);
 
-            if (child["byteOffset"].get_uint64().get(value) != SUCCESS) {
-                sparse.valuesByteOffset = 0;
-            } else {
+            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) {
                 sparse.valuesByteOffset = static_cast<std::size_t>(value);
+            } else if (error != NO_SUCH_FIELD) {
+                return Error::InvalidGltf;
             }
 
             accessor.sparse = sparse;
@@ -1648,9 +1648,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
 
         if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) {
             view.byteOffset = static_cast<std::size_t>(number);
-        } else if (error == NO_SUCH_FIELD) {
-            view.byteOffset = 0;
-        } else {
+        } else if (error != NO_SUCH_FIELD) {
             return Error::InvalidJson;
         }
 
@@ -2097,7 +2095,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
         Material material = {};
 
         dom::array emissiveFactor;
-        if (materialObject["emissiveFactor"].get_array().get(emissiveFactor) == SUCCESS) {
+        if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) {
             if (emissiveFactor.size() != 3) {
                 return Error::InvalidGltf;
             }
@@ -2108,8 +2106,8 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                 }
                 material.emissiveFactor[i] = static_cast<num>(val);
             }
-        } else {
-            material.emissiveFactor = {{ 0, 0, 0 }};
+        } else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
 
 	    {
@@ -2179,7 +2177,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
         }
 
         std::string_view alphaMode;
-        if (materialObject["alphaMode"].get_string().get(alphaMode) == SUCCESS) {
+        if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) {
             if (alphaMode == "OPAQUE") {
                 material.alphaMode = AlphaMode::Opaque;
             } else if (alphaMode == "MASK") {
@@ -2189,22 +2187,22 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
             } else {
                 return Error::InvalidGltf;
             }
-        } else {
-            material.alphaMode = AlphaMode::Opaque;
+        } else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
 
-        double alphaCutoff = 0.5;
-        if (materialObject["alphaCutoff"].get_double().get(alphaCutoff) == SUCCESS) {
+        double alphaCutoff;
+        if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) {
             material.alphaCutoff = static_cast<num>(alphaCutoff);
-        } else {
-            material.alphaCutoff = 0.5F;
+        } else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
 
-        bool doubleSided = false;
-        if (materialObject["doubleSided"].get_bool().get(doubleSided) == SUCCESS) {
+        bool doubleSided;
+        if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) {
             material.doubleSided = doubleSided;
-        } else {
-            material.doubleSided = false;
+        } else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
 
         std::string_view name;
@@ -2786,12 +2784,11 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                     }
                 }
 
-                // Mode shall default to 4.
                 std::uint64_t value;
-                if (primitiveObject["mode"].get_uint64().get(value) != SUCCESS) {
-                    primitive.type = PrimitiveType::Triangles;
-                } else {
+                if (auto error = primitiveObject["mode"].get_uint64().get(value); error == SUCCESS) {
                     primitive.type = static_cast<PrimitiveType>(value);
+                } else if (error != NO_SUCH_FIELD) {
+                    return Error::InvalidGltf;
                 }
 
                 if (primitiveObject["indices"].get_uint64().get(value) == SUCCESS) {
@@ -2910,7 +2907,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
             Node::TRS trs = {};
 
             // There's no matrix, let's see if there's scale, rotation, or rotation fields.
-            if (nodeObject["scale"].get_array().get(array) == SUCCESS) {
+            if (auto error = nodeObject["scale"].get_array().get(array); error == SUCCESS) {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -2920,11 +2917,11 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     trs.scale[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else {
-                trs.scale = {{ 1.0F, 1.0F, 1.0F }};
+            } else if (error != NO_SUCH_FIELD) {
+                return Error::InvalidJson;
             }
 
-            if (nodeObject["translation"].get_array().get(array) == SUCCESS) {
+            if (auto error = nodeObject["translation"].get_array().get(array); error == SUCCESS) {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -2934,11 +2931,11 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     trs.translation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else {
-                trs.translation = {{ 0.0F, 0.0F, 0.0F }};
+            } else if (error != NO_SUCH_FIELD) {
+                return Error::InvalidGltf;
             }
 
-            if (nodeObject["rotation"].get_array().get(array) == SUCCESS) {
+            if (auto error = nodeObject["rotation"].get_array().get(array); error == SUCCESS) {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -2948,8 +2945,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     trs.rotation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else {
-                trs.rotation = {{ 0.0F, 0.0F, 0.0F, 1.0F }};
+            } else if (error != NO_SUCH_FIELD) {
+                return Error::InvalidGltf;
             }
 
             node.transform = trs;
@@ -3026,15 +3023,15 @@ fg::Error fg::Parser::parseSamplers(simdjson::dom::array& samplers, Asset& asset
             sampler.minFilter = static_cast<Filter>(number);
         }
 
-        if (samplerObject["wrapS"].get_uint64().get(number) == SUCCESS) {
+        if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) {
             sampler.wrapS = static_cast<Wrap>(number);
-        } else {
-            sampler.wrapS = Wrap::Repeat;
+        } else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
-        if (samplerObject["wrapT"].get_uint64().get(number) == SUCCESS) {
+        if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) {
             sampler.wrapT = static_cast<Wrap>(number);
-        } else {
-            sampler.wrapT = Wrap::Repeat;
+        } else if (error != NO_SUCH_FIELD) {
+            return Error::InvalidGltf;
         }
 
         asset.samplers.emplace_back(std::move(sampler));

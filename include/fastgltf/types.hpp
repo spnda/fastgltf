@@ -1274,7 +1274,7 @@ namespace fastgltf {
     struct AnimationSampler {
         std::size_t inputAccessor;
         std::size_t outputAccessor;
-        AnimationInterpolation interpolation;
+        AnimationInterpolation interpolation = AnimationInterpolation::Linear;
     };
 
     struct Animation {
@@ -1324,8 +1324,8 @@ namespace fastgltf {
     struct Sampler {
 	    Optional<Filter> magFilter;
 	    Optional<Filter> minFilter;
-        Wrap wrapS;
-        Wrap wrapT;
+        Wrap wrapS = Wrap::Repeat;
+        Wrap wrapT = Wrap::Repeat;
 
         FASTGLTF_STD_PMR_NS::string name;
     };
@@ -1350,9 +1350,9 @@ namespace fastgltf {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
         struct TRS {
-            std::array<num, 3> translation;
-            std::array<num, 4> rotation;
-            std::array<num, 3> scale;
+            std::array<num, 3> translation = {{ 0.f, 0.f, 0.f }};
+            std::array<num, 4> rotation = {{ 0.f, 0.f, 0.f, 1.f }};
+            std::array<num, 3> scale = {{ 1.f, 1.f, 1.f }};
         };
         using TransformMatrix = std::array<num, 16>;
 
@@ -1393,7 +1393,7 @@ namespace fastgltf {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
 		FASTGLTF_FG_PMR_NS::SmallVector<attribute_type, 4> attributes;
-        PrimitiveType type;
+        PrimitiveType type = PrimitiveType::Triangles;
 
         FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::SmallVector<attribute_type, 4>> targets;
 
@@ -1469,7 +1469,7 @@ namespace fastgltf {
 
     struct TextureInfo {
         std::size_t textureIndex;
-        std::size_t texCoordIndex;
+        std::size_t texCoordIndex = 0;
 
         /**
          * Data from KHR_texture_transform, and nullptr if the extension wasn't enabled or used.
@@ -1478,11 +1478,11 @@ namespace fastgltf {
     };
 
 	struct NormalTextureInfo : TextureInfo {
-		num scale;
+		num scale = 1.f;
 	};
 
 	struct OcclusionTextureInfo : TextureInfo {
-		num strength;
+		num strength = 1.f;
 	};
 
     struct PBRData {
@@ -1597,26 +1597,25 @@ namespace fastgltf {
         Optional<TextureInfo> emissiveTexture;
 
         /**
-         * The factors for the emissive color of the material. Defaults to 0,0,0
+         * The factors for the emissive color of the material.
          */
-        std::array<num, 3> emissiveFactor;
+        std::array<num, 3> emissiveFactor = {{ 0.f, 0.f, 0.f }};
 
         /**
          * The values used to determine the transparency of the material.
-         * Defaults to #AlphaMode::Opaque.
          */
-        AlphaMode alphaMode;
+        AlphaMode alphaMode = AlphaMode::Opaque;
 
 		/**
 		 * The alpha value that determines the upper limit for fragments that
-		 * should be discarded for transparency. Defaults to 0.5.
+		 * should be discarded for transparency.
 		 */
-        num alphaCutoff;
+        num alphaCutoff = 0.5f;
 
         /**
          * Determines whether back-face culling should be disabled when using this material.
          */
-        bool doubleSided;
+        bool doubleSided = false;
 
 		std::unique_ptr<MaterialAnisotropy> anisotropy;
 
@@ -1717,18 +1716,18 @@ namespace fastgltf {
     struct SparseAccessor {
         std::size_t count;
         std::size_t indicesBufferView;
-        std::size_t indicesByteOffset;
+        std::size_t indicesByteOffset = 0;
         std::size_t valuesBufferView;
-        std::size_t valuesByteOffset;
+        std::size_t valuesByteOffset = 0;
         ComponentType indexComponentType;
     };
 
     struct Accessor {
-        std::size_t byteOffset;
+        std::size_t byteOffset = 0;
         std::size_t count;
         AccessorType type;
         ComponentType componentType;
-        bool normalized;
+        bool normalized = false;
         
         std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> max;
         std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> min;
@@ -1754,7 +1753,7 @@ namespace fastgltf {
 
     struct BufferView {
         std::size_t bufferIndex;
-        std::size_t byteOffset;
+        std::size_t byteOffset = 0;
         std::size_t byteLength;
 
         Optional<std::size_t> byteStride;
