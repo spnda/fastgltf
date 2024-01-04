@@ -1684,12 +1684,12 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
             if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
                 auto compression = std::make_unique<CompressedBufferView>();
 
-                if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->bufferIndex = static_cast<std::size_t>(number);
 
-                if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) {
+                if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) {
                     compression->byteOffset = static_cast<std::size_t>(number);
                 } else if (error == NO_SUCH_FIELD) {
                     compression->byteOffset = 0;
@@ -1697,22 +1697,22 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
                     return Error::InvalidJson;
                 }
 
-                if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->byteLength = static_cast<std::size_t>(number);
 
-                if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->byteStride = static_cast<std::size_t>(number);
 
-                if (auto error = bufferViewObject["count"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->count = number;
 
-                if (auto error = bufferViewObject["mode"].get_string().get(string); error != SUCCESS) {
+                if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 switch (crcStringFunction(string)) {
@@ -1733,7 +1733,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
                     }
                 }
 
-                if (auto error = bufferViewObject["filter"].get_string().get(string); error == SUCCESS) {
+                if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) {
                     switch (crcStringFunction(string)) {
                         case force_consteval<crc32c("NONE")>: {
                             compression->filter = MeshoptCompressionFilter::None;
