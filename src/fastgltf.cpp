@@ -2349,7 +2349,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo iridescenceTexture;
-                    if (auto error = parseTextureInfo(iridescenceObject, "specularTexture", &iridescenceTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(iridescenceObject, "iridescenceTexture", &iridescenceTexture, config.extensions); error == Error::None) {
                         iridescence->iridescenceTexture = std::move(iridescenceTexture);
                     } else if (error != Error::MissingField) {
                         return error;
@@ -2383,7 +2383,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     }
 
                     TextureInfo iridescenceThicknessTexture;
-                    if (auto error = parseTextureInfo(iridescenceObject, "specularTexture", &iridescenceThicknessTexture, config.extensions); error == Error::None) {
+                    if (auto error = parseTextureInfo(iridescenceObject, "iridescenceThicknessTexture", &iridescenceThicknessTexture, config.extensions); error == Error::None) {
                         iridescence->iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
                     } else if (error != Error::MissingField) {
                         return error;
