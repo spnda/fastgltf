@@ -42,6 +42,7 @@
 struct AAssetManager;
 #endif
 
+#include <simdjson.h>
 namespace simdjson::dom {
     class array;
     class object;
@@ -688,7 +689,7 @@ namespace fastgltf {
     class Parser {
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
-        std::unique_ptr<simdjson::dom::parser> jsonParser;
+        std::unique_ptr<simdjson::ondemand::parser> jsonParser;
 
 		ParserInternalConfig config = {};
 		DataSource glbBuffer;
@@ -706,23 +707,24 @@ namespace fastgltf {
 
 		Error generateMeshIndices(Asset& asset) const;
 
-		Error parseAccessors(simdjson::dom::array& array, Asset& asset);
-		Error parseAnimations(simdjson::dom::array& array, Asset& asset);
-		Error parseBuffers(simdjson::dom::array& array, Asset& asset);
-		Error parseBufferViews(simdjson::dom::array& array, Asset& asset);
-		Error parseCameras(simdjson::dom::array& array, Asset& asset);
-		Error parseExtensions(simdjson::dom::object& extensionsObject, Asset& asset);
-		Error parseImages(simdjson::dom::array& array, Asset& asset);
-		Error parseLights(simdjson::dom::array& array, Asset& asset);
-		Error parseMaterialExtensions(simdjson::dom::object& object, Material& material);
-		Error parseMaterials(simdjson::dom::array& array, Asset& asset);
-		Error parseMeshes(simdjson::dom::array& array, Asset& asset);
-		Error parseNodes(simdjson::dom::array& array, Asset& asset);
-		Error parseSamplers(simdjson::dom::array& array, Asset& asset);
-		Error parseScenes(simdjson::dom::array& array, Asset& asset);
-		Error parseSkins(simdjson::dom::array& array, Asset& asset);
-		Error parseTextures(simdjson::dom::array& array, Asset& asset);
-		Expected<Asset> parse(simdjson::dom::object root, Category categories);
+		Error parseAccessors(simdjson::ondemand::array& array, Asset& asset);
+		Error parseAnimations(simdjson::ondemand::array& array, Asset& asset);
+		Error parseBuffers(simdjson::ondemand::array& array, Asset& asset);
+		Error parseBufferViews(simdjson::ondemand::array& array, Asset& asset);
+		Error parseCameras(simdjson::ondemand::array& array, Asset& asset);
+		Error parseExtensions(simdjson::ondemand::object& extensionsObject, Asset& asset);
+		Error parseImages(simdjson::ondemand::array& array, Asset& asset);
+		Error parseLights(simdjson::ondemand::array& array, Asset& asset);
+		Error parseMaterialExtensions(simdjson::ondemand::object& object, Material& material);
+		Error parseMaterials(simdjson::ondemand::array& array, Asset& asset);
+        Error parseMeshPrimitives(simdjson::ondemand::array& array, Asset& asset, Mesh& mesh);
+		Error parseMeshes(simdjson::ondemand::array& array, Asset& asset);
+		Error parseNodes(simdjson::ondemand::array& array, Asset& asset);
+		Error parseSamplers(simdjson::ondemand::array& array, Asset& asset);
+		Error parseScenes(simdjson::ondemand::array& array, Asset& asset);
+		Error parseSkins(simdjson::ondemand::array& array, Asset& asset);
+		Error parseTextures(simdjson::ondemand::array& array, Asset& asset);
+		Expected<Asset> parse(simdjson::ondemand::object root, Category categories);
 
     public:
         explicit Parser(Extensions extensionsToLoad = Extensions::None) noexcept;
