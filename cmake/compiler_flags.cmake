@@ -16,6 +16,11 @@ macro(fastgltf_compiler_flags TARGET)
 
             # https://github.com/simdjson/simdjson/blob/master/doc/basics.md#performance-tips
             target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-DNDEBUG>)
+
+            if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+                # For the conversion of ARM Neon vectors (say int16x8_t to int8x16_t)
+                target_compile_options(${TARGET} PRIVATE -flax-vector-conversions)
+            endif()
         endif()
     endif()
 endmacro()

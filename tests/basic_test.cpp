@@ -153,7 +153,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 
         REQUIRE(cube->nodes.size() == 1);
         REQUIRE(cube->nodes.front().name == "Cube");
-        REQUIRE(std::holds_alternative<fastgltf::Node::TRS>(cube->nodes.front().transform));
+        REQUIRE(std::holds_alternative<fastgltf::TRS>(cube->nodes.front().transform));
 
         REQUIRE(cube->accessors.size() == 5);
         REQUIRE(cube->accessors[0].type == fastgltf::AccessorType::Scalar);
@@ -384,10 +384,10 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
         REQUIRE(assetWithMatrix->nodes.size() == 2);
         REQUIRE(assetDecomposed->nodes.size() == 2);
         REQUIRE(std::holds_alternative<fastgltf::Node::TransformMatrix>(assetWithMatrix->nodes.back().transform));
-        REQUIRE(std::holds_alternative<fastgltf::Node::TRS>(assetDecomposed->nodes.back().transform));
+        REQUIRE(std::holds_alternative<fastgltf::TRS>(assetDecomposed->nodes.back().transform));
 
         // Get the TRS components from the first node and use them as the test data for decomposing.
-        const auto* pDefaultTRS = std::get_if<fastgltf::Node::TRS>(&assetWithMatrix->nodes.front().transform);
+        const auto* pDefaultTRS = std::get_if<fastgltf::TRS>(&assetWithMatrix->nodes.front().transform);
         REQUIRE(pDefaultTRS != nullptr);
         auto translation = glm::make_vec3(pDefaultTRS->translation.data());
         auto rotation = glm::make_quat(pDefaultTRS->rotation.data());
@@ -401,7 +401,7 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
         REQUIRE(glm::make_mat4x4(pMatrix->data()) == transform);
 
         // Check if the decomposed components equal the original components.
-        const auto* pDecomposedTRS = std::get_if<fastgltf::Node::TRS>(&assetDecomposed->nodes.back().transform);
+        const auto* pDecomposedTRS = std::get_if<fastgltf::TRS>(&assetDecomposed->nodes.back().transform);
         REQUIRE(glm::make_vec3(pDecomposedTRS->translation.data()) == translation);
         REQUIRE(glm::make_quat(pDecomposedTRS->rotation.data()) == rotation);
         REQUIRE(glm::make_vec3(pDecomposedTRS->scale.data()) == scale);

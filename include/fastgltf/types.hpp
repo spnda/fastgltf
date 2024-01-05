@@ -1336,6 +1336,12 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::string name;
     };
 
+    struct TRS {
+        std::array<num, 3> translation = {{ 0.f, 0.f, 0.f }};
+        std::array<num, 4> rotation = {{ 0.f, 0.f, 0.f, 1.f }};
+        std::array<num, 3> scale = {{ 1.f, 1.f, 1.f }};
+    };
+
     struct Node {
         Optional<std::size_t> meshIndex;
 	    Optional<std::size_t> skinIndex;
@@ -1349,11 +1355,6 @@ namespace fastgltf {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> children;
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
-        struct TRS {
-            std::array<num, 3> translation = {{ 0.f, 0.f, 0.f }};
-            std::array<num, 4> rotation = {{ 0.f, 0.f, 0.f, 1.f }};
-            std::array<num, 3> scale = {{ 1.f, 1.f, 1.f }};
-        };
         using TransformMatrix = std::array<num, 16>;
 
         /**

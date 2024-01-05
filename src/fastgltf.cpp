@@ -998,7 +998,7 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		if (node.meshIndex.has_value() && asset.meshes.size() <= node.meshIndex.value())
 			return Error::InvalidGltf;
 
-		if (const auto* pTRS = std::get_if<Node::TRS>(&node.transform)) {
+		if (const auto* pTRS = std::get_if<TRS>(&node.transform)) {
 			for (const auto& x : pTRS->rotation)
 				if (x > 1.0 || x < -1.0)
 					return Error::InvalidGltf;
@@ -2897,14 +2897,14 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
             }
 
             if (hasBit(options, Options::DecomposeNodeMatrices)) {
-                Node::TRS trs = {};
+                TRS trs = {};
                 decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
                 node.transform = trs;
             } else {
                 node.transform = transformMatrix;
             }
         } else if (error == NO_SUCH_FIELD) {
-            Node::TRS trs = {};
+            TRS trs = {};
 
             // There's no matrix, let's see if there's scale, rotation, or rotation fields.
             if (auto error = nodeObject["scale"].get_array().get(array); error == SUCCESS) {
