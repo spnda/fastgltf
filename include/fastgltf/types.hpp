@@ -1507,8 +1507,8 @@ namespace fastgltf {
     };
 
 	struct MaterialAnisotropy {
-		num anisotropyStrength;
-		num anisotropyRotation;
+		num anisotropyStrength = 0.0f;
+		num anisotropyRotation = 0.0f;
 		Optional<TextureInfo> anisotropyTexture;
 	};
 
@@ -1516,9 +1516,9 @@ namespace fastgltf {
      * Specular information from KHR_materials_specular.
      */
     struct MaterialSpecular {
-        num specularFactor;
+        num specularFactor = 1.0f;
         Optional<TextureInfo> specularTexture;
-        std::array<num, 3> specularColorFactor;
+        std::array<num, 3> specularColorFactor = {{ 1.0f, 1.0f, 1.0f }};
         Optional<TextureInfo> specularColorTexture;
     };
 
@@ -1526,11 +1526,11 @@ namespace fastgltf {
      * Iridescence information from KHR_materials_iridescence
      */
     struct MaterialIridescence {
-        num iridescenceFactor;
+        num iridescenceFactor = 0.0f;
         Optional<TextureInfo> iridescenceTexture;
-        num iridescenceIor;
-        num iridescenceThicknessMinimum;
-        num iridescenceThicknessMaximum;
+        num iridescenceIor = 1.3f;
+        num iridescenceThicknessMinimum = 100.0f;
+        num iridescenceThicknessMaximum = 400.0f;
         Optional<TextureInfo> iridescenceThicknessTexture;
     };
 
@@ -1538,29 +1538,29 @@ namespace fastgltf {
      * Volume information from KHR_materials_volume
      */
     struct MaterialVolume {
-        num thicknessFactor;
+        num thicknessFactor = 0.0f;
         Optional<TextureInfo> thicknessTexture;
-        num attenuationDistance;
-        std::array<num, 3> attenuationColor;
+        num attenuationDistance = std::numeric_limits<num>::infinity();
+        std::array<num, 3> attenuationColor = {{ 1.0f, 1.0f, 1.0f }};
     };
 
     struct MaterialTransmission {
-        num transmissionFactor;
+        num transmissionFactor = 0.0f;
         Optional<TextureInfo> transmissionTexture;
     };
 
     struct MaterialClearcoat {
-        num clearcoatFactor;
+        num clearcoatFactor = 0.0f;
         Optional<TextureInfo> clearcoatTexture;
-        num clearcoatRoughnessFactor;
+        num clearcoatRoughnessFactor = 0.0f;
         Optional<TextureInfo> clearcoatRoughnessTexture;
         Optional<TextureInfo> clearcoatNormalTexture;
     };
 
     struct MaterialSheen {
-        std::array<num, 3> sheenColorFactor;
+        std::array<num, 3> sheenColorFactor = {{ 0.0f, 0.0f, 0.0f }};
         Optional<TextureInfo> sheenColorTexture;
-        num sheenRoughnessFactor;
+        num sheenRoughnessFactor = 0.0f;
         Optional<TextureInfo> sheenRoughnessTexture;
     };
 
@@ -1569,10 +1569,10 @@ namespace fastgltf {
      * Specular/Glossiness information from KHR_materials_pbrSpecularGlossiness.
      */
     struct MaterialSpecularGlossiness {
-        std::array<num, 4> diffuseFactor;
+        std::array<num, 4> diffuseFactor = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
         Optional<TextureInfo> diffuseTexture;
-        std::array<num, 3> specularFactor;
-        num glossinessFactor;
+        std::array<num, 3> specularFactor = {{ 1.0f, 1.0f, 1.0f }};
+        num glossinessFactor = 1.0f;
         Optional<TextureInfo> specularGlossinessTexture;
     };
 #endif
@@ -1654,12 +1654,12 @@ namespace fastgltf {
         /**
          * The emissive strength from the KHR_materials_emissive_strength extension.
          */
-        Optional<num> emissiveStrength;
+        num emissiveStrength = 1.0f;
 
         /**
          * The index of refraction as specified through KHR_materials_ior.
          */
-        Optional<num> ior;
+        num ior = 1.5f;
 
 		/**
 		 * The index of a packed texture from the MSFT_packing_normalRoughnessMetallic extension,
@@ -1672,7 +1672,7 @@ namespace fastgltf {
         /**
          * Only applicable if KHR_materials_unlit is enabled.
          */
-        bool unlit;
+        bool unlit = false;
 
         FASTGLTF_STD_PMR_NS::string name;
     };

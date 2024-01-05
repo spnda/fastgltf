@@ -139,11 +139,9 @@ TEST_CASE("Test KHR_materials_ior and KHR_materials_iridescence", "[gltf-loader]
     REQUIRE(materials[0].iridescence->iridescenceIor == 1.0f);
     REQUIRE(materials[0].iridescence->iridescenceThicknessMaximum == 100.0f);
 
-    REQUIRE(materials[0].ior.has_value());
-    REQUIRE(materials[0].ior.value() == 1.0f);
+    REQUIRE(materials[0].ior == 1.0f);
 
-    REQUIRE(materials[7].ior.has_value());
-    REQUIRE(materials[7].ior.value() == 1.17f);
+    REQUIRE(materials[7].ior == 1.17f);
 
     REQUIRE(materials[50].iridescence != nullptr);
     REQUIRE(materials[50].iridescence->iridescenceFactor == 1.0f);

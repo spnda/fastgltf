@@ -2210,7 +2210,6 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 	        material.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(material.name), resourceAllocator.get(), name);
         }
 
-        material.unlit = false;
         dom::object extensionsObject;
         if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
 			if (hasBit(config.extensions, Extensions::KHR_materials_anisotropy)) {
@@ -2222,18 +2221,14 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 					double anisotropyStrength;
 					if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength); error == SUCCESS) {
 						anisotropy->anisotropyStrength = static_cast<num>(anisotropyStrength);
-					} else if (error == NO_SUCH_FIELD) {
-						anisotropy->anisotropyStrength = 0.0f;
-					} else {
+					} else if (error != NO_SUCH_FIELD) {
 						return Error::InvalidJson;
 					}
 
 					double anisotropyRotation;
 					if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation); error == SUCCESS) {
 						anisotropy->anisotropyRotation = static_cast<num>(anisotropyRotation);
-					} else if (error == NO_SUCH_FIELD) {
-						anisotropy->anisotropyRotation = 0.0f;
-					} else {
+					} else if (error != NO_SUCH_FIELD) {
 						return Error::InvalidJson;
 					}
 
@@ -2255,9 +2250,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double clearcoatFactor;
                     if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error == SUCCESS) {
                         clearcoat->clearcoatFactor = static_cast<num>(clearcoatFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        clearcoat->clearcoatFactor = 0.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidJson;
                     }
 
@@ -2271,9 +2264,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double clearcoatRoughnessFactor;
                     if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(clearcoatRoughnessFactor); error == SUCCESS) {
                         clearcoat->clearcoatRoughnessFactor = static_cast<num>(clearcoatRoughnessFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        clearcoat->clearcoatRoughnessFactor = 0.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidJson;
                     }
 
@@ -2305,8 +2296,8 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
                     if (error == SUCCESS) {
                         material.emissiveStrength = static_cast<num>(emissiveStrength);
-                    } else if (error == NO_SUCH_FIELD) {
-                        material.emissiveStrength = 1.0f;
+                    } else if (error != NO_SUCH_FIELD) {
+                        return Error::InvalidGltf;
                     }
                 } else if (emissiveError != NO_SUCH_FIELD) {
                     return Error::InvalidJson;
@@ -2321,9 +2312,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     auto error = iorObject["ior"].get_double().get(ior);
                     if (error == SUCCESS) {
                         material.ior = static_cast<num>(ior);
-                    } else if (error == NO_SUCH_FIELD) {
-                        material.ior = 1.5f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidJson;
                     }
                 } else if (iorError != NO_SUCH_FIELD) {
@@ -2340,9 +2329,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double iridescenceFactor;
                     if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor); error == SUCCESS) {
                         iridescence->iridescenceFactor = static_cast<num>(iridescenceFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        iridescence->iridescenceFactor = 0.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2356,27 +2343,21 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double iridescenceIor;
                     if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error == SUCCESS) {
                         iridescence->iridescenceIor = static_cast<num>(iridescenceIor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        iridescence->iridescenceIor = 1.3f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
                     double iridescenceThicknessMinimum;
                     if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(iridescenceThicknessMinimum); error == SUCCESS) {
                         iridescence->iridescenceThicknessMinimum = static_cast<num>(iridescenceThicknessMinimum);
-                    } else if (error == NO_SUCH_FIELD) {
-                        iridescence->iridescenceThicknessMinimum = 100.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
                     double iridescenceThicknessMaximum;
                     if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(iridescenceThicknessMaximum); error == SUCCESS) {
                         iridescence->iridescenceThicknessMaximum = static_cast<num>(iridescenceThicknessMaximum);
-                    } else if (error == NO_SUCH_FIELD) {
-                        iridescence->iridescenceThicknessMaximum = 400.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2412,9 +2393,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             }
                             sheen->sheenColorFactor[i++] = static_cast<num>(value);
                         }
-                    } else if (error == NO_SUCH_FIELD) {
-                        sheen->sheenColorFactor = std::array<float, 3>{{ 0.0f, 0.0f, 0.0f }};
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2428,9 +2407,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double sheenRoughnessFactor;
                     if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor); error == SUCCESS) {
                         sheen->sheenRoughnessFactor = static_cast<num>(sheenRoughnessFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        sheen->sheenRoughnessFactor = 0.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2456,9 +2433,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double specularFactor;
                     if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error == SUCCESS) {
                         specular->specularFactor = static_cast<num>(specularFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        specular->specularFactor = 1.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2482,9 +2457,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             }
                             specular->specularColorFactor[i++] = static_cast<num>(value);
                         }
-                    } else if (error == NO_SUCH_FIELD) {
-                        specular->specularColorFactor = std::array<float, 3>{{ 1.0f, 1.0f, 1.0f }};
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2510,9 +2483,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double transmissionFactor;
                     if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor); error == SUCCESS) {
                         transmission->transmissionFactor = static_cast<num>(transmissionFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        transmission->transmissionFactor = 0.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2548,9 +2519,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double thicknessFactor;
                     if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) {
                         volume->thicknessFactor = static_cast<num>(thicknessFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        volume->thicknessFactor = 0.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2564,9 +2533,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                     double attenuationDistance;
                     if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) {
                         volume->attenuationDistance = static_cast<num>(attenuationDistance);
-                    } else if (error == NO_SUCH_FIELD) {
-                        volume->attenuationDistance = +std::numeric_limits<float>::infinity();
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2583,9 +2550,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             }
                             (volume->attenuationColor)[i++] = static_cast<num>(value);
                         }
-                    } else if (error == NO_SUCH_FIELD) {
-                        volume->attenuationColor = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2654,9 +2619,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             }
                             specularGlossiness->diffuseFactor[i++] = static_cast<num>(value);
                         }
-                    } else if (error == NO_SUCH_FIELD) {
-                        specularGlossiness->diffuseFactor = std::array<float, 4>{{ 1.0f, 1.0f, 1.0f, 1.0f }};
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
@@ -2680,18 +2643,14 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                             }
                             specularGlossiness->specularFactor[i++] = static_cast<num>(value);
                         }
-                    } else if (error == NO_SUCH_FIELD) {
-                        specularGlossiness->specularFactor = std::array<float, 3>{{ 1.0f, 1.0f, 1.0f }};
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
                     double glossinessFactor;
                     if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) {
                         specularGlossiness->glossinessFactor = static_cast<num>(glossinessFactor);
-                    } else if (error == NO_SUCH_FIELD) {
-                        specularGlossiness->glossinessFactor = 1.0f;
-                    } else {
+                    } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
