@@ -11,8 +11,10 @@ macro(fastgltf_compiler_flags TARGET)
         elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-O3>)
 
-            # Issue with MinGW: https://github.com/simdjson/simdjson/issues/1963
-            target_compile_options(${TARGET} PUBLIC $<$<CONFIG:DEBUG>:-Og>)
+            if (MINGW)
+                # Issue with MinGW: https://github.com/simdjson/simdjson/issues/1963
+                target_compile_options(${TARGET} PUBLIC $<$<CONFIG:DEBUG>:-Og>)
+            endif()
 
             # https://github.com/simdjson/simdjson/blob/master/doc/basics.md#performance-tips
             target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-DNDEBUG>)
