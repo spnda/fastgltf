@@ -88,7 +88,6 @@ namespace fastgltf {
         std::uint32_t chunkType;
     };
 
-    using CRCFunction = std::uint32_t(*)(const std::uint8_t*, std::size_t);
     using CRCStringFunction = std::uint32_t(*)(std::string_view str);
 
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
@@ -127,7 +126,6 @@ namespace fastgltf {
      * this might also point to hwcrc32c. We only use this for runtime evaluation of hashes, and is
      * intended to work for any length of data.
      */
-    static CRCFunction crcFunction = crc32c;
     static CRCStringFunction crcStringFunction = crc32c;
 
     std::once_flag crcInitialisation;
@@ -139,7 +137,6 @@ namespace fastgltf {
 #if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
         const auto& impls = simdjson::get_available_implementations();
         if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
-            crcFunction = hwcrc32c;
             crcStringFunction = hwcrc32c;
         }
 #endif
@@ -2706,7 +2703,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                     return Error::InvalidGltf;
                 }
 
-                auto parseAttributes = [this](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
+                auto parseAttributes = [FASTGLTF_IF_PMR(this)](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
                     // We iterate through the JSON object and write each key/pair value into the
                     // attribute map. The keys are only validated in the validate() method.
 					attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);

@@ -69,11 +69,13 @@
 #define FASTGLTF_FG_PMR_NS ::fastgltf
 
 #define FASTGLTF_CONSTRUCT_PMR_RESOURCE(type, memoryResource, ...) type(__VA_ARGS__)
+#define FASTGLTF_IF_PMR(expr)
 #else
 #define FASTGLTF_STD_PMR_NS ::std::pmr
 #define FASTGLTF_FG_PMR_NS ::fastgltf::pmr
 
 #define FASTGLTF_CONSTRUCT_PMR_RESOURCE(type, memoryResource, ...) type(__VA_ARGS__, memoryResource)
+#define FASTGLTF_IF_PMR(expr) expr
 #endif
 
 #if FASTGLTF_CPP_20
