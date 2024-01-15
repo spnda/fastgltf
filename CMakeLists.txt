@@ -76,9 +76,9 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
 
     install(
         EXPORT fastgltf_simdjson-targets
-        FILE fastgltf_simdjsonTargets.cmake
+        FILE fastgltf_simdjsonConfig.cmake
         NAMESPACE fastgltf::
-        DESTINATION lib/cmake/fastgltf
+        DESTINATION lib/cmake/fastgltf/simdjson
     )
 endif()
 
