@@ -7,16 +7,6 @@ Options
 CMake options
 =============
 
-``FASTGLTF_DOWNLOAD_SIMDJSON``
-------------------------------
-
-A ``BOOL`` option that tells fastgltf's CMake script whether it should download the simdjson sources itself.
-
-* If set to ``YES`` the script will automatically download the amalgamated simdjson header and source files and link them into fastgltf.
-* If set to ``NO`` the CMake script expects a ``simdjson::simdjson`` target to exist against which it tries to link.
-  This target needs to also use the amalgamated simdjson.h header.
-
-
 ``FASTGLTF_USE_64BIT_FLOAT``
 ----------------------------
 
