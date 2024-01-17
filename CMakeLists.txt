@@ -78,7 +78,7 @@ if (FASTGLTF_DOWNLOAD_SIMDJSON)
         EXPORT fastgltf_simdjson-targets
         FILE fastgltf_simdjsonConfig.cmake
         NAMESPACE fastgltf::
-        DESTINATION lib/cmake/fastgltf/simdjson
+        DESTINATION lib/cmake/fastgltf
     )
 endif()
 
@@ -131,10 +131,22 @@ install(
 
 install(
     EXPORT fastgltf-targets
-    FILE fastgltfConfig.cmake
+    #FILE fastgltfConfig.cmake
     NAMESPACE fastgltf::
     DESTINATION lib/cmake/fastgltf
 )
+
+if (TARGET fastgltf_simdjson)
+    install(
+        FILES ${CMAKE_CURRENT_LIST_DIR}/cmake/fastgltf_simdjson/fastgltfConfig.cmake
+        DESTINATION lib/cmake/fastgltf
+    )
+elseif(TARGET simdjson::simdjson)
+    install(
+        FILES ${CMAKE_CURRENT_LIST_DIR}/cmake/simdjson/fastgltfConfig.cmake
+        DESTINATION lib/cmake/fastgltf
+    )
+endif()
 
 if (FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
     # This is required so that Catch2 compiles with C++17, enabling various features we use in tests.
