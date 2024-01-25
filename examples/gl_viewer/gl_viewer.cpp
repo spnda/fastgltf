@@ -264,7 +264,7 @@ glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
         return base * glm::mat4x4(glm::make_mat4x4(pMatrix->data()));
     }
 
-	if (const auto* pTransform = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
+	if (const auto* pTransform = std::get_if<fastgltf::TRS>(&node.transform)) {
 		// Warning: The quaternion to mat4x4 conversion here is not correct with all versions of glm.
 		// glTF provides the quaternion as (x, y, z, w), which is the same layout glm used up to version 0.9.9.8.
 		// However, with commit 59ddeb7 (May 2021) the default order was changed to (w, x, y, z).
@@ -349,13 +349,8 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 
     for (auto it = mesh.primitives.begin(); it != mesh.primitives.end(); ++it) {
 		auto* positionIt = it->findAttribute("POSITION");
-		// A mesh primitive is required to hold the POSITION attribute.
-		assert(positionIt != it->attributes.end());
-
-        // We only support indexed geometry.
-        if (!it->indicesAccessor.has_value()) {
-            return false;
-        }
+		assert(positionIt != it->attributes.end()); // A mesh primitive is required to hold the POSITION attribute.
+		assert(it->indicesAccessor.has_value()); // We specify GenerateMeshIndices, so we should always have indices
 
         // Generate the VAO
         GLuint vao = GL_NONE;
