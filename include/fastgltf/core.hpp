@@ -195,6 +195,8 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Vendor/MSFT_packing_occlusionRoughnessMetallic/README.md
 		MSFT_packing_occlusionRoughnessMetallic = 1 << 22,
+
+		EXT_meshlets = 1 << 23,
     };
     // clang-format on
 
@@ -297,6 +299,7 @@ namespace fastgltf {
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {
         constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
+		constexpr std::string_view EXT_meshlets = "EXT_meshlets";
         constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
         constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
         constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
@@ -327,12 +330,13 @@ namespace fastgltf {
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 21;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 22;
 #else
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 20;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 21;
 #endif
 	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
+		{ extensions::EXT_meshlets,								Extensions::EXT_meshlets },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
 		{ extensions::KHR_lights_punctual,                      Extensions::KHR_lights_punctual },

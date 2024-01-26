@@ -1462,7 +1462,7 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::vector<std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>> instancingAttributes;
 
         FASTGLTF_STD_PMR_NS::string name;
- 
+
         [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
                 if (it->first == attributeName)
@@ -1478,7 +1478,39 @@ namespace fastgltf {
             }
             return instancingAttributes.cend();
         }
-   };
+	};
+
+	struct PrimitiveMeshletInfo {
+		/**
+		 * Specifies the index of a buffer view which contains N count of MeshletDescription structs, defined as:
+		 *
+		 * \code{.cpp}
+		 * struct MeshletDescription {
+		 *     uint32_t vertexOffset;
+		 *     uint32_t primitiveOffset;
+		 *     uint32_t vertexCount;
+		 *     uint32_t primitiveCount;
+		 * }
+		 * \endcode
+		 *
+		 * These members define byte offsets and element count information about how to access the vertex index array
+		 * and primitive index array. The count of the meshlet descriptions array is defined by the byteLength property
+		 * of the specified buffer view.
+		 */
+		std::size_t meshletBufferView;
+
+		/**
+		 * Specifies the index of an accessor which contains the vertex indices for this meshlet. The component type
+		 * of this accessor is guaranteed to be a 32-bit unsigned integer (ComponentType::UnsignedInt).
+		 */
+		std::size_t meshletVertexIndicesAccessor;
+
+		/**
+		 * Specifies the index of an accessor which contains the primitive indices for this meshlet. The component type
+		 * of this accessor is guaranteed to be an 8-bit unsigned integer (ComponentType::UnsignedByte).
+		 */
+		std::size_t meshletPrimitiveIndiciesAccessor;
+	};
 
     struct Primitive {
 		using attribute_type = std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>;
@@ -1492,6 +1524,11 @@ namespace fastgltf {
 
         Optional<std::size_t> indicesAccessor;
         Optional<std::size_t> materialIndex;
+
+		/**
+		 * Data from the EXT_meshlets extension.
+		 */
+		std::unique_ptr<PrimitiveMeshletInfo> meshletInfo;
 
 		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
 			for (auto it = attributes.begin(); it != attributes.end(); ++it) {

@@ -738,6 +738,10 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			if (primitive.indicesAccessor.has_value())
 				continue;
 
+			// The meshlet extension always provides special indices.
+			if (primitive.meshletInfo)
+				continue;
+
 			auto* positionAttribute = primitive.findAttribute("POSITION");
 			if (positionAttribute == primitive.attributes.end()) {
 				return Error::InvalidGltf;
@@ -2836,6 +2840,39 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                     primitive.materialIndex = static_cast<std::size_t>(value);
                 }
 
+				dom::object extensionsObject;
+				if (auto extensionError = primitiveObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
+					if (hasBit(config.extensions, Extensions::EXT_meshlets)) {
+						dom::object meshletObject;
+						auto meshletError = extensionsObject[extensions::EXT_meshlets].get_object().get(meshletObject);
+						if (meshletError == SUCCESS) {
+							auto meshletInfo = std::make_unique<PrimitiveMeshletInfo>();
+
+							if (auto error = meshletObject["meshletBufferView"].get_uint64().get(value); error == SUCCESS) {
+								meshletInfo->meshletBufferView = static_cast<std::size_t>(value);
+							} else {
+								return Error::InvalidGltf;
+							}
+
+							if (auto error = meshletObject["meshletVertexIndicesAccessor"].get_uint64().get(value); error == SUCCESS) {
+								meshletInfo->meshletVertexIndicesAccessor = static_cast<std::size_t>(value);
+							} else {
+								return Error::InvalidGltf;
+							}
+
+							if (auto error = meshletObject["meshletPrimitiveIndiciesAccessor"].get_uint64().get(value); error == SUCCESS) {
+								meshletInfo->meshletPrimitiveIndiciesAccessor = static_cast<std::size_t>(value);
+							} else {
+								return Error::InvalidGltf;
+							}
+
+							primitive.meshletInfo = std::move(meshletInfo);
+						} else if (meshletError != NO_SUCH_FIELD) {
+							return Error::InvalidJson;
+						}
+					}
+				}
+
                 mesh.primitives.emplace_back(std::move(primitive));
             }
         }
@@ -4293,6 +4330,14 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 
                 if (itp->type != PrimitiveType::Triangles) {
                     json += R"(,"type":)" + std::to_string(to_underlying(itp->type));
+                }
+
+                if (itp->meshletInfo) {
+                    json += R"(,"extensions":{"EXT_meshlets":{)";
+                    json += "\"meshletBufferView\":" + std::to_string(itp->meshletInfo->meshletBufferView) + ',';
+                    json += "\"meshletVertexIndicesAccessor\":" + std::to_string(itp->meshletInfo->meshletVertexIndicesAccessor) + ',';
+                    json += "\"meshletPrimitiveIndiciesAccessor\":" + std::to_string(itp->meshletInfo->meshletPrimitiveIndiciesAccessor);
+                    json += "}}";
                 }
 
                 json += '}';
