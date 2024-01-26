@@ -798,6 +798,11 @@ namespace fastgltf {
      */
     std::string escapeString(std::string_view string);
 
+	/**
+	 * Returns a bitset of extension flags into a list of their stringified name.
+	 */
+	auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired);
+
     template <typename T>
     struct ExportResult {
         T output;
@@ -811,7 +816,7 @@ namespace fastgltf {
      *
      * @note This does not write anything to any files. This class only serializes data
      * into memory structures, which can then be used to manually write them to disk.
-     * If you want to let fastgltf handle the file writing, too, use fastgltf::FileExporter.
+     * If you want to let fastgltf handle the file writing too, use fastgltf::FileExporter.
      */
     class Exporter {
     protected:
@@ -837,6 +842,7 @@ namespace fastgltf {
         void writeScenes(const Asset& asset, std::string& json);
         void writeSkins(const Asset& asset, std::string& json);
         void writeTextures(const Asset& asset, std::string& json);
+        void writeExtensions(const Asset& asset, std::string& json);
 
         std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
         std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
@@ -866,6 +872,9 @@ namespace fastgltf {
 
         /**
          * Generates a glTF binary (GLB) blob from the given asset.
+         *
+         * If the first buffer holds a sources::Vector or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
+         * it will be embedded into the binary. Note that the returned vector might therefore get quite large.
          */
         Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
     };
@@ -881,9 +890,18 @@ namespace fastgltf {
 
 	public:
         /**
-         * Writes a glTF JSON string generated from the given asset to the file pointed to by target.
+         * Writes a glTF JSON string generated from the given asset to the specified target file.
          */
 		Error writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+
+		/**
+		 * Writes a glTF binary (GLB) blob from the given asset to the specified target file.
+         *
+		 * If the first buffer holds a sources::Vector or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
+         * it will be embedded into the binary.
+         *
+		 * \see Exporter::writeGltfBinary
+		 */
         Error writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
 	};
 } // namespace fastgltf

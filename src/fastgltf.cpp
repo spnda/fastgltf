@@ -312,6 +312,28 @@ namespace fastgltf {
 		} else if (type == TextureInfoType::OcclusionTexture) {
 			json += ",\"strength\":" + std::to_string(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
 		}
+
+        if (info->transform != nullptr) {
+            json += R"(,"extensions":{"KHR_texture_transform":{)";
+            const auto& transform = *info->transform;
+            if (transform.uvOffset[0] != 0.0 || transform.uvOffset[1] != 0.0) {
+                json += "\"offset\":[" + std::to_string(transform.uvOffset[0]) + ',' + std::to_string(transform.uvOffset[1]) + ']';
+            }
+            if (transform.rotation != 0.0) {
+                if (json.back() != '{') json += ',';
+                json += "\"rotation\":" + std::to_string(transform.rotation);
+            }
+            if (transform.uvScale[0] != 1.0 || transform.uvScale[1] != 1.0) {
+                if (json.back() != '{') json += ',';
+                json += "\"scale\":[" + std::to_string(transform.uvScale[0]) + ',' + std::to_string(transform.uvScale[1]) + ']';
+            }
+            if (transform.texCoordIndex.has_value()) {
+                if (json.back() != '{') json += ',';
+                json += "\"texCoord\":" + std::to_string(transform.texCoordIndex.value());
+            }
+            json += "}}";
+        }
+
 		json += '}';
 	}
 } // namespace fastgltf
@@ -3571,6 +3593,24 @@ std::string fg::escapeString(std::string_view string) {
     return ret;
 }
 
+auto fg::stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
+	decltype(Asset::extensionsRequired) stringified;
+	for (std::uint8_t i = 0; i < std::numeric_limits<std::underlying_type_t<Extensions>>::digits; ++i) {
+		auto curExtension = static_cast<Extensions>(1 << i);
+		if ((extensions & curExtension) == Extensions::None)
+			continue;
+
+		// Find the stringified extension name
+		for (const auto& [name, ext] : extensionStrings) {
+			if (ext == curExtension) {
+				stringified.emplace_back(name);
+				break;
+			}
+		}
+	}
+	return stringified;
+}
+
 void fg::Exporter::setBufferPath(std::filesystem::path folder) {
     if (!folder.is_relative()) {
         return;
@@ -3712,6 +3752,38 @@ void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
 			json += ",\"target\":" + std::to_string(to_underlying(it->target.value()));
 		}
 
+        if (it->meshoptCompression != nullptr) {
+            json += R"(,"extensions":{"EXT_meshopt_compression":{)";
+            const auto& meshopt = *it->meshoptCompression;
+            json += "\"buffer\":" + std::to_string(meshopt.bufferIndex) + ',';
+            if (meshopt.byteOffset != 0) {
+                json += ",\"byteOffset\":" + std::to_string(meshopt.byteOffset);
+            }
+            json += "\"byteLength\":" + std::to_string(meshopt.byteLength);
+            json += ",\"byteStride\":" + std::to_string(meshopt.byteStride);
+            json += ",\"count\":" + std::to_string(meshopt.count);
+
+            json += ",\"mode\":";
+            if (meshopt.mode == MeshoptCompressionMode::Attributes) {
+                json += "\"ATTRIBUTES\"";
+            } else if (meshopt.mode == MeshoptCompressionMode::Triangles) {
+                json += "\"TRIANGLES\"";
+            } else if (meshopt.mode == MeshoptCompressionMode::Indices) {
+                json += "\"INDICES\"";
+            }
+            if (meshopt.filter != MeshoptCompressionFilter::None) {
+                json += ",\"filter\":";
+                if (meshopt.filter == MeshoptCompressionFilter::Exponential) {
+                    json += "\"EXPONENTIAL\"";
+                } else if (meshopt.filter == MeshoptCompressionFilter::Quaternion) {
+                    json += "\"QUATERNION\"";
+                } else if (meshopt.filter == MeshoptCompressionFilter::Octahedral) {
+                    json += "\"OCTAHEDRAL\"";
+                }
+            }
+            json += "}}";
+        }
+
 		if (!it->name.empty())
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 
@@ -3816,7 +3888,7 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
-	json += "\"lights\":[";
+	json += "\"KHR_lights_punctual\":{\"lights\":[";
 	for (auto it = asset.lights.begin(); it != asset.lights.end(); ++it) {
 		json += '{';
 
@@ -3864,7 +3936,7 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 		if (std::distance(asset.lights.begin(), it) + 1 < asset.lights.size())
 			json += ',';
 	}
-	json += ']';
+	json += "]}";
 }
 
 void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
@@ -4129,6 +4201,16 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			},
 		}, it->transform);
 
+        if (!it->instancingAttributes.empty()) {
+            json += R"("extensions":{"EXT_mesh_gpu_instancing":{"attributes":{)";
+            for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
+                json += '"' + std::string(ait->first) + "\":" + std::to_string(ait->second);
+                if (std::distance(it->instancingAttributes.begin(), ait) + 1 < it->instancingAttributes.size())
+                    json += ',';
+            }
+            json += "}}}";
+        }
+
 		if (!it->name.empty()) {
             if (json.back() != '{')
                 json += ',';
@@ -4265,7 +4347,7 @@ void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
 		}
 
 		if (it->basisuImageIndex.has_value() || it->ddsImageIndex.has_value() || it->webpImageIndex.has_value()) {
-			if (json.back() == '}') json += ',';
+			if (json.back() != '{') json += ',';
 			json += R"("extensions":{)";
 			if (it->basisuImageIndex.has_value()) {
 				json += R"("KHR_texture_basisu":{"source":)" + std::to_string(it->basisuImageIndex.value()) + '}';
@@ -4288,6 +4370,16 @@ void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
 			json += ',';
 	}
 	json += ']';
+}
+
+void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& json) {
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+    json += "\"extensions\":{";
+
+    writeLights(asset, json);
+
+    json += '}';
 }
 
 fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) {
@@ -4341,6 +4433,17 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
     }
     outputString += '}';
 
+	// Write extension usage info
+	if (!asset.extensionsRequired.empty()) {
+		outputString += "\"extensionsRequired\":{";
+		for (auto it = asset.extensionsRequired.begin(); it != asset.extensionsRequired.end(); ++it) {
+			outputString += '\"' + *it + '\"';
+			if (std::distance(asset.extensionsRequired.begin(), it) + 1 < asset.extensionsRequired.size())
+				outputString += ',';
+		}
+		outputString += '}';
+	}
+
     writeAccessors(asset, outputString);
     writeBuffers(asset, outputString);
     writeBufferViews(asset, outputString);
@@ -4354,6 +4457,7 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
     writeScenes(asset, outputString);
     writeSkins(asset, outputString);
     writeTextures(asset, outputString);
+    writeExtensions(asset, outputString);
 
     outputString += "}";
 
@@ -4406,9 +4510,11 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
     result.bufferPaths = std::move(bufferPaths);
     result.imagePaths = std::move(imagePaths);
 
+	// TODO: Add ExportOption enumeration for disabling this?
     const bool withEmbeddedBuffer = !asset.buffers.empty()
-            && std::get_if<sources::Vector>(&asset.buffers.front().data) != nullptr // We only support writing Vectors as embedded buffers
-            && asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
+			// We only support writing Vectors and ByteViews as embedded buffers
+			&& (std::holds_alternative<sources::Vector>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
+			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
 
     std::size_t binarySize = sizeof(BinaryGltfHeader) + sizeof(BinaryGltfChunk) + json.size();
     if (withEmbeddedBuffer) {
@@ -4442,8 +4548,15 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
         dataChunk.chunkLength = buffer.byteLength;
         write(&dataChunk, sizeof dataChunk);
 
-        const auto* vector = std::get_if<sources::Vector>(&buffer.data);
-        write(vector->bytes.data(), buffer.byteLength);
+		std::visit(visitor {
+			[](auto arg) {},
+			[&](sources::Vector& vector) {
+				write(vector.bytes.data(), buffer.byteLength);
+			},
+			[&](sources::ByteView& byteView) {
+				write(byteView.bytes.data(), buffer.byteLength);
+			},
+		}, buffer.data);
     }
 
     return Expected { std::move(result) };
@@ -4459,19 +4572,19 @@ namespace fastgltf {
             }
 
             std::visit(visitor{
-                    [&](auto &arg) {},
-                    [&](const fastgltf::sources::Vector &vector) {
-                        std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-                        file.write(reinterpret_cast<const char *>(vector.bytes.data()),
-                                   static_cast<std::streamsize>(vector.bytes.size()));
-                        file.close();
-                    },
-                    [&](const sources::ByteView &view) {
-                        std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-                        file.write(reinterpret_cast<const char *>(view.bytes.data()),
-                                   static_cast<std::streamsize>(view.bytes.size()));
-                        file.close();
-                    },
+				[&](auto &arg) {},
+				[&](const fastgltf::sources::Vector &vector) {
+					std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+					file.write(reinterpret_cast<const char *>(vector.bytes.data()),
+							   static_cast<std::streamsize>(vector.bytes.size()));
+					file.close();
+				},
+				[&](const sources::ByteView &view) {
+					std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+					file.write(reinterpret_cast<const char *>(view.bytes.data()),
+							   static_cast<std::streamsize>(view.bytes.size()));
+					file.close();
+				},
             }, asset.buffers[i].data);
         }
 
@@ -4482,13 +4595,13 @@ namespace fastgltf {
             }
 
             std::visit(visitor{
-                    [&](auto &arg) {},
-                    [&](const fastgltf::sources::Vector &vector) {
-                        std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-                        file.write(reinterpret_cast<const char *>(vector.bytes.data()),
-                                   static_cast<std::streamsize>(vector.bytes.size()));
-                        file.close();
-                    },
+				[&](auto &arg) {},
+				[&](const fastgltf::sources::Vector &vector) {
+					std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
+					file.write(reinterpret_cast<const char *>(vector.bytes.data()),
+							   static_cast<std::streamsize>(vector.bytes.size()));
+					file.close();
+				},
             }, asset.images[i].data);
         }
     }
