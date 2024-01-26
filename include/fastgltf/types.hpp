@@ -240,7 +240,6 @@ namespace fastgltf {
     };
 
     enum class MeshoptCompressionMode : std::uint8_t {
-        None = 0,
         Attributes,
         Triangles,
         Indices,

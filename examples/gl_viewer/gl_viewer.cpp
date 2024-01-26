@@ -127,11 +127,11 @@ bool checkGlLinkErrors(GLuint target) {
 }
 
 struct IndirectDrawCommand {
-    uint32_t count;
-    uint32_t instanceCount;
-    uint32_t firstIndex;
-    int32_t baseVertex;
-    uint32_t baseInstance;
+	std::uint32_t count;
+	std::uint32_t instanceCount;
+	std::uint32_t firstIndex;
+	std::int32_t baseVertex;
+	std::uint32_t baseInstance;
 };
 
 struct Primitive {
@@ -153,7 +153,7 @@ struct Texture {
     GLuint texture;
 };
 
-enum MaterialUniformFlags : uint32_t {
+enum MaterialUniformFlags : std::uint32_t {
     None = 0 << 0,
     HasBaseColorTexture = 1 << 0,
 };
@@ -161,7 +161,7 @@ enum MaterialUniformFlags : uint32_t {
 struct MaterialUniforms {
     glm::fvec4 baseColorFactor;
     float alphaCutoff;
-    uint32_t flags;
+	std::uint32_t flags;
 };
 
 struct Viewer {
@@ -434,10 +434,10 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         auto& indices = asset.accessors[it->indicesAccessor.value()];
         if (!indices.bufferViewIndex.has_value())
             return false;
-        draw.count = static_cast<uint32_t>(indices.count);
+        draw.count = static_cast<std::uint32_t>(indices.count);
 
         auto& indicesView = asset.bufferViews[indices.bufferViewIndex.value()];
-        draw.firstIndex = static_cast<uint32_t>(indices.byteOffset + indicesView.byteOffset) / fastgltf::getElementByteSize(indices.type, indices.componentType);
+        draw.firstIndex = static_cast<std::uint32_t>(indices.byteOffset + indicesView.byteOffset) / fastgltf::getElementByteSize(indices.type, indices.componentType);
         primitive.indexType = getGLComponentType(indices.componentType);
         glVertexArrayElementBuffer(vao, viewer->buffers[indicesView.bufferIndex]);
     }

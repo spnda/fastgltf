@@ -6,4 +6,4 @@
 inline auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
 inline auto sampleModels = std::filesystem::path { __FILE__ }.parent_path() / "gltf" / "glTF-Sample-Models";
 inline auto intelSponza = std::filesystem::path { __FILE__ }.parent_path() / "gltf" / "intel_sponza";
-inline auto bistroPath = std::filesystem::path {};
+inline auto bistroPath = std::filesystem::path { __FILE__ }.parent_path() / "gltf" / "bistro";

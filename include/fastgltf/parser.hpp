@@ -308,9 +308,9 @@ namespace fastgltf {
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
-	static constexpr size_t SUPPORTED_EXTENSION_COUNT = 21;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 21;
 #else
-	static constexpr size_t SUPPORTED_EXTENSION_COUNT = 20;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 20;
 #endif
 	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },

@@ -339,7 +339,7 @@ void fg::URIView::parse() {
 		return;
 	}
 
-	size_t idx = 0;
+	std::size_t idx = 0;
 	auto firstColon = view.find(':');
 	if (firstColon != std::string::npos) {
 		// URI has a scheme.
@@ -837,8 +837,6 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 				case MeshoptCompressionMode::Indices:
 					if (compression->byteStride != 2 && compression->byteStride != 4)
 						return Error::InvalidGltf;
-					break;
-				case MeshoptCompressionMode::None:
 					break;
 			}
 		}

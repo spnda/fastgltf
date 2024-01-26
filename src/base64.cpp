@@ -314,7 +314,7 @@ namespace fastgltf::base64 {
 }
 
 // clang-format off
-[[gnu::aligned(16)]] static constexpr std::array<uint8_t, 16> shuffleData = {
+[[gnu::aligned(16)]] static constexpr std::array<std::uint8_t, 16> shuffleData = {
         2,  1,  0,
         6,  5,  4,
         10,  9,  8,
