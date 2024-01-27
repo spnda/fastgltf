@@ -123,12 +123,8 @@ TEST_CASE("Test string escape", "[write-tests]") {
     REQUIRE(escaped == "\\\"stuff\\\\");
 }
 
-#include <sstream>
-#include <fstream>
 TEST_CASE("Test pretty-print", "[write-tests]") {
-    /*std::ifstream t("C:\\Users\\sean1\\Downloads\\E1M1\\E1M1.gltf");
-    std::stringstream buffer;
-    buffer << t.rdbuf();
-    std::string json = buffer.str();
-    fastgltf::prettyPrintJson(json);*/
+    std::string json = R"({"value":5,"thing":{}})";
+    fastgltf::prettyPrintJson(json);
+	REQUIRE(json == "{\n\t\"value\":5,\n\t\"thing\":{\n\t\t\n\t}\n}");
 }

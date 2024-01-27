@@ -3697,7 +3697,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 				errorCode = Error::InvalidGltf;
 			},
 			[&](const sources::Vector& vector) {
-                if (bufferIdx == 0 && hasBit(options, ExportOptions::ExportAsGLB)) {
+                if (bufferIdx == 0 && exportingBinary) {
                     bufferPaths.emplace_back(std::nullopt);
                     return;
                 }
@@ -4684,6 +4684,7 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const As
     bufferPaths.clear();
     imagePaths.clear();
     options = nOptions;
+	exportingBinary = false;
 
     if (hasBit(options, ExportOptions::ValidateAsset)) {
         auto validation = validate(asset);
@@ -4709,8 +4710,8 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
     bufferPaths.clear();
     imagePaths.clear();
     options = nOptions;
+	exportingBinary = true;
 
-    options |= ExportOptions::ExportAsGLB;
     options &= (~ExportOptions::PrettyPrintJson);
 
     ExportResult<std::vector<std::byte>> result;
@@ -4775,46 +4776,38 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 }
 
 namespace fastgltf {
+	void writeFile(const DataSource& dataSource, fs::path baseFolder, fs::path filePath) {
+		std::visit(visitor {
+			[](auto& arg) {},
+			[&](const fastgltf::sources::Vector &vector) {
+				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
+						   static_cast<std::streamsize>(vector.bytes.size()));
+				file.close();
+			},
+			[&](const sources::ByteView &view) {
+				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				file.write(reinterpret_cast<const char *>(view.bytes.data()),
+						   static_cast<std::streamsize>(view.bytes.size()));
+				file.close();
+			},
+		}, dataSource);
+	}
+
     template<typename T>
-    void writeFiles(const Asset& asset, ExportResult<T> &result, std::filesystem::path baseFolder) {
+    void writeFiles(const Asset& asset, ExportResult<T> &result, fs::path baseFolder) {
         for (std::size_t i = 0; i < asset.buffers.size(); ++i) {
             auto &path = result.bufferPaths[i];
-            if (!path.has_value()) {
-                continue;
+            if (path.has_value()) {
+                writeFile(asset.buffers[i].data, baseFolder, path.value());
             }
-
-            std::visit(visitor{
-				[&](auto &arg) {},
-				[&](const fastgltf::sources::Vector &vector) {
-					std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-					file.write(reinterpret_cast<const char *>(vector.bytes.data()),
-							   static_cast<std::streamsize>(vector.bytes.size()));
-					file.close();
-				},
-				[&](const sources::ByteView &view) {
-					std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-					file.write(reinterpret_cast<const char *>(view.bytes.data()),
-							   static_cast<std::streamsize>(view.bytes.size()));
-					file.close();
-				},
-            }, asset.buffers[i].data);
         }
 
         for (std::size_t i = 0; i < asset.images.size(); ++i) {
             auto &path = result.imagePaths[i];
-            if (!path.has_value()) {
-                continue;
+            if (path.has_value()) {
+				writeFile(asset.images[i].data, baseFolder, path.value());
             }
-
-            std::visit(visitor{
-				[&](auto &arg) {},
-				[&](const fastgltf::sources::Vector &vector) {
-					std::ofstream file(baseFolder / path.value(), std::ios::out | std::ios::binary);
-					file.write(reinterpret_cast<const char *>(vector.bytes.data()),
-							   static_cast<std::streamsize>(vector.bytes.size()));
-					file.close();
-				},
-            }, asset.images[i].data);
         }
     }
 } // namespace fastgltf

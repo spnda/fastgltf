@@ -280,12 +280,6 @@ namespace fastgltf {
          * Pretty-prints the outputted JSON. This option is ignored for binary glTFs.
          */
         PrettyPrintJson                 = 1 << 2,
-
-        /**
-         * This is used by the internal GLB exporter to let the JSON exporter know to treat the first buffer
-         * as a embedded buffer. This will most likely not be useful for any user.
-         */
-        ExportAsGLB                     = 1 << 3,
     };
     // clang-format on
 
@@ -799,7 +793,7 @@ namespace fastgltf {
     std::string escapeString(std::string_view string);
 
 	/**
-	 * Returns a bitset of extension flags into a list of their stringified name.
+	 * Returns a list of extension names based on the given extension flags.
 	 */
 	auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired);
 
@@ -812,7 +806,7 @@ namespace fastgltf {
     };
 
     /**
-     * A exporter for serializing one or more glTF files into JSON and GLB forms.
+     * A exporter for serializing one or more glTF assets into JSON and GLB forms.
      *
      * @note This does not write anything to any files. This class only serializes data
      * into memory structures, which can then be used to manually write them to disk.
@@ -822,6 +816,7 @@ namespace fastgltf {
     protected:
         Error errorCode = Error::None;
         ExportOptions options = ExportOptions::None;
+		bool exportingBinary = false;
 
         std::filesystem::path bufferFolder = "";
         std::filesystem::path imageFolder = "";
@@ -851,15 +846,13 @@ namespace fastgltf {
 
     public:
         /**
-         * Sets the base folder where images URIs should be based of from,
-         * relative to the glTF's directory.
+         * Sets the relative base path for buffer URIs.
          *
          * If folder.is_relative() returns false, this has no effect.
          */
         void setBufferPath(std::filesystem::path folder);
         /**
-         * Sets the base folder where images URIs should be based of from,
-         * relative to the glTF's directory.
+         * Sets the relative base path for image URIs.
          *
          * If folder.is_relative() returns false, this has no effect.
          */
@@ -890,12 +883,16 @@ namespace fastgltf {
 
 	public:
         /**
-         * Writes a glTF JSON string generated from the given asset to the specified target file.
+         * Writes a glTF JSON string generated from the given asset to the specified target file. This will also write
+         * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
+         * Exporter::setImagePath.
          */
 		Error writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
 
 		/**
-		 * Writes a glTF binary (GLB) blob from the given asset to the specified target file.
+		 * Writes a glTF binary (GLB) blob from the given asset to the specified target file. This will also write
+         * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
+         * Exporter::setImagePath.
          *
 		 * If the first buffer holds a sources::Vector or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
          * it will be embedded into the binary.

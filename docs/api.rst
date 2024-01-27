@@ -177,6 +177,14 @@ Options
 .. doxygenenum:: fastgltf::Options
 
 
+.. _exportoptions:
+
+ExportOptions
+-------------
+
+.. doxygenenum:: fastgltf::ExportOptions
+
+
 Expected
 --------
 
@@ -210,6 +218,8 @@ Parser
 
 Exporter
 --------
+
+.. doxygenfunction:: fastgltf::stringifyExtensionBits
 
 .. doxygenclass:: fastgltf::Exporter
    :members:
