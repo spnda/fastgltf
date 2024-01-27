@@ -43,7 +43,7 @@ else()
     find_package(simdjson CONFIG)
     if (simdjson_FOUND)
         message(STATUS "fastgltf: Found simdjson config")
-        target_link_libraries(fastgltf PRIVATE simdjson::simdjson)
+        target_link_libraries(fastgltf PUBLIC simdjson::simdjson)
     else()
         # Download and configure simdjson
         set(SIMDJSON_TARGET_VERSION "3.6.3")

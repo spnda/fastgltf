@@ -882,6 +882,34 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		if (material.pbrData.metallicRoughnessTexture.has_value() &&
 		    isInvalidTexture(material.pbrData.metallicRoughnessTexture->textureIndex))
 			return Error::InvalidGltf;
+
+		// Validate that for every additional material field from an extension the correct extension is marked as used by the asset.
+		if (material.anisotropy && !isExtensionUsed(extensions::KHR_materials_anisotropy))
+			return Error::InvalidGltf;
+		if (material.clearcoat && !isExtensionUsed(extensions::KHR_materials_clearcoat))
+			return Error::InvalidGltf;
+		if (material.iridescence && !isExtensionUsed(extensions::KHR_materials_iridescence))
+			return Error::InvalidGltf;
+		if (material.sheen && !isExtensionUsed(extensions::KHR_materials_sheen))
+			return Error::InvalidGltf;
+		if (material.specular && !isExtensionUsed(extensions::KHR_materials_specular))
+			return Error::InvalidGltf;
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+		if (material.specularGlossiness && !isExtensionUsed(extensions::KHR_materials_pbrSpecularGlossiness))
+			return Error::InvalidGltf;
+#endif
+		if (material.transmission && !isExtensionUsed(extensions::KHR_materials_transmission))
+			return Error::InvalidGltf;
+		if (material.volume && !isExtensionUsed(extensions::KHR_materials_volume))
+			return Error::InvalidGltf;
+		if (material.emissiveStrength != 1.0f && !isExtensionUsed(extensions::KHR_materials_emissive_strength))
+			return Error::InvalidGltf;
+		if (material.ior != 1.5f && !isExtensionUsed(extensions::KHR_materials_ior))
+			return Error::InvalidGltf;
+		if (material.packedNormalMetallicRoughnessTexture && !isExtensionUsed(extensions::MSFT_packing_normalRoughnessMetallic))
+			return Error::InvalidGltf;
+		if (material.packedOcclusionRoughnessMetallicTextures && !isExtensionUsed(extensions::MSFT_packing_occlusionRoughnessMetallic))
+			return Error::InvalidGltf;
 	}
 
 	for (const auto& mesh : asset.meshes) {
