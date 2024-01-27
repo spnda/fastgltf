@@ -242,14 +242,14 @@ namespace fastgltf {
 		if (type == TextureInfoType::NormalTexture) {
             double scale;
 			if (auto error = child["scale"].get_double().get(scale); error == SUCCESS) {
-				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<float>(scale);
+				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<num>(scale);
 			} else if (error != NO_SUCH_FIELD) {
                 return Error::InvalidGltf;
 			}
 		} else if (type == TextureInfoType::OcclusionTexture) {
 			double strength;
 			if (auto error = child["strength"].get_double().get(strength); error == SUCCESS) {
-				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<float>(strength);
+				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<num>(strength);
 			} else if (error != NO_SUCH_FIELD) {
                 return Error::InvalidGltf;
             }
@@ -270,7 +270,7 @@ namespace fastgltf {
 
 				double rotation = 0.0F;
 				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
-					transform->rotation = static_cast<float>(rotation);
+					transform->rotation = static_cast<num>(rotation);
 				}
 
 				dom::array array;
@@ -280,7 +280,7 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) {
 							return Error::InvalidGltf;
 						}
-						transform->uvOffset[i] = static_cast<float>(val);
+						transform->uvOffset[i] = static_cast<num>(val);
 					}
 				}
 
@@ -290,7 +290,7 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) {
 							return Error::InvalidGltf;
 						}
-						transform->uvScale[i] = static_cast<float>(val);
+						transform->uvScale[i] = static_cast<num>(val);
 					}
 				}
 
@@ -2133,7 +2133,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
                 }
             }
         } else if (error == NO_SUCH_FIELD) {
-            light.color = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
+            light.color = std::array<num, 3>{{1.0f, 1.0f, 1.0f}};
         } else {
             return Error::InvalidGltf;
         }
@@ -3950,7 +3950,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		json += '{';
 
 		json += "\"pbrMetallicRoughness\":{";
-		if (it->pbrData.baseColorFactor != std::array<float, 4>{{1.0f, 1.0f, 1.0f, 1.0f}}) {
+		if (it->pbrData.baseColorFactor != std::array<num, 4>{{1.0f, 1.0f, 1.0f, 1.0f}}) {
 			json += R"("baseColorFactor":[)";
 			json += std::to_string(it->pbrData.baseColorFactor[0]) + ',' + std::to_string(it->pbrData.baseColorFactor[1]) + ',' +
 				std::to_string(it->pbrData.baseColorFactor[2]) + ',' + std::to_string(it->pbrData.baseColorFactor[3]);
@@ -4375,7 +4375,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 
 		std::visit(visitor {
 			[&](const TRS& trs) {
-				if (trs.rotation != std::array<float, 4>{{.0f, .0f, .0f, 1.0f}}) {
+				if (trs.rotation != std::array<num, 4>{{.0f, .0f, .0f, 1.0f}}) {
                     if (json.back() != '{')
                         json += ',';
 					json += R"("rotation":[)";
@@ -4383,7 +4383,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					json += "]";
 				}
 
-				if (trs.scale != std::array<float, 3>{{1.0f, 1.0f, 1.0f}}) {
+				if (trs.scale != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
                     if (json.back() != '{')
                         json += ',';
 					json += R"("scale":[)";
@@ -4391,7 +4391,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					json += "]";
 				}
 
-				if (trs.translation != std::array<float, 3>{{.0f, .0f, .0f}}) {
+				if (trs.translation != std::array<num, 3>{{.0f, .0f, .0f}}) {
                     if (json.back() != '{')
                         json += ',';
 					json += R"("translation":[)";
