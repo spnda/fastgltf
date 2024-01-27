@@ -4047,7 +4047,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		}
 
 		if (it->clearcoat) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_clearcoat":{)";
 			if (it->clearcoat->clearcoatFactor != 0.0f) {
 				json += R"("clearcoatFactor":)" + std::to_string(it->clearcoat->clearcoatFactor);
@@ -4075,17 +4075,17 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		}
 
 		if (it->emissiveStrength != 1.0f) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_emissive_strength":{"emissiveStrength":)" + std::to_string(it->emissiveStrength) + '}';
 		}
 
 		if (it->ior != 1.5f) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_ior":{"ior":)" + std::to_string(it->ior) + '}';
 		}
 
 		if (it->iridescence) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_iridescence":{)";
 			if (it->iridescence->iridescenceFactor != 0.0f) {
 				json += R"("iridescenceFactor":)" + std::to_string(it->iridescence->iridescenceFactor);
@@ -4116,7 +4116,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		}
 
 		if (it->sheen) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_sheen":{)";
 			if (it->sheen->sheenColorFactor != std::array<num, 3>{{.0f, .0f, .0f}}) {
 				json += R"("sheenColorFactor":[)" +
@@ -4142,7 +4142,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		}
 
 		if (it->specular) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_specular":{)";
 			if (it->specular->specularFactor != 1.0f) {
 				json += R"("specularFactor":)" + std::to_string(it->specular->specularFactor);
@@ -4168,7 +4168,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		}
 
 		if (it->transmission) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_transmission":{)";
 			if (it->transmission->transmissionFactor != 0.0f) {
 				json += R"("transmissionFactor":)" + std::to_string(it->transmission->transmissionFactor);
@@ -4182,12 +4182,12 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		}
 
 		if (it->unlit) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_unlit":{})";
 		}
 
 		if (it->volume) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_volume":{)";
 			if (it->volume->thicknessFactor != 0.0f) {
 				json += R"("thicknessFactor":)" + std::to_string(it->volume->thicknessFactor);
@@ -4212,14 +4212,14 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		}
 
 		if (it->packedNormalMetallicRoughnessTexture.has_value()) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("MSFT_packing_normalRoughnessMetallic":{"normalRoughnessMetallicTexture":)";
 			writeTextureInfo(json, &it->packedNormalMetallicRoughnessTexture.value());
 			json += '}';
 		}
 
 		if (it->packedOcclusionRoughnessMetallicTextures) {
-			if (json.back() != ',') json += ',';
+			if (json.back() == '}') json += ',';
 			json += R"("MSFT_packing_normalRoughnessMetallic":{)";
 			if (it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.has_value()) {
 				json += R"("occlusionRoughnessMetallicTexture":)";
@@ -4335,12 +4335,12 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			json += R"("mesh":)" + std::to_string(it->meshIndex.value());
 		}
 		if (it->cameraIndex.has_value()) {
-			if (json.back() != ',')
+			if (json.back() != '{')
 				json += ',';
 			json += R"("camera":)" + std::to_string(it->cameraIndex.value());
 		}
 		if (it->skinIndex.has_value()) {
-			if (json.back() != ',')
+			if (json.back() != '{')
 				json += ',';
 			json += R"("skin":)" + std::to_string(it->skinIndex.value());
 		}

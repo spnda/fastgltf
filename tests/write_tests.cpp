@@ -57,6 +57,33 @@ TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-te
 	REQUIRE(fastgltf::validate(cube2.get()) == fastgltf::Error::None);
 }
 
+TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]") {
+	auto dishPath = sampleModels / "2.0" / "IridescentDishWithOlives" / "glTF";
+	fastgltf::GltfDataBuffer dishJsonData;
+	REQUIRE(dishJsonData.loadFromFile(dishPath / "IridescentDishWithOlives.gltf"));
+
+	static constexpr auto requiredExtensions = fastgltf::Extensions::KHR_materials_ior |
+		fastgltf::Extensions::KHR_materials_iridescence |
+		fastgltf::Extensions::KHR_materials_transmission |
+		fastgltf::Extensions::KHR_materials_volume;
+
+	fastgltf::Parser parser(requiredExtensions);
+	auto dish = parser.loadGltfJson(&dishJsonData, dishPath);
+	REQUIRE(dish.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(dish.get()) == fastgltf::Error::None);
+
+	fastgltf::Exporter exporter;
+	auto expected = exporter.writeGltfJson(dish.get());
+	REQUIRE(expected.error() == fastgltf::Error::None);
+
+	fastgltf::GltfDataBuffer exportedDishJsonData;
+	exportedDishJsonData.copyBytes(reinterpret_cast<const uint8_t*>(expected.get().output.data()),
+								   expected.get().output.size());
+	auto exportedDish = parser.loadGltfJson(&exportedDishJsonData, dishPath);
+	REQUIRE(exportedDish.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(exportedDish.get()) == fastgltf::Error::None);
+}
+
 TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
 
