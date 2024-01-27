@@ -3999,7 +3999,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			writeTextureInfo(json, &it->emissiveTexture.value());
 		}
 
-		if (it->emissiveFactor != std::array<float, 3>{{.0f, .0f, .0f}}) {
+		if (it->emissiveFactor != std::array<num, 3>{{.0f, .0f, .0f}}) {
 			if (json.back() != ',') json += ',';
 			json += R"("emissiveFactor":[)";
 			json += std::to_string(it->emissiveFactor[0]) + ',' + std::to_string(it->emissiveFactor[1]) + ',' + std::to_string(it->emissiveFactor[2]);
@@ -4025,6 +4025,218 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			if (json.back() != ',') json += ',';
 			json += R"("doubleSided":true)";
 		}
+
+		if (json.back() != ',') json += ',';
+		json += R"("extensions":{)";
+
+		if (it->anisotropy) {
+			json += R"("KHR_materials_anisotropy":{)";
+			if (it->anisotropy->anisotropyStrength != 0.0f) {
+				json += R"("anisotropyStrength":)" + std::to_string(it->anisotropy->anisotropyStrength);
+			}
+			if (it->anisotropy->anisotropyRotation != 0.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("anisotropyRotation":)" + std::to_string(it->anisotropy->anisotropyRotation);
+			}
+			if (it->anisotropy->anisotropyTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"anisotropyTexture\":";
+				writeTextureInfo(json, &it->anisotropy->anisotropyTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->clearcoat) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_clearcoat":{)";
+			if (it->clearcoat->clearcoatFactor != 0.0f) {
+				json += R"("clearcoatFactor":)" + std::to_string(it->clearcoat->clearcoatFactor);
+			}
+			if (it->clearcoat->clearcoatTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"clearcoatTexture\":";
+				writeTextureInfo(json, &it->clearcoat->clearcoatTexture.value());
+			}
+			if (it->clearcoat->clearcoatRoughnessFactor != 0.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("clearcoatRoughnessFactor":)" + std::to_string(it->clearcoat->clearcoatRoughnessFactor);
+			}
+			if (it->clearcoat->clearcoatRoughnessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"clearcoatRoughnessTexture\":";
+				writeTextureInfo(json, &it->clearcoat->clearcoatRoughnessTexture.value());
+			}
+			if (it->clearcoat->clearcoatNormalTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"clearcoatNormalTexture\":";
+				writeTextureInfo(json, &it->clearcoat->clearcoatNormalTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->emissiveStrength != 1.0f) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_emissive_strength":{"emissiveStrength":)" + std::to_string(it->emissiveStrength) + '}';
+		}
+
+		if (it->ior != 1.5f) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_ior":{"ior":)" + std::to_string(it->ior) + '}';
+		}
+
+		if (it->iridescence) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_iridescence":{)";
+			if (it->iridescence->iridescenceFactor != 0.0f) {
+				json += R"("iridescenceFactor":)" + std::to_string(it->iridescence->iridescenceFactor);
+			}
+			if (it->iridescence->iridescenceTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"iridescenceTexture\":";
+				writeTextureInfo(json, &it->iridescence->iridescenceTexture.value());
+			}
+			if (it->iridescence->iridescenceIor != 1.3f) {
+				if (json.back() != '{') json += ',';
+				json += R"("iridescenceIor":)" + std::to_string(it->iridescence->iridescenceIor);
+			}
+			if (it->iridescence->iridescenceThicknessMinimum != 100.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("iridescenceThicknessMinimum":)" + std::to_string(it->iridescence->iridescenceThicknessMinimum);
+			}
+			if (it->iridescence->iridescenceThicknessMaximum != 400.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("iridescenceThicknessMaximum":)" + std::to_string(it->iridescence->iridescenceThicknessMaximum);
+			}
+			if (it->iridescence->iridescenceThicknessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"iridescenceThicknessTexture\":";
+				writeTextureInfo(json, &it->iridescence->iridescenceThicknessTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->sheen) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_sheen":{)";
+			if (it->sheen->sheenColorFactor != std::array<num, 3>{{.0f, .0f, .0f}}) {
+				json += R"("sheenColorFactor":[)" +
+					std::to_string(it->sheen->sheenColorFactor[0]) + ',' +
+					std::to_string(it->sheen->sheenColorFactor[1]) + ',' +
+					std::to_string(it->sheen->sheenColorFactor[2]) + ']';
+			}
+			if (it->sheen->sheenColorTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"sheenColorTexture\":";
+				writeTextureInfo(json, &it->sheen->sheenColorTexture.value());
+			}
+			if (it->sheen->sheenRoughnessFactor != 0.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("sheenRoughnessFactor":)" + std::to_string(it->sheen->sheenRoughnessFactor);
+			}
+			if (it->sheen->sheenRoughnessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"sheenRoughnessTexture\":";
+				writeTextureInfo(json, &it->sheen->sheenRoughnessTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->specular) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_specular":{)";
+			if (it->specular->specularFactor != 1.0f) {
+				json += R"("specularFactor":)" + std::to_string(it->specular->specularFactor);
+			}
+			if (it->specular->specularTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"specularTexture\":";
+				writeTextureInfo(json, &it->specular->specularTexture.value());
+			}
+			if (it->specular->specularColorFactor != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+				if (json.back() != '{') json += ',';
+				json += R"("specularColorFactor":[)" +
+						std::to_string(it->specular->specularColorFactor[0]) + ',' +
+						std::to_string(it->specular->specularColorFactor[1]) + ',' +
+						std::to_string(it->specular->specularColorFactor[2]) + ']';
+			}
+			if (it->specular->specularColorTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"specularColorTexture\":";
+				writeTextureInfo(json, &it->specular->specularColorTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->transmission) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_transmission":{)";
+			if (it->transmission->transmissionFactor != 0.0f) {
+				json += R"("transmissionFactor":)" + std::to_string(it->transmission->transmissionFactor);
+			}
+			if (it->transmission->transmissionTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"transmissionTexture\":";
+				writeTextureInfo(json, &it->transmission->transmissionTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->unlit) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_unlit":{})";
+		}
+
+		if (it->volume) {
+			if (json.back() != ',') json += ',';
+			json += R"("KHR_materials_volume":{)";
+			if (it->volume->thicknessFactor != 0.0f) {
+				json += R"("thicknessFactor":)" + std::to_string(it->volume->thicknessFactor);
+			}
+			if (it->volume->thicknessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"thicknessTexture\":";
+				writeTextureInfo(json, &it->volume->thicknessTexture.value());
+			}
+			if (it->volume->attenuationDistance != std::numeric_limits<num>::infinity()) {
+				if (json.back() != '{') json += ',';
+				json += R"("attenuationDistance":)" + std::to_string(it->volume->attenuationDistance);
+			}
+			if (it->volume->attenuationColor != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+				if (json.back() != '{') json += ',';
+				json += R"("attenuationColor":[)" +
+						std::to_string(it->volume->attenuationColor[0]) + ',' +
+						std::to_string(it->volume->attenuationColor[1]) + ',' +
+						std::to_string(it->volume->attenuationColor[2]) + ']';
+			}
+			json += '}';
+		}
+
+		if (it->packedNormalMetallicRoughnessTexture.has_value()) {
+			if (json.back() != ',') json += ',';
+			json += R"("MSFT_packing_normalRoughnessMetallic":{"normalRoughnessMetallicTexture":)";
+			writeTextureInfo(json, &it->packedNormalMetallicRoughnessTexture.value());
+			json += '}';
+		}
+
+		if (it->packedOcclusionRoughnessMetallicTextures) {
+			if (json.back() != ',') json += ',';
+			json += R"("MSFT_packing_normalRoughnessMetallic":{)";
+			if (it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.has_value()) {
+				json += R"("occlusionRoughnessMetallicTexture":)";
+				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.value());
+			}
+			if (it->packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.has_value()) {
+				json += R"("roughnessMetallicOcclusionTexture":)";
+				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.value());
+			}
+			if (it->packedOcclusionRoughnessMetallicTextures->normalTexture.has_value()) {
+				json += R"("normalTexture":)";
+				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->normalTexture.value());
+			}
+			json += '}';
+		}
+
+		json += '}';
 
 		if (!it->name.empty()) {
 			if (json.back() != ',') json += ',';
@@ -4162,7 +4374,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 		}
 
 		std::visit(visitor {
-			[&](const Node::TRS& trs) {
+			[&](const TRS& trs) {
 				if (trs.rotation != std::array<float, 4>{{.0f, .0f, .0f, 1.0f}}) {
                     if (json.back() != '{')
                         json += ',';
