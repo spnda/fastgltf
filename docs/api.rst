@@ -143,7 +143,7 @@ Asset
 
 
 Reading & Writing
-======
+=================
 
 This section contains all types that one requires to read or write a glTF file using fastgltf.
 This includes the Parser class, Exporter class, options, and data buffers.
