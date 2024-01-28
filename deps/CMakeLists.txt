@@ -20,6 +20,11 @@ endif()
 # glm
 if(EXISTS "${FASTGLTF_DEPS_DIR}/glm")
     message(STATUS "fastgltf: Found glm")
+
+    # glm breaks because it apparently can't properly detect constexpr/C++ version and
+    # sets -Weverything which enables C++98 compatibility on Clang??
+    option(GLM_ENABLE_CXX_17 "" ON)
+
     add_subdirectory("${FASTGLTF_DEPS_DIR}/glm")
     add_library(glm::glm ALIAS glm)
 
