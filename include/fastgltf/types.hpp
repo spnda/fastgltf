@@ -393,6 +393,32 @@ namespace fastgltf {
 		auto idx = to_underlying(type) & 0xFF;
 		return accessorTypeNames[idx - 1];
 	}
+
+	constexpr std::string_view mimeTypeJpeg = "image/jpeg";
+	constexpr std::string_view mimeTypePng = "image/png";
+	constexpr std::string_view mimeTypeKtx = "image/ktx2";
+	constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
+	constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
+	constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+
+	constexpr std::string_view getMimeTypeString(MimeType mimeType) noexcept {
+		switch (mimeType) {
+			case MimeType::JPEG:
+				return mimeTypeJpeg;
+			case MimeType::PNG:
+				return mimeTypePng;
+			case MimeType::KTX2:
+				return mimeTypeKtx;
+			case MimeType::DDS:
+				return mimeTypeDds;
+			case MimeType::GltfBuffer:
+				return mimeTypeGltfBuffer;
+			case MimeType::OctetStream:
+				return mimeTypeOctetStream;
+			default:
+				return "";
+		}
+	}
 #pragma endregion
 
 #pragma region Containers

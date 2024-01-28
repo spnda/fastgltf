@@ -128,3 +128,53 @@ TEST_CASE("Test pretty-print", "[write-tests]") {
     fastgltf::prettyPrintJson(json);
 	REQUIRE(json == "{\n\t\"value\":5,\n\t\"thing\":{\n\t\t\n\t}\n}");
 }
+
+TEST_CASE("Test all local models and re-export them", "[write-tests]") {
+	// Enable all extensions
+	static constexpr auto requiredExtensions = static_cast<fastgltf::Extensions>(~0U);
+	fastgltf::Parser parser(requiredExtensions);
+
+	static std::filesystem::path folderPath = "";
+	if (folderPath.empty()) {
+		SKIP();
+	}
+
+	std::uint64_t testedAssets = 0;
+	for (const auto& entry : std::filesystem::recursive_directory_iterator(folderPath)) {
+		if (!entry.is_regular_file())
+			continue;
+		const auto& epath = entry.path();
+		if (!epath.has_extension())
+			continue;
+		if (epath.extension() != ".gltf" && epath.extension() != ".glb")
+			continue;
+
+		// Parse the glTF
+		fastgltf::GltfDataBuffer gltfDataBuffer;
+		gltfDataBuffer.loadFromFile(epath);
+		auto model = parser.loadGltf(&gltfDataBuffer, epath.parent_path());
+		if (model.error() == fastgltf::Error::UnsupportedVersion || model.error() == fastgltf::Error::UnknownRequiredExtension)
+			continue; // Skip any glTF 1.0 or 0.x files or glTFs with unsupported extensions.
+
+		REQUIRE(model.error() == fastgltf::Error::None);
+
+		REQUIRE(fastgltf::validate(model.get()) == fastgltf::Error::None);
+
+		// Re-export the glTF as an in-memory JSON
+		fastgltf::Exporter exporter;
+		auto exported = exporter.writeGltfJson(model.get());
+		REQUIRE(exported.error() == fastgltf::Error::None);
+
+		// Parse the re-generated glTF and validate
+		auto& exportedJson = exported.get().output;
+		fastgltf::GltfDataBuffer regeneratedJson;
+		regeneratedJson.copyBytes(reinterpret_cast<const uint8_t*>(exportedJson.data()), exportedJson.size());
+		auto regeneratedModel = parser.loadGltf(&regeneratedJson, epath.parent_path());
+		REQUIRE(regeneratedModel.error() == fastgltf::Error::None);
+
+		REQUIRE(fastgltf::validate(regeneratedModel.get()) == fastgltf::Error::None);
+
+		++testedAssets;
+	}
+	std::printf("Successfully tested fastgltf exporter on %llu assets.", testedAssets);
+}

@@ -63,13 +63,6 @@ namespace fg = fastgltf;
 namespace fs = std::filesystem;
 
 namespace fastgltf {
-    constexpr std::string_view mimeTypeJpeg = "image/jpeg";
-    constexpr std::string_view mimeTypePng = "image/png";
-    constexpr std::string_view mimeTypeKtx = "image/ktx2";
-    constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
-    constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
-    constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
-
     constexpr std::uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
     constexpr std::uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
     constexpr std::uint32_t binaryGltfDataChunkMagic = 0x004E4942;
@@ -792,6 +785,11 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		}
 		return false;
 	};
+
+	// From the spec: extensionsRequired is a subset of extensionsUsed. All values in extensionsRequired MUST also exist in extensionsUsed.
+	if (asset.extensionsRequired.size() > asset.extensionsUsed.size()) {
+		return Error::InvalidGltf;
+	}
 
 	for (const auto& accessor : asset.accessors) {
 		if (accessor.type == AccessorType::Invalid)
@@ -3444,9 +3442,12 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 
     BinaryGltfHeader header = {};
     read(&header, sizeof header);
-    if (header.magic != binaryGltfHeaderMagic || header.version != 2) {
+    if (header.magic != binaryGltfHeaderMagic) {
 	    return Expected<Asset>(Error::InvalidGLB);
     }
+	if (header.version != 2) {
+		return Expected<Asset>(Error::UnsupportedVersion);
+	}
     if (header.length >= buffer->allocatedSize) {
 	    return Expected<Asset>(Error::InvalidGLB);
     }
@@ -3713,7 +3714,11 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"' + ',';
                 bufferPaths.emplace_back(std::nullopt);
-			}
+			},
+			[&](const sources::Fallback& fallback) {
+				json += R"("extensions":{"EXT_meshopt_compression":{"fallback":true}},)";
+				bufferPaths.emplace_back(std::nullopt);
+			},
 		}, it->data);
 
 		json += "\"byteLength\":" + std::to_string(it->byteLength);
@@ -3828,7 +3833,7 @@ void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
 				json += "\"xmag\":" + std::to_string(orthographic.xmag) + ',';
 				json += "\"ymag\":" + std::to_string(orthographic.ymag) + ',';
 				json += "\"zfar\":" + std::to_string(orthographic.zfar) + ',';
-				json += "\"znear\":" + std::to_string(orthographic.znear) + ',';
+				json += "\"znear\":" + std::to_string(orthographic.znear);
 				json += R"(},"type":"orthographic")";
 			}
 		}, it->camera);
@@ -3859,7 +3864,8 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 				errorCode = Error::InvalidGltf;
 			},
             [&](const sources::BufferView& bufferView) {
-                json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + '"';
+                json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + ',';
+				json += std::string(R"("mimeType":")") + std::string(getMimeTypeString(bufferView.mimeType)) + '"';
                 imagePaths.emplace_back(std::nullopt);
             },
             [&](const sources::Vector& vector) {
@@ -3888,7 +3894,7 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
 
-	json += "\"KHR_lights_punctual\":{\"lights\":[";
+	json += R"("KHR_lights_punctual":{"lights":[)";
 	for (auto it = asset.lights.begin(); it != asset.lights.end(); ++it) {
 		json += '{';
 
@@ -3954,7 +3960,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			json += R"("baseColorFactor":[)";
 			json += std::to_string(it->pbrData.baseColorFactor[0]) + ',' + std::to_string(it->pbrData.baseColorFactor[1]) + ',' +
 				std::to_string(it->pbrData.baseColorFactor[2]) + ',' + std::to_string(it->pbrData.baseColorFactor[3]);
-			json += "],";
+			json += "]";
 		}
 
 		if (it->pbrData.baseColorTexture.has_value()) {
@@ -4414,6 +4420,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 		}, it->transform);
 
         if (!it->instancingAttributes.empty()) {
+			if (json.back() != '{') json += ',';
             json += R"("extensions":{"EXT_mesh_gpu_instancing":{"attributes":{)";
             for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
                 json += '"' + std::string(ait->first) + "\":" + std::to_string(ait->second);
@@ -4646,14 +4653,25 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
     outputString += '}';
 
 	// Write extension usage info
+	if (!asset.extensionsUsed.empty()) {
+		if (outputString.back() != '{') outputString += ',';
+		outputString += "\"extensionsUsed\":[";
+		for (auto it = asset.extensionsUsed.begin(); it != asset.extensionsUsed.end(); ++it) {
+			outputString += '\"' + *it + '\"';
+			if (std::distance(asset.extensionsUsed.begin(), it) + 1 < asset.extensionsUsed.size())
+				outputString += ',';
+		}
+		outputString += ']';
+	}
 	if (!asset.extensionsRequired.empty()) {
-		outputString += "\"extensionsRequired\":{";
+		if (outputString.back() != '{') outputString += ',';
+		outputString += "\"extensionsRequired\":[";
 		for (auto it = asset.extensionsRequired.begin(); it != asset.extensionsRequired.end(); ++it) {
 			outputString += '\"' + *it + '\"';
 			if (std::distance(asset.extensionsRequired.begin(), it) + 1 < asset.extensionsRequired.size())
 				outputString += ',';
 		}
-		outputString += '}';
+		outputString += ']';
 	}
 
     writeAccessors(asset, outputString);
@@ -4661,7 +4679,6 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
     writeBufferViews(asset, outputString);
     writeCameras(asset, outputString);
     writeImages(asset, outputString);
-    writeLights(asset, outputString);
     writeMaterials(asset, outputString);
     writeMeshes(asset, outputString);
     writeNodes(asset, outputString);
