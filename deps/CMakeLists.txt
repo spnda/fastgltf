@@ -51,6 +51,9 @@ if (EXISTS "${FASTGLTF_DEPS_DIR}/catch2")
     option(CATCH_CONFIG_CPP17_BYTE "" ON)
     option(CATCH_CONFIG_ENABLE_ALL_STRINGMAKERS "" ON)
 
+    # Make sure that exceptions are never disabled, as some other library seems to disable them.
+    option(CATCH_CONFIG_NO_DISABLE_EXCEPTIONS "" ON)
+
     if (MSVC)
         option(CATCH_CONFIG_WINDOWS_CRTDBG "" ON)
     endif()
