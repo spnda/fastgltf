@@ -29,6 +29,9 @@
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
+
+// All headers not in the root directory require this
+#define GLM_ENABLE_EXPERIMENTAL 1
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
