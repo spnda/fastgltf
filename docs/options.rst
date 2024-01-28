@@ -78,3 +78,9 @@ Parsing options
 ===============
 
 For more information about the options when parsing a file, see :ref:`the API reference<options>`.
+
+
+Exporting options
+=================
+
+For more information about the options when exporting a file, see :ref:`the API reference<exportoptions>`.

@@ -6,7 +6,7 @@
 
 #include "simdjson.h"
 
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
 #include "gltf_path.hpp"
 

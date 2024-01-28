@@ -142,11 +142,11 @@ Asset
    :undoc-members:
 
 
-Parser
-======
+Reading & Writing
+=================
 
-This section contains all types that one requires to load a glTF file using fastgltf.
-This includes the Parser class, options, and data buffers.
+This section contains all types that one requires to read or write a glTF file using fastgltf.
+This includes the Parser class, Exporter class, options, and data buffers.
 
 
 Error
@@ -175,6 +175,14 @@ Options
 -------
 
 .. doxygenenum:: fastgltf::Options
+
+
+.. _exportoptions:
+
+ExportOptions
+-------------
+
+.. doxygenenum:: fastgltf::ExportOptions
 
 
 Expected
@@ -207,6 +215,19 @@ Parser
 .. doxygenstruct:: fastgltf::BufferInfo
    :members:
 
+
+Exporter
+--------
+
+.. doxygenfunction:: fastgltf::stringifyExtensionBits
+
+.. doxygenclass:: fastgltf::Exporter
+   :members:
+   :undoc-members:
+
+.. doxygenclass:: fastgltf::FileExporter
+   :members:
+   :undoc-members:
 
 Utility
 =======

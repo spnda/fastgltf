@@ -20,6 +20,11 @@ endif()
 # glm
 if(EXISTS "${FASTGLTF_DEPS_DIR}/glm")
     message(STATUS "fastgltf: Found glm")
+
+    # glm breaks because it apparently can't properly detect constexpr/C++ version and
+    # sets -Weverything which enables C++98 compatibility on Clang??
+    option(GLM_ENABLE_CXX_17 "" ON)
+
     add_subdirectory("${FASTGLTF_DEPS_DIR}/glm")
     add_library(glm::glm ALIAS glm)
 
@@ -50,6 +55,9 @@ if (EXISTS "${FASTGLTF_DEPS_DIR}/catch2")
     option(CATCH_CONFIG_CPP17_OPTIONAL "" ON)
     option(CATCH_CONFIG_CPP17_BYTE "" ON)
     option(CATCH_CONFIG_ENABLE_ALL_STRINGMAKERS "" ON)
+
+    # Make sure that exceptions are never disabled, as some other library seems to disable them.
+    option(CATCH_CONFIG_NO_DISABLE_EXCEPTIONS "" ON)
 
     if (MSVC)
         option(CATCH_CONFIG_WINDOWS_CRTDBG "" ON)

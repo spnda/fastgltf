@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -375,6 +376,49 @@ namespace fastgltf {
         		return AccessorType::Invalid;
         }
     }
+
+	static constexpr std::array<std::string_view, 7> accessorTypeNames = {
+		"SCALAR",
+		"VEC2",
+		"VEC3",
+		"VEC4",
+		"MAT2",
+		"MAT3",
+		"MAT4"
+	};
+
+	constexpr std::string_view getAccessorTypeName(AccessorType type) noexcept {
+		if (type == AccessorType::Invalid)
+			return "";
+		auto idx = to_underlying(type) & 0xFF;
+		return accessorTypeNames[idx - 1];
+	}
+
+	constexpr std::string_view mimeTypeJpeg = "image/jpeg";
+	constexpr std::string_view mimeTypePng = "image/png";
+	constexpr std::string_view mimeTypeKtx = "image/ktx2";
+	constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
+	constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
+	constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+
+	constexpr std::string_view getMimeTypeString(MimeType mimeType) noexcept {
+		switch (mimeType) {
+			case MimeType::JPEG:
+				return mimeTypeJpeg;
+			case MimeType::PNG:
+				return mimeTypePng;
+			case MimeType::KTX2:
+				return mimeTypeKtx;
+			case MimeType::DDS:
+				return mimeTypeDds;
+			case MimeType::GltfBuffer:
+				return mimeTypeGltfBuffer;
+			case MimeType::OctetStream:
+				return mimeTypeOctetStream;
+			default:
+				return "";
+		}
+	}
 #pragma endregion
 
 #pragma region Containers
@@ -1315,9 +1359,9 @@ namespace fastgltf {
     };
 
     struct Skin {
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
-	    Optional<std::size_t> skeleton;
 	    Optional<std::size_t> inverseBindMatrices;
+        Optional<std::size_t> skeleton;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
 
         FASTGLTF_STD_PMR_NS::string name;
     };

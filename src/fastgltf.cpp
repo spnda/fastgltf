@@ -52,9 +52,7 @@
 static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, "Outdated version of simdjson. Reconfigure project to update.");
 #endif
 
-#include <fastgltf/parser.hpp>
-#include <fastgltf/types.hpp>
-#include <fastgltf/util.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
 
 #if defined(FASTGLTF_IS_X86)
@@ -65,13 +63,6 @@ namespace fg = fastgltf;
 namespace fs = std::filesystem;
 
 namespace fastgltf {
-    constexpr std::string_view mimeTypeJpeg = "image/jpeg";
-    constexpr std::string_view mimeTypePng = "image/png";
-    constexpr std::string_view mimeTypeKtx = "image/ktx2";
-    constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
-    constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
-    constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
-
     constexpr std::uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
     constexpr std::uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
     constexpr std::uint32_t binaryGltfDataChunkMagic = 0x004E4942;
@@ -244,14 +235,14 @@ namespace fastgltf {
 		if (type == TextureInfoType::NormalTexture) {
             double scale;
 			if (auto error = child["scale"].get_double().get(scale); error == SUCCESS) {
-				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<float>(scale);
+				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<num>(scale);
 			} else if (error != NO_SUCH_FIELD) {
                 return Error::InvalidGltf;
 			}
 		} else if (type == TextureInfoType::OcclusionTexture) {
 			double strength;
 			if (auto error = child["strength"].get_double().get(strength); error == SUCCESS) {
-				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<float>(strength);
+				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<num>(strength);
 			} else if (error != NO_SUCH_FIELD) {
                 return Error::InvalidGltf;
             }
@@ -272,7 +263,7 @@ namespace fastgltf {
 
 				double rotation = 0.0F;
 				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
-					transform->rotation = static_cast<float>(rotation);
+					transform->rotation = static_cast<num>(rotation);
 				}
 
 				dom::array array;
@@ -282,7 +273,7 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) {
 							return Error::InvalidGltf;
 						}
-						transform->uvOffset[i] = static_cast<float>(val);
+						transform->uvOffset[i] = static_cast<num>(val);
 					}
 				}
 
@@ -292,7 +283,7 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) {
 							return Error::InvalidGltf;
 						}
-						transform->uvScale[i] = static_cast<float>(val);
+						transform->uvScale[i] = static_cast<num>(val);
 					}
 				}
 
@@ -301,6 +292,42 @@ namespace fastgltf {
 		}
 
 		return Error::None;
+	}
+
+	void writeTextureInfo(std::string& json, const TextureInfo* info, TextureInfoType type = TextureInfoType::Standard) {
+		json += '{';
+		json += "\"index\":" + std::to_string(info->textureIndex);
+		if (info->texCoordIndex != 0) {
+			json += ",\"texCoord\":" + std::to_string(info->texCoordIndex);
+		}
+		if (type == TextureInfoType::NormalTexture) {
+			json += ",\"scale\":" + std::to_string(reinterpret_cast<const NormalTextureInfo*>(info)->scale);
+		} else if (type == TextureInfoType::OcclusionTexture) {
+			json += ",\"strength\":" + std::to_string(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
+		}
+
+        if (info->transform != nullptr) {
+            json += R"(,"extensions":{"KHR_texture_transform":{)";
+            const auto& transform = *info->transform;
+            if (transform.uvOffset[0] != 0.0 || transform.uvOffset[1] != 0.0) {
+                json += "\"offset\":[" + std::to_string(transform.uvOffset[0]) + ',' + std::to_string(transform.uvOffset[1]) + ']';
+            }
+            if (transform.rotation != 0.0) {
+                if (json.back() != '{') json += ',';
+                json += "\"rotation\":" + std::to_string(transform.rotation);
+            }
+            if (transform.uvScale[0] != 1.0 || transform.uvScale[1] != 1.0) {
+                if (json.back() != '{') json += ',';
+                json += "\"scale\":[" + std::to_string(transform.uvScale[0]) + ',' + std::to_string(transform.uvScale[1]) + ']';
+            }
+            if (transform.texCoordIndex.has_value()) {
+                if (json.back() != '{') json += ',';
+                json += "\"texCoord\":" + std::to_string(transform.texCoordIndex.value());
+            }
+            json += "}}";
+        }
+
+		json += '}';
 	}
 } // namespace fastgltf
 
@@ -759,6 +786,11 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		return false;
 	};
 
+	// From the spec: extensionsRequired is a subset of extensionsUsed. All values in extensionsRequired MUST also exist in extensionsUsed.
+	if (asset.extensionsRequired.size() > asset.extensionsUsed.size()) {
+		return Error::InvalidGltf;
+	}
+
 	for (const auto& accessor : asset.accessors) {
 		if (accessor.type == AccessorType::Invalid)
 			return Error::InvalidGltf;
@@ -866,6 +898,14 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		}
 	}
 
+	for (const auto& light : asset.lights) {
+		if (light.type != LightType::Spot) {
+			if (light.innerConeAngle.has_value() || light.outerConeAngle.has_value()) {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
 	for (const auto& material : asset.materials) {
 		auto isInvalidTexture = [&textures = asset.textures](std::optional<std::size_t> textureIndex) {
 			return textureIndex.has_value() && textureIndex.value() >= textures.size();
@@ -931,6 +971,9 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 				// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview
 				const auto& accessor = asset.accessors[index];
 				if (name == "POSITION") {
+					// Animation input and vertex position attribute accessors MUST have accessor.min and accessor.max defined.
+					if (std::holds_alternative<std::monostate>(accessor.max) || std::holds_alternative<std::monostate>(accessor.min))
+						return Error::InvalidGltf;
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
 					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
@@ -1027,7 +1070,11 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 					return Error::InvalidGltf;
 		}
 
-		if (node.skinIndex.has_value() && node.meshIndex.has_value()) {
+		if ((node.skinIndex.has_value() || !node.weights.empty()) && !node.meshIndex.has_value()) {
+			return Error::InvalidGltf;
+		}
+
+		if (node.skinIndex.has_value()) {
 			// "When the node contains skin, all mesh.primitives MUST contain JOINTS_0 and WEIGHTS_0 attributes."
 			const auto& mesh = asset.meshes[node.meshIndex.value()];
 			for (const auto& primitive : mesh.primitives) {
@@ -1036,6 +1083,12 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 				if (joints0 == primitive.attributes.end() || weights0 == primitive.attributes.end())
 					return Error::InvalidGltf;
 			}
+		}
+	}
+
+	for (const auto& sampler : asset.samplers) {
+		if (sampler.magFilter.has_value() && (sampler.magFilter != Filter::Nearest && sampler.magFilter != Filter::Linear)) {
+			return Error::InvalidGltf;
 		}
 	}
 
@@ -2078,7 +2131,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
                 }
             }
         } else if (error == NO_SUCH_FIELD) {
-            light.color = std::array<float, 3>{{1.0f, 1.0f, 1.0f}};
+            light.color = std::array<num, 3>{{1.0f, 1.0f, 1.0f}};
         } else {
             return Error::InvalidGltf;
         }
@@ -3389,9 +3442,12 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 
     BinaryGltfHeader header = {};
     read(&header, sizeof header);
-    if (header.magic != binaryGltfHeaderMagic || header.version != 2) {
+    if (header.magic != binaryGltfHeaderMagic) {
 	    return Expected<Asset>(Error::InvalidGLB);
     }
+	if (header.version != 2) {
+		return Expected<Asset>(Error::UnsupportedVersion);
+	}
     if (header.length >= buffer->allocatedSize) {
 	    return Expected<Asset>(Error::InvalidGLB);
     }
@@ -3468,6 +3524,1349 @@ void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) n
 
 void fg::Parser::setUserPointer(void* pointer) noexcept {
     config.userPointer = pointer;
+}
+#pragma endregion
+
+#pragma region Exporter
+void fg::prettyPrintJson(std::string& json) {
+    std::size_t i = 0;
+    std::size_t depth = 0;
+    auto insertNewline = [&i, &depth, &json]() {
+        json.insert(i, 1, '\n');
+        json.insert(i + 1, depth, '\t');
+        i += 1 + depth;
+    };
+
+    while (i < json.size()) {
+        if (json[i] == '"') {
+            // Skip to the end of the string
+            do {
+                ++i;
+                if (json[i] == '"' && json[i - 1] != '\\') {
+                    break;
+                }
+            } while (true);
+            ++i; // Skip over the last "
+        }
+
+        switch (json[i]) {
+            case '{': case '[':
+                ++depth;
+                ++i; // Insert \n after the character
+                insertNewline();
+                break;
+            case '}': case ']':
+                --depth;
+                insertNewline();
+                ++i; // Insert \n before the character
+                break;
+            case ',':
+                ++i;  // Insert \n after the character
+                insertNewline();
+                break;
+            default:
+                ++i;
+                break;
+        }
+    }
+}
+
+std::string fg::escapeString(std::string_view string) {
+    std::string ret(string);
+    std::size_t i = 0;
+    do {
+        switch (ret[i]) {
+            case '\"': {
+                const std::string_view s = "\\\"";
+                ret.replace(i, 1, s);
+                i += s.size();
+                break;
+            }
+            case '\\': {
+                const std::string_view s = "\\\\";
+                ret.replace(i, 1, s);
+                i += s.size();
+                break;
+            }
+        }
+        ++i;
+    } while (i < ret.size());
+    return ret;
+}
+
+auto fg::stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
+	decltype(Asset::extensionsRequired) stringified;
+	for (std::uint8_t i = 0; i < std::numeric_limits<std::underlying_type_t<Extensions>>::digits; ++i) {
+		auto curExtension = static_cast<Extensions>(1 << i);
+		if ((extensions & curExtension) == Extensions::None)
+			continue;
+
+		// Find the stringified extension name
+		for (const auto& [name, ext] : extensionStrings) {
+			if (ext == curExtension) {
+				stringified.emplace_back(name);
+				break;
+			}
+		}
+	}
+	return stringified;
+}
+
+void fg::Exporter::setBufferPath(std::filesystem::path folder) {
+    if (!folder.is_relative()) {
+        return;
+    }
+    bufferFolder = std::move(folder);
+}
+
+void fg::Exporter::setImagePath(std::filesystem::path folder) {
+    if (!folder.is_relative()) {
+        return;
+    }
+    imageFolder = std::move(folder);
+}
+
+void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
+	if (asset.accessors.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += R"("accessors":[)";
+	for (auto it = asset.accessors.begin(); it != asset.accessors.end(); ++it) {
+		json += '{';
+
+		if (it->byteOffset != 0) {
+			json += "\"byteOffset\":" + std::to_string(it->byteOffset) + ',';
+		}
+
+		json += "\"count\":" + std::to_string(it->count) + ',';
+		json += R"("type":")" + std::string(getAccessorTypeName(it->type)) + "\",";
+		json += "\"componentType\":" + std::to_string(getGLComponentType(it->componentType));
+
+		if (it->normalized) {
+			json += ",\"normalized\":true";
+		}
+
+		if (it->bufferViewIndex.has_value()) {
+			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
+		}
+
+		auto writeMinMax = [&](const decltype(Accessor::max)& ref, std::string_view name) {
+			if (std::holds_alternative<std::monostate>(ref))
+				return;
+			json += ",\"" + std::string(name) + "\":[";
+			std::visit(visitor {
+				[](std::monostate) {},
+				[&](auto arg) {
+					for (auto it = arg.begin(); it != arg.end(); ++it) {
+						json += std::to_string(*it);
+						if (std::distance(arg.begin(), it) + 1 < arg.size())
+							json += ',';
+					}
+				}
+			}, ref);
+			json += ']';
+		};
+		writeMinMax(it->max, "max");
+		writeMinMax(it->min, "min");
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+
+		json += '}';
+		if (std::distance(asset.accessors.begin(), it) + 1 < asset.accessors.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
+	if (asset.buffers.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"buffers\":[";
+	for (auto it = asset.buffers.begin(); it != asset.buffers.end(); ++it) {
+		json += '{';
+
+        auto bufferIdx = static_cast<std::size_t>(std::distance(asset.buffers.begin(), it));
+		std::visit(visitor {
+			[&](auto arg) {
+				// Covers BufferView and CustomBuffer.
+				errorCode = Error::InvalidGltf;
+			},
+			[&](const sources::Vector& vector) {
+                if (bufferIdx == 0 && exportingBinary) {
+                    bufferPaths.emplace_back(std::nullopt);
+                    return;
+                }
+                auto path = getBufferFilePath(asset, bufferIdx);
+                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
+                bufferPaths.emplace_back(path);
+			},
+			[&](const sources::ByteView& view) {
+                auto path = getBufferFilePath(asset, bufferIdx);
+                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
+                bufferPaths.emplace_back(path);
+			},
+			[&](const sources::URI& uri) {
+				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"' + ',';
+                bufferPaths.emplace_back(std::nullopt);
+			},
+			[&](const sources::Fallback& fallback) {
+				json += R"("extensions":{"EXT_meshopt_compression":{"fallback":true}},)";
+				bufferPaths.emplace_back(std::nullopt);
+			},
+		}, it->data);
+
+		json += "\"byteLength\":" + std::to_string(it->byteLength);
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+		json += '}';
+		if (std::distance(asset.buffers.begin(), it) + 1 < asset.buffers.size())
+			json += ',';
+	}
+	json += "]";
+}
+
+void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
+	if (asset.bufferViews.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"bufferViews\":[";
+	for (auto it = asset.bufferViews.begin(); it != asset.bufferViews.end(); ++it) {
+		json += '{';
+
+		json += "\"buffer\":" + std::to_string(it->bufferIndex) + ',';
+		json += "\"byteLength\":" + std::to_string(it->byteLength);
+
+		if (it->byteOffset != 0) {
+			json += ",\"byteOffset\":" + std::to_string(it->byteOffset);
+		}
+
+		if (it->byteStride.has_value()) {
+			json += ",\"byteStride\":" + std::to_string(it->byteStride.value());
+		}
+
+		if (it->target.has_value()) {
+			json += ",\"target\":" + std::to_string(to_underlying(it->target.value()));
+		}
+
+        if (it->meshoptCompression != nullptr) {
+            json += R"(,"extensions":{"EXT_meshopt_compression":{)";
+            const auto& meshopt = *it->meshoptCompression;
+            json += "\"buffer\":" + std::to_string(meshopt.bufferIndex) + ',';
+            if (meshopt.byteOffset != 0) {
+                json += ",\"byteOffset\":" + std::to_string(meshopt.byteOffset);
+            }
+            json += "\"byteLength\":" + std::to_string(meshopt.byteLength);
+            json += ",\"byteStride\":" + std::to_string(meshopt.byteStride);
+            json += ",\"count\":" + std::to_string(meshopt.count);
+
+            json += ",\"mode\":";
+            if (meshopt.mode == MeshoptCompressionMode::Attributes) {
+                json += "\"ATTRIBUTES\"";
+            } else if (meshopt.mode == MeshoptCompressionMode::Triangles) {
+                json += "\"TRIANGLES\"";
+            } else if (meshopt.mode == MeshoptCompressionMode::Indices) {
+                json += "\"INDICES\"";
+            }
+            if (meshopt.filter != MeshoptCompressionFilter::None) {
+                json += ",\"filter\":";
+                if (meshopt.filter == MeshoptCompressionFilter::Exponential) {
+                    json += "\"EXPONENTIAL\"";
+                } else if (meshopt.filter == MeshoptCompressionFilter::Quaternion) {
+                    json += "\"QUATERNION\"";
+                } else if (meshopt.filter == MeshoptCompressionFilter::Octahedral) {
+                    json += "\"OCTAHEDRAL\"";
+                }
+            }
+            json += "}}";
+        }
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+
+		json += '}';
+		if (std::distance(asset.bufferViews.begin(), it) + 1 < asset.bufferViews.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
+	if (asset.cameras.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"cameras\":[";
+	for (auto it = asset.cameras.begin(); it != asset.cameras.end(); ++it) {
+		json += '{';
+
+		std::visit(visitor {
+			[](auto arg) {},
+			[&](const Camera::Perspective& perspective) {
+				json += "\"perspective\":{";
+
+				if (perspective.aspectRatio.has_value()) {
+					json += "\"aspectRatio\":" + std::to_string(perspective.aspectRatio.value()) + ',';
+				}
+
+				json += "\"yfov\":" + std::to_string(perspective.yfov) + ',';
+
+				if (perspective.zfar.has_value()) {
+					json += "\"zfar\":" + std::to_string(perspective.zfar.value()) + ',';
+				}
+
+				json += "\"znear\":" + std::to_string(perspective.znear);
+
+				json += R"(},"type":"perspective")";
+			},
+			[&](const Camera::Orthographic& orthographic) {
+				json += "\"orthographic\":{";
+				json += "\"xmag\":" + std::to_string(orthographic.xmag) + ',';
+				json += "\"ymag\":" + std::to_string(orthographic.ymag) + ',';
+				json += "\"zfar\":" + std::to_string(orthographic.zfar) + ',';
+				json += "\"znear\":" + std::to_string(orthographic.znear);
+				json += R"(},"type":"orthographic")";
+			}
+		}, it->camera);
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+
+		json += '}';
+		if (std::distance(asset.cameras.begin(), it) + 1 < asset.cameras.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
+	if (asset.images.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"images\":[";
+	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
+		json += '{';
+
+        auto imageIdx = std::distance(asset.images.begin(), it);
+		std::visit(visitor {
+			[&](auto arg) {
+				errorCode = Error::InvalidGltf;
+			},
+            [&](const sources::BufferView& bufferView) {
+                json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + ',';
+				json += std::string(R"("mimeType":")") + std::string(getMimeTypeString(bufferView.mimeType)) + '"';
+                imagePaths.emplace_back(std::nullopt);
+            },
+            [&](const sources::Vector& vector) {
+                auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
+                imagePaths.emplace_back(path);
+            },
+			[&](const sources::URI& uri) {
+				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
+                imagePaths.emplace_back(std::nullopt);
+			},
+		}, it->data);
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+		json += '}';
+		if (std::distance(asset.images.begin(), it) + 1 < asset.images.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
+	if (asset.lights.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += R"("KHR_lights_punctual":{"lights":[)";
+	for (auto it = asset.lights.begin(); it != asset.lights.end(); ++it) {
+		json += '{';
+
+		// [1.0f, 1.0f, 1.0f] is the default.
+		if (it->color[0] != 1.0f && it->color[1] != 1.0f && it->color[2] != 1.0f) {
+			json += R"("color":[)";
+			json += std::to_string(it->color[0]) + ',' + std::to_string(it->color[1]) + ',' + std::to_string(it->color[2]);
+			json += "],";
+		}
+
+		if (it->intensity != 1.0f) {
+			json += R"("intensity":)" + std::to_string(it->intensity) + ',';
+		}
+
+		switch (it->type) {
+			case LightType::Directional: {
+				json += R"("type":"directional")";
+				break;
+			}
+			case LightType::Spot: {
+				json += R"("type":"spot")";
+				break;
+			}
+			case LightType::Point: {
+				json += R"("type":"point")";
+				break;
+			}
+		}
+
+		if (it->range.has_value()) {
+			json += R"(,"range":)" + std::to_string(it->range.value());
+		}
+
+		if (it->type == LightType::Spot) {
+			if (it->innerConeAngle.has_value())
+				json += R"("innerConeAngle":)" + std::to_string(it->innerConeAngle.value()) + ',';
+
+			if (it->outerConeAngle.has_value())
+				json += R"("outerConeAngle":)" + std::to_string(it->outerConeAngle.value()) + ',';
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+		json += '}';
+		if (std::distance(asset.lights.begin(), it) + 1 < asset.lights.size())
+			json += ',';
+	}
+	json += "]}";
+}
+
+void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
+	if (asset.materials.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"materials\":[";
+	for (auto it = asset.materials.begin(); it != asset.materials.end(); ++it) {
+		json += '{';
+
+		json += "\"pbrMetallicRoughness\":{";
+		if (it->pbrData.baseColorFactor != std::array<num, 4>{{1.0f, 1.0f, 1.0f, 1.0f}}) {
+			json += R"("baseColorFactor":[)";
+			json += std::to_string(it->pbrData.baseColorFactor[0]) + ',' + std::to_string(it->pbrData.baseColorFactor[1]) + ',' +
+				std::to_string(it->pbrData.baseColorFactor[2]) + ',' + std::to_string(it->pbrData.baseColorFactor[3]);
+			json += "]";
+		}
+
+		if (it->pbrData.baseColorTexture.has_value()) {
+			if (json.back() != '{') json += ',';
+			json += "\"baseColorTexture\":";
+			writeTextureInfo(json, &it->pbrData.baseColorTexture.value());
+		}
+
+		if (it->pbrData.metallicFactor != 1.0f) {
+			if (json.back() != '{') json += ',';
+			json += "\"metallicFactor\":" + std::to_string(it->pbrData.metallicFactor);
+		}
+
+		if (it->pbrData.roughnessFactor != 1.0f) {
+			if (json.back() != '{') json += ',';
+			json += "\"roughnessFactor\":" + std::to_string(it->pbrData.roughnessFactor);
+		}
+
+		if (it->pbrData.metallicRoughnessTexture.has_value()) {
+			if (json.back() != '{') json += ',';
+			json += "\"metallicRoughnessTexture\":";
+			writeTextureInfo(json, &it->pbrData.metallicRoughnessTexture.value());
+		}
+
+		json += '}';
+
+		if (it->normalTexture.has_value()) {
+			if (json.back() != ',') json += ',';
+			json += "\"normalTexture\":";
+			writeTextureInfo(json, &it->normalTexture.value(), TextureInfoType::NormalTexture);
+		}
+
+		if (it->occlusionTexture.has_value()) {
+			if (json.back() != ',') json += ',';
+			json += "\"occlusionTexture\":";
+			writeTextureInfo(json, &it->occlusionTexture.value(), TextureInfoType::OcclusionTexture);
+		}
+
+		if (it->emissiveTexture.has_value()) {
+			if (json.back() != ',') json += ',';
+			json += "\"emissiveTexture\":";
+			writeTextureInfo(json, &it->emissiveTexture.value());
+		}
+
+		if (it->emissiveFactor != std::array<num, 3>{{.0f, .0f, .0f}}) {
+			if (json.back() != ',') json += ',';
+			json += R"("emissiveFactor":[)";
+			json += std::to_string(it->emissiveFactor[0]) + ',' + std::to_string(it->emissiveFactor[1]) + ',' + std::to_string(it->emissiveFactor[2]);
+			json += "],";
+		}
+
+		if (it->alphaMode != AlphaMode::Opaque) {
+			if (json.back() != ',') json += ',';
+			json += R"("alphaMode":)";
+			if (it->alphaMode == AlphaMode::Blend) {
+				json += "\"BLEND\"";
+			} else if (it->alphaMode == AlphaMode::Mask) {
+				json += "\"MASK\"";
+			}
+		}
+
+		if (it->alphaMode == AlphaMode::Mask && it->alphaCutoff != 0.5f) {
+			if (json.back() != ',') json += ',';
+			json += R"("alphaCutoff":)" + std::to_string(it->alphaCutoff);
+		}
+
+		if (it->doubleSided) {
+			if (json.back() != ',') json += ',';
+			json += R"("doubleSided":true)";
+		}
+
+		if (json.back() != ',') json += ',';
+		json += R"("extensions":{)";
+
+		if (it->anisotropy) {
+			json += R"("KHR_materials_anisotropy":{)";
+			if (it->anisotropy->anisotropyStrength != 0.0f) {
+				json += R"("anisotropyStrength":)" + std::to_string(it->anisotropy->anisotropyStrength);
+			}
+			if (it->anisotropy->anisotropyRotation != 0.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("anisotropyRotation":)" + std::to_string(it->anisotropy->anisotropyRotation);
+			}
+			if (it->anisotropy->anisotropyTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"anisotropyTexture\":";
+				writeTextureInfo(json, &it->anisotropy->anisotropyTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->clearcoat) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_clearcoat":{)";
+			if (it->clearcoat->clearcoatFactor != 0.0f) {
+				json += R"("clearcoatFactor":)" + std::to_string(it->clearcoat->clearcoatFactor);
+			}
+			if (it->clearcoat->clearcoatTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"clearcoatTexture\":";
+				writeTextureInfo(json, &it->clearcoat->clearcoatTexture.value());
+			}
+			if (it->clearcoat->clearcoatRoughnessFactor != 0.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("clearcoatRoughnessFactor":)" + std::to_string(it->clearcoat->clearcoatRoughnessFactor);
+			}
+			if (it->clearcoat->clearcoatRoughnessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"clearcoatRoughnessTexture\":";
+				writeTextureInfo(json, &it->clearcoat->clearcoatRoughnessTexture.value());
+			}
+			if (it->clearcoat->clearcoatNormalTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"clearcoatNormalTexture\":";
+				writeTextureInfo(json, &it->clearcoat->clearcoatNormalTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->emissiveStrength != 1.0f) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_emissive_strength":{"emissiveStrength":)" + std::to_string(it->emissiveStrength) + '}';
+		}
+
+		if (it->ior != 1.5f) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_ior":{"ior":)" + std::to_string(it->ior) + '}';
+		}
+
+		if (it->iridescence) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_iridescence":{)";
+			if (it->iridescence->iridescenceFactor != 0.0f) {
+				json += R"("iridescenceFactor":)" + std::to_string(it->iridescence->iridescenceFactor);
+			}
+			if (it->iridescence->iridescenceTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"iridescenceTexture\":";
+				writeTextureInfo(json, &it->iridescence->iridescenceTexture.value());
+			}
+			if (it->iridescence->iridescenceIor != 1.3f) {
+				if (json.back() != '{') json += ',';
+				json += R"("iridescenceIor":)" + std::to_string(it->iridescence->iridescenceIor);
+			}
+			if (it->iridescence->iridescenceThicknessMinimum != 100.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("iridescenceThicknessMinimum":)" + std::to_string(it->iridescence->iridescenceThicknessMinimum);
+			}
+			if (it->iridescence->iridescenceThicknessMaximum != 400.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("iridescenceThicknessMaximum":)" + std::to_string(it->iridescence->iridescenceThicknessMaximum);
+			}
+			if (it->iridescence->iridescenceThicknessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"iridescenceThicknessTexture\":";
+				writeTextureInfo(json, &it->iridescence->iridescenceThicknessTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->sheen) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_sheen":{)";
+			if (it->sheen->sheenColorFactor != std::array<num, 3>{{.0f, .0f, .0f}}) {
+				json += R"("sheenColorFactor":[)" +
+					std::to_string(it->sheen->sheenColorFactor[0]) + ',' +
+					std::to_string(it->sheen->sheenColorFactor[1]) + ',' +
+					std::to_string(it->sheen->sheenColorFactor[2]) + ']';
+			}
+			if (it->sheen->sheenColorTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"sheenColorTexture\":";
+				writeTextureInfo(json, &it->sheen->sheenColorTexture.value());
+			}
+			if (it->sheen->sheenRoughnessFactor != 0.0f) {
+				if (json.back() != '{') json += ',';
+				json += R"("sheenRoughnessFactor":)" + std::to_string(it->sheen->sheenRoughnessFactor);
+			}
+			if (it->sheen->sheenRoughnessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"sheenRoughnessTexture\":";
+				writeTextureInfo(json, &it->sheen->sheenRoughnessTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->specular) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_specular":{)";
+			if (it->specular->specularFactor != 1.0f) {
+				json += R"("specularFactor":)" + std::to_string(it->specular->specularFactor);
+			}
+			if (it->specular->specularTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"specularTexture\":";
+				writeTextureInfo(json, &it->specular->specularTexture.value());
+			}
+			if (it->specular->specularColorFactor != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+				if (json.back() != '{') json += ',';
+				json += R"("specularColorFactor":[)" +
+						std::to_string(it->specular->specularColorFactor[0]) + ',' +
+						std::to_string(it->specular->specularColorFactor[1]) + ',' +
+						std::to_string(it->specular->specularColorFactor[2]) + ']';
+			}
+			if (it->specular->specularColorTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"specularColorTexture\":";
+				writeTextureInfo(json, &it->specular->specularColorTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->transmission) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_transmission":{)";
+			if (it->transmission->transmissionFactor != 0.0f) {
+				json += R"("transmissionFactor":)" + std::to_string(it->transmission->transmissionFactor);
+			}
+			if (it->transmission->transmissionTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"transmissionTexture\":";
+				writeTextureInfo(json, &it->transmission->transmissionTexture.value());
+			}
+			json += '}';
+		}
+
+		if (it->unlit) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_unlit":{})";
+		}
+
+		if (it->volume) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_volume":{)";
+			if (it->volume->thicknessFactor != 0.0f) {
+				json += R"("thicknessFactor":)" + std::to_string(it->volume->thicknessFactor);
+			}
+			if (it->volume->thicknessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"thicknessTexture\":";
+				writeTextureInfo(json, &it->volume->thicknessTexture.value());
+			}
+			if (it->volume->attenuationDistance != std::numeric_limits<num>::infinity()) {
+				if (json.back() != '{') json += ',';
+				json += R"("attenuationDistance":)" + std::to_string(it->volume->attenuationDistance);
+			}
+			if (it->volume->attenuationColor != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+				if (json.back() != '{') json += ',';
+				json += R"("attenuationColor":[)" +
+						std::to_string(it->volume->attenuationColor[0]) + ',' +
+						std::to_string(it->volume->attenuationColor[1]) + ',' +
+						std::to_string(it->volume->attenuationColor[2]) + ']';
+			}
+			json += '}';
+		}
+
+		if (it->packedNormalMetallicRoughnessTexture.has_value()) {
+			if (json.back() == '}') json += ',';
+			json += R"("MSFT_packing_normalRoughnessMetallic":{"normalRoughnessMetallicTexture":)";
+			writeTextureInfo(json, &it->packedNormalMetallicRoughnessTexture.value());
+			json += '}';
+		}
+
+		if (it->packedOcclusionRoughnessMetallicTextures) {
+			if (json.back() == '}') json += ',';
+			json += R"("MSFT_packing_normalRoughnessMetallic":{)";
+			if (it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.has_value()) {
+				json += R"("occlusionRoughnessMetallicTexture":)";
+				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.value());
+			}
+			if (it->packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.has_value()) {
+				json += R"("roughnessMetallicOcclusionTexture":)";
+				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.value());
+			}
+			if (it->packedOcclusionRoughnessMetallicTextures->normalTexture.has_value()) {
+				json += R"("normalTexture":)";
+				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->normalTexture.value());
+			}
+			json += '}';
+		}
+
+		json += '}';
+
+		if (!it->name.empty()) {
+			if (json.back() != ',') json += ',';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
+		}
+		json += '}';
+		if (std::distance(asset.materials.begin(), it) + 1 < asset.materials.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
+	if (asset.meshes.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"meshes\":[";
+	for (auto it = asset.meshes.begin(); it != asset.meshes.end(); ++it) {
+		json += '{';
+
+        if (!it->primitives.empty()) {
+            json += R"("primitives":[)";
+            auto itp = it->primitives.begin();
+            while (itp != it->primitives.end()) {
+                json += '{';
+
+                {
+                    json += R"("attributes":{)";
+                    for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
+                        json += '"' + std::string(ita->first) + "\":" + std::to_string(ita->second);
+                        if (std::distance(itp->attributes.begin(), ita) + 1 < itp->attributes.size())
+                            json += ',';
+                    }
+                    json += '}';
+                }
+
+                if (itp->indicesAccessor.has_value()) {
+                    json += R"(,"indices":)" + std::to_string(itp->indicesAccessor.value());
+                }
+
+                if (itp->materialIndex.has_value()) {
+                    json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
+                }
+
+                if (itp->type != PrimitiveType::Triangles) {
+                    json += R"(,"type":)" + std::to_string(to_underlying(itp->type));
+                }
+
+                json += '}';
+                ++itp;
+                if (std::distance(it->primitives.begin(), itp) < it->primitives.size())
+                    json += ',';
+            }
+            json += ']';
+        }
+
+		if (!it->weights.empty()) {
+			if (json.back() != '{')
+				json += ',';
+			json += R"("weights":[)";
+			auto itw = it->weights.begin();
+			while (itw != it->weights.end()) {
+				json += std::to_string(*itw);
+				++itw;
+				if (std::distance(it->weights.begin(), itw) < it->weights.size())
+					json += ',';
+			}
+			json += ']';
+		}
+
+		if (!it->name.empty()) {
+            if (json.back() != '{')
+                json += ',';
+            json += R"("name":")" + fg::escapeString(it->name) + '"';
+        }
+		json += '}';
+		if (std::distance(asset.meshes.begin(), it) + 1 < asset.meshes.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
+	if (asset.nodes.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"nodes\":[";
+	for (auto it = asset.nodes.begin(); it != asset.nodes.end(); ++it) {
+		json += '{';
+
+		if (it->meshIndex.has_value()) {
+			json += R"("mesh":)" + std::to_string(it->meshIndex.value());
+		}
+		if (it->cameraIndex.has_value()) {
+			if (json.back() != '{')
+				json += ',';
+			json += R"("camera":)" + std::to_string(it->cameraIndex.value());
+		}
+		if (it->skinIndex.has_value()) {
+			if (json.back() != '{')
+				json += ',';
+			json += R"("skin":)" + std::to_string(it->skinIndex.value());
+		}
+
+		if (!it->children.empty()) {
+            if (json.back() != '{')
+                json += ',';
+			json += R"("children":[)";
+			auto itc = it->children.begin();
+			while (itc != it->children.end()) {
+				json += std::to_string(*itc);
+				++itc;
+				if (std::distance(it->children.begin(), itc) < it->children.size())
+					json += ',';
+			}
+			json += ']';
+		}
+
+		if (!it->weights.empty()) {
+            if (json.back() != '{')
+                json += ',';
+			json += R"("weights":[)";
+			auto itw = it->weights.begin();
+			while (itw != it->weights.end()) {
+				json += std::to_string(*itw);
+				++itw;
+				if (std::distance(it->weights.begin(), itw) < it->weights.size())
+					json += ',';
+			}
+			json += ']';
+		}
+
+		std::visit(visitor {
+			[&](const TRS& trs) {
+				if (trs.rotation != std::array<num, 4>{{.0f, .0f, .0f, 1.0f}}) {
+                    if (json.back() != '{')
+                        json += ',';
+					json += R"("rotation":[)";
+					json += std::to_string(trs.rotation[0]) + ',' + std::to_string(trs.rotation[1]) + ',' + std::to_string(trs.rotation[2]) + ',' + std::to_string(trs.rotation[3]);
+					json += "]";
+				}
+
+				if (trs.scale != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+                    if (json.back() != '{')
+                        json += ',';
+					json += R"("scale":[)";
+					json += std::to_string(trs.scale[0]) + ',' + std::to_string(trs.scale[1]) + ',' + std::to_string(trs.scale[2]);
+					json += "]";
+				}
+
+				if (trs.translation != std::array<num, 3>{{.0f, .0f, .0f}}) {
+                    if (json.back() != '{')
+                        json += ',';
+					json += R"("translation":[)";
+					json += std::to_string(trs.translation[0]) + ',' + std::to_string(trs.translation[1]) + ',' + std::to_string(trs.translation[2]);
+					json += "]";
+				}
+			},
+			[&](const Node::TransformMatrix& matrix) {
+				if (json.back() != '{')
+					json += ',';
+				json += R"("matrix":[)";
+				for (std::size_t i = 0; i < matrix.size(); ++i) {
+					json += std::to_string(matrix[i]);
+					if (i + 1 < matrix.size()) {
+						json += ',';
+					}
+				}
+				json += ']';
+			},
+		}, it->transform);
+
+        if (!it->instancingAttributes.empty()) {
+			if (json.back() != '{') json += ',';
+            json += R"("extensions":{"EXT_mesh_gpu_instancing":{"attributes":{)";
+            for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
+                json += '"' + std::string(ait->first) + "\":" + std::to_string(ait->second);
+                if (std::distance(it->instancingAttributes.begin(), ait) + 1 < it->instancingAttributes.size())
+                    json += ',';
+            }
+            json += "}}}";
+        }
+
+		if (!it->name.empty()) {
+            if (json.back() != '{')
+                json += ',';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
+		}
+		json += '}';
+		if (std::distance(asset.nodes.begin(), it) + 1 < asset.nodes.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeSamplers(const Asset& asset, std::string& json) {
+	if (asset.samplers.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"samplers\":[";
+	for (auto it = asset.samplers.begin(); it != asset.samplers.end(); ++it) {
+		json += '{';
+
+		if (it->magFilter.has_value()) {
+			json += R"("magFilter":)" + std::to_string(to_underlying(it->magFilter.value()));
+		}
+		if (it->minFilter.has_value()) {
+			if (json.back() != '{') json += ',';
+			json += R"("minFilter":)" + std::to_string(to_underlying(it->minFilter.value()));
+		}
+		if (it->wrapS != Wrap::Repeat) {
+			if (json.back() != '{') json += ',';
+			json += R"("wrapS":)" + std::to_string(to_underlying(it->wrapS));
+		}
+		if (it->wrapT != Wrap::Repeat) {
+			if (json.back() != '{') json += ',';
+			json += R"("wrapTS":)" + std::to_string(to_underlying(it->wrapT));
+		}
+
+		if (!it->name.empty()) {
+			if (json.back() != '{') json += ',';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
+		}
+		json += '}';
+		if (std::distance(asset.samplers.begin(), it) + 1 < asset.samplers.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
+	if (asset.scenes.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	if (asset.defaultScene.has_value()) {
+		json += "\"scene\":" + std::to_string(asset.defaultScene.value()) + ',';
+	}
+
+	json += "\"scenes\":[";
+	for (auto it = asset.scenes.begin(); it != asset.scenes.end(); ++it) {
+		json += '{';
+
+		json += R"("nodes":[)";
+		auto itn = it->nodeIndices.begin();
+		while (itn != it->nodeIndices.end()) {
+			json += std::to_string(*itn);
+			++itn;
+			if (std::distance(it->nodeIndices.begin(), itn) < it->nodeIndices.size())
+				json += ',';
+		}
+		json += ']';
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+		json += '}';
+		if (std::distance(asset.scenes.begin(), it) + 1 < asset.scenes.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeSkins(const Asset& asset, std::string& json) {
+	if (asset.skins.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"skins\":[";
+	for (auto it = asset.skins.begin(); it != asset.skins.end(); ++it) {
+		json += '{';
+
+		if (it->inverseBindMatrices.has_value())
+			json += R"("inverseBindMatrices":)" + std::to_string(it->inverseBindMatrices.value()) + ',';
+
+		if (it->skeleton.has_value())
+			json += R"("skeleton":)" + std::to_string(it->skeleton.value()) + ',';
+
+		json += R"("joints":[)";
+		auto itj = it->joints.begin();
+		while (itj != it->joints.end()) {
+			json += std::to_string(*itj);
+			++itj;
+			if (std::distance(it->joints.begin(), itj) < it->joints.size())
+				json += ',';
+		}
+		json += ']';
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+		json += '}';
+		if (std::distance(asset.skins.begin(), it) + 1 < asset.skins.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
+	if (asset.textures.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += "\"textures\":[";
+	for (auto it = asset.textures.begin(); it != asset.textures.end(); ++it) {
+		json += '{';
+
+		if (it->samplerIndex.has_value())
+			json += R"("sampler":)" + std::to_string(it->samplerIndex.value());
+
+		if (it->imageIndex.has_value()) {
+			if (json.back() != '{') json += ',';
+			json += R"("source":)" + std::to_string(it->imageIndex.value());
+		}
+
+		if (it->basisuImageIndex.has_value() || it->ddsImageIndex.has_value() || it->webpImageIndex.has_value()) {
+			if (json.back() != '{') json += ',';
+			json += R"("extensions":{)";
+			if (it->basisuImageIndex.has_value()) {
+				json += R"("KHR_texture_basisu":{"source":)" + std::to_string(it->basisuImageIndex.value()) + '}';
+			}
+			if (it->ddsImageIndex.has_value()) {
+				if (json.back() == '}') json += ',';
+				json += R"("MSFT_texture_dds":{"source":)" + std::to_string(it->ddsImageIndex.value()) + '}';
+			}
+			if (it->webpImageIndex.has_value()) {
+				if (json.back() == '}') json += ',';
+				json += R"("EXT_texture_webp":{"source":)" + std::to_string(it->webpImageIndex.value()) + '}';
+			}
+			json += "}";
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+		json += '}';
+		if (std::distance(asset.textures.begin(), it) + 1 < asset.textures.size())
+			json += ',';
+	}
+	json += ']';
+}
+
+void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& json) {
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+    json += "\"extensions\":{";
+
+    writeLights(asset, json);
+
+    json += '}';
+}
+
+fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) {
+    const auto& bufferName = asset.buffers[index].name;
+    if (bufferName.empty()) {
+        return bufferFolder / ("buffer" + std::to_string(index) + ".bin");
+    } else {
+        return bufferFolder / (bufferName + ".bin");
+    }
+    std::string name = bufferName.empty() ? "buffer" : std::string(bufferName);
+    return bufferFolder / (name + std::to_string(index) + ".bin");
+}
+
+fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
+    std::string_view extension;
+    switch (mimeType) {
+        default:
+        case MimeType::None:
+            extension = ".bin";
+            break;
+        case MimeType::JPEG:
+            extension = ".jpeg";
+            break;
+        case MimeType::PNG:
+            extension = ".png";
+            break;
+    }
+
+    const auto& imageName = asset.images[index].name;
+    std::string name = imageName.empty() ? "image" : std::string(imageName);
+    return imageFolder / (name + std::to_string(index) + std::string(extension));
+}
+
+std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
+    // Fairly rudimentary approach of just composing the JSON string using a std::string.
+    std::string outputString;
+
+    outputString += "{";
+
+    // Write asset info
+    outputString += "\"asset\":{";
+    if (asset.assetInfo.has_value()) {
+        if (!asset.assetInfo->copyright.empty())
+            outputString += R"("copyright":")" + fg::escapeString(asset.assetInfo->copyright) + "\",";
+        if (!asset.assetInfo->generator.empty())
+            outputString += R"("generator":")" + fg::escapeString(asset.assetInfo->generator) + "\",";
+        outputString += R"("version":")" + asset.assetInfo->gltfVersion + '"';
+    } else {
+        outputString += R"("generator":"fastgltf",)";
+        outputString += R"("version":"2.0")";
+    }
+    outputString += '}';
+
+	// Write extension usage info
+	if (!asset.extensionsUsed.empty()) {
+		if (outputString.back() != '{') outputString += ',';
+		outputString += "\"extensionsUsed\":[";
+		for (auto it = asset.extensionsUsed.begin(); it != asset.extensionsUsed.end(); ++it) {
+			outputString += '\"' + *it + '\"';
+			if (std::distance(asset.extensionsUsed.begin(), it) + 1 < asset.extensionsUsed.size())
+				outputString += ',';
+		}
+		outputString += ']';
+	}
+	if (!asset.extensionsRequired.empty()) {
+		if (outputString.back() != '{') outputString += ',';
+		outputString += "\"extensionsRequired\":[";
+		for (auto it = asset.extensionsRequired.begin(); it != asset.extensionsRequired.end(); ++it) {
+			outputString += '\"' + *it + '\"';
+			if (std::distance(asset.extensionsRequired.begin(), it) + 1 < asset.extensionsRequired.size())
+				outputString += ',';
+		}
+		outputString += ']';
+	}
+
+    writeAccessors(asset, outputString);
+    writeBuffers(asset, outputString);
+    writeBufferViews(asset, outputString);
+    writeCameras(asset, outputString);
+    writeImages(asset, outputString);
+    writeMaterials(asset, outputString);
+    writeMeshes(asset, outputString);
+    writeNodes(asset, outputString);
+    writeSamplers(asset, outputString);
+    writeScenes(asset, outputString);
+    writeSkins(asset, outputString);
+    writeTextures(asset, outputString);
+    writeExtensions(asset, outputString);
+
+    outputString += "}";
+
+    if (hasBit(options, ExportOptions::PrettyPrintJson)) {
+        prettyPrintJson(outputString);
+    }
+
+    return outputString;
+}
+
+fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset& asset, ExportOptions nOptions) {
+    bufferPaths.clear();
+    imagePaths.clear();
+    options = nOptions;
+	exportingBinary = false;
+
+    if (hasBit(options, ExportOptions::ValidateAsset)) {
+        auto validation = validate(asset);
+        if (validation != Error::None) {
+            return Expected<ExportResult<std::string>>{errorCode};
+        }
+    }
+
+    // Fairly rudimentary approach of just composing the JSON string using a std::string.
+    std::string outputString = writeJson(asset);
+    if (errorCode != Error::None) {
+        return Expected<ExportResult<std::string>> { errorCode };
+    }
+
+    ExportResult<std::string> result;
+    result.output = std::move(outputString);
+    result.bufferPaths = std::move(bufferPaths);
+    result.imagePaths = std::move(imagePaths);
+    return Expected { std::move(result) };
+}
+
+fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions nOptions) {
+    bufferPaths.clear();
+    imagePaths.clear();
+    options = nOptions;
+	exportingBinary = true;
+
+    options &= (~ExportOptions::PrettyPrintJson);
+
+    ExportResult<std::vector<std::byte>> result;
+    auto json = writeJson(asset);
+    if (errorCode != Error::None) {
+        return Expected<ExportResult<std::vector<std::byte>>> { errorCode };
+    }
+
+    result.bufferPaths = std::move(bufferPaths);
+    result.imagePaths = std::move(imagePaths);
+
+	// TODO: Add ExportOption enumeration for disabling this?
+    const bool withEmbeddedBuffer = !asset.buffers.empty()
+			// We only support writing Vectors and ByteViews as embedded buffers
+			&& (std::holds_alternative<sources::Vector>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
+			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
+
+    std::size_t binarySize = sizeof(BinaryGltfHeader) + sizeof(BinaryGltfChunk) + json.size();
+    if (withEmbeddedBuffer) {
+        binarySize += sizeof(BinaryGltfChunk) + asset.buffers.front().byteLength;
+    }
+
+    result.output.resize(binarySize);
+    auto write = [output = result.output.data()](const void* data, std::size_t size) mutable {
+        std::memcpy(output, data, size);
+        output += size;
+    };
+
+    BinaryGltfHeader header;
+    header.magic = binaryGltfHeaderMagic;
+    header.version = 2;
+    header.length = binarySize;
+    write(&header, sizeof header);
+
+    BinaryGltfChunk jsonChunk;
+    jsonChunk.chunkType = binaryGltfJsonChunkMagic;
+    jsonChunk.chunkLength = json.size();
+    write(&jsonChunk, sizeof jsonChunk);
+
+    write(json.data(), json.size() * sizeof(decltype(json)::value_type));
+
+    if (withEmbeddedBuffer) {
+        const auto& buffer = asset.buffers.front();
+
+        BinaryGltfChunk dataChunk;
+        dataChunk.chunkType = binaryGltfDataChunkMagic;
+        dataChunk.chunkLength = buffer.byteLength;
+        write(&dataChunk, sizeof dataChunk);
+
+		std::visit(visitor {
+			[](auto arg) {},
+			[&](sources::Vector& vector) {
+				write(vector.bytes.data(), buffer.byteLength);
+			},
+			[&](sources::ByteView& byteView) {
+				write(byteView.bytes.data(), buffer.byteLength);
+			},
+		}, buffer.data);
+    }
+
+    return Expected { std::move(result) };
+}
+
+namespace fastgltf {
+	void writeFile(const DataSource& dataSource, fs::path baseFolder, fs::path filePath) {
+		std::visit(visitor {
+			[](auto& arg) {},
+			[&](const fastgltf::sources::Vector &vector) {
+				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
+						   static_cast<std::streamsize>(vector.bytes.size()));
+				file.close();
+			},
+			[&](const sources::ByteView &view) {
+				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				file.write(reinterpret_cast<const char *>(view.bytes.data()),
+						   static_cast<std::streamsize>(view.bytes.size()));
+				file.close();
+			},
+		}, dataSource);
+	}
+
+    template<typename T>
+    void writeFiles(const Asset& asset, ExportResult<T> &result, fs::path baseFolder) {
+        for (std::size_t i = 0; i < asset.buffers.size(); ++i) {
+            auto &path = result.bufferPaths[i];
+            if (path.has_value()) {
+                writeFile(asset.buffers[i].data, baseFolder, path.value());
+            }
+        }
+
+        for (std::size_t i = 0; i < asset.images.size(); ++i) {
+            auto &path = result.imagePaths[i];
+            if (path.has_value()) {
+				writeFile(asset.images[i].data, baseFolder, path.value());
+            }
+        }
+    }
+} // namespace fastgltf
+
+fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options) {
+    auto expected = Exporter::writeGltfJson(asset, options);
+
+    if (!expected) {
+        return expected.error();
+    }
+    auto& result = expected.get();
+
+    std::ofstream file(target, std::ios::out);
+    if (!file.is_open()) {
+        return fg::Error::InvalidPath;
+    }
+
+    file << result.output;
+    file.close();
+
+    writeFiles(asset, result, target.parent_path());
+    return Error::None;
+}
+
+fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options) {
+    auto expected = Exporter::writeGltfBinary(asset, options);
+
+    if (!expected) {
+        return expected.error();
+    }
+    auto& result = expected.get();
+
+    std::ofstream file(target, std::ios::out | std::ios::binary);
+    if (!file.is_open()) {
+        return fg::Error::InvalidPath;
+    }
+
+    file.write(reinterpret_cast<const char*>(result.output.data()),
+               static_cast<std::streamsize>(result.output.size()));
+
+    writeFiles(asset, result, target.parent_path());
+    return Error::None;
 }
 #pragma endregion
 

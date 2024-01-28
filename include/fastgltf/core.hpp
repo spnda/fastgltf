@@ -267,6 +267,20 @@ namespace fastgltf {
 		 */
 		GenerateMeshIndices             = 1 << 8,
     };
+
+    enum class ExportOptions : std::uint64_t {
+        None                            = 0,
+
+        /**
+         * Calls fastgltf::validate for the passed asset before writing.
+         */
+        ValidateAsset                   = 1 << 1,
+
+        /**
+         * Pretty-prints the outputted JSON. This option is ignored for binary glTFs.
+         */
+        PrettyPrintJson                 = 1 << 2,
+    };
     // clang-format on
 
     FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Options, Options, |)
@@ -274,6 +288,11 @@ namespace fastgltf {
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, |)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, &)
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Options, ~)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, |)
+    FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, &)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, |)
+    FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, &)
+    FASTGLTF_UNARY_OP_TEMPLATE_MACRO(ExportOptions, ~)
 
     // String representations of glTF 2.0 extension identifiers.
     namespace extensions {
@@ -762,6 +781,126 @@ namespace fastgltf {
         void setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept;
         void setUserPointer(void* pointer) noexcept;
     };
+
+    /**
+     * This converts a compacted JSON string into a more readable pretty format.
+     */
+    void prettyPrintJson(std::string& json);
+
+    /**
+     * Escapes a string for use in JSON.
+     */
+    std::string escapeString(std::string_view string);
+
+	/**
+	 * Returns a list of extension names based on the given extension flags.
+	 */
+	auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired);
+
+    template <typename T>
+    struct ExportResult {
+        T output;
+
+        std::vector<std::optional<std::filesystem::path>> bufferPaths;
+        std::vector<std::optional<std::filesystem::path>> imagePaths;
+    };
+
+    /**
+     * A exporter for serializing one or more glTF assets into JSON and GLB forms.
+     *
+     * @note This does not write anything to any files. This class only serializes data
+     * into memory structures, which can then be used to manually write them to disk.
+     * If you want to let fastgltf handle the file writing too, use fastgltf::FileExporter.
+     */
+    class Exporter {
+    protected:
+        Error errorCode = Error::None;
+        ExportOptions options = ExportOptions::None;
+		bool exportingBinary = false;
+
+        std::filesystem::path bufferFolder = "";
+        std::filesystem::path imageFolder = "";
+
+        std::vector<std::optional<std::filesystem::path>> bufferPaths;
+        std::vector<std::optional<std::filesystem::path>> imagePaths;
+
+        void writeAccessors(const Asset& asset, std::string& json);
+        void writeBuffers(const Asset& asset, std::string& json);
+        void writeBufferViews(const Asset& asset, std::string& json);
+        void writeCameras(const Asset& asset, std::string& json);
+        void writeImages(const Asset& asset, std::string& json);
+        void writeLights(const Asset& asset, std::string& json);
+        void writeMaterials(const Asset& asset, std::string& json);
+        void writeMeshes(const Asset& asset, std::string& json);
+        void writeNodes(const Asset& asset, std::string& json);
+        void writeSamplers(const Asset& asset, std::string& json);
+        void writeScenes(const Asset& asset, std::string& json);
+        void writeSkins(const Asset& asset, std::string& json);
+        void writeTextures(const Asset& asset, std::string& json);
+        void writeExtensions(const Asset& asset, std::string& json);
+
+        std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
+        std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
+
+        std::string writeJson(const Asset& asset);
+
+    public:
+        /**
+         * Sets the relative base path for buffer URIs.
+         *
+         * If folder.is_relative() returns false, this has no effect.
+         */
+        void setBufferPath(std::filesystem::path folder);
+        /**
+         * Sets the relative base path for image URIs.
+         *
+         * If folder.is_relative() returns false, this has no effect.
+         */
+        void setImagePath(std::filesystem::path folder);
+
+        /**
+         * Generates a glTF JSON string from the given asset.
+         */
+        Expected<ExportResult<std::string>> writeGltfJson(const Asset& asset, ExportOptions options = ExportOptions::None);
+
+        /**
+         * Generates a glTF binary (GLB) blob from the given asset.
+         *
+         * If the first buffer holds a sources::Vector or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
+         * it will be embedded into the binary. Note that the returned vector might therefore get quite large.
+         */
+        Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
+    };
+
+	/**
+	 * A exporter for serializing one or more glTF files into JSON and GLB forms.
+	 * This exporter builds upon Exporter by writing all files automatically to the
+	 * given paths.
+	 */
+	class FileExporter : public Exporter {
+        using Exporter::writeGltfJson;
+        using Exporter::writeGltfBinary;
+
+	public:
+        /**
+         * Writes a glTF JSON string generated from the given asset to the specified target file. This will also write
+         * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
+         * Exporter::setImagePath.
+         */
+		Error writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+
+		/**
+		 * Writes a glTF binary (GLB) blob from the given asset to the specified target file. This will also write
+         * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
+         * Exporter::setImagePath.
+         *
+		 * If the first buffer holds a sources::Vector or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
+         * it will be embedded into the binary.
+         *
+		 * \see Exporter::writeGltfBinary
+		 */
+        Error writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+	};
 } // namespace fastgltf
 
 #ifdef _MSC_VER
