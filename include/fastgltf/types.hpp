@@ -1229,6 +1229,10 @@ namespace fastgltf {
         template <typename Iterator>
         explicit constexpr span(Iterator first, size_type count) : _ptr(first), _size(count) {}
 
+#if FASTGLTF_CPP_20
+        constexpr span(std::span<T> data) : _ptr(data.data()), _size(data.size()) {}
+#endif
+
         constexpr span(const span& other) noexcept = default;
         constexpr span& operator=(const span& other) noexcept = default;
 
@@ -1254,6 +1258,14 @@ namespace fastgltf {
 
         [[nodiscard]] constexpr span<T, Extent> first(size_type count) const {
             return span(_ptr, count);
+        }
+
+        [[nodiscard]] constexpr span<T, Extent> last(size_type count) const {
+            return span(&data()[size() - count], count);
+        }
+
+        [[nodiscard]] constexpr span<T, Extent> subspan(size_type offset, size_type count = dynamic_extent) const {
+            return span(&data()[offset], count == dynamic_extent ? size() - offset : count);
         }
 
 #if FASTGLTF_CPP_20

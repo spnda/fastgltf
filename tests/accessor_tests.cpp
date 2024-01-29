@@ -51,6 +51,15 @@ TEST_CASE("Test data type conversion", "[gltf-tools]") {
 	}
 }
 
+TEST_CASE("Test little-endian correctness", "[gltf-tools]") {
+    // The test here is merely to verify that the internal deserialization functions correctly treat
+    // the input bytes as little-endian, regardless of system endianness.
+    // This test is effectively useless on little endian systems, but it should still make sense to keep it.
+    std::array<std::byte, 4> integer {{ std::byte(0x0A), std::byte(0x0B), std::byte(0x0C), std::byte(0x0D) }};
+    auto deserialized = fastgltf::internal::deserializeComponent<std::uint32_t>(integer.data(), 0);
+    REQUIRE(deserialized == 0x0D0C0B0A);
+}
+
 TEST_CASE("Test accessor", "[gltf-tools]") {
     auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
     fastgltf::GltfDataBuffer jsonData;
