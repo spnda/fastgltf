@@ -29,7 +29,7 @@
 #include <cstring>
 #include <iterator>
 
-#include "types.hpp"
+#include <fastgltf/types.hpp>
 
 namespace fastgltf {
 

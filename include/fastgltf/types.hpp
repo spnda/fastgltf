@@ -38,7 +38,7 @@
 #include <vector>
 
 // Utils header already includes some headers, which we'll try and avoid including twice.
-#include "util.hpp"
+#include <fastgltf/util.hpp>
 
 #if defined(_GLIBCXX_USE_CXX11_ABI) && !_GLIBCXX_USE_CXX11_ABI
 // polymorphic allocators are only supported with the 'new' GCC ABI.

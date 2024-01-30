@@ -29,7 +29,7 @@
 #include <memory>
 #include <tuple>
 
-#include "types.hpp"
+#include <fastgltf/types.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(push)
