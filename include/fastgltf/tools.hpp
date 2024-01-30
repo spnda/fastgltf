@@ -289,7 +289,8 @@ struct DefaultBufferDataAdapter {
     auto operator()(const Buffer& buffer) const {
 		return std::visit(visitor {
 			[](auto&) -> const std::byte* {
-				return {};
+				assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
+				return nullptr;
 			},
 			[&](const sources::Vector& vec) {
                 return reinterpret_cast<const std::byte*>(vec.bytes.data());
