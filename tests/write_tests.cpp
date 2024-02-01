@@ -95,6 +95,7 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
+    std::filesystem::create_directory(path / "export");
     fastgltf::FileExporter exporter;
     auto error = exporter.writeGltfJson(cube.get(), path / "export" / "cube.gltf",
                                         fastgltf::ExportOptions::PrettyPrintJson);
@@ -112,6 +113,7 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
+    std::filesystem::create_directory(path / "export_glb");
     fastgltf::FileExporter exporter;
     auto error = exporter.writeGltfBinary(cube.get(), path / "export_glb" / "cube.glb");
     REQUIRE(error == fastgltf::Error::None);
