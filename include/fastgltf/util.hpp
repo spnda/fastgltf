@@ -75,6 +75,12 @@
 #define FASTGLTF_UNREACHABLE assert(0);
 #endif
 
+#if defined(__has_builtin)
+#define FASTGLTF_HAS_BUILTIN(x) __has_builtin(x)
+#else
+#define FASTGLTF_HAS_BUILTIN(x) 0
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -328,14 +334,29 @@ namespace fastgltf {
         return static_cast<T>(op to_underlying(a)); \
     }
 
-	// Simple non-constexpr bit_cast implementation.
+#if FASTGLTF_CPP_20 && defined(__cpp_lib_bit_cast) && __cpp_lib_bit_cast >= 201806L
+#define FASTGLTF_CONSTEXPR_BITCAST 1
+    template<typename To, typename From>
+    [[nodiscard]] constexpr To bit_cast(const From& from) noexcept {
+        return std::bit_cast<To>(from);
+    }
+#elif (defined(__clang__) || __clang_major__ >= 9) || (defined(__GNUC__) && __GNUC__ >= 11) || FASTGLTF_HAS_BUILTIN(__builtin_bit_cast)
+#define FASTGLTF_CONSTEXPR_BITCAST 1
+    template<typename To, typename From>
+    [[nodiscard]] constexpr To bit_cast(const From& from) noexcept {
+        // Available since Clang 9, GCC 11.1, and MSVC 16.6. Otherwise, this function could not be constexpr.
+        return __builtin_bit_cast(To, from);
+    }
+#else
+#define FASTGLTF_CONSTEXPR_BITCAST 0
 	template<typename To, typename From>
-	To bit_cast(const From& from) noexcept {
+	[[nodiscard]] To bit_cast(const From& from) noexcept {
 		static_assert(std::is_trivially_constructible_v<To>);
 		To dst;
 		std::memcpy(&dst, &from, sizeof(To));
 		return dst;
 	}
+#endif
 } // namespace fastgltf
 
 #ifdef _MSC_VER
