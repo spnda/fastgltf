@@ -99,7 +99,9 @@ namespace fastgltf {
         // Now, try to decode as much as possible using 4 byte steps. We specifically don't use
         // the 8 byte instruction here because the strings used by glTF are usually very short.
         while (i < len && (len - i) >= 4) {
-            crc = _mm_crc32_u32(crc, bit_cast<std::uint32_t>(d[i]));
+            std::uint32_t v;
+            std::memcpy(&v, &d[i], 4);
+            crc = _mm_crc32_u32(crc, v);
             i += 4;
         }
 
