@@ -26,11 +26,11 @@ simdjson/
 deps/
 
 # Test files
-tests/gltf/intel_sponza/
-tests/gltf/glTF-Sample-Models/
-tests/gltf/good-froge/
-tests/gltf/deccer-cubes/
-tests/gltf/bistro/
+tests/gltf/intel_sponza
+tests/gltf/glTF-Sample-Models
+tests/gltf/good-froge
+tests/gltf/deccer-cubes
+tests/gltf/bistro
 tests/gltf_loaders/
 tests/gltf/export/
 tests/gltf/export_glb/
