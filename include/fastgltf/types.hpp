@@ -306,14 +306,21 @@ namespace fastgltf {
     constexpr auto getElementRowCount(AccessorType type) noexcept {
         switch (type) {
             case AccessorType::Mat2:
+            case AccessorType::Vec2:
                 return 2;
             case AccessorType::Mat3:
+            case AccessorType::Vec3:
                 return 3;
             case AccessorType::Mat4:
+            case AccessorType::Vec4:
                 return 4;
             default:
                 return 1;
         }
+    }
+
+    constexpr bool isMatrix(AccessorType type) noexcept {
+        return type == AccessorType::Mat2 || type == AccessorType::Mat3 || type == AccessorType::Mat4;
     }
 
     constexpr auto getComponentBitSize(ComponentType componentType) noexcept {
@@ -322,7 +329,14 @@ namespace fastgltf {
     }
 
     constexpr auto getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
-        return static_cast<std::uint16_t>(getNumComponents(type)) * (getComponentBitSize(componentType) / 8);
+        const auto componentSize = getComponentBitSize(componentType) / 8;
+        auto numComponents = getNumComponents(type);
+        const auto rowCount = getElementRowCount(type);
+        if (isMatrix(type) && (rowCount * componentSize) % 4 != 0) {
+            // Matrices need extra padding per-column which affects their size.
+            numComponents += rowCount * (4 - (rowCount % 4));
+        }
+        return static_cast<std::uint16_t>(numComponents) * componentSize;
     }
 
     /**

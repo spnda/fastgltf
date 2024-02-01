@@ -186,10 +186,10 @@ constexpr DestType convertComponent(const SourceType& source, bool normalized) {
 	return static_cast<DestType>(source);
 }
 
-template <typename DestType, typename SourceType, AccessorType AccessorType, std::size_t Index>
+template <typename DestType, typename SourceType, AccessorType ElementAccessorType, std::size_t Index>
 constexpr DestType convertComponent(const std::byte* bytes, bool normalized) {
-    if constexpr (AccessorType == AccessorType::Mat2 || AccessorType == AccessorType::Mat3 || AccessorType == AccessorType::Mat4) {
-        const auto rowCount = getElementRowCount(AccessorType);
+    if constexpr (isMatrix(ElementAccessorType)) {
+        const auto rowCount = getElementRowCount(ElementAccessorType);
         const auto componentSize = sizeof(SourceType);
         if constexpr ((rowCount * componentSize) % 4 != 0) {
             // There's only four cases where this happens, but the glTF spec requires us to insert some padding for each column.

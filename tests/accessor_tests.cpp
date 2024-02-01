@@ -64,6 +64,7 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
        1, 2,
        3, 4
     }};
+    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedShort) == unpaddedMat2.size() * sizeof(std::uint16_t));
     auto umat2 = fastgltf::internal::getAccessorElementAt<glm::mat2x2>(
             fastgltf::ComponentType::UnsignedShort,
             reinterpret_cast<const std::byte*>(unpaddedMat2.data()));
@@ -75,6 +76,7 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
         1, 2, 0, 0,
         3, 4, 0, 0
     }};
+    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedByte) == paddedMat2.size());
     auto mat2 = fastgltf::internal::getAccessorElementAt<glm::mat2x2>(
             fastgltf::ComponentType::UnsignedByte,
             reinterpret_cast<const std::byte*>(paddedMat2.data()));
@@ -86,6 +88,7 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
         4, 5, 6, 0,
         7, 8, 9, 0
     }};
+    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedByte) == paddedMat3.size());
     auto mat3 = fastgltf::internal::getAccessorElementAt<glm::mat3x3>(
             fastgltf::ComponentType::UnsignedByte,
             reinterpret_cast<const std::byte*>(paddedMat3.data()));
@@ -99,6 +102,7 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
         4, 5, 6, 0,
         7, 8, 9, 0
     }};
+    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedShort) == paddedMat3.size() * sizeof(std::uint16_t));
     auto mat3_2 = fastgltf::internal::getAccessorElementAt<glm::mat3x3>(
             fastgltf::ComponentType::UnsignedShort,
             reinterpret_cast<const std::byte*>(padded2BMat3.data()));
