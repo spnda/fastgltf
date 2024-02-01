@@ -17,6 +17,9 @@ env:
 
 jobs:
   build_windows:
+    strategy:
+      matrix:
+        cpp20: [NO, YES]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
@@ -38,13 +41,13 @@ jobs:
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
 
       - name: Configure CMake
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_COMPILE_AS_CPP20=${{ matrix.cpp20 }}
 
       - name: Build (Windows)
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex [base64],[gltf-loader],[gltf-tools],[uri-tests],[vector-tests]
+        run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex ~[gltf-benchmark]
 
   build_windows_deprecated_extensions:
     runs-on: windows-latest
@@ -74,12 +77,19 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex [base64],[gltf-loader],[gltf-tools],[uri-tests],[vector-tests]
+        run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex ~[gltf-benchmark]
 
   build_linux:
     strategy:
       matrix:
-        c_compiler: [gcc-9, gcc-10, clang-13]
+        c_compiler: [gcc-9, gcc-10, clang-13, clang-15]
+        cpp20: [NO, YES]
+        exclude:
+          # gcc 9 is too old to support C++20, and Clang 13/14 have an issue with the libstdc++ version on the runner images.
+          - c_compiler: gcc-9
+            cpp20: YES
+          - c_compiler: clang-13
+            cpp20: YES
         include:
           - cxx_compiler: g++-9
             c_compiler: gcc-9
@@ -87,6 +97,8 @@ jobs:
             c_compiler: gcc-10
           - cxx_compiler: clang++-13
             c_compiler: clang-13
+          - cxx_compiler: clang++-15
+            c_compiler: clang-15
 
     runs-on: ubuntu-latest
     env:
@@ -116,13 +128,13 @@ jobs:
         run: sudo apt-get install -y libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev
 
       - name: Configure CMake
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_COMPILE_AS_CPP20=${{ matrix.cpp20 }}
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}/build/tests/fastgltf_tests -d yes --order lex [base64],[gltf-loader],[gltf-tools],[uri-tests],[vector-tests]
+        run: ${{ github.workspace }}/build/tests/fastgltf_tests -d yes --order lex ~[gltf-benchmark]
 
   build_linux_deprecated_extensions:
     strategy:
@@ -170,4 +182,4 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}/build/tests/fastgltf_tests -d yes --order lex [base64],[gltf-loader],[gltf-tools],[uri-tests],[vector-tests]
+        run: ${{ github.workspace }}/build/tests/fastgltf_tests -d yes --order lex ~[gltf-benchmark]

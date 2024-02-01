@@ -17,6 +17,13 @@ option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
 option(FASTGLTF_ENABLE_DEPRECATED_EXT "Enables support for deprecated extensions" OFF)
 option(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL "Disables the memory allocation algorithm based on polymorphic resources" OFF)
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
+option(FASTGLTF_COMPILE_AS_CPP20 "Have the library compile as C++20" OFF)
+
+if (FASTGLTF_COMPILE_AS_CPP20)
+    set(FASTGLTF_COMPILE_TARGET cxx_std_20)
+else()
+    set(FASTGLTF_COMPILE_TARGET cxx_std_17)
+endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
@@ -29,7 +36,7 @@ add_library(fastgltf::fastgltf ALIAS fastgltf)
 
 fastgltf_compiler_flags(fastgltf)
 fastgltf_enable_debug_inlining(fastgltf)
-target_compile_features(fastgltf PUBLIC cxx_std_17)
+target_compile_features(fastgltf PUBLIC ${FASTGLTF_COMPILE_TARGET})
 target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include> $<INSTALL_INTERFACE:include>)
 
 set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)

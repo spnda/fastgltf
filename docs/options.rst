@@ -73,6 +73,12 @@ When this ``BOOL`` option is set to ``YES`` fastgltf will use `corrosion`_, whic
 to link against the `gltf-rs`_ Rust library for comparison within the benchmarks.
 Note that this option has no effect when ``FASTGLTF_ENABLE_TESTS`` is set to ``NO``.
 
+``FASTGLTF_COMPILE_AS_CPP20``
+-----------------------------
+
+This ``BOOL`` option controls the C++ standard the library is compiled as. When ``NO`` fastgltf is always compiled as C++17.
+When ``YES`` fastgltf is compiled as C++20, including the tests.
+
 
 Parsing options
 ===============
