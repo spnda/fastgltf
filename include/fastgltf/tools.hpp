@@ -123,45 +123,45 @@ concept Element = std::is_arithmetic_v<typename ElementTraits<ElementType>::comp
 
 namespace internal {
 
-    /**
-     * This function deserializes some N bytes in little endian order (as required by the glTF spec)
-     * into the given arithmetic type T in a standard-conforming fashion.
-     *
-     * This uses bit-shifts and ORs to correctly convert the bytes to avoid violating the strict aliasing
-     * rule as if we would just use T*.
-     */
-    template <typename T>
-    T deserializeComponent(const std::byte* bytes, std::size_t index) {
-        static_assert(std::is_integral_v<T> && !std::is_same_v<T, bool>, "Component deserialization is only supported on basic arithmetic types.");
-        T ret = 0;
-        // Turns out that on some systems a byte is not 8-bit so this sizeof is not technically correct.
-        for (std::size_t i = 0; i < sizeof(T); ++i) {
-            ret |= (static_cast<T>(bytes[i + index * sizeof(T)]) << i * 8);
-        }
-        return ret;
+/**
+ * This function deserializes some N bytes in little endian order (as required by the glTF spec)
+ * into the given arithmetic type T in a standard-conforming fashion.
+ *
+ * This uses bit-shifts and ORs to correctly convert the bytes to avoid violating the strict aliasing
+ * rule as if we would just use T*.
+ */
+template <typename T>
+constexpr T deserializeComponent(const std::byte* bytes, std::size_t index) {
+    static_assert(std::is_integral_v<T> && !std::is_same_v<T, bool>, "Component deserialization is only supported on basic arithmetic types.");
+    T ret = 0;
+    // Turns out that on some systems a byte is not 8-bit so this sizeof is not technically correct.
+    for (std::size_t i = 0; i < sizeof(T); ++i) {
+        ret |= (static_cast<T>(bytes[i + index * sizeof(T)]) << i * 8);
     }
+    return ret;
+}
 
-    template<>
-    float deserializeComponent<float>(const std::byte* bytes, std::size_t index) {
-        static_assert(std::numeric_limits<float>::is_iec559 &&
-                      std::numeric_limits<float>::radix == 2 &&
-                      std::numeric_limits<float>::digits == 24 &&
-                      std::numeric_limits<float>::max_exponent == 128,
-                      "Float deserialization is only supported on IEE754 platforms");
-        return bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
-    }
+template<>
+constexpr float deserializeComponent<float>(const std::byte* bytes, std::size_t index) {
+    static_assert(std::numeric_limits<float>::is_iec559 &&
+                  std::numeric_limits<float>::radix == 2 &&
+                  std::numeric_limits<float>::digits == 24 &&
+                  std::numeric_limits<float>::max_exponent == 128,
+                  "Float deserialization is only supported on IEE754 platforms");
+    return bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
+}
 
-    template<>
-    double deserializeComponent<double>(const std::byte* bytes, std::size_t index) {
-        static_assert(std::numeric_limits<double>::is_iec559 &&
-                      std::numeric_limits<double>::radix == 2 &&
-                      std::numeric_limits<double>::digits == 53 &&
-                      std::numeric_limits<double>::max_exponent == 1024,
-                      "Float deserialization is only supported on IEE754 platforms");
-        return bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
-    }
+template<>
+constexpr double deserializeComponent<double>(const std::byte* bytes, std::size_t index) {
+    static_assert(std::numeric_limits<double>::is_iec559 &&
+                  std::numeric_limits<double>::radix == 2 &&
+                  std::numeric_limits<double>::digits == 53 &&
+                  std::numeric_limits<double>::max_exponent == 1024,
+                  "Float deserialization is only supported on IEE754 platforms");
+    return bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
+}
 
-    template <typename DestType, typename SourceType>
+template <typename DestType, typename SourceType>
 constexpr DestType convertComponent(const SourceType& source, bool normalized) {
 	if (normalized) {
 		if constexpr (std::is_floating_point_v<SourceType> && std::is_integral_v<DestType>) {
@@ -186,9 +186,21 @@ constexpr DestType convertComponent(const SourceType& source, bool normalized) {
 	return static_cast<DestType>(source);
 }
 
-template <typename SourceType, typename DestType, std::size_t Index>
+template <typename DestType, typename SourceType, AccessorType AccessorType, std::size_t Index>
 constexpr DestType convertComponent(const std::byte* bytes, bool normalized) {
-	return convertComponent<DestType>(deserializeComponent<SourceType>(bytes, Index), normalized);
+    if constexpr (AccessorType == AccessorType::Mat2 || AccessorType == AccessorType::Mat3 || AccessorType == AccessorType::Mat4) {
+        const auto rowCount = getElementRowCount(AccessorType);
+        const auto componentSize = sizeof(SourceType);
+        if constexpr ((rowCount * componentSize) % 4 != 0) {
+            // There's only four cases where this happens, but the glTF spec requires us to insert some padding for each column.
+            auto index = Index + (Index / rowCount) * (4 - (rowCount % 4));
+            return convertComponent<DestType>(deserializeComponent<SourceType>(bytes, index), normalized);
+        } else {
+            return convertComponent<DestType>(deserializeComponent<SourceType>(bytes, Index), normalized);
+        }
+    } else {
+        return convertComponent<DestType>(deserializeComponent<SourceType>(bytes, Index), normalized);
+    }
 }
 
 template <typename ElementType, typename SourceType, std::size_t... I>
@@ -199,10 +211,11 @@ constexpr ElementType convertAccessorElement(const std::byte* bytes, bool normal
 	using DestType = typename ElementTraits<ElementType>::component_type;
 	static_assert(std::is_arithmetic_v<DestType>, "Accessor traits must provide a valid component type");
 
+    const auto accessorType = ElementTraits<ElementType>::type;
 	if constexpr (std::is_aggregate_v<ElementType>) {
-		return {convertComponent<SourceType, DestType, I>(bytes, normalized)...};
+		return {convertComponent<DestType, SourceType, accessorType, I>(bytes, normalized)...};
 	} else {
-		return ElementType{convertComponent<SourceType, DestType, I>(bytes, normalized)...};
+		return ElementType(convertComponent<DestType, SourceType, accessorType, I>(bytes, normalized)...);
 	}
 }
 

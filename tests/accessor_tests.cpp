@@ -6,10 +6,8 @@
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
+#include <fastgltf/glm_element_traits.hpp>
 #include "gltf_path.hpp"
-
-template<>
-struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> {};
 
 static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {
 	const std::byte* result = nullptr;
@@ -58,6 +56,55 @@ TEST_CASE("Test little-endian correctness", "[gltf-tools]") {
     std::array<std::byte, 4> integer {{ std::byte(0x0A), std::byte(0x0B), std::byte(0x0C), std::byte(0x0D) }};
     auto deserialized = fastgltf::internal::deserializeComponent<std::uint32_t>(integer.data(), 0);
     REQUIRE(deserialized == 0x0D0C0B0A);
+}
+
+TEST_CASE("Test matrix data padding", "[gltf-tools]") {
+    // First a case that doesn't require any padding
+    std::array<std::uint16_t, 4> unpaddedMat2 {{
+       1, 2,
+       3, 4
+    }};
+    auto umat2 = fastgltf::internal::getAccessorElementAt<glm::mat2x2>(
+            fastgltf::ComponentType::UnsignedShort,
+            reinterpret_cast<const std::byte*>(unpaddedMat2.data()));
+    REQUIRE(umat2[0] == glm::vec2(1, 2));
+    REQUIRE(umat2[1] == glm::vec2(3, 4));
+
+    // This will simulate a padded 2x2 matrix with the correct 4-byte padding per column
+    std::array<std::uint8_t, 8> paddedMat2 {{
+        1, 2, 0, 0,
+        3, 4, 0, 0
+    }};
+    auto mat2 = fastgltf::internal::getAccessorElementAt<glm::mat2x2>(
+            fastgltf::ComponentType::UnsignedByte,
+            reinterpret_cast<const std::byte*>(paddedMat2.data()));
+    REQUIRE(mat2[0] == glm::vec2(1, 2));
+    REQUIRE(mat2[1] == glm::vec2(3, 4));
+
+    std::array<std::uint8_t, 12> paddedMat3 {{
+        1, 2, 3, 0,
+        4, 5, 6, 0,
+        7, 8, 9, 0
+    }};
+    auto mat3 = fastgltf::internal::getAccessorElementAt<glm::mat3x3>(
+            fastgltf::ComponentType::UnsignedByte,
+            reinterpret_cast<const std::byte*>(paddedMat3.data()));
+    REQUIRE(mat3[0] == glm::vec3(1, 2, 3));
+    REQUIRE(mat3[1] == glm::vec3(4, 5, 6));
+    REQUIRE(mat3[2] == glm::vec3(7, 8, 9));
+
+    // This now uses 16-bit shorts for the component types.
+    std::array<std::uint16_t, 12> padded2BMat3 {{
+        1, 2, 3, 0,
+        4, 5, 6, 0,
+        7, 8, 9, 0
+    }};
+    auto mat3_2 = fastgltf::internal::getAccessorElementAt<glm::mat3x3>(
+            fastgltf::ComponentType::UnsignedShort,
+            reinterpret_cast<const std::byte*>(padded2BMat3.data()));
+    REQUIRE(mat3_2[0] == glm::vec3(1, 2, 3));
+    REQUIRE(mat3_2[1] == glm::vec3(4, 5, 6));
+    REQUIRE(mat3_2[2] == glm::vec3(7, 8, 9));
 }
 
 TEST_CASE("Test accessor", "[gltf-tools]") {

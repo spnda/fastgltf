@@ -300,6 +300,22 @@ namespace fastgltf {
         return static_cast<std::uint8_t>(to_underlying(type) >> 8U);
     }
 
+    /**
+     * Returns the number of rows in the given accessor type.
+     */
+    constexpr auto getElementRowCount(AccessorType type) noexcept {
+        switch (type) {
+            case AccessorType::Mat2:
+                return 2;
+            case AccessorType::Mat3:
+                return 3;
+            case AccessorType::Mat4:
+                return 4;
+            default:
+                return 1;
+        }
+    }
+
     constexpr auto getComponentBitSize(ComponentType componentType) noexcept {
     	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
     	return static_cast<std::uint16_t>(to_underlying(componentType) >> 16U);
@@ -309,6 +325,11 @@ namespace fastgltf {
         return static_cast<std::uint16_t>(getNumComponents(type)) * (getComponentBitSize(componentType) / 8);
     }
 
+    /**
+     * Returns the OpenGL component type enumeration for the given component type.
+     *
+     * For example, getGLComponentType(ComponentType::Float) will return GL_FLOAT (0x1406).
+     */
     constexpr auto getGLComponentType(ComponentType type) noexcept {
     	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
         return static_cast<std::uint16_t>(to_underlying(type));
