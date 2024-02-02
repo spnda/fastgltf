@@ -193,7 +193,7 @@ namespace fastgltf {
 		}
 
 		std::uint64_t imageIndex;
-		if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+		if (sourceExtensionObject["source"].get(imageIndex) != SUCCESS) FASTGLTF_UNLIKELY {
 			return std::make_tuple(true, false, 0U);
 		}
 
@@ -282,13 +282,13 @@ namespace fastgltf {
 		using namespace simdjson;
 
 		std::uint64_t index;
-		if (object["index"].get_uint64().get(index) == SUCCESS) FASTGLTF_LIKELY {
+		if (object["index"].get(index) == SUCCESS) FASTGLTF_LIKELY {
 			info->textureIndex = static_cast<std::size_t>(index);
 		} else {
 			return Error::InvalidGltf;
 		}
 
-		if (auto error = object["texCoord"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
+		if (auto error = object["texCoord"].get(index); error == SUCCESS) FASTGLTF_LIKELY {
 			info->texCoordIndex = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
@@ -296,14 +296,14 @@ namespace fastgltf {
 
 		if (type == TextureInfoType::NormalTexture) {
             double scale;
-			if (auto error = object["scale"].get_double().get(scale); error == SUCCESS) FASTGLTF_LIKELY {
+			if (auto error = object["scale"].get(scale); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<num>(scale);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
 			}
 		} else if (type == TextureInfoType::OcclusionTexture) {
 			double strength;
-			if (auto error = object["strength"].get_double().get(strength); error == SUCCESS) FASTGLTF_LIKELY {
+			if (auto error = object["strength"].get(strength); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<num>(strength);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
@@ -319,17 +319,17 @@ namespace fastgltf {
 				transform->uvOffset = {{ 0.0F, 0.0F }};
 				transform->uvScale = {{ 1.0F, 1.0F }};
 
-				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) FASTGLTF_LIKELY {
+				if (textureTransform["texCoord"].get(index) == SUCCESS) FASTGLTF_LIKELY {
 					transform->texCoordIndex = index;
 				}
 
 				double rotation = 0.0F;
-				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) FASTGLTF_LIKELY {
+				if (textureTransform["rotation"].get(rotation) == SUCCESS) FASTGLTF_LIKELY {
 					transform->rotation = static_cast<num>(rotation);
 				}
 
 				ondemand::array array;
-				if (auto error = textureTransform["offset"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
+				if (auto error = textureTransform["offset"].get(array); error == SUCCESS) FASTGLTF_LIKELY {
                     if (auto copyError = copyNumericalJsonArray<double>(array, transform->uvOffset); copyError != Error::None) {
                         return copyError;
                     }
@@ -337,7 +337,7 @@ namespace fastgltf {
                     return Error::InvalidGltf;
                 }
 
-				if (auto error = textureTransform["scale"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
+				if (auto error = textureTransform["scale"].get(array); error == SUCCESS) FASTGLTF_LIKELY {
                     if (auto copyError = copyNumericalJsonArray<double>(array, transform->uvScale); copyError != Error::None) {
                         return copyError;
                     }
@@ -1239,7 +1239,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::ondemand::object root, Categ
         switch (hashedKey) {
             case force_consteval<crc32c("scene")>: {
                 std::uint64_t defaultScene;
-                if (object.value().get_uint64().get(defaultScene) != SUCCESS) FASTGLTF_UNLIKELY {
+                if (object.value().get(defaultScene) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Expected<Asset>(Error::InvalidGltf);
                 }
                 asset.defaultScene = static_cast<std::size_t>(defaultScene);
@@ -1247,7 +1247,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::ondemand::object root, Categ
             }
             case force_consteval<crc32c("extensions")>: {
                 ondemand::object extensionsObject;
-                if (object.value().get_object().get(extensionsObject) != SUCCESS) FASTGLTF_UNLIKELY {
+                if (object.value().get(extensionsObject) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Expected<Asset>(Error::InvalidGltf);
                 }
 
@@ -1261,7 +1261,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::ondemand::object root, Categ
                 }
 
                 ondemand::object assetObject;
-                if (object.value().get_object().get(assetObject) != SUCCESS) FASTGLTF_UNLIKELY {
+                if (object.value().get(assetObject) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Expected<Asset>(Error::InvalidJson);
                 }
 
@@ -1400,11 +1400,15 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
 
         // Function for parsing the min and max arrays for accessors
         auto parseMinMax = [&](simdjson::ondemand::array& array, decltype(Accessor::max)& ref) -> fastgltf::Error {
-            decltype(Accessor::max) variant;
+			decltype(Accessor::max) variant;
 
             using double_vec = std::variant_alternative_t<1, decltype(Accessor::max)>;
             using int64_vec = std::variant_alternative_t<2, decltype(Accessor::max)>;
 
+            // It's possible the min/max fields come before the accessor type is declared, in which case we don't know the size.
+			// This single line is actually incredibly important as this function without it takes up roughly 15% of the entire
+			// parsing process on average due to vector resizing.
+            auto initialCount = accessor.type == AccessorType::Invalid ? 0 : getNumComponents(accessor.type);
             if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
                 variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(double_vec, resourceAllocator.get(), 0);
             } else {
@@ -1475,7 +1479,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
             switch (hashedKey) {
                 case force_consteval<crc32c("bufferView")>: {
                     std::uint64_t bufferView;
-                    if (auto error = field.value().get_uint64().get(bufferView); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(bufferView); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
@@ -1483,7 +1487,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
                 }
                 case force_consteval<crc32c("byteOffset")>:
                     std::uint64_t byteOffset;
-                    if (auto error = field.value().get_uint64().get(byteOffset); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(byteOffset); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     } else {
                         accessor.byteOffset = static_cast<std::size_t>(byteOffset);
@@ -1491,7 +1495,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
                     break;
                 case force_consteval<crc32c("componentType")>:
                     std::uint64_t componentType;
-                    if (auto error = field.value().get_uint64().get(componentType); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(componentType); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     accessor.componentType = getComponentType(
@@ -1507,7 +1511,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
                     break;
                 case force_consteval<crc32c("count")>:
                     std::uint64_t accessorCount;
-                    if (field.value().get_uint64().get(accessorCount) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(accessorCount) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     accessor.count = static_cast<std::size_t>(accessorCount);
@@ -1545,7 +1549,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
                     SparseAccessor& sparse = accessor.sparse.emplace();
                     std::uint64_t value;
                     ondemand::object child;
-                    if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (sparseAccessorObject["count"].get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sparse.count = static_cast<size_t>(value);
@@ -1555,18 +1559,18 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
                         return Error::InvalidGltf;
                     }
 
-                    if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (child["bufferView"].get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sparse.indicesBufferView = static_cast<std::size_t>(value);
 
-                    if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
+                    if (auto error = child["byteOffset"].get(value); error == SUCCESS) FASTGLTF_LIKELY {
                         sparse.indicesByteOffset = static_cast<std::size_t>(value);
                     } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
                     }
 
-                    if (child["componentType"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (child["componentType"].get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sparse.indexComponentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
@@ -1576,12 +1580,12 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
                         return Error::InvalidGltf;
                     }
 
-                    if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (child["bufferView"].get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sparse.valuesBufferView = static_cast<std::size_t>(value);
 
-                    if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
+                    if (auto error = child["byteOffset"].get(value); error == SUCCESS) FASTGLTF_LIKELY {
                         sparse.valuesByteOffset = static_cast<std::size_t>(value);
                     } else if (error != NO_SUCH_FIELD) {
                         return Error::InvalidGltf;
@@ -1649,7 +1653,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::ondemand::array& animations, Ass
                         }
 
                         std::uint64_t sampler;
-                        if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (channelObject["sampler"].get(sampler) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
                         channel.samplerIndex = static_cast<std::size_t>(sampler);
@@ -1659,7 +1663,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::ondemand::array& animations, Ass
                             return Error::InvalidGltf;
                         } else {
                             std::uint64_t node;
-                            if (targetObject["node"].get_uint64().get(node) != SUCCESS) FASTGLTF_UNLIKELY {
+                            if (targetObject["node"].get(node) != SUCCESS) FASTGLTF_UNLIKELY {
                                 // We don't support any extensions for animations, so it is required.
                                 return Error::InvalidGltf;
                             }
@@ -1704,13 +1708,13 @@ fg::Error fg::Parser::parseAnimations(simdjson::ondemand::array& animations, Ass
                         }
 
                         std::uint64_t input;
-                        if (samplerObject["input"].get_uint64().get(input) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (samplerObject["input"].get(input) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
                         sampler.inputAccessor = static_cast<std::size_t>(input);
 
                         std::uint64_t output;
-                        if (samplerObject["output"].get_uint64().get(output) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (samplerObject["output"].get(output) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
                         sampler.outputAccessor = static_cast<std::size_t>(output);
@@ -1795,7 +1799,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::ondemand::array& buffers, Asset& as
                 }
                 case force_consteval<crc32c("byteLength")>: {
                     std::uint64_t byteLength;
-                    if (field.value().get_uint64().get(byteLength) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(byteLength) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     } else {
                         buffer.byteLength = static_cast<std::size_t>(byteLength);
@@ -1882,7 +1886,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::ondemand::array& bufferViews, A
             switch (crcStringFunction(key)) {
                 case force_consteval<crc32c("buffer")>: {
                     std::uint64_t buffer;
-                    if (auto error = field.value().get_uint64().get(buffer); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(buffer); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     view.bufferIndex = static_cast<std::size_t>(buffer);
@@ -1890,7 +1894,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::ondemand::array& bufferViews, A
                 }
                 case force_consteval<crc32c("byteOffset")>: {
                     std::uint64_t byteOffset;
-                    if (auto error = field.value().get_uint64().get(byteOffset); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(byteOffset); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     view.byteOffset = static_cast<std::size_t>(byteOffset);
@@ -1898,7 +1902,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::ondemand::array& bufferViews, A
                 }
                 case force_consteval<crc32c("byteLength")>: {
                     std::uint64_t byteLength;
-                    if (auto error = field.value().get_uint64().get(byteLength); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(byteLength); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     view.byteLength = static_cast<std::size_t>(byteLength);
@@ -1906,7 +1910,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::ondemand::array& bufferViews, A
                 }
                 case force_consteval<crc32c("byteStride")>: {
                     std::uint64_t byteStride;
-                    if (auto error = field.value().get_uint64().get(byteStride); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(byteStride); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     view.byteStride = static_cast<std::size_t>(byteStride);
@@ -1914,7 +1918,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::ondemand::array& bufferViews, A
                 }
                 case force_consteval<crc32c("target")>: {
                     std::uint64_t target;
-                    if (auto error = field.value().get_uint64().get(target); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(target); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     view.target = static_cast<BufferTarget>(target);
@@ -1936,30 +1940,28 @@ fg::Error fg::Parser::parseBufferViews(simdjson::ondemand::array& bufferViews, A
                         auto compression = std::make_unique<CompressedBufferView>();
 
                         std::uint64_t number;
-                        if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (auto error = meshoptCompression["buffer"].get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                             return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                         }
                         compression->bufferIndex = static_cast<std::size_t>(number);
 
-                        if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+                        if (auto error = meshoptCompression["byteOffset"].get(number); error == SUCCESS) FASTGLTF_LIKELY {
                             compression->byteOffset = static_cast<std::size_t>(number);
-                        } else if (error == NO_SUCH_FIELD) {
-                            compression->byteOffset = 0;
-                        } else {
+                        } else if (error != NO_SUCH_FIELD) {
                             return Error::InvalidJson;
                         }
 
-                        if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (auto error = meshoptCompression["byteLength"].get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                             return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                         }
                         compression->byteLength = static_cast<std::size_t>(number);
 
-                        if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (auto error = meshoptCompression["byteStride"].get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                             return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                         }
                         compression->byteStride = static_cast<std::size_t>(number);
 
-                        if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (auto error = meshoptCompression["count"].get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                             return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                         }
                         compression->count = number;
@@ -2066,7 +2068,7 @@ fg::Error fg::Parser::parseCameras(simdjson::ondemand::array& cameras, Asset& as
                         }
 
                         double value;
-                        if (auto error = orthographicField.value().get_double().get(value); error != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (auto error = orthographicField.value().get(value); error != SUCCESS) FASTGLTF_UNLIKELY {
                             return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                         }
 
@@ -2110,7 +2112,7 @@ fg::Error fg::Parser::parseCameras(simdjson::ondemand::array& cameras, Asset& as
                         }
 
                         double value;
-                        if (auto error = perspectiveField.value().get_double().get(value); error != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (auto error = perspectiveField.value().get(value); error != SUCCESS) FASTGLTF_UNLIKELY {
                             return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                         }
 
@@ -2248,7 +2250,7 @@ fg::Error fg::Parser::parseImages(simdjson::ondemand::array& images, Asset& asse
                     }
 
                     std::uint64_t bufferView;
-                    if (auto error = field.value().get_uint64().get(bufferView); error != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (auto error = field.value().get(bufferView); error != SUCCESS) FASTGLTF_UNLIKELY {
                         return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
                     }
                     dataSource = bufferView;
@@ -2358,7 +2360,7 @@ fg::Error fg::Parser::parseLights(simdjson::ondemand::array& lights, Asset& asse
                 }
                 case force_consteval<crc32c("intensity")>: {
                     double intensity;
-                    if (field.value().get_double().get(intensity) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(intensity) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     light.intensity = static_cast<num>(intensity);
@@ -2390,7 +2392,7 @@ fg::Error fg::Parser::parseLights(simdjson::ondemand::array& lights, Asset& asse
                 }
                 case force_consteval<crc32c("range")>: {
                     double range;
-                    if (field.value().get_double().get(range) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(range) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     light.range = static_cast<num>(range);
@@ -2405,7 +2407,7 @@ fg::Error fg::Parser::parseLights(simdjson::ondemand::array& lights, Asset& asse
 
                     // We'll use the traditional lookup here as its only 2 possible fields.
                     double innerConeAngle;
-                    if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
+                    if (auto error = spotObject["innerConeAngle"].get(innerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
                         light.innerConeAngle = static_cast<num>(innerConeAngle);
                     } else if (error == NO_SUCH_FIELD) {
                         light.innerConeAngle = 0.0f;
@@ -2414,7 +2416,7 @@ fg::Error fg::Parser::parseLights(simdjson::ondemand::array& lights, Asset& asse
                     }
 
                     double outerConeAngle;
-                    if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
+                    if (auto error = spotObject["outerConeAngle"].get(outerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
                         light.outerConeAngle = static_cast<num>(outerConeAngle);
                     } else if (error == NO_SUCH_FIELD) {
                         static constexpr double pi = 3.141592653589793116;
@@ -3076,7 +3078,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::ondemand::array& materials, Asset
                             }
                             case force_consteval<crc32c("metallicFactor")>: {
                                 double value;
-                                if (pbrField.value().get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+                                if (pbrField.value().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                                     return Error::InvalidGltf;
                                 }
                                 pbr.metallicFactor = static_cast<num>(value);
@@ -3084,7 +3086,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::ondemand::array& materials, Asset
                             }
                             case force_consteval<crc32c("roughnessFactor")>: {
                                 double value;
-                                if (pbrField.value().get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+                                if (pbrField.value().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                                     return Error::InvalidGltf;
                                 }
                                 pbr.roughnessFactor = static_cast<num>(value);
@@ -3183,7 +3185,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::ondemand::array& materials, Asset
                 }
                 case force_consteval<crc32c("alphaCutoff")>: {
                     double value;
-                    if (field.value().get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     material.alphaCutoff = static_cast<num>(value);
@@ -3239,7 +3241,7 @@ fg::Error fg::Parser::parseMeshPrimitives(simdjson::ondemand::array& primitives,
             }
 
             std::uint64_t attributeIndex;
-            if (field.value().get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+            if (field.value().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             attributes.emplace_back(
@@ -3277,7 +3279,7 @@ fg::Error fg::Parser::parseMeshPrimitives(simdjson::ondemand::array& primitives,
                 }
                 case force_consteval<crc32c("indices")>: {
                     std::uint64_t indices;
-                    if (field.value().get_uint64().get(indices) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(indices) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     primitive.indicesAccessor = static_cast<std::size_t>(indices);
@@ -3285,7 +3287,7 @@ fg::Error fg::Parser::parseMeshPrimitives(simdjson::ondemand::array& primitives,
                 }
                 case force_consteval<crc32c("material")>: {
                     std::uint64_t material;
-                    if (field.value().get_uint64().get(material) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(material) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     primitive.materialIndex = static_cast<std::size_t>(material);
@@ -3293,7 +3295,7 @@ fg::Error fg::Parser::parseMeshPrimitives(simdjson::ondemand::array& primitives,
                 }
                 case force_consteval<crc32c("mode")>: {
                     std::uint64_t mode;
-                    if (field.value().get_uint64().get(mode) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(mode) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     primitive.type = static_cast<PrimitiveType>(mode);
@@ -3366,7 +3368,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::ondemand::array& meshes, Asset& asse
                     mesh.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.weights), resourceAllocator.get(), 0);
                     for (auto weightValue : weights) {
                         double val;
-                        if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (weightValue.get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
                         mesh.weights.emplace_back(static_cast<num>(val));
@@ -3413,7 +3415,7 @@ fg::Error fg::Parser::parseNodes(simdjson::ondemand::array& nodes, Asset& asset)
             switch (crcStringFunction(key)) {
                 case force_consteval<crc32c("camera")>: {
                     std::uint64_t camera;
-                    if (field.value().get_uint64().get(camera) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(camera) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     node.cameraIndex = static_cast<std::size_t>(camera);
@@ -3428,7 +3430,7 @@ fg::Error fg::Parser::parseNodes(simdjson::ondemand::array& nodes, Asset& asset)
                     node.children = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.children), resourceAllocator.get(), 0);
                     for (auto childValue : children) {
                         std::uint64_t idx;
-                        if (childValue.get_uint64().get(idx) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (childValue.get(idx) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
                         node.children.emplace_back(static_cast<std::size_t>(idx));
@@ -3437,7 +3439,7 @@ fg::Error fg::Parser::parseNodes(simdjson::ondemand::array& nodes, Asset& asset)
                 }
                 case force_consteval<crc32c("skin")>: {
                     std::uint64_t skin;
-                    if (field.value().get_uint64().get(skin) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(skin) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     node.skinIndex = static_cast<std::size_t>(skin);
@@ -3465,7 +3467,7 @@ fg::Error fg::Parser::parseNodes(simdjson::ondemand::array& nodes, Asset& asset)
                 }
                 case force_consteval<crc32c("mesh")>: {
                     std::uint64_t mesh;
-                    if (field.value().get_uint64().get(mesh) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(mesh) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     node.meshIndex = static_cast<std::size_t>(mesh);
@@ -3531,7 +3533,7 @@ fg::Error fg::Parser::parseNodes(simdjson::ondemand::array& nodes, Asset& asset)
                     node.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.weights), resourceAllocator.get(), 0);
                     for (auto weightValue : weights) {
                         double val;
-                        if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (weightValue.get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
                         node.weights.emplace_back(static_cast<num>(val));
@@ -3631,7 +3633,7 @@ fg::Error fg::Parser::parseSamplers(simdjson::ondemand::array& samplers, Asset& 
             switch (crcStringFunction(key)) {
                 case force_consteval<crc32c("magFilter")>: {
                     std::uint64_t magFilter;
-                    if (field.value().get_uint64().get(magFilter) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(magFilter) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sampler.magFilter = static_cast<Filter>(magFilter);
@@ -3639,7 +3641,7 @@ fg::Error fg::Parser::parseSamplers(simdjson::ondemand::array& samplers, Asset& 
                 }
                 case force_consteval<crc32c("minFilter")>: {
                     std::uint64_t minFilter;
-                    if (field.value().get_uint64().get(minFilter) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(minFilter) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sampler.minFilter = static_cast<Filter>(minFilter);
@@ -3647,7 +3649,7 @@ fg::Error fg::Parser::parseSamplers(simdjson::ondemand::array& samplers, Asset& 
                 }
                 case force_consteval<crc32c("wrapS")>: {
                     std::uint64_t wrapS;
-                    if (field.value().get_uint64().get(wrapS) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(wrapS) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sampler.wrapS = static_cast<Wrap>(wrapS);
@@ -3655,7 +3657,7 @@ fg::Error fg::Parser::parseSamplers(simdjson::ondemand::array& samplers, Asset& 
                 }
                 case force_consteval<crc32c("wrapT")>: {
                     std::uint64_t wrapT;
-                    if (field.value().get_uint64().get(wrapT) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(wrapT) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     sampler.wrapT = static_cast<Wrap>(wrapT);
@@ -3704,7 +3706,7 @@ fg::Error fg::Parser::parseScenes(simdjson::ondemand::array& scenes, Asset& asse
                     scene.nodeIndices = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.nodeIndices), resourceAllocator.get(), 0);
                     for (auto nodeValue : nodes) {
                         std::uint64_t index;
-                        if (nodeValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (nodeValue.get(index) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
 
@@ -3747,7 +3749,7 @@ fg::Error fg::Parser::parseSkins(simdjson::ondemand::array& skins, Asset& asset)
             switch (crcStringFunction(key)) {
                 case force_consteval<crc32c("inverseBindMatrices")>: {
                     std::uint64_t inverseBindMatrices;
-                    if (field.value().get_uint64().get(inverseBindMatrices) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(inverseBindMatrices) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     skin.inverseBindMatrices = static_cast<std::size_t>(inverseBindMatrices);
@@ -3755,7 +3757,7 @@ fg::Error fg::Parser::parseSkins(simdjson::ondemand::array& skins, Asset& asset)
                 }
                 case force_consteval<crc32c("skeleton")>: {
                     std::uint64_t skeleton;
-                    if (field.value().get_uint64().get(skeleton) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(skeleton) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     skin.skeleton = static_cast<std::size_t>(skeleton);
@@ -3770,7 +3772,7 @@ fg::Error fg::Parser::parseSkins(simdjson::ondemand::array& skins, Asset& asset)
                     skin.joints = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.joints), resourceAllocator.get(), 0);
                     for (auto nodeValue : joints) {
                         std::uint64_t index;
-                        if (nodeValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
+                        if (nodeValue.get(index) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
 
@@ -3813,7 +3815,7 @@ fg::Error fg::Parser::parseTextures(simdjson::ondemand::array& textures, Asset& 
             switch (crcStringFunction(key)) {
                 case force_consteval<crc32c("source")>: {
                     std::uint64_t sourceIndex;
-                    if (field.value().get_uint64().get(sourceIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(sourceIndex) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     texture.imageIndex = static_cast<std::size_t>(sourceIndex);
@@ -3821,7 +3823,7 @@ fg::Error fg::Parser::parseTextures(simdjson::ondemand::array& textures, Asset& 
                 }
                 case force_consteval<crc32c("sampler")>: {
                     std::uint64_t sampler;
-                    if (field.value().get_uint64().get(sampler) != SUCCESS) FASTGLTF_UNLIKELY {
+                    if (field.value().get(sampler) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     texture.samplerIndex = static_cast<std::size_t>(sampler);
@@ -4061,9 +4063,9 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
         buffer->dataSize = jsonLength = newLength;
     }
 
-    auto view = padded_string_view(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer), jsonLength, buffer->allocatedSize);
 	simdjson::ondemand::document doc;
-    if (auto error = jsonParser->iterate(view).get(doc); error != SUCCESS) FASTGLTF_UNLIKELY {
+    if (auto error = jsonParser->iterate(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer), jsonLength, buffer->allocatedSize)
+            .get(doc); error != SUCCESS) FASTGLTF_UNLIKELY {
 	    return Expected<Asset>(Error::InvalidJson);
     }
     simdjson::ondemand::object root;

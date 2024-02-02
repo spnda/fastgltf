@@ -98,7 +98,7 @@ if (SIMDJSON_TARGET_VERSION)
 endif()
 
 if (SIMDJSON_VERBOSE_LOGGING)
-    target_compile_definitions(fastgltf_simdjson PUBLIC SIMDJSON_VERBOSE_LOGGING=1)
+    target_compile_definitions(fastgltf PUBLIC SIMDJSON_VERBOSE_LOGGING=1)
 endif()
 
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")

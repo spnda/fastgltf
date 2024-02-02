@@ -106,8 +106,10 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
+    // Extract this from the benchmark loop, as otherwise we benchmark the asset destruction/deallocation too.
+    fastgltf::Expected<fastgltf::Asset> asset(fastgltf::Error::None);
     BENCHMARK("Parse NewSponza") {
-        return parser.loadGltfJson(jsonData.get(), intelSponza, benchmarkOptions);
+        asset = parser.loadGltfJson(jsonData.get(), intelSponza, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
@@ -156,8 +158,10 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
+    // Extract this from the benchmark loop, as otherwise we benchmark the asset destruction/deallocation too.
+    fastgltf::Expected<fastgltf::Asset> asset(fastgltf::Error::None);
     BENCHMARK("Parse 2CylinderEngine and decode base64") {
-        return parser.loadGltfJson(jsonData.get(), cylinderEngine, benchmarkOptions);
+        asset = parser.loadGltfJson(jsonData.get(), cylinderEngine, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
@@ -210,8 +214,10 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
+    // Extract this from the benchmark loop, as otherwise we benchmark the asset destruction/deallocation too.
+    fastgltf::Expected<fastgltf::Asset> asset(fastgltf::Error::None);
     BENCHMARK("Parse Buggy.gltf") {
-        return parser.loadGltfJson(jsonData.get(), buggyPath, benchmarkOptions);
+        asset = parser.loadGltfJson(jsonData.get(), buggyPath, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
@@ -265,8 +271,10 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
     auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
     REQUIRE(jsonData->fromByteView(bytes.data(), bytes.size() - fastgltf::getGltfBufferPadding(), bytes.size()));
 
+    // Extract this from the benchmark loop, as otherwise we benchmark the asset destruction/deallocation too.
+    fastgltf::Expected<fastgltf::Asset> asset(fastgltf::Error::None);
     BENCHMARK("Parse Bistro") {
-		return parser.loadGltfJson(jsonData.get(), bistroPath, benchmarkOptions);
+		asset = parser.loadGltfJson(jsonData.get(), bistroPath, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF

@@ -1935,6 +1935,10 @@ namespace fastgltf {
         Optional<SparseAccessor> sparse;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+        explicit Accessor() = default;
+        Accessor(const Accessor& accessor) = default;
+        Accessor(Accessor&& accessor) noexcept = default;
     };
 
     struct CompressedBufferView {
