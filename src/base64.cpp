@@ -193,11 +193,11 @@ namespace fastgltf::base64 {
     fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
 }
 
-[[gnu::target("avx2")]] std::vector<std::uint8_t> fg::base64::avx2_decode(std::string_view encoded) {
+[[gnu::target("avx2")]] fg::StaticVector<std::uint8_t> fg::base64::avx2_decode(std::string_view encoded) {
     const auto encodedSize = encoded.size();
     const auto padding = getPadding(encoded);
 
-    std::vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+    fg::StaticVector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
     avx2_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
@@ -269,11 +269,11 @@ namespace fastgltf::base64 {
     fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
 }
 
-[[gnu::target("sse4.1")]] std::vector<std::uint8_t> fg::base64::sse4_decode(std::string_view encoded) {
+[[gnu::target("sse4.1")]] fg::StaticVector<std::uint8_t> fg::base64::sse4_decode(std::string_view encoded) {
     const auto encodedSize = encoded.size();
     const auto padding = getPadding(encoded);
 
-    std::vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+    fg::StaticVector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
     sse4_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
