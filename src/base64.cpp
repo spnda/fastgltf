@@ -70,7 +70,7 @@ namespace fg = fastgltf;
 
 namespace fastgltf::base64 {
     using DecodeFunctionInplace = std::function<void(std::string_view, std::uint8_t*, std::size_t)>;
-    using DecodeFunction = std::function<std::vector<std::uint8_t>(std::string_view)>;
+    using DecodeFunction = std::function<fg::StaticVector<std::uint8_t>(std::string_view)>;
 
     struct DecodeFunctionGetter {
         DecodeFunction func;
@@ -361,11 +361,11 @@ void fg::base64::neon_decode_inplace(std::string_view encoded, std::uint8_t* out
     fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
 }
 
-std::vector<std::uint8_t> fg::base64::neon_decode(std::string_view encoded) {
+fg::StaticVector<std::uint8_t> fg::base64::neon_decode(std::string_view encoded) {
     const auto encodedSize = encoded.size();
     const auto padding = getPadding(encoded);
 
-    std::vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+    StaticVector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
     neon_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
@@ -425,11 +425,11 @@ void fg::base64::fallback_decode_inplace(std::string_view encoded, std::uint8_t*
 	}
 }
 
-std::vector<std::uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
+fg::StaticVector<std::uint8_t> fg::base64::fallback_decode(std::string_view encoded) {
     const auto encodedSize = encoded.size();
     const auto padding = getPadding(encoded);
 
-    std::vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+    fg::StaticVector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
     fallback_decode_inplace(encoded, ret.data(), padding);
 
     return ret;
@@ -441,7 +441,7 @@ void fg::base64::decode_inplace(std::string_view encoded, std::uint8_t* output, 
     return DecodeFunctionGetter::get()->inplace(encoded, output, padding);
 }
 
-std::vector<std::uint8_t> fg::base64::decode(std::string_view encoded) {
+fg::StaticVector<std::uint8_t> fg::base64::decode(std::string_view encoded) {
     assert(encoded.size() % 4 == 0);
 
     return DecodeFunctionGetter::get()->func(encoded);

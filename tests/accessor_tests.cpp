@@ -14,7 +14,7 @@ static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {
 
 	std::visit(fastgltf::visitor {
 		[](auto&) {},
-		[&](const fastgltf::sources::Vector& vec) {
+		[&](const fastgltf::sources::Array& vec) {
 			result = reinterpret_cast<const std::byte*>(vec.bytes.data());
 		},
 		[&](const fastgltf::sources::ByteView& bv) {

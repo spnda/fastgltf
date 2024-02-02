@@ -311,7 +311,7 @@ struct DefaultBufferDataAdapter {
 				assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
 				return nullptr;
 			},
-			[&](const sources::Vector& vec) {
+			[&](const sources::Array& vec) {
                 return reinterpret_cast<const std::byte*>(vec.bytes.data());
 			},
 			[&](const sources::ByteView& bv) {

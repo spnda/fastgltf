@@ -328,7 +328,7 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
 
         std::visit(fastgltf::visitor {
             [](auto& arg) {}, // Covers FilePathWithOffset, BufferView, ... which are all not possible
-            [&](fastgltf::sources::Vector& vector) {
+            [&](fastgltf::sources::Array& vector) {
                 GLuint glBuffer;
                 glCreateBuffers(1, &glBuffer);
                 glNamedBufferData(glBuffer, static_cast<int64_t>(buffer.byteLength),
@@ -475,7 +475,7 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
             glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
         },
-        [&](fastgltf::sources::Vector& vector) {
+        [&](fastgltf::sources::Array& vector) {
             int width, height, nrChannels;
             unsigned char *data = stbi_load_from_memory(vector.bytes.data(), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
             glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
@@ -491,7 +491,7 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
                 // We only care about VectorWithMime here, because we specify LoadExternalBuffers, meaning
                 // all buffers are already loaded into a vector.
                 [](auto& arg) {},
-                [&](fastgltf::sources::Vector& vector) {
+                [&](fastgltf::sources::Array& vector) {
                     int width, height, nrChannels;
                     unsigned char* data = stbi_load_from_memory(vector.bytes.data() + bufferView.byteOffset, static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
                     glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);

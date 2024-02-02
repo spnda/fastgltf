@@ -40,7 +40,7 @@ TEST_CASE("Check all base64 decoders", "[base64]") {
     REQUIRE(bytes == fastgltf::base64::sse4_decode(testBase64));
 #endif
 #if defined(__aarch64__)
-    REQUIRE(bytes == fastgltf::base64::neon_decode(testBase64));
+	REQUIRE(bytes == fastgltf::base64::neon_decode(testBase64));
 #endif
 }
 
@@ -86,7 +86,7 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
         // Load the buffer from the parsed glTF file.
         auto& buffer = asset->buffers.front();
         REQUIRE(buffer.byteLength == 1794612);
-        auto bufferVector = std::get_if<fastgltf::sources::Vector>(&buffer.data);
+        auto bufferVector = std::get_if<fastgltf::sources::Array>(&buffer.data);
         REQUIRE(bufferVector != nullptr);
         REQUIRE(bufferVector->mimeType == fastgltf::MimeType::OctetStream);
         REQUIRE(!bufferVector->bytes.empty());
@@ -101,13 +101,13 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
 
         auto& buffer = asset->buffers.front();
         REQUIRE(buffer.byteLength == 840);
-        auto bufferVector = std::get_if<fastgltf::sources::Vector>(&buffer.data);
+        auto bufferVector = std::get_if<fastgltf::sources::Array>(&buffer.data);
         REQUIRE(bufferVector != nullptr);
         REQUIRE(bufferVector->mimeType == fastgltf::MimeType::OctetStream);
         REQUIRE(!bufferVector->bytes.empty());
 
         auto& image = asset->images.front();
-        auto imageVector = std::get_if<fastgltf::sources::Vector>(&image.data);
+        auto imageVector = std::get_if<fastgltf::sources::Array>(&image.data);
         REQUIRE(imageVector != nullptr);
         REQUIRE(imageVector->mimeType == fastgltf::MimeType::PNG);
         REQUIRE(!imageVector->bytes.empty());

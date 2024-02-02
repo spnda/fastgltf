@@ -457,6 +457,84 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Containers
+    /**
+     * A static vector which cannot be resized freely. When constructed, the backing array is allocated once.
+     */
+    template <typename T>
+    class StaticVector final {
+        using array_t = T[];
+
+        std::unique_ptr<array_t> _array;
+        std::size_t _size = 0;
+
+    public:
+        using pointer = T*;
+        using const_pointer = const T*;
+        using iterator = pointer;
+        using const_iterator = const_pointer;
+
+        explicit StaticVector(std::size_t size) : _size(size), _array(std::move(std::unique_ptr<array_t>(new std::remove_extent_t<array_t>[size]))) {}
+
+        StaticVector(const StaticVector& other) {
+            if (other.size() == 0) {
+                _array.reset();
+                _size = 0;
+            } else {
+                _array.reset(new std::remove_extent_t<array_t>[other.size()]);
+                _size = other.size();
+            }
+        }
+
+        StaticVector(StaticVector&& other) noexcept {
+            _array = std::move(other._array);
+            _size = other.size();
+        }
+
+		StaticVector& operator=(StaticVector&& other) noexcept {
+			_array = std::move(other._array);
+			_size = other.size();
+			return *this;
+		}
+
+        [[nodiscard]] pointer data() noexcept {
+            return &_array.get()[0];
+        }
+
+        [[nodiscard]] const_pointer data() const noexcept {
+            return &_array.get()[0];
+        }
+
+        [[nodiscard]] std::size_t size() const noexcept {
+            return _size;
+        }
+
+        [[nodiscard]] std::size_t size_bytes() const noexcept {
+            return _size * sizeof(T);
+        }
+
+        [[nodiscard]] bool empty() const noexcept {
+            return _size == 0;
+        }
+
+        [[nodiscard]] iterator begin() noexcept { return data(); }
+        [[nodiscard]] const_iterator begin() const noexcept { return data(); }
+        [[nodiscard]] const_iterator cbegin() const noexcept { return data(); }
+        [[nodiscard]] iterator end() noexcept { return begin() + size(); }
+        [[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
+        [[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
+
+        bool operator==(const StaticVector<T>& other) const {
+            if (other.size() != size()) return false;
+            return std::memcmp(data(), other.data(), size_bytes()) == 0;
+        }
+
+        // This is mostly just here for compatibility and the tests
+        bool operator==(const std::vector<T>& other) const {
+            if (other.size() != size()) return false;
+            return std::memcmp(data(), other.data(), size_bytes()) == 0;
+        }
+    };
+
 	/*
 	 * The amount of items that the SmallVector can initially store in the storage
 	 * allocated within the object itself.
@@ -1327,8 +1405,8 @@ namespace fastgltf {
             MimeType mimeType;
         };
 
-        struct Vector {
-            std::vector<std::uint8_t> bytes;
+        struct Array {
+            StaticVector<std::uint8_t> bytes;
             MimeType mimeType;
         };
 
@@ -1355,7 +1433,7 @@ namespace fastgltf {
      *
      * @note For buffers, this variant will never hold a sources::BufferView, as only images are able to reference buffer views as a source.
      */
-    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Vector, sources::CustomBuffer, sources::ByteView, sources::Fallback>;
+    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Array, sources::CustomBuffer, sources::ByteView, sources::Fallback>;
 
     struct AnimationChannel {
         std::size_t samplerIndex;

@@ -626,18 +626,18 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
     }
 
     // Decode the base64 data into a traditional vector
-    std::vector<std::uint8_t> uriData;
+    auto padding = base64::getPadding(encodedData);
+    fg::StaticVector<std::uint8_t> uriData(base64::getOutputSize(encodedData.size(), padding));
     if (config.decodeCallback != nullptr) {
-        auto padding = base64::getPadding(encodedData);
-        uriData.resize(base64::getOutputSize(encodedData.size(), padding));
         config.decodeCallback(encodedData, uriData.data(), padding, uriData.size(), config.userPointer);
     } else {
-        uriData = base64::decode(encodedData);
+        base64::decode_inplace(encodedData, uriData.data(), padding);
     }
 
-    sources::Vector source = {};
-    source.mimeType = getMimeTypeFromString(mime);
-    source.bytes = std::move(uriData);
+    sources::Array source = {
+		std::move(uriData),
+		getMimeTypeFromString(mime),
+    };
 	return Expected<DataSource> { std::move(source) };
 }
 
@@ -669,10 +669,12 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
         }
     }
 
-    sources::Vector vectorSource = {};
-    vectorSource.mimeType = MimeType::GltfBuffer;
-    vectorSource.bytes.resize(length);
-    file.read(reinterpret_cast<char*>(vectorSource.bytes.data()), length);
+	StaticVector<std::uint8_t> data(length);
+	file.read(reinterpret_cast<char*>(data.data()), length);
+    sources::Array vectorSource = {
+		std::move(data),
+		MimeType::GltfBuffer,
+	};
 	return Expected<DataSource> { std::move(vectorSource) };
 }
 
@@ -744,10 +746,9 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			}
 			auto& positionAccessor = asset.accessors[positionAttribute->second];
 
-			sources::Vector generatedIndices;
-			generatedIndices.bytes.resize(positionAccessor.count * getElementByteSize(positionAccessor.type, positionAccessor.componentType));
-			fastgltf::span<std::uint32_t> indices { reinterpret_cast<std::uint32_t*>(generatedIndices.bytes.data()),
-													generatedIndices.bytes.size() / sizeof(std::uint32_t) };
+			StaticVector<std::uint8_t> generatedIndices(positionAccessor.count * getElementByteSize(positionAccessor.type, positionAccessor.componentType));
+			fastgltf::span<std::uint32_t> indices { reinterpret_cast<std::uint32_t*>(generatedIndices.data()),
+													generatedIndices.size() / sizeof(std::uint32_t) };
 			for (std::size_t i = 0; i < positionAccessor.count; ++i) {
 				indices[i] = static_cast<std::uint32_t>(i);
 			}
@@ -756,7 +757,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 
 			auto bufferViewIdx = asset.bufferViews.size();
 			auto& bufferView = asset.bufferViews.emplace_back();
-			bufferView.byteLength = generatedIndices.bytes.size();
+			bufferView.byteLength = generatedIndices.size_bytes();
 			bufferView.bufferIndex = bufferIdx;
 			bufferView.byteOffset = 0;
 
@@ -769,9 +770,12 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			accessor.normalized = false;
 			accessor.bufferViewIndex = bufferViewIdx;
 
+			sources::Array indicesArray {
+				std::move(generatedIndices),
+			};
 			auto& buffer = asset.buffers.emplace_back();
-			buffer.byteLength = generatedIndices.bytes.size();
-			buffer.data = std::move(generatedIndices);
+			buffer.byteLength = generatedIndices.size_bytes();
+			buffer.data = std::move(indicesArray);
 			primitive.indicesAccessor = accessorIdx;
 		}
 	}
@@ -2022,7 +2026,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
                     using T = std::decay_t<decltype(arg)>;
 
                     // This is kinda cursed
-                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Vector>()) {
+                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array>()) {
                         arg.mimeType = getMimeTypeFromString(mimeType);
                     }
                 }, image.data);
@@ -3495,10 +3499,13 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
                     glbBuffer = sources::CustomBuffer { info.customId, MimeType::None };
                 }
             } else {
-                sources::Vector vectorData = {};
-                vectorData.bytes.resize(binaryChunk.chunkLength);
-                read(vectorData.bytes.data(), binaryChunk.chunkLength);
-                vectorData.mimeType = MimeType::GltfBuffer;
+				StaticVector<std::uint8_t> binaryData(binaryChunk.chunkLength);
+				read(binaryData.data(), binaryChunk.chunkLength);
+
+                sources::Array vectorData = {
+					std::move(binaryData),
+					MimeType::GltfBuffer,
+				};
                 glbBuffer = std::move(vectorData);
             }
         } else {
@@ -3699,7 +3706,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 				// Covers BufferView and CustomBuffer.
 				errorCode = Error::InvalidGltf;
 			},
-			[&](const sources::Vector& vector) {
+			[&](const sources::Array& vector) {
                 if (bufferIdx == 0 && exportingBinary) {
                     bufferPaths.emplace_back(std::nullopt);
                     return;
@@ -3870,7 +3877,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 				json += std::string(R"("mimeType":")") + std::string(getMimeTypeString(bufferView.mimeType)) + '"';
                 imagePaths.emplace_back(std::nullopt);
             },
-            [&](const sources::Vector& vector) {
+            [&](const sources::Array& vector) {
                 auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
                 json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
                 imagePaths.emplace_back(path);
@@ -4745,7 +4752,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 	// TODO: Add ExportOption enumeration for disabling this?
     const bool withEmbeddedBuffer = !asset.buffers.empty()
 			// We only support writing Vectors and ByteViews as embedded buffers
-			&& (std::holds_alternative<sources::Vector>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
+			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
 			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
 
     std::size_t binarySize = sizeof(BinaryGltfHeader) + sizeof(BinaryGltfChunk) + json.size();
@@ -4782,7 +4789,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 
 		std::visit(visitor {
 			[](auto arg) {},
-			[&](sources::Vector& vector) {
+			[&](sources::Array& vector) {
 				write(vector.bytes.data(), buffer.byteLength);
 			},
 			[&](sources::ByteView& byteView) {
@@ -4798,7 +4805,7 @@ namespace fastgltf {
 	void writeFile(const DataSource& dataSource, fs::path baseFolder, fs::path filePath) {
 		std::visit(visitor {
 			[](auto& arg) {},
-			[&](const fastgltf::sources::Vector &vector) {
+			[&](const fastgltf::sources::Array &vector) {
 				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
 				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
 						   static_cast<std::streamsize>(vector.bytes.size()));

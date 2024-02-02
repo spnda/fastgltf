@@ -35,7 +35,7 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         REQUIRE(asset->buffers.size() == 1);
 
         auto& buffer = asset->buffers.front();
-        auto* bufferVector = std::get_if<fastgltf::sources::Vector>(&buffer.data);
+        auto* bufferVector = std::get_if<fastgltf::sources::Array>(&buffer.data);
         REQUIRE(bufferVector != nullptr);
         REQUIRE(!bufferVector->bytes.empty());
         REQUIRE(static_cast<uint64_t>(bufferVector->bytes.size() - buffer.byteLength) < 3);
