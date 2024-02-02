@@ -1005,7 +1005,7 @@ namespace fastgltf {
 		}
 
 		template <typename U = T, std::enable_if_t<std::is_copy_constructible_v<T>, int> = 0>
-		OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
+		OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
 			if (other.has_value()) {
 				new (std::addressof(_value)) T(*other);
 			} else {
@@ -1014,7 +1014,7 @@ namespace fastgltf {
 		}
 
 		template <typename U = T, std::enable_if_t<std::is_move_constructible_v<T>, int> = 0>
-		OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
+		OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) noexcept(std::is_nothrow_move_constructible_v<T>) {
 			if (other.has_value()) {
 				new (std::addressof(_value)) T(std::move(*other));
 			} else {

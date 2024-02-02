@@ -254,7 +254,7 @@ namespace fastgltf {
 	}
 
     template <typename X, typename T, std::size_t N>
-    [[nodiscard, gnu::always_inline]] Error copyNumericalJsonArray(simdjson::ondemand::array& array, std::array<T, N>& target) {
+    [[nodiscard, gnu::always_inline]] inline Error copyNumericalJsonArray(simdjson::ondemand::array& array, std::array<T, N>& target) {
         std::size_t i = 0;
         for (auto value : array) {
             if (i >= target.size()) {
@@ -1398,9 +1398,9 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
         accessor.byteOffset = 0UL;
         accessor.normalized = false;
 
-        // Function for parsing the min and max arrays for accessors
+		// Function for parsing the min and max arrays for accessors
         auto parseMinMax = [&](simdjson::ondemand::array& array, decltype(Accessor::max)& ref) -> fastgltf::Error {
-			decltype(Accessor::max) variant;
+            decltype(Accessor::max) variant;
 
             using double_vec = std::variant_alternative_t<1, decltype(Accessor::max)>;
             using int64_vec = std::variant_alternative_t<2, decltype(Accessor::max)>;
@@ -1408,62 +1408,67 @@ fg::Error fg::Parser::parseAccessors(simdjson::ondemand::array& accessors, Asset
             // It's possible the min/max fields come before the accessor type is declared, in which case we don't know the size.
 			// This single line is actually incredibly important as this function without it takes up roughly 15% of the entire
 			// parsing process on average due to vector resizing.
-            auto initialCount = accessor.type == AccessorType::Invalid ? 0 : getNumComponents(accessor.type);
+			// When no exact count is known (accessor type field comes after min/max fields) we'll just count them and take the penalty.
+            auto initialCount = accessor.type == AccessorType::Invalid ? array.count_elements().value() : getNumComponents(accessor.type);
             if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
-                variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(double_vec, resourceAllocator.get(), 0);
+                auto vec = FASTGLTF_CONSTRUCT_PMR_RESOURCE(double_vec, resourceAllocator.get(), 0);
+				vec.reserve(initialCount);
+				variant = std::move(vec);
             } else {
-                variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(int64_vec, resourceAllocator.get(), 0);
+                auto vec = FASTGLTF_CONSTRUCT_PMR_RESOURCE(int64_vec, resourceAllocator.get(), 0);
+				vec.reserve(initialCount);
+				variant = std::move(vec);
             }
 
-            for (auto element : array) {
-                ondemand::number num;
-                if (auto error = element.get_number().get(num); error != SUCCESS) FASTGLTF_UNLIKELY {
-                    return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
-                }
+			for (auto element : array) {
+				ondemand::number num;
+				if (auto error = element.get_number().get(num); error != SUCCESS) FASTGLTF_UNLIKELY {
+					return error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
+				}
 
-                switch (num.get_number_type()) {
-                    case ondemand::number_type::floating_point_number: {
-                        // We can't safely promote double to ints. Therefore, if the element is a double,
-                        // but our component type is not a floating point, that's invalid.
-                        if (accessor.componentType != ComponentType::Float && accessor.componentType != ComponentType::Double) {
-                            return Error::InvalidGltf;
-                        }
+				switch (num.get_number_type()) {
+					case ondemand::number_type::floating_point_number: {
+						// We can't safely promote double to ints. Therefore, if the element is a double,
+						// but our component type is not a floating point, that's invalid.
+						if (accessor.componentType != ComponentType::Float && accessor.componentType != ComponentType::Double) {
+							return Error::InvalidGltf;
+						}
 
-                        if (!std::holds_alternative<double_vec>(variant)) FASTGLTF_UNLIKELY {
-                            return Error::InvalidGltf;
-                        }
-                        std::get<double_vec>(variant).emplace_back(num.get_double());
-                        break;
-                    }
-                    case ondemand::number_type::signed_integer: {
-                        std::int64_t value = num.get_int64();
+						if (!std::holds_alternative<double_vec>(variant)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						std::get<double_vec>(variant).emplace_back(num.get_double());
+						break;
+					}
+					case ondemand::number_type::signed_integer: {
+						std::int64_t value = num.get_int64();
 
-                        if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-                            (*doubles).emplace_back(static_cast<double>(value));
-                        } else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-                            (*ints).emplace_back(static_cast<std::int64_t>(value));
-                        } else {
-                            return Error::InvalidGltf;
-                        }
-                        break;
-                    }
-                    case ondemand::number_type::unsigned_integer: {
-                        // Note that the glTF spec doesn't care about any integer larger than 32-bits, so
-                        // truncating uint64 to int64 wouldn't make any difference, as those large values
-                        // aren't allowed anyway.
-                        std::uint64_t value = num.get_uint64();
+						if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
+							(*doubles).emplace_back(static_cast<double>(value));
+						} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
+							(*ints).emplace_back(static_cast<std::int64_t>(value));
+						} else {
+							return Error::InvalidGltf;
+						}
+						break;
+					}
+					case ondemand::number_type::unsigned_integer: {
+						// Note that the glTF spec doesn't care about any integer larger than 32-bits, so
+						// truncating uint64 to int64 wouldn't make any difference, as those large values
+						// aren't allowed anyway.
+						std::uint64_t value = num.get_uint64();
 
-                        if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-                            (*doubles).emplace_back(static_cast<double>(value));
-                        } else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-                            (*ints).emplace_back(static_cast<std::int64_t>(value));
-                        } else {
-                            return Error::InvalidGltf;
-                        }
-                        break;
-                    }
-                }
-            }
+						if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
+							(*doubles).emplace_back(static_cast<double>(value));
+						} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
+							(*ints).emplace_back(static_cast<std::int64_t>(value));
+						} else {
+							return Error::InvalidGltf;
+						}
+						break;
+					}
+				}
+			}
 
             ref = std::move(variant);
             return Error::None;
