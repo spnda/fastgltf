@@ -418,24 +418,31 @@ void fg::URIView::parse() {
 		idx = nextSlash; // Path includes this slash
 	}
 
-	// Parse the path.
-	auto questionIdx = view.find("?", idx);
-	auto hashIdx = view.find("#", idx);
-	if (questionIdx != std::string::npos) {
-		_path = view.substr(idx, questionIdx - idx);
-
-		if (hashIdx == std::string::npos) {
-			_query = view.substr(++questionIdx);
-		} else {
-			++questionIdx;
-			_query = view.substr(questionIdx, hashIdx - questionIdx);
-			_fragment = view.substr(++hashIdx);
-		}
-	} else if (hashIdx != std::string::npos) {
-		_path = view.substr(idx, hashIdx - idx);
-		_fragment = view.substr(++hashIdx);
-	} else {
+	if (_scheme == "data") {
+		// The data scheme is just followed by a mime and then bytes.
+		// Also, let's avoid all the find and substr on very large data strings
+		// which can be multiple MB.
 		_path = view.substr(idx);
+	} else {
+		// Parse the path.
+		auto questionIdx = view.find('?', idx);
+		auto hashIdx = view.find('#', idx);
+		if (questionIdx != std::string::npos) {
+			_path = view.substr(idx, questionIdx - idx);
+
+			if (hashIdx == std::string::npos) {
+				_query = view.substr(++questionIdx);
+			} else {
+				++questionIdx;
+				_query = view.substr(questionIdx, hashIdx - questionIdx);
+				_fragment = view.substr(++hashIdx);
+			}
+		} else if (hashIdx != std::string::npos) {
+			_path = view.substr(idx, hashIdx - idx);
+			_fragment = view.substr(++hashIdx);
+		} else {
+			_path = view.substr(idx);
+		}
 	}
 }
 
