@@ -1549,11 +1549,14 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
                 return Error::InvalidGltf;
             } else {
                 std::uint64_t node;
-                if (targetObject["node"].get_uint64().get(node) != SUCCESS) {
-                    // We don't support any extensions for animations, so it is required.
-                    return Error::InvalidGltf;
-                }
-                channel.nodeIndex = static_cast<std::size_t>(node);
+				if (auto error = targetObject["node"].get_uint64().get(node); error == SUCCESS) {
+					channel.nodeIndex = static_cast<std::size_t>(node);
+				} else if (error != NO_SUCH_FIELD) {
+					// the glTF spec allows the node index of an animation channel to be absent, and requires
+					// implementations to just ignore the animation if no extension exists to override it.
+					// > When node isn't defined, channel SHOULD be ignored.
+					return Error::InvalidGltf;
+				}
 
                 std::string_view path;
                 if (targetObject["path"].get_string().get(path) != SUCCESS) {

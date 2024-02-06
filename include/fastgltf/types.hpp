@@ -1437,7 +1437,7 @@ namespace fastgltf {
 
     struct AnimationChannel {
         std::size_t samplerIndex;
-        std::size_t nodeIndex;
+        Optional<std::size_t> nodeIndex;
         AnimationPath path;
     };
 
