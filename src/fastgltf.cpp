@@ -2219,6 +2219,566 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
 	return Error::None;
 }
 
+fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fastgltf::Material &material) {
+	using namespace simdjson;
+
+	for (auto extensionField : object) {
+		auto hashedKey = crcStringFunction(extensionField.key);
+
+		switch (hashedKey) {
+			case force_consteval<crc32c(extensions::KHR_materials_anisotropy)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_anisotropy))
+					break;
+
+				dom::object anisotropyObject;
+				auto anisotropyError = extensionField.value.get_object().get(anisotropyObject);
+				if (anisotropyError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				auto anisotropy = std::make_unique<MaterialAnisotropy>();
+
+				double anisotropyStrength;
+				if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength);
+						error == SUCCESS) {
+					anisotropy->anisotropyStrength = static_cast<num>(anisotropyStrength);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidJson;
+				}
+
+				double anisotropyRotation;
+				if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation);
+						error == SUCCESS) {
+					anisotropy->anisotropyRotation = static_cast<num>(anisotropyRotation);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidJson;
+				}
+
+				TextureInfo anisotropyTexture;
+				if (auto error = parseTextureInfo(anisotropyObject, "anisotropyTexture", &anisotropyTexture,
+												  config.extensions); error == Error::None) {
+					anisotropy->anisotropyTexture = std::move(anisotropyTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_clearcoat)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_clearcoat))
+					break;
+
+				dom::object clearcoatObject;
+				auto clearcoatError = extensionField.value.get_object().get(clearcoatObject);
+				if (clearcoatError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				auto clearcoat = std::make_unique<MaterialClearcoat>();
+
+				double clearcoatFactor;
+				if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error ==
+																									   SUCCESS) {
+					clearcoat->clearcoatFactor = static_cast<num>(clearcoatFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidJson;
+				}
+
+				TextureInfo clearcoatTexture;
+				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatTexture", &clearcoatTexture,
+												  config.extensions); error == Error::None) {
+					clearcoat->clearcoatTexture = std::move(clearcoatTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				double clearcoatRoughnessFactor;
+				if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(
+							clearcoatRoughnessFactor); error == SUCCESS) {
+					clearcoat->clearcoatRoughnessFactor = static_cast<num>(clearcoatRoughnessFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidJson;
+				}
+
+				TextureInfo clearcoatRoughnessTexture;
+				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatRoughnessTexture",
+												  &clearcoatRoughnessTexture, config.extensions); error ==
+																								  Error::None) {
+					clearcoat->clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				TextureInfo clearcoatNormalTexture;
+				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatNormalTexture",
+												  &clearcoatNormalTexture, config.extensions); error ==
+																							   Error::None) {
+					clearcoat->clearcoatNormalTexture = std::move(clearcoatNormalTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.clearcoat = std::move(clearcoat);
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_dispersion)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_dispersion))
+					break;
+
+				dom::object dispersionObject;
+				auto dispersionError = extensionField.value.get_object().get(dispersionObject);
+				if (dispersionError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				double dispersionFactor;
+				auto error = dispersionObject["dispersion"].get_double().get(dispersionFactor);
+				if (error == SUCCESS) {
+					material.dispersion = static_cast<num>(dispersionFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_emissive_strength)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_emissive_strength))
+					break;
+
+				dom::object emissiveObject;
+				auto emissiveError = extensionField.value.get_object().get(emissiveObject);
+				if (emissiveError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				double emissiveStrength;
+				auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
+				if (error == SUCCESS) {
+					material.emissiveStrength = static_cast<num>(emissiveStrength);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_ior)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_ior))
+					break;
+
+				dom::object iorObject;
+				auto iorError = extensionField.value.get_object().get(iorObject);
+				if (iorError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				double ior;
+				auto error = iorObject["ior"].get_double().get(ior);
+				if (error == SUCCESS) {
+					material.ior = static_cast<num>(ior);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidJson;
+				}
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_iridescence)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_iridescence))
+					break;
+
+				dom::object iridescenceObject;
+				auto iridescenceError = extensionField.value.get_object().get(iridescenceObject);
+				if (iridescenceError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				auto iridescence = std::make_unique<MaterialIridescence>();
+
+				double iridescenceFactor;
+				if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor);
+						error == SUCCESS) {
+					iridescence->iridescenceFactor = static_cast<num>(iridescenceFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo iridescenceTexture;
+				if (auto error = parseTextureInfo(iridescenceObject, "iridescenceTexture", &iridescenceTexture,
+												  config.extensions); error == Error::None) {
+					iridescence->iridescenceTexture = std::move(iridescenceTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				double iridescenceIor;
+				if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error ==
+																									   SUCCESS) {
+					iridescence->iridescenceIor = static_cast<num>(iridescenceIor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				double iridescenceThicknessMinimum;
+				if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(
+							iridescenceThicknessMinimum); error == SUCCESS) {
+					iridescence->iridescenceThicknessMinimum = static_cast<num>(iridescenceThicknessMinimum);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				double iridescenceThicknessMaximum;
+				if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(
+							iridescenceThicknessMaximum); error == SUCCESS) {
+					iridescence->iridescenceThicknessMaximum = static_cast<num>(iridescenceThicknessMaximum);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo iridescenceThicknessTexture;
+				if (auto error = parseTextureInfo(iridescenceObject, "iridescenceThicknessTexture",
+												  &iridescenceThicknessTexture, config.extensions); error ==
+																									Error::None) {
+					iridescence->iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.iridescence = std::move(iridescence);
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_sheen)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_sheen))
+					break;
+
+				dom::object sheenObject;
+				auto sheenError = extensionField.value.get_object().get(sheenObject);
+				if (sheenError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				auto sheen = std::make_unique<MaterialSheen>();
+
+				dom::array sheenColorFactor;
+				if (auto error = sheenObject["sheenColorFactor"].get_array().get(sheenColorFactor); error ==
+																									SUCCESS) {
+					std::size_t i = 0;
+					for (auto factor: sheenColorFactor) {
+						if (i >= sheen->sheenColorFactor.size()) {
+							return Error::InvalidGltf;
+						}
+						double value;
+						if (factor.get_double().get(value) != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+						sheen->sheenColorFactor[i++] = static_cast<num>(value);
+					}
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo sheenColorTexture;
+				if (auto error = parseTextureInfo(sheenObject, "sheenColorTexture", &sheenColorTexture,
+												  config.extensions); error == Error::None) {
+					sheen->sheenColorTexture = std::move(sheenColorTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				double sheenRoughnessFactor;
+				if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor);
+						error == SUCCESS) {
+					sheen->sheenRoughnessFactor = static_cast<num>(sheenRoughnessFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo sheenRoughnessTexture;
+				if (auto error = parseTextureInfo(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture,
+												  config.extensions); error == Error::None) {
+					sheen->sheenRoughnessTexture = std::move(sheenRoughnessTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.sheen = std::move(sheen);
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_specular)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_specular))
+					break;
+
+				dom::object specularObject;
+				auto specularError = extensionField.value.get_object().get(specularObject);
+				if (specularError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				auto specular = std::make_unique<MaterialSpecular>();
+
+				double specularFactor;
+				if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error ==
+																									SUCCESS) {
+					specular->specularFactor = static_cast<num>(specularFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo specularTexture;
+				if (auto error = parseTextureInfo(specularObject, "specularTexture", &specularTexture,
+												  config.extensions); error == Error::None) {
+					specular->specularTexture = std::move(specularTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				dom::array specularColorFactor;
+				if (auto error = specularObject["specularColorFactor"].get_array().get(specularColorFactor);
+						error == SUCCESS) {
+					std::size_t i = 0;
+					for (auto factor: specularColorFactor) {
+						if (i >= specular->specularColorFactor.size()) {
+							return Error::InvalidGltf;
+						}
+						double value;
+						if (factor.get_double().get(value) != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+						specular->specularColorFactor[i++] = static_cast<num>(value);
+					}
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo specularColorTexture;
+				if (auto error = parseTextureInfo(specularObject, "specularColorTexture", &specularColorTexture,
+												  config.extensions); error == Error::None) {
+					specular->specularColorTexture = std::move(specularColorTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.specular = std::move(specular);
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_transmission)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_transmission))
+					break;
+
+				dom::object transmissionObject;
+				auto transmissionError = extensionField.value.get_object().get(transmissionObject);
+				if (transmissionError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				auto transmission = std::make_unique<MaterialTransmission>();
+
+				double transmissionFactor;
+				if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor);
+						error == SUCCESS) {
+					transmission->transmissionFactor = static_cast<num>(transmissionFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo transmissionTexture;
+				if (auto error = parseTextureInfo(transmissionObject, "transmissionTexture", &transmissionTexture,
+												  config.extensions); error == Error::None) {
+					transmission->transmissionTexture = std::move(transmissionTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.transmission = std::move(transmission);
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_unlit)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_unlit))
+					break;
+
+				dom::object unlitObject;
+				auto unlitError = extensionField.value.get_object().get(unlitObject);
+				if (unlitError == SUCCESS) {
+					material.unlit = true;
+				} else {
+					return Error::InvalidGltf;
+				}
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_volume)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_volume))
+					break;
+
+				dom::object volumeObject;
+				auto volumeError = extensionField.value.get_object().get(volumeObject);
+				if (volumeError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+
+				auto volume = std::make_unique<MaterialVolume>();
+
+				double thicknessFactor;
+				if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) {
+					volume->thicknessFactor = static_cast<num>(thicknessFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo thicknessTexture;
+				if (auto error = parseTextureInfo(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) {
+					volume->thicknessTexture = std::move(thicknessTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				double attenuationDistance;
+				if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) {
+					volume->attenuationDistance = static_cast<num>(attenuationDistance);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				dom::array attenuationColor;
+				if (auto error = volumeObject["attenuationColor"].get_array().get(attenuationColor); error == SUCCESS) {
+					std::size_t i = 0;
+					for (auto factor : attenuationColor) {
+						if (i >= volume->attenuationColor.size()) {
+							return Error::InvalidGltf;
+						}
+						double value;
+						if (factor.get_double().get(value) != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+						(volume->attenuationColor)[i++] = static_cast<num>(value);
+					}
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				material.volume = std::move(volume);
+				break;
+			}
+			case force_consteval<crc32c(extensions::MSFT_packing_normalRoughnessMetallic)>: {
+				if (!hasBit(config.extensions, Extensions::MSFT_packing_normalRoughnessMetallic))
+					break;
+
+				dom::object normalRoughnessMetallic;
+				if (extensionField.value.get_object().get(normalRoughnessMetallic) != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+				TextureInfo textureInfo = {};
+				if (auto error = parseTextureInfo(normalRoughnessMetallic, "normalRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
+					material.packedNormalMetallicRoughnessTexture = std::move(textureInfo);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+				break;
+			}
+			case force_consteval<crc32c(extensions::MSFT_packing_occlusionRoughnessMetallic)>: {
+				if (!hasBit(config.extensions, Extensions::MSFT_packing_occlusionRoughnessMetallic))
+					break;
+
+				dom::object occlusionRoughnessMetallic;
+				if (extensionField.value.get_object().get(occlusionRoughnessMetallic) != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+				auto packedTextures = std::make_unique<MaterialPackedTextures>();
+				TextureInfo textureInfo = {};
+				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
+					packedTextures->occlusionRoughnessMetallicTexture = std::move(textureInfo);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "roughnessMetallicOcclusionTexture", &textureInfo, config.extensions); error == Error::None) {
+					packedTextures->roughnessMetallicOcclusionTexture = std::move(textureInfo);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "normalTexture", &textureInfo, config.extensions); error == Error::None) {
+					packedTextures->normalTexture = std::move(textureInfo);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.packedOcclusionRoughnessMetallicTextures = std::move(packedTextures);
+				break;
+			}
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+			case force_consteval<crc32c(extensions::KHR_materials_pbrSpecularGlossiness)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_pbrSpecularGlossiness))
+					break;
+
+				dom::object specularGlossinessObject;
+				auto specularGlossinessError = extensionField.value.get_object().get(specularGlossinessObject);
+				if (specularGlossinessError != SUCCESS) {
+					return Error::InvalidGltf;
+				}
+				auto specularGlossiness = std::make_unique<MaterialSpecularGlossiness>();
+
+				dom::array diffuseFactor;
+				if (auto error = specularGlossinessObject["diffuseFactor"].get_array().get(diffuseFactor); error == SUCCESS) {
+					std::size_t i = 0;
+					for (auto factor : diffuseFactor) {
+						if (i >= specularGlossiness->diffuseFactor.size()) {
+							return Error::InvalidGltf;
+						}
+						double value;
+						if (factor.get_double().get(value) != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+						specularGlossiness->diffuseFactor[i++] = static_cast<num>(value);
+					}
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo diffuseTexture;
+				if (auto error = parseTextureInfo(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) {
+					specularGlossiness->diffuseTexture = std::move(diffuseTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				dom::array specularFactor;
+				if (auto error = specularGlossinessObject["specularFactor"].get_array().get(specularFactor); error == SUCCESS) {
+					std::size_t i = 0;
+					for (auto factor : specularFactor) {
+						if (i >= specularGlossiness->specularFactor.size()) {
+							return Error::InvalidGltf;
+						}
+						double value;
+						if (factor.get_double().get(value) != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+						specularGlossiness->specularFactor[i++] = static_cast<num>(value);
+					}
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				double glossinessFactor;
+				if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) {
+					specularGlossiness->glossinessFactor = static_cast<num>(glossinessFactor);
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo specularGlossinessTexture;
+				if (auto error = parseTextureInfo(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) {
+					specularGlossiness->specularGlossinessTexture = std::move(specularGlossinessTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.specularGlossiness = std::move(specularGlossiness);
+				break;
+			}
+#endif
+			default:
+				// Should we error on unknown extensions?
+				break;
+		}
+	}
+
+	return Error::None;
+}
+
 fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& asset) {
     using namespace simdjson;
 
@@ -2348,477 +2908,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
         dom::object extensionsObject;
         if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
-			if (hasBit(config.extensions, Extensions::KHR_materials_anisotropy)) {
-				dom::object anisotropyObject;
-				auto anisotropyError = extensionsObject[extensions::KHR_materials_anisotropy].get_object().get(anisotropyObject);
-				if (anisotropyError == SUCCESS) {
-					auto anisotropy = std::make_unique<MaterialAnisotropy>();
-
-					double anisotropyStrength;
-					if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength); error == SUCCESS) {
-						anisotropy->anisotropyStrength = static_cast<num>(anisotropyStrength);
-					} else if (error != NO_SUCH_FIELD) {
-						return Error::InvalidJson;
-					}
-
-					double anisotropyRotation;
-					if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation); error == SUCCESS) {
-						anisotropy->anisotropyRotation = static_cast<num>(anisotropyRotation);
-					} else if (error != NO_SUCH_FIELD) {
-						return Error::InvalidJson;
-					}
-
-					TextureInfo anisotropyTexture;
-					if (auto error = parseTextureInfo(anisotropyObject, "anisotropyTexture", &anisotropyTexture, config.extensions); error == Error::None) {
-						anisotropy->anisotropyTexture = std::move(anisotropyTexture);
-					} else if (error != Error::MissingField) {
-						return error;
-					}
-				}
-			}
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_clearcoat)) {
-                dom::object clearcoatObject;
-                auto clearcoatError = extensionsObject[extensions::KHR_materials_clearcoat].get_object().get(clearcoatObject);
-                if (clearcoatError == SUCCESS) {
-                    auto clearcoat = std::make_unique<MaterialClearcoat>();
-
-                    double clearcoatFactor;
-                    if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error == SUCCESS) {
-                        clearcoat->clearcoatFactor = static_cast<num>(clearcoatFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidJson;
-                    }
-
-                    TextureInfo clearcoatTexture;
-                    if (auto error = parseTextureInfo(clearcoatObject, "clearcoatTexture", &clearcoatTexture, config.extensions); error == Error::None) {
-                        clearcoat->clearcoatTexture = std::move(clearcoatTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    double clearcoatRoughnessFactor;
-                    if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(clearcoatRoughnessFactor); error == SUCCESS) {
-                        clearcoat->clearcoatRoughnessFactor = static_cast<num>(clearcoatRoughnessFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidJson;
-                    }
-
-                    TextureInfo clearcoatRoughnessTexture;
-                    if (auto error = parseTextureInfo(clearcoatObject, "clearcoatRoughnessTexture", &clearcoatRoughnessTexture, config.extensions); error == Error::None) {
-                        clearcoat->clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    TextureInfo clearcoatNormalTexture;
-                    if (auto error = parseTextureInfo(clearcoatObject, "clearcoatNormalTexture", &clearcoatNormalTexture, config.extensions); error == Error::None) {
-                        clearcoat->clearcoatNormalTexture = std::move(clearcoatNormalTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    material.clearcoat = std::move(clearcoat);
-                } else if (clearcoatError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-			if (hasBit(config.extensions, Extensions::KHR_materials_dispersion)) {
-				dom::object dispersionObject;
-				auto dispersionError = extensionsObject[extensions::KHR_materials_dispersion].get_object().get(dispersionObject);
-				if (dispersionError == SUCCESS) {
-					double dispersionFactor;
-					auto error = dispersionObject["dispersion"].get_double().get(dispersionFactor);
-					if (error == SUCCESS) {
-						material.dispersion = static_cast<num>(dispersionFactor);
-					} else if (error != NO_SUCH_FIELD) {
-						return Error::InvalidGltf;
-					}
-				} else if (dispersionError != NO_SUCH_FIELD) {
-					return Error::InvalidJson;
-				}
-			}
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_emissive_strength)) {
-                dom::object emissiveObject;
-                auto emissiveError = extensionsObject[extensions::KHR_materials_emissive_strength].get_object().get(emissiveObject);
-                if (emissiveError == SUCCESS) {
-                    double emissiveStrength;
-                    auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
-                    if (error == SUCCESS) {
-                        material.emissiveStrength = static_cast<num>(emissiveStrength);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-                } else if (emissiveError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_ior)) {
-                dom::object iorObject;
-                auto iorError = extensionsObject[extensions::KHR_materials_ior].get_object().get(iorObject);
-                if (iorError == SUCCESS) {
-                    double ior;
-                    auto error = iorObject["ior"].get_double().get(ior);
-                    if (error == SUCCESS) {
-                        material.ior = static_cast<num>(ior);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidJson;
-                    }
-                } else if (iorError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_iridescence)) {
-                dom::object iridescenceObject;
-                auto iridescenceError = extensionsObject[extensions::KHR_materials_iridescence].get_object().get(iridescenceObject);
-                if (iridescenceError == SUCCESS) {
-                    auto iridescence = std::make_unique<MaterialIridescence>();
-
-                    double iridescenceFactor;
-                    if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor); error == SUCCESS) {
-                        iridescence->iridescenceFactor = static_cast<num>(iridescenceFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo iridescenceTexture;
-                    if (auto error = parseTextureInfo(iridescenceObject, "iridescenceTexture", &iridescenceTexture, config.extensions); error == Error::None) {
-                        iridescence->iridescenceTexture = std::move(iridescenceTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    double iridescenceIor;
-                    if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error == SUCCESS) {
-                        iridescence->iridescenceIor = static_cast<num>(iridescenceIor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    double iridescenceThicknessMinimum;
-                    if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(iridescenceThicknessMinimum); error == SUCCESS) {
-                        iridescence->iridescenceThicknessMinimum = static_cast<num>(iridescenceThicknessMinimum);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    double iridescenceThicknessMaximum;
-                    if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(iridescenceThicknessMaximum); error == SUCCESS) {
-                        iridescence->iridescenceThicknessMaximum = static_cast<num>(iridescenceThicknessMaximum);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo iridescenceThicknessTexture;
-                    if (auto error = parseTextureInfo(iridescenceObject, "iridescenceThicknessTexture", &iridescenceThicknessTexture, config.extensions); error == Error::None) {
-                        iridescence->iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    material.iridescence = std::move(iridescence);
-                } else if (iridescenceError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_sheen)) {
-                dom::object sheenObject;
-                auto sheenError = extensionsObject[extensions::KHR_materials_sheen].get_object().get(sheenObject);
-                if (sheenError == SUCCESS) {
-                    auto sheen = std::make_unique<MaterialSheen>();
-
-                    dom::array sheenColorFactor;
-                    if (auto error = sheenObject["sheenColorFactor"].get_array().get(sheenColorFactor); error == SUCCESS) {
-                        std::size_t i = 0;
-                        for (auto factor : sheenColorFactor) {
-                            if (i >= sheen->sheenColorFactor.size()) {
-                                return Error::InvalidGltf;
-                            }
-                            double value;
-                            if (factor.get_double().get(value) != SUCCESS) {
-                                return Error::InvalidGltf;
-                            }
-                            sheen->sheenColorFactor[i++] = static_cast<num>(value);
-                        }
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo sheenColorTexture;
-                    if (auto error = parseTextureInfo(sheenObject, "sheenColorTexture", &sheenColorTexture, config.extensions); error == Error::None) {
-                        sheen->sheenColorTexture = std::move(sheenColorTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    double sheenRoughnessFactor;
-                    if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor); error == SUCCESS) {
-                        sheen->sheenRoughnessFactor = static_cast<num>(sheenRoughnessFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo sheenRoughnessTexture;
-                    if (auto error = parseTextureInfo(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture, config.extensions); error == Error::None) {
-                        sheen->sheenRoughnessTexture = std::move(sheenRoughnessTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    material.sheen = std::move(sheen);
-                } else if (sheenError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_specular)) {
-                dom::object specularObject;
-                auto specularError = extensionsObject[extensions::KHR_materials_specular].get_object().get(specularObject);
-                if (specularError == SUCCESS) {
-                    auto specular = std::make_unique<MaterialSpecular>();
-
-                    double specularFactor;
-                    if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error == SUCCESS) {
-                        specular->specularFactor = static_cast<num>(specularFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo specularTexture;
-                    if (auto error = parseTextureInfo(specularObject, "specularTexture", &specularTexture, config.extensions); error == Error::None) {
-                        specular->specularTexture = std::move(specularTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    dom::array specularColorFactor;
-                    if (auto error = specularObject["specularColorFactor"].get_array().get(specularColorFactor); error == SUCCESS) {
-                        std::size_t i = 0;
-                        for (auto factor : specularColorFactor) {
-                            if (i >= specular->specularColorFactor.size()) {
-                                return Error::InvalidGltf;
-                            }
-                            double value;
-                            if (factor.get_double().get(value) != SUCCESS) {
-                                return Error::InvalidGltf;
-                            }
-                            specular->specularColorFactor[i++] = static_cast<num>(value);
-                        }
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo specularColorTexture;
-                    if (auto error = parseTextureInfo(specularObject, "specularColorTexture", &specularColorTexture, config.extensions); error == Error::None) {
-                        specular->specularColorTexture = std::move(specularColorTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    material.specular = std::move(specular);
-                } else if (specularError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_transmission)) {
-                dom::object transmissionObject;
-                auto transmissionError = extensionsObject[extensions::KHR_materials_transmission].get_object().get(transmissionObject);
-                if (transmissionError == SUCCESS) {
-                    auto transmission = std::make_unique<MaterialTransmission>();
-
-                    double transmissionFactor;
-                    if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor); error == SUCCESS) {
-                        transmission->transmissionFactor = static_cast<num>(transmissionFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo transmissionTexture;
-                    if (auto error = parseTextureInfo(transmissionObject, "transmissionTexture", &transmissionTexture, config.extensions); error == Error::None) {
-                        transmission->transmissionTexture = std::move(transmissionTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    material.transmission = std::move(transmission);
-                } else if (transmissionError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_unlit)) {
-                dom::object unlitObject;
-                auto unlitError = extensionsObject[extensions::KHR_materials_unlit].get_object().get(unlitObject);
-                if (unlitError == SUCCESS) {
-                    material.unlit = true;
-                } else if (unlitError != NO_SUCH_FIELD) {
-                    return Error::InvalidGltf;
-                }
-            }
-
-            if (hasBit(config.extensions, Extensions::KHR_materials_volume)) {
-                dom::object volumeObject;
-                auto volumeError = extensionsObject[extensions::KHR_materials_volume].get_object().get(volumeObject);
-                if (volumeError == SUCCESS) {
-                    auto volume = std::make_unique<MaterialVolume>();
-
-                    double thicknessFactor;
-                    if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) {
-                        volume->thicknessFactor = static_cast<num>(thicknessFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo thicknessTexture;
-                    if (auto error = parseTextureInfo(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) {
-                        volume->thicknessTexture = std::move(thicknessTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    double attenuationDistance;
-                    if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) {
-                        volume->attenuationDistance = static_cast<num>(attenuationDistance);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    dom::array attenuationColor;
-                    if (auto error = volumeObject["attenuationColor"].get_array().get(attenuationColor); error == SUCCESS) {
-                        std::size_t i = 0;
-                        for (auto factor : attenuationColor) {
-                            if (i >= volume->attenuationColor.size()) {
-                                return Error::InvalidGltf;
-                            }
-                            double value;
-                            if (factor.get_double().get(value) != SUCCESS) {
-                                return Error::InvalidGltf;
-                            }
-                            (volume->attenuationColor)[i++] = static_cast<num>(value);
-                        }
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    material.volume = std::move(volume);
-                } else if (volumeError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-
-			if (hasBit(config.extensions, Extensions::MSFT_packing_normalRoughnessMetallic)) {
-				dom::object normalRoughnessMetallic;
-				if (extensionsObject[extensions::MSFT_packing_normalRoughnessMetallic].get_object().get(normalRoughnessMetallic) == SUCCESS) {
-					TextureInfo textureInfo = {};
-					if (auto error = parseTextureInfo(normalRoughnessMetallic, "normalRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
-						material.packedNormalMetallicRoughnessTexture = std::move(textureInfo);
-					} else if (error != Error::MissingField) {
-						return error;
-					}
-				}
-			}
-
-			if (hasBit(config.extensions, Extensions::MSFT_packing_occlusionRoughnessMetallic)) {
-				dom::object occlusionRoughnessMetallic;
-				if (extensionsObject[extensions::MSFT_packing_occlusionRoughnessMetallic].get_object().get(occlusionRoughnessMetallic) == SUCCESS) {
-					auto packedTextures = std::make_unique<MaterialPackedTextures>();
-					TextureInfo textureInfo = {};
-					if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
-						packedTextures->occlusionRoughnessMetallicTexture = std::move(textureInfo);
-					} else if (error != Error::MissingField) {
-						return error;
-					}
-
-					if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "roughnessMetallicOcclusionTexture", &textureInfo, config.extensions); error == Error::None) {
-						packedTextures->roughnessMetallicOcclusionTexture = std::move(textureInfo);
-					} else if (error != Error::MissingField) {
-						return error;
-					}
-
-					if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "normalTexture", &textureInfo, config.extensions); error == Error::None) {
-						packedTextures->normalTexture = std::move(textureInfo);
-					} else if (error != Error::MissingField) {
-						return error;
-					}
-
-					material.packedOcclusionRoughnessMetallicTextures = std::move(packedTextures);
-				}
-			}
-
-#if FASTGLTF_ENABLE_DEPRECATED_EXT
-            if (hasBit(config.extensions, Extensions::KHR_materials_pbrSpecularGlossiness)) {
-                dom::object specularGlossinessObject;
-                auto specularGlossinessError = extensionsObject[extensions::KHR_materials_pbrSpecularGlossiness].get_object().get(specularGlossinessObject);
-                if (specularGlossinessError == SUCCESS) {
-                    auto specularGlossiness = std::make_unique<MaterialSpecularGlossiness>();
-
-                    dom::array diffuseFactor;
-                    if (auto error = specularGlossinessObject["diffuseFactor"].get_array().get(diffuseFactor); error == SUCCESS) {
-                        std::size_t i = 0;
-                        for (auto factor : diffuseFactor) {
-                            if (i >= specularGlossiness->diffuseFactor.size()) {
-                                return Error::InvalidGltf;
-                            }
-                            double value;
-                            if (factor.get_double().get(value) != SUCCESS) {
-                                return Error::InvalidGltf;
-                            }
-                            specularGlossiness->diffuseFactor[i++] = static_cast<num>(value);
-                        }
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo diffuseTexture;
-                    if (auto error = parseTextureInfo(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) {
-                        specularGlossiness->diffuseTexture = std::move(diffuseTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    dom::array specularFactor;
-                    if (auto error = specularGlossinessObject["specularFactor"].get_array().get(specularFactor); error == SUCCESS) {
-                        std::size_t i = 0;
-                        for (auto factor : specularFactor) {
-                            if (i >= specularGlossiness->specularFactor.size()) {
-                                return Error::InvalidGltf;
-                            }
-                            double value;
-                            if (factor.get_double().get(value) != SUCCESS) {
-                                return Error::InvalidGltf;
-                            }
-                            specularGlossiness->specularFactor[i++] = static_cast<num>(value);
-                        }
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    double glossinessFactor;
-                    if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) {
-                        specularGlossiness->glossinessFactor = static_cast<num>(glossinessFactor);
-                    } else if (error != NO_SUCH_FIELD) {
-                        return Error::InvalidGltf;
-                    }
-
-                    TextureInfo specularGlossinessTexture;
-                    if (auto error = parseTextureInfo(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) {
-                        specularGlossiness->specularGlossinessTexture = std::move(specularGlossinessTexture);
-                    } else if (error != Error::MissingField) {
-                        return error;
-                    }
-
-                    material.specularGlossiness = std::move(specularGlossiness);
-                } else if (specularGlossinessError != NO_SUCH_FIELD) {
-                    return Error::InvalidJson;
-                }
-            }
-#endif
+			parseMaterialExtensions(extensionsObject, material);
         } else if (extensionError != NO_SUCH_FIELD) {
             return Error::InvalidJson;
         }
