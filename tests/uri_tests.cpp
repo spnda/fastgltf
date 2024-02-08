@@ -114,6 +114,7 @@ TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 	auto asset = parser.loadGltfJson(&dataBuffer, "", fastgltf::Options::DontRequireValidAssetMember);
 	REQUIRE(asset.error() == fastgltf::Error::None);
 
+	REQUIRE(asset->images.size() == 1);
 	auto escaped = std::get<fastgltf::sources::URI>(asset->images.front().data);
 
 	// This only tests wether the default ctor of fastgltf::URI can handle percent-encoding correctly.

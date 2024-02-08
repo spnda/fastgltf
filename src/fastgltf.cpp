@@ -113,11 +113,11 @@ namespace fastgltf {
         return crc;
     }
 #elif defined(FASTGLTF_IS_A64)
-	[[gnu::hot, gnu::const, gnu::target("crc")]] std::uint32_t armv8_crc32c(std::string_view str) noexcept {
+	[[gnu::hot, gnu::const, gnu::target("+crc")]] std::uint32_t armv8_crc32c(std::string_view str) noexcept {
 		return armv8_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
 	}
 
-	[[gnu::hot, gnu::const, gnu::target("crc")]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
+	[[gnu::hot, gnu::const, gnu::target("+crc")]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
 		std::uint32_t crc = 0;
 
 		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang
@@ -131,21 +131,21 @@ namespace fastgltf {
 			d += sizeof value;
 		}
 
-		if (length >= sizeof(std::uint32_t)) {
+		if (length & sizeof(std::uint32_t)) {
 			std::uint32_t value;
 			std::memcpy(&value, d, sizeof value);
 			__asm__("crc32cw %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value));
 			d += sizeof value;
 		}
 
-		if (length >= sizeof(std::uint16_t)) {
+		if (length & sizeof(std::uint16_t)) {
 			std::uint16_t value;
 			std::memcpy(&value, d, sizeof value);
 			__asm__("crc32ch %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value));
 			d += sizeof value;
 		}
 
-		if (length >= sizeof(std::uint8_t)) {
+		if (length & sizeof(std::uint8_t)) {
 			__asm__("crc32cb %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(*d));
 		}
 
