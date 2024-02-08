@@ -4781,9 +4781,13 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
 			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
 
+	// Align the JSON string to a 4-byte length
+	auto alignedJsonLength = alignUp(json.size(), 4);
+	json.resize(alignedJsonLength, ' '); // Needs to be padded with space (0x20) chars.
+
     std::size_t binarySize = sizeof(BinaryGltfHeader) + sizeof(BinaryGltfChunk) + json.size();
     if (withEmbeddedBuffer) {
-        binarySize += sizeof(BinaryGltfChunk) + asset.buffers.front().byteLength;
+        binarySize += sizeof(BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4);
     }
 
     result.output.resize(binarySize);
@@ -4810,8 +4814,12 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 
         BinaryGltfChunk dataChunk;
         dataChunk.chunkType = binaryGltfDataChunkMagic;
-        dataChunk.chunkLength = buffer.byteLength;
+        dataChunk.chunkLength = alignUp(buffer.byteLength, 4);
         write(&dataChunk, sizeof dataChunk);
+		for (std::size_t i = 0; i < buffer.byteLength % 4; ++i) {
+			static constexpr std::uint8_t zero = 0x0U;
+			write(&zero, sizeof zero);
+		}
 
 		std::visit(visitor {
 			[](auto arg) {},

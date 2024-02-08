@@ -112,9 +112,9 @@ namespace fastgltf {
         return (flags & bit) == bit;
     }
 
-    template <typename T>
-    [[nodiscard]] constexpr T alignUp(T base, T alignment) {
-        static_assert(std::is_signed_v<T>, "alignUp requires type T to be signed.");
+    template <typename T, typename U>
+    [[nodiscard]] constexpr T alignUp(T base, U alignment) {
+        static_assert(std::is_signed_v<U>, "alignUp requires type U to be signed.");
         return (base + alignment - 1) & -alignment;
     }
 
