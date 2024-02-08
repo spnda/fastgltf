@@ -112,7 +112,10 @@ namespace fastgltf {
 
         return crc;
     }
-#elif defined(FASTGLTF_IS_A64)
+#elif defined(FASTGLTF_IS_A64) && !defined(_MSC_VER)
+// MSVC does not provide the arm crc32 intrinsics.
+#include <arm_acle.h>
+
 	[[gnu::hot, gnu::const, gnu::target("+crc")]] std::uint32_t armv8_crc32c(std::string_view str) noexcept {
 		return armv8_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
 	}
@@ -127,26 +130,26 @@ namespace fastgltf {
 		while ((length -= sizeof(std::uint64_t)) >= 0) {
 			std::uint64_t value;
 			std::memcpy(&value, d, sizeof value);
-			__asm__("crc32cx %w[c], %w[c], %x[v]":[c]"+r"(crc):[v]"r"(value));
+			crc = __crc32cd(crc, value);
 			d += sizeof value;
 		}
 
 		if (length & sizeof(std::uint32_t)) {
 			std::uint32_t value;
 			std::memcpy(&value, d, sizeof value);
-			__asm__("crc32cw %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value));
+			crc = __crc32cw(crc, value);
 			d += sizeof value;
 		}
 
 		if (length & sizeof(std::uint16_t)) {
 			std::uint16_t value;
 			std::memcpy(&value, d, sizeof value);
-			__asm__("crc32ch %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value));
+			crc = __crc32ch(crc, value);
 			d += sizeof value;
 		}
 
 		if (length & sizeof(std::uint8_t)) {
-			__asm__("crc32cb %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(*d));
+			crc = __crc32b(crc, *d);
 		}
 
 		return crc;
