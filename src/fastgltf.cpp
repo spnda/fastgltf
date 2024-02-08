@@ -729,7 +729,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 	file.read(reinterpret_cast<char*>(data.data()), length);
     sources::Array vectorSource = {
 		std::move(data),
-		MimeType::GltfBuffer,
+		MimeType::None,
 	};
 	return Expected<DataSource> { std::move(vectorSource) };
 }
@@ -4087,11 +4087,17 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
             [&](const sources::Array& vector) {
                 auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
                 json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
+				if (vector.mimeType != MimeType::None) {
+					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
+				}
                 imagePaths.emplace_back(path);
             },
 			[&](const sources::Vector& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
 				json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
+				if (vector.mimeType != MimeType::None) {
+					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
+				}
 				imagePaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
