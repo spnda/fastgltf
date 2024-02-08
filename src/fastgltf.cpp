@@ -2380,6 +2380,22 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
                 }
             }
 
+			if (hasBit(config.extensions, Extensions::KHR_materials_dispersion)) {
+				dom::object dispersionObject;
+				auto dispersionError = extensionsObject[extensions::KHR_materials_dispersion].get_object().get(dispersionObject);
+				if (dispersionError == SUCCESS) {
+					double dispersionFactor;
+					auto error = dispersionObject["dispersion"].get_double().get(dispersionFactor);
+					if (error == SUCCESS) {
+						material.dispersion = static_cast<num>(dispersionFactor);
+					} else if (error != NO_SUCH_FIELD) {
+						return Error::InvalidGltf;
+					}
+				} else if (dispersionError != NO_SUCH_FIELD) {
+					return Error::InvalidJson;
+				}
+			}
+
             if (hasBit(config.extensions, Extensions::KHR_materials_emissive_strength)) {
                 dom::object emissiveObject;
                 auto emissiveError = extensionsObject[extensions::KHR_materials_emissive_strength].get_object().get(emissiveObject);

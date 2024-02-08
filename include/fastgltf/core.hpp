@@ -195,6 +195,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Vendor/MSFT_packing_occlusionRoughnessMetallic/README.md
 		MSFT_packing_occlusionRoughnessMetallic = 1 << 22,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_dispersion
+		KHR_materials_dispersion = 1 << 23,
     };
     // clang-format on
 
@@ -302,6 +305,7 @@ namespace fastgltf {
         constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
 		constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
         constexpr std::string_view KHR_materials_clearcoat = "KHR_materials_clearcoat";
+		constexpr std::string_view KHR_materials_dispersion = "KHR_materials_dispersion";
         constexpr std::string_view KHR_materials_emissive_strength = "KHR_materials_emissive_strength";
         constexpr std::string_view KHR_materials_ior = "KHR_materials_ior";
         constexpr std::string_view KHR_materials_iridescence = "KHR_materials_iridescence";
@@ -327,9 +331,9 @@ namespace fastgltf {
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 21;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 22;
 #else
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 20;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 21;
 #endif
 	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
@@ -338,6 +342,7 @@ namespace fastgltf {
 		{ extensions::KHR_lights_punctual,                      Extensions::KHR_lights_punctual },
 		{ extensions::KHR_materials_anisotropy,                 Extensions::KHR_materials_anisotropy },
 		{ extensions::KHR_materials_clearcoat,                  Extensions::KHR_materials_clearcoat },
+		{ extensions::KHR_materials_dispersion,                 Extensions::KHR_materials_dispersion },
 		{ extensions::KHR_materials_emissive_strength,          Extensions::KHR_materials_emissive_strength },
 		{ extensions::KHR_materials_ior,                        Extensions::KHR_materials_ior },
 		{ extensions::KHR_materials_iridescence,                Extensions::KHR_materials_iridescence },

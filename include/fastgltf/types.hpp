@@ -1844,6 +1844,11 @@ namespace fastgltf {
          */
         bool unlit = false;
 
+		/**
+		 * The dispersion factor from KHR_materials_dispersion, specifies as 20/Abbe number (20/V).
+		 */
+		num dispersion = 0.0f;
+
         FASTGLTF_STD_PMR_NS::string name;
     };
 

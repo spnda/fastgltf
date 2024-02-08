@@ -258,3 +258,25 @@ TEST_CASE("Test KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
     REQUIRE(materials[3].specularGlossiness->diffuseTexture.value().textureIndex == 7);
 }
 #endif
+
+TEST_CASE("Test KHR_materials_dispersion", "[gltf-loader]") {
+	constexpr std::string_view json = R"({"materials": [
+        {
+            "extensions": {
+                "KHR_materials_dispersion": {
+                    "dispersion": 0.1
+                }
+            }
+        }
+    ]})";
+	fastgltf::GltfDataBuffer jsonData;
+	jsonData.copyBytes(reinterpret_cast<const uint8_t*>(json.data()), json.size());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_dispersion);
+	auto asset = parser.loadGltfJson(&jsonData, {}, fastgltf::Options::DontRequireValidAssetMember);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->materials.size() == 1);
+	REQUIRE(asset->materials.front().dispersion == 0.1f);
+}
