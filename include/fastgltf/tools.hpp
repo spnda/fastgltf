@@ -316,7 +316,7 @@ struct DefaultBufferDataAdapter {
 			},
 			[&](const sources::Vector& vec) {
 				return reinterpret_cast<const std::byte*>(vec.bytes.data());
-			}
+			},
 			[&](const sources::ByteView& bv) {
 				return bv.bytes.data();
 			},

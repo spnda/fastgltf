@@ -151,7 +151,7 @@ namespace fastgltf {
 		}
 
 		if (length & sizeof(std::uint8_t)) {
-			crc = __crc32b(crc, *d);
+			crc = __crc32cb(crc, *d);
 		}
 
 		return crc;
