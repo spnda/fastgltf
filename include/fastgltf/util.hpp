@@ -81,6 +81,13 @@
 #define FASTGLTF_HAS_BUILTIN(x) 0
 #endif
 
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#define FASTGLTF_IS_X86 1
+#elif defined(_M_ARM64) || defined(__aarch64__)
+// __ARM_NEON is only for general Neon availability. It does not guarantee the full A64 instruction set.
+#define FASTGLTF_IS_A64 1
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -228,13 +235,16 @@ namespace fastgltf {
         return crc;
     }
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#if defined(FASTGLTF_IS_X86)
     /**
      * Variant of crc32 that uses SSE4.2 instructions to increase performance. Note that this does not
      * check for availability of said instructions.
      */
-    [[gnu::hot, gnu::const]] std::uint32_t hwcrc32c(std::string_view str) noexcept;
-    [[gnu::hot, gnu::const]] std::uint32_t hwcrc32c(const std::uint8_t* d, std::size_t len) noexcept;
+    [[gnu::hot, gnu::const]] std::uint32_t sse_crc32c(std::string_view str) noexcept;
+    [[gnu::hot, gnu::const]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
+#elif defined(FASTGLTF_IS_A64)
+	[[gnu::hot, gnu::const]] std::uint32_t armv8_crc32c(std::string_view str) noexcept;
+	[[gnu::hot, gnu::const]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
 #endif
 
     /**

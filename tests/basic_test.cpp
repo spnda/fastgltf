@@ -71,9 +71,11 @@ TEST_CASE("Test all variants of CRC32-C hashing", "[gltf-loader]") {
         for (std::size_t j = 0; j < i; ++j)
             str[j] = chars[pick(rng)];
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-        // We'll try and test if the hardware accelerated version generates the same, correct results.
-        REQUIRE(fastgltf::crc32c(str) == fastgltf::hwcrc32c(str));
+		// We'll try and test if the hardware accelerated version generates the same, correct results.
+#if defined(FASTGLTF_IS_X86)
+        REQUIRE(fastgltf::crc32c(str) == fastgltf::sse_crc32c(str));
+#elif defined(FASTGLTF_IS_A64)
+		REQUIRE(fastgltf::crc32c(str) == fastgltf::armv8_crc32c(str));
 #endif
     }
 }

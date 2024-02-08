@@ -81,12 +81,12 @@ namespace fastgltf {
 
     using CRCStringFunction = std::uint32_t(*)(std::string_view str);
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t hwcrc32c(std::string_view str) noexcept {
-        return hwcrc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
+#if defined(FASTGLTF_IS_X86)
+    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(std::string_view str) noexcept {
+        return sse_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
     }
 
-    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t hwcrc32c(const std::uint8_t* d, std::size_t len) noexcept {
+    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
         std::uint32_t crc = 0;
 
         // Try to advance forwards until the address is aligned to 4 bytes.
@@ -112,11 +112,50 @@ namespace fastgltf {
 
         return crc;
     }
+#elif defined(FASTGLTF_IS_A64)
+	[[gnu::hot, gnu::const, gnu::target("crc")]] std::uint32_t armv8_crc32c(std::string_view str) noexcept {
+		return armv8_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
+	}
+
+	[[gnu::hot, gnu::const, gnu::target("crc")]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
+		std::uint32_t crc = 0;
+
+		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang
+		// than using a std::size_t i = 0.
+		// TODO: is there perhaps just some intrinsic we can use instead of inline asm?
+		auto length = static_cast<std::int64_t>(len);
+		while ((length -= sizeof(std::uint64_t)) >= 0) {
+			std::uint64_t value;
+			std::memcpy(&value, d, sizeof value);
+			__asm__("crc32cx %w[c], %w[c], %x[v]":[c]"+r"(crc):[v]"r"(value));
+			d += sizeof value;
+		}
+
+		if (length >= sizeof(std::uint32_t)) {
+			std::uint32_t value;
+			std::memcpy(&value, d, sizeof value);
+			__asm__("crc32cw %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value));
+			d += sizeof value;
+		}
+
+		if (length >= sizeof(std::uint16_t)) {
+			std::uint16_t value;
+			std::memcpy(&value, d, sizeof value);
+			__asm__("crc32ch %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value));
+			d += sizeof value;
+		}
+
+		if (length >= sizeof(std::uint8_t)) {
+			__asm__("crc32cb %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(*d));
+		}
+
+		return crc;
+	}
 #endif
 
     /**
      * Points to the most 'optimal' CRC32-C encoding function. After initialiseCrc has been called,
-     * this might also point to hwcrc32c. We only use this for runtime evaluation of hashes, and is
+     * this might also point to sse_crc32c or armv8_crc32c. We only use this for runtime evaluation of hashes, and is
      * intended to work for any length of data.
      */
     static CRCStringFunction crcStringFunction = crc32c;
@@ -127,11 +166,16 @@ namespace fastgltf {
      * Checks if SSE4.2 is available to try and use the hardware accelerated version.
      */
     void initialiseCrc() {
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
+#if defined(FASTGLTF_IS_X86)
         const auto& impls = simdjson::get_available_implementations();
         if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
-            crcStringFunction = hwcrc32c;
+            crcStringFunction = sse_crc32c;
         }
+#elif defined(FASTGLTF_IS_A64)
+		const auto& impls = simdjson::get_available_implementations();
+		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
+			crcStringFunction = armv8_crc32c;
+		}
 #endif
     }
 

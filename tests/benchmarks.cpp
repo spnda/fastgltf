@@ -338,17 +338,21 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
     };
 }
 
-#if defined(FASTGLTF_IS_X86)
 TEST_CASE("Small CRC32-C benchmark", "[gltf-benchmark]") {
     static constexpr std::string_view test = "abcdefghijklmnopqrstuvwxyz";
     BENCHMARK("Default 1-byte tabular algorithm") {
         return fastgltf::crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
     };
+#if defined(FASTGLTF_IS_X86)
     BENCHMARK("SSE4 hardware algorithm") {
-        return fastgltf::hwcrc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
+        return fastgltf::sse_crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
     };
-}
+#elif defined(FASTGLTF_IS_A64)
+	BENCHMARK("ARMv8 hardware CRC32-C algorithm") {
+		return fastgltf::armv8_crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
+	};
 #endif
+}
 
 TEST_CASE("Compare base64 decoding performance", "[gltf-benchmark]") {
 	std::string base64Characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

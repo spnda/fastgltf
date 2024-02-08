@@ -38,13 +38,6 @@
 #pragma warning(disable : 5030)
 #endif
 
-#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_IX86)
-#define FASTGLTF_IS_X86
-#elif defined(_M_ARM64) || defined(__aarch64__)
-// __ARM_NEON is only for general Neon availability. It does not guarantee the full A64 instruction set.
-#define FASTGLTF_IS_A64
-#endif
-
 namespace fastgltf::base64 {
     /**
      * Calculates the amount of base64 padding chars ('=') at the end of the encoded string.
