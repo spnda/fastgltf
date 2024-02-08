@@ -183,12 +183,12 @@ namespace fastgltf {
 		using namespace simdjson;
 
 		dom::object sourceExtensionObject;
-		if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) {
+		if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) FASTGLTF_UNLIKELY {
 			return std::make_tuple(false, true, 0U);
 		}
 
 		std::uint64_t imageIndex;
-		if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) {
+		if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) FASTGLTF_UNLIKELY {
 			return std::make_tuple(true, false, 0U);
 		}
 
@@ -242,7 +242,7 @@ namespace fastgltf {
 		if (error == NO_SUCH_FIELD) {
 			return Error::MissingField;
 		}
-		if (error == SUCCESS) {
+		if (error == SUCCESS) FASTGLTF_LIKELY {
 			return Error::None;
 		}
 		return Error::InvalidJson;
@@ -261,72 +261,72 @@ namespace fastgltf {
 		const auto childErr = object[key].get_object().get(child);
 		if (childErr == NO_SUCH_FIELD) {
 			return Error::MissingField; // Don't set errorCode.
-		} else if (childErr != SUCCESS) {
+		} else if (childErr != SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
 		std::uint64_t index;
-		if (child["index"].get_uint64().get(index) == SUCCESS) {
+		if (child["index"].get_uint64().get(index) == SUCCESS) FASTGLTF_LIKELY {
 			info->textureIndex = static_cast<std::size_t>(index);
 		} else {
 			return Error::InvalidGltf;
 		}
 
-		if (auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) {
+		if (auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
 			info->texCoordIndex = static_cast<std::size_t>(index);
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
 		}
 
 		if (type == TextureInfoType::NormalTexture) {
             double scale;
-			if (auto error = child["scale"].get_double().get(scale); error == SUCCESS) {
+			if (auto error = child["scale"].get_double().get(scale); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<num>(scale);
-			} else if (error != NO_SUCH_FIELD) {
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
 			}
 		} else if (type == TextureInfoType::OcclusionTexture) {
 			double strength;
-			if (auto error = child["strength"].get_double().get(strength); error == SUCCESS) {
+			if (auto error = child["strength"].get_double().get(strength); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<num>(strength);
-			} else if (error != NO_SUCH_FIELD) {
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 		}
 
 		dom::object extensionsObject;
-		if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) {
+		if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) FASTGLTF_LIKELY {
 			dom::object textureTransform;
-			if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) {
+			if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) FASTGLTF_LIKELY {
 				auto transform = std::make_unique<TextureTransform>();
 				transform->rotation = 0.0F;
 				transform->uvOffset = {{ 0.0F, 0.0F }};
 				transform->uvScale = {{ 1.0F, 1.0F }};
 
-				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) {
+				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) FASTGLTF_LIKELY {
 					transform->texCoordIndex = index;
 				}
 
 				double rotation = 0.0F;
-				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) {
+				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) FASTGLTF_LIKELY {
 					transform->rotation = static_cast<num>(rotation);
 				}
 
 				dom::array array;
-				if (textureTransform["offset"].get_array().get(array) == SUCCESS) {
+				if (textureTransform["offset"].get_array().get(array) == SUCCESS) FASTGLTF_LIKELY {
 					for (auto i = 0U; i < 2; ++i) {
 						double val;
-						if (array.at(i).get_double().get(val) != SUCCESS) {
+						if (array.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
 							return Error::InvalidGltf;
 						}
 						transform->uvOffset[i] = static_cast<num>(val);
 					}
 				}
 
-				if (textureTransform["scale"].get_array().get(array) == SUCCESS) {
+				if (textureTransform["scale"].get_array().get(array) == SUCCESS) FASTGLTF_LIKELY {
 					for (auto i = 0U; i < 2; ++i) {
 						double val;
-						if (array.at(i).get_double().get(val) != SUCCESS) {
+						if (array.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
 							return Error::InvalidGltf;
 						}
 						transform->uvScale[i] = static_cast<num>(val);
@@ -1207,12 +1207,12 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		if (error == NO_SUCH_FIELD) {
 			return Expected<Asset>(Error::InvalidOrMissingAssetField);
 		}
-		if (error != SUCCESS) {
+		if (error != SUCCESS) FASTGLTF_UNLIKELY {
 			return Expected<Asset>(Error::InvalidJson);
 		}
 
 		std::string_view version;
-		if (assetInfo["version"].get_string().get(version) != SUCCESS) {
+		if (assetInfo["version"].get_string().get(version) != SUCCESS) FASTGLTF_UNLIKELY {
 			return Expected<Asset>(Error::InvalidOrMissingAssetField);
 		}
 
@@ -1224,12 +1224,12 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		info.gltfVersion = std::string { version };
 
 		std::string_view copyright;
-		if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) {
+		if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) FASTGLTF_LIKELY {
 			info.copyright = std::string { copyright };
 		}
 
 		std::string_view generator;
-		if (assetInfo["generator"].get_string().get(generator) == SUCCESS) {
+		if (assetInfo["generator"].get_string().get(generator) == SUCCESS) FASTGLTF_LIKELY {
 			info.generator = std::string { generator };
 		}
 
@@ -1237,10 +1237,10 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	}
 
 	dom::array extensionsRequired;
-	if (root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) {
+	if (root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) FASTGLTF_LIKELY {
 		for (auto extension : extensionsRequired) {
 			std::string_view string;
-			if (extension.get_string().get(string) != SUCCESS) {
+			if (extension.get_string().get(string) != SUCCESS) FASTGLTF_UNLIKELY {
 				return Expected<Asset>(Error::InvalidGltf);
 			}
 
@@ -1269,7 +1269,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		auto hashedKey = crcStringFunction(object.key);
 		if (hashedKey == force_consteval<crc32c("scene")>) {
 			std::uint64_t defaultScene;
-			if (object.value.get_uint64().get(defaultScene) != SUCCESS) {
+			if (object.value.get_uint64().get(defaultScene) != SUCCESS) FASTGLTF_UNLIKELY {
 				return Expected<Asset>(Error::InvalidGltf);
 			}
 			asset.defaultScene = static_cast<std::size_t>(defaultScene);
@@ -1278,7 +1278,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 		if (hashedKey == force_consteval<crc32c("extensions")>) {
 			dom::object extensionsObject;
-			if (object.value.get_object().get(extensionsObject) != SUCCESS) {
+			if (object.value.get_object().get(extensionsObject) != SUCCESS) FASTGLTF_UNLIKELY {
 				return Expected<Asset>(Error::InvalidGltf);
 			}
 
@@ -1292,7 +1292,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 
 		dom::array array;
-		if (object.value.get_array().get(array) != SUCCESS) {
+		if (object.value.get_array().get(array) != SUCCESS) FASTGLTF_UNLIKELY {
 			return Expected<Asset>(Error::InvalidGltf);
 		}
 
@@ -1320,7 +1320,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			case force_consteval<crc32c("extensionsUsed")>: {
 				for (auto usedValue : array) {
 					std::string_view usedString;
-					if (auto eError = usedValue.get_string().get(usedString); eError == SUCCESS) {
+					if (auto eError = usedValue.get_string().get(usedString); eError == SUCCESS) FASTGLTF_LIKELY {
 						FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(string, resourceAllocator.get(), usedString);
 						asset.extensionsUsed.emplace_back(std::move(string));
 					} else {
@@ -1362,12 +1362,12 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
         // Required fields: "componentType", "count"
         Accessor accessor = {};
         dom::object accessorObject;
-        if (accessorValue.get_object().get(accessorObject) != SUCCESS) {
+        if (accessorValue.get_object().get(accessorObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         std::uint64_t componentType;
-        if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) {
+        if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 		accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
@@ -1376,35 +1376,35 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
         }
 
         std::string_view accessorType;
-        if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) {
+        if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 		accessor.type = getAccessorType(accessorType);
 
         std::uint64_t accessorCount;
-        if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) {
+        if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 		accessor.count = static_cast<std::size_t>(accessorCount);
 
 
         std::uint64_t bufferView;
-        if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) {
+        if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) FASTGLTF_LIKELY {
             accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
         }
 
         // byteOffset is optional, but defaults to 0
         std::uint64_t byteOffset;
-        if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) {
+        if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) FASTGLTF_LIKELY {
             accessor.byteOffset = static_cast<std::size_t>(byteOffset);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         // Type of min and max should always be the same.
         auto parseMinMax = [&](std::string_view key, decltype(Accessor::max)& ref) -> fastgltf::Error {
             dom::array elements;
-            if (accessorObject[key].get_array().get(elements) == SUCCESS) {
+            if (accessorObject[key].get_array().get(elements) == SUCCESS) FASTGLTF_LIKELY {
                 decltype(Accessor::max) variant;
 
 				using double_vec = std::variant_alternative_t<1, decltype(Accessor::max)>;
@@ -1429,7 +1429,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
                             }
 
                             double value;
-                            if (element.get_double().get(value) != SUCCESS) {
+                            if (element.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                                 return Error::InvalidGltf;
                             }
                             if (!std::holds_alternative<double_vec>(variant)) {
@@ -1440,7 +1440,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
                         }
                         case dom::element_type::INT64: {
                             std::int64_t value;
-                            if (element.get_int64().get(value) != SUCCESS) {
+                            if (element.get_int64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                                 return Error::InvalidGltf;
                             }
 
@@ -1458,7 +1458,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
                             // truncating uint64 to int64 wouldn't make any difference, as those large values
                             // aren't allowed anyway.
                             std::uint64_t value;
-                            if (element.get_uint64().get(value) != SUCCESS) {
+                            if (element.get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                                 return Error::InvalidGltf;
                             }
 
@@ -1486,7 +1486,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
             return error;
         }
 
-        if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) {
+        if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
@@ -1496,49 +1496,49 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
 		}
 
         dom::object sparseAccessorObject;
-        if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) {
+        if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) FASTGLTF_LIKELY {
             SparseAccessor sparse = {};
             std::uint64_t value;
             dom::object child;
-            if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) {
+            if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             sparse.count = static_cast<std::size_t>(value);
 
             // Accessor Sparce Indices
-            if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) {
+            if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
-            if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
+            if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             sparse.indicesBufferView = static_cast<std::size_t>(value);
 
-            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) {
+            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
                 sparse.indicesByteOffset = static_cast<std::size_t>(value);
-            } else if (error != NO_SUCH_FIELD) {
+            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
-            if (child["componentType"].get_uint64().get(value) != SUCCESS) {
+            if (child["componentType"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             sparse.indexComponentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
 
             // Accessor Sparse Values
-            if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) {
+            if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
-            if (child["bufferView"].get_uint64().get(value) != SUCCESS) {
+            if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             sparse.valuesBufferView = static_cast<std::size_t>(value);
 
-            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) {
+            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
                 sparse.valuesByteOffset = static_cast<std::size_t>(value);
-            } else if (error != NO_SUCH_FIELD) {
+            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
@@ -1563,7 +1563,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
     for (auto animationValue : animations) {
         dom::object animationObject;
         Animation animation = {};
-        if (animationValue.get_object().get(animationObject) != SUCCESS) {
+        if (animationValue.get_object().get(animationObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
@@ -1578,24 +1578,24 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
         for (auto channelValue : channels) {
             dom::object channelObject;
             AnimationChannel channel = {};
-            if (channelValue.get_object().get(channelObject) != SUCCESS) {
+            if (channelValue.get_object().get(channelObject) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
             std::uint64_t sampler;
-            if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) {
+            if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             channel.samplerIndex = static_cast<std::size_t>(sampler);
 
             dom::object targetObject;
-            if (channelObject["target"].get_object().get(targetObject) != SUCCESS) {
+            if (channelObject["target"].get_object().get(targetObject) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             } else {
                 std::uint64_t node;
-				if (auto error = targetObject["node"].get_uint64().get(node); error == SUCCESS) {
+				if (auto error = targetObject["node"].get_uint64().get(node); error == SUCCESS) FASTGLTF_LIKELY {
 					channel.nodeIndex = static_cast<std::size_t>(node);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					// the glTF spec allows the node index of an animation channel to be absent, and requires
 					// implementations to just ignore the animation if no extension exists to override it.
 					// > When node isn't defined, channel SHOULD be ignored.
@@ -1603,7 +1603,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 				}
 
                 std::string_view path;
-                if (targetObject["path"].get_string().get(path) != SUCCESS) {
+                if (targetObject["path"].get_string().get(path) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
 
@@ -1632,24 +1632,24 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
         for (auto samplerValue : samplers) {
             dom::object samplerObject;
             AnimationSampler sampler = {};
-            if (samplerValue.get_object().get(samplerObject) != SUCCESS) {
+            if (samplerValue.get_object().get(samplerObject) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
             std::uint64_t input;
-            if (samplerObject["input"].get_uint64().get(input) != SUCCESS) {
+            if (samplerObject["input"].get_uint64().get(input) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             sampler.inputAccessor = static_cast<std::size_t>(input);
 
             std::uint64_t output;
-            if (samplerObject["output"].get_uint64().get(output) != SUCCESS) {
+            if (samplerObject["output"].get_uint64().get(output) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             sampler.outputAccessor = static_cast<std::size_t>(output);
 
             std::string_view interpolation;
-            if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) {
+            if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) FASTGLTF_UNLIKELY {
                 sampler.interpolation = AnimationInterpolation::Linear;
             } else {
                 if (interpolation == "LINEAR") {
@@ -1686,12 +1686,12 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
         // Required fields: "byteLength"
         Buffer buffer = {};
         dom::object bufferObject;
-        if (bufferValue.get_object().get(bufferObject) != SUCCESS) {
+        if (bufferValue.get_object().get(bufferObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         std::uint64_t byteLength;
-        if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) {
+        if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 		buffer.byteLength = static_cast<std::size_t>(byteLength);
@@ -1712,7 +1712,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
         // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
         // file. Otherwise, data must be specified in the "uri" field.
         std::string_view uriString;
-        if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) {
+        if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) FASTGLTF_LIKELY {
 			URIView uriView(uriString);
 
             if (!uriView.valid()) {
@@ -1771,59 +1771,59 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
 	asset.bufferViews.reserve(bufferViews.size());
     for (auto bufferViewValue : bufferViews) {
         dom::object bufferViewObject;
-        if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) {
+        if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         std::uint64_t number;
         BufferView view;
-        if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) {
+        if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
             return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
         }
         view.bufferIndex = static_cast<std::size_t>(number);
 
-        if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) {
+        if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
             view.byteOffset = static_cast<std::size_t>(number);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
         }
 
-        if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) {
+        if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
             return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
         }
         view.byteLength = static_cast<std::size_t>(number);
 
-        if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) {
+        if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
             view.byteStride = static_cast<std::size_t>(number);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
         }
 
-        if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) {
+        if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
             view.target = static_cast<BufferTarget>(number);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
         }
 
         std::string_view string;
         if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
 	        view.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(view.name), resourceAllocator.get(), string);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
         }
 
         dom::object extensionObject;
-        if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) {
+        if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) FASTGLTF_LIKELY {
             dom::object meshoptCompression;
-            if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
+            if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) FASTGLTF_LIKELY {
                 auto compression = std::make_unique<CompressedBufferView>();
 
-                if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->bufferIndex = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) {
+                if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
                     compression->byteOffset = static_cast<std::size_t>(number);
                 } else if (error == NO_SUCH_FIELD) {
                     compression->byteOffset = 0;
@@ -1831,22 +1831,22 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
                     return Error::InvalidJson;
                 }
 
-                if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->byteLength = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->byteStride = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) {
+                if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 compression->count = number;
 
-                if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) {
+                if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) FASTGLTF_UNLIKELY {
                     return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
                 }
                 switch (crcStringFunction(string)) {
@@ -1867,7 +1867,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
                     }
                 }
 
-                if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) {
+                if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) FASTGLTF_LIKELY {
                     switch (crcStringFunction(string)) {
                         case force_consteval<crc32c("NONE")>: {
                             compression->filter = MeshoptCompressionFilter::None;
@@ -1912,7 +1912,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
     for (auto cameraValue : cameras) {
         Camera camera = {};
         dom::object cameraObject;
-        if (cameraValue.get_object().get(cameraObject) != SUCCESS) {
+        if (cameraValue.get_object().get(cameraObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
@@ -1922,32 +1922,37 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
         }
 
         std::string_view type;
-        if (cameraObject["type"].get_string().get(type) != SUCCESS) {
+        if (cameraObject["type"].get_string().get(type) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         if (type == "perspective") {
             dom::object perspectiveCamera;
-            if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) {
+            if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
             Camera::Perspective perspective = {};
             double value;
-            if (perspectiveCamera["aspectRatio"].get_double().get(value) == SUCCESS) {
+            if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) FASTGLTF_LIKELY {
                 perspective.aspectRatio = static_cast<num>(value);
-            }
-            if (perspectiveCamera["zfar"].get_double().get(value) == SUCCESS) {
-                perspective.zfar = static_cast<num>(value);
-            }
+            } else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
 
-            if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) {
+            if (auto error = perspectiveCamera["zfar"].get_double().get(value); error == SUCCESS) FASTGLTF_LIKELY {
+                perspective.zfar = static_cast<num>(value);
+            } else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+            if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
                 perspective.yfov = static_cast<num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
-            if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) {
+            if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
                 perspective.znear = static_cast<num>(value);
             } else {
                 return Error::InvalidGltf;
@@ -1956,31 +1961,31 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
             camera.camera = perspective;
         } else if (type == "orthographic") {
             dom::object orthographicCamera;
-            if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) {
+            if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
             Camera::Orthographic orthographic = {};
             double value;
-            if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) {
+            if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
                 orthographic.xmag = static_cast<num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
-            if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) {
+            if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
                 orthographic.ymag = static_cast<num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
-            if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) {
+            if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
                 orthographic.zfar = static_cast<num>(value);
             } else {
                 return Error::InvalidGltf;
             }
 
-            if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) {
+            if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
                 orthographic.znear = static_cast<num>(value);
             } else {
                 return Error::InvalidGltf;
@@ -2002,7 +2007,7 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 
     for (auto extensionValue : extensionsObject) {
         dom::object extensionObject;
-        if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) {
+        if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) FASTGLTF_UNLIKELY {
             if (error == INCORRECT_TYPE) {
                 continue; // We want to ignore
             }
@@ -2016,10 +2021,10 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
                     break;
 
                 dom::array lightsArray;
-                if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) {
+                if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) FASTGLTF_LIKELY {
                     if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
 						return lightsError;
-                } else if (error != NO_SUCH_FIELD) {
+                } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
                 break;
@@ -2037,13 +2042,13 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
     for (auto imageValue : images) {
         Image image = {};
         dom::object imageObject;
-        if (imageValue.get_object().get(imageObject) != SUCCESS) {
+        if (imageValue.get_object().get(imageObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         std::string_view uriString;
-        if (imageObject["uri"].get_string().get(uriString) == SUCCESS) {
-            if (imageObject["bufferView"].error() == SUCCESS) {
+        if (imageObject["uri"].get_string().get(uriString) == SUCCESS) FASTGLTF_LIKELY {
+            if (imageObject["bufferView"].error() == SUCCESS) FASTGLTF_LIKELY {
                 // If uri is declared, bufferView cannot be declared.
                 return Error::InvalidGltf;
             }
@@ -2075,7 +2080,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
             }
 
             std::string_view mimeType;
-            if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) {
+            if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) FASTGLTF_LIKELY {
                 std::visit([&](auto& arg) {
                     using T = std::decay_t<decltype(arg)>;
 
@@ -2088,9 +2093,9 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
         }
 
         std::uint64_t bufferViewIndex;
-        if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) {
+        if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) FASTGLTF_LIKELY {
             std::string_view mimeType;
-            if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) {
+            if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) FASTGLTF_UNLIKELY {
                 // If bufferView is defined, mimeType needs to also be defined.
                 return Error::InvalidGltf;
             }
@@ -2123,13 +2128,13 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
     asset.lights.reserve(lights.size());
     for (auto lightValue : lights) {
         dom::object lightObject;
-        if (lightValue.get_object().get(lightObject) != SUCCESS) {
+        if (lightValue.get_object().get(lightObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
         Light light = {};
 
         std::string_view type;
-        if (lightObject["type"].get_string().get(type) == SUCCESS) {
+        if (lightObject["type"].get_string().get(type) == SUCCESS) FASTGLTF_LIKELY {
             switch (crcStringFunction(type.data())) {
                 case force_consteval<crc32c("directional")>: {
                     light.type = LightType::Directional;
@@ -2153,12 +2158,12 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
 
         if (light.type == LightType::Spot) {
             dom::object spotObject;
-            if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) {
+            if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
             double innerConeAngle;
-            if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) {
+            if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
                 light.innerConeAngle = static_cast<num>(innerConeAngle);
             } else if (error == NO_SUCH_FIELD) {
                 light.innerConeAngle = 0.0f;
@@ -2167,7 +2172,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
             }
 
             double outerConeAngle;
-            if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) {
+            if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
                 light.outerConeAngle = static_cast<num>(outerConeAngle);
             } else if (error == NO_SUCH_FIELD) {
                 static constexpr double pi = 3.141592653589793116;
@@ -2178,13 +2183,13 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
         }
 
         dom::array colorArray;
-        if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) {
+        if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) FASTGLTF_LIKELY {
             if (colorArray.size() != 3U) {
                 return Error::InvalidGltf;
             }
             for (std::size_t i = 0U; i < colorArray.size(); ++i) {
                 double color;
-                if (colorArray.at(i).get_double().get(color) == SUCCESS) {
+                if (colorArray.at(i).get_double().get(color) == SUCCESS) FASTGLTF_LIKELY {
                     light.color[i] = static_cast<num>(color);
                 } else {
                     return Error::InvalidGltf;
@@ -2197,14 +2202,14 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
         }
 
         double intensity;
-        if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) {
+        if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) FASTGLTF_LIKELY {
             light.intensity = static_cast<num>(intensity);
         } else {
             light.intensity = 0.0f;
         }
 
         double range;
-        if (lightObject["range"].get_double().get(range) == SUCCESS) {
+        if (lightObject["range"].get_double().get(range) == SUCCESS) FASTGLTF_LIKELY {
             light.range = static_cast<num>(range);
         }
 
@@ -2232,7 +2237,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object anisotropyObject;
 				auto anisotropyError = extensionField.value.get_object().get(anisotropyObject);
-				if (anisotropyError != SUCCESS) {
+				if (anisotropyError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2240,23 +2245,23 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				double anisotropyStrength;
 				if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength);
-						error == SUCCESS) {
+						error == SUCCESS) FASTGLTF_LIKELY {
 					anisotropy->anisotropyStrength = static_cast<num>(anisotropyStrength);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidJson;
 				}
 
 				double anisotropyRotation;
 				if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation);
-						error == SUCCESS) {
+						error == SUCCESS) FASTGLTF_LIKELY {
 					anisotropy->anisotropyRotation = static_cast<num>(anisotropyRotation);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidJson;
 				}
 
 				TextureInfo anisotropyTexture;
 				if (auto error = parseTextureInfo(anisotropyObject, "anisotropyTexture", &anisotropyTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					anisotropy->anisotropyTexture = std::move(anisotropyTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2269,7 +2274,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object clearcoatObject;
 				auto clearcoatError = extensionField.value.get_object().get(clearcoatObject);
-				if (clearcoatError != SUCCESS) {
+				if (clearcoatError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2279,13 +2284,13 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 				if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error ==
 																									   SUCCESS) {
 					clearcoat->clearcoatFactor = static_cast<num>(clearcoatFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidJson;
 				}
 
 				TextureInfo clearcoatTexture;
 				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatTexture", &clearcoatTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					clearcoat->clearcoatTexture = std::move(clearcoatTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2293,9 +2298,9 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				double clearcoatRoughnessFactor;
 				if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(
-							clearcoatRoughnessFactor); error == SUCCESS) {
+							clearcoatRoughnessFactor); error == SUCCESS) FASTGLTF_LIKELY {
 					clearcoat->clearcoatRoughnessFactor = static_cast<num>(clearcoatRoughnessFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidJson;
 				}
 
@@ -2326,15 +2331,15 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object dispersionObject;
 				auto dispersionError = extensionField.value.get_object().get(dispersionObject);
-				if (dispersionError != SUCCESS) {
+				if (dispersionError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double dispersionFactor;
 				auto error = dispersionObject["dispersion"].get_double().get(dispersionFactor);
-				if (error == SUCCESS) {
+				if (error == SUCCESS) FASTGLTF_LIKELY {
 					material.dispersion = static_cast<num>(dispersionFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				break;
@@ -2345,15 +2350,15 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object emissiveObject;
 				auto emissiveError = extensionField.value.get_object().get(emissiveObject);
-				if (emissiveError != SUCCESS) {
+				if (emissiveError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double emissiveStrength;
 				auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
-				if (error == SUCCESS) {
+				if (error == SUCCESS) FASTGLTF_LIKELY {
 					material.emissiveStrength = static_cast<num>(emissiveStrength);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				break;
@@ -2364,15 +2369,15 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object iorObject;
 				auto iorError = extensionField.value.get_object().get(iorObject);
-				if (iorError != SUCCESS) {
+				if (iorError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double ior;
 				auto error = iorObject["ior"].get_double().get(ior);
-				if (error == SUCCESS) {
+				if (error == SUCCESS) FASTGLTF_LIKELY {
 					material.ior = static_cast<num>(ior);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidJson;
 				}
 				break;
@@ -2383,7 +2388,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object iridescenceObject;
 				auto iridescenceError = extensionField.value.get_object().get(iridescenceObject);
-				if (iridescenceError != SUCCESS) {
+				if (iridescenceError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2391,15 +2396,15 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				double iridescenceFactor;
 				if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor);
-						error == SUCCESS) {
+						error == SUCCESS) FASTGLTF_LIKELY {
 					iridescence->iridescenceFactor = static_cast<num>(iridescenceFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo iridescenceTexture;
 				if (auto error = parseTextureInfo(iridescenceObject, "iridescenceTexture", &iridescenceTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					iridescence->iridescenceTexture = std::move(iridescenceTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2409,23 +2414,23 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 				if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error ==
 																									   SUCCESS) {
 					iridescence->iridescenceIor = static_cast<num>(iridescenceIor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double iridescenceThicknessMinimum;
 				if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(
-							iridescenceThicknessMinimum); error == SUCCESS) {
+							iridescenceThicknessMinimum); error == SUCCESS) FASTGLTF_LIKELY {
 					iridescence->iridescenceThicknessMinimum = static_cast<num>(iridescenceThicknessMinimum);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double iridescenceThicknessMaximum;
 				if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(
-							iridescenceThicknessMaximum); error == SUCCESS) {
+							iridescenceThicknessMaximum); error == SUCCESS) FASTGLTF_LIKELY {
 					iridescence->iridescenceThicknessMaximum = static_cast<num>(iridescenceThicknessMaximum);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2447,7 +2452,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object sheenObject;
 				auto sheenError = extensionField.value.get_object().get(sheenObject);
-				if (sheenError != SUCCESS) {
+				if (sheenError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2462,18 +2467,18 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 							return Error::InvalidGltf;
 						}
 						double value;
-						if (factor.get_double().get(value) != SUCCESS) {
+						if (factor.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
 							return Error::InvalidGltf;
 						}
 						sheen->sheenColorFactor[i++] = static_cast<num>(value);
 					}
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo sheenColorTexture;
 				if (auto error = parseTextureInfo(sheenObject, "sheenColorTexture", &sheenColorTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					sheen->sheenColorTexture = std::move(sheenColorTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2481,15 +2486,15 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				double sheenRoughnessFactor;
 				if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor);
-						error == SUCCESS) {
+						error == SUCCESS) FASTGLTF_LIKELY {
 					sheen->sheenRoughnessFactor = static_cast<num>(sheenRoughnessFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo sheenRoughnessTexture;
 				if (auto error = parseTextureInfo(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					sheen->sheenRoughnessTexture = std::move(sheenRoughnessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2504,7 +2509,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object specularObject;
 				auto specularError = extensionField.value.get_object().get(specularObject);
-				if (specularError != SUCCESS) {
+				if (specularError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2514,13 +2519,13 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 				if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error ==
 																									SUCCESS) {
 					specular->specularFactor = static_cast<num>(specularFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo specularTexture;
 				if (auto error = parseTextureInfo(specularObject, "specularTexture", &specularTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					specular->specularTexture = std::move(specularTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2528,25 +2533,25 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::array specularColorFactor;
 				if (auto error = specularObject["specularColorFactor"].get_array().get(specularColorFactor);
-						error == SUCCESS) {
+						error == SUCCESS) FASTGLTF_LIKELY {
 					std::size_t i = 0;
 					for (auto factor: specularColorFactor) {
 						if (i >= specular->specularColorFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
-						if (factor.get_double().get(value) != SUCCESS) {
+						if (factor.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
 							return Error::InvalidGltf;
 						}
 						specular->specularColorFactor[i++] = static_cast<num>(value);
 					}
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo specularColorTexture;
 				if (auto error = parseTextureInfo(specularObject, "specularColorTexture", &specularColorTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					specular->specularColorTexture = std::move(specularColorTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2561,7 +2566,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object transmissionObject;
 				auto transmissionError = extensionField.value.get_object().get(transmissionObject);
-				if (transmissionError != SUCCESS) {
+				if (transmissionError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2569,15 +2574,15 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				double transmissionFactor;
 				if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor);
-						error == SUCCESS) {
+						error == SUCCESS) FASTGLTF_LIKELY {
 					transmission->transmissionFactor = static_cast<num>(transmissionFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo transmissionTexture;
 				if (auto error = parseTextureInfo(transmissionObject, "transmissionTexture", &transmissionTexture,
-												  config.extensions); error == Error::None) {
+												  config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					transmission->transmissionTexture = std::move(transmissionTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2592,7 +2597,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object unlitObject;
 				auto unlitError = extensionField.value.get_object().get(unlitObject);
-				if (unlitError == SUCCESS) {
+				if (unlitError == SUCCESS) FASTGLTF_LIKELY {
 					material.unlit = true;
 				} else {
 					return Error::InvalidGltf;
@@ -2605,47 +2610,47 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object volumeObject;
 				auto volumeError = extensionField.value.get_object().get(volumeObject);
-				if (volumeError != SUCCESS) {
+				if (volumeError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				auto volume = std::make_unique<MaterialVolume>();
 
 				double thicknessFactor;
-				if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) {
+				if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) FASTGLTF_LIKELY {
 					volume->thicknessFactor = static_cast<num>(thicknessFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo thicknessTexture;
-				if (auto error = parseTextureInfo(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) {
+				if (auto error = parseTextureInfo(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					volume->thicknessTexture = std::move(thicknessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
 
 				double attenuationDistance;
-				if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) {
+				if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) FASTGLTF_LIKELY {
 					volume->attenuationDistance = static_cast<num>(attenuationDistance);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				dom::array attenuationColor;
-				if (auto error = volumeObject["attenuationColor"].get_array().get(attenuationColor); error == SUCCESS) {
+				if (auto error = volumeObject["attenuationColor"].get_array().get(attenuationColor); error == SUCCESS) FASTGLTF_LIKELY {
 					std::size_t i = 0;
 					for (auto factor : attenuationColor) {
 						if (i >= volume->attenuationColor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
-						if (factor.get_double().get(value) != SUCCESS) {
+						if (factor.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
 							return Error::InvalidGltf;
 						}
 						(volume->attenuationColor)[i++] = static_cast<num>(value);
 					}
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
@@ -2657,11 +2662,11 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 					break;
 
 				dom::object normalRoughnessMetallic;
-				if (extensionField.value.get_object().get(normalRoughnessMetallic) != SUCCESS) {
+				if (extensionField.value.get_object().get(normalRoughnessMetallic) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				TextureInfo textureInfo = {};
-				if (auto error = parseTextureInfo(normalRoughnessMetallic, "normalRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
+				if (auto error = parseTextureInfo(normalRoughnessMetallic, "normalRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					material.packedNormalMetallicRoughnessTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2673,24 +2678,24 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 					break;
 
 				dom::object occlusionRoughnessMetallic;
-				if (extensionField.value.get_object().get(occlusionRoughnessMetallic) != SUCCESS) {
+				if (extensionField.value.get_object().get(occlusionRoughnessMetallic) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				auto packedTextures = std::make_unique<MaterialPackedTextures>();
 				TextureInfo textureInfo = {};
-				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) {
+				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					packedTextures->occlusionRoughnessMetallicTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
 
-				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "roughnessMetallicOcclusionTexture", &textureInfo, config.extensions); error == Error::None) {
+				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "roughnessMetallicOcclusionTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					packedTextures->roughnessMetallicOcclusionTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
 
-				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "normalTexture", &textureInfo, config.extensions); error == Error::None) {
+				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "normalTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					packedTextures->normalTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2706,61 +2711,61 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 
 				dom::object specularGlossinessObject;
 				auto specularGlossinessError = extensionField.value.get_object().get(specularGlossinessObject);
-				if (specularGlossinessError != SUCCESS) {
+				if (specularGlossinessError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				auto specularGlossiness = std::make_unique<MaterialSpecularGlossiness>();
 
 				dom::array diffuseFactor;
-				if (auto error = specularGlossinessObject["diffuseFactor"].get_array().get(diffuseFactor); error == SUCCESS) {
+				if (auto error = specularGlossinessObject["diffuseFactor"].get_array().get(diffuseFactor); error == SUCCESS) FASTGLTF_LIKELY {
 					std::size_t i = 0;
 					for (auto factor : diffuseFactor) {
 						if (i >= specularGlossiness->diffuseFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
-						if (factor.get_double().get(value) != SUCCESS) {
+						if (factor.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
 							return Error::InvalidGltf;
 						}
 						specularGlossiness->diffuseFactor[i++] = static_cast<num>(value);
 					}
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo diffuseTexture;
-				if (auto error = parseTextureInfo(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) {
+				if (auto error = parseTextureInfo(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					specularGlossiness->diffuseTexture = std::move(diffuseTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
 
 				dom::array specularFactor;
-				if (auto error = specularGlossinessObject["specularFactor"].get_array().get(specularFactor); error == SUCCESS) {
+				if (auto error = specularGlossinessObject["specularFactor"].get_array().get(specularFactor); error == SUCCESS) FASTGLTF_LIKELY {
 					std::size_t i = 0;
 					for (auto factor : specularFactor) {
 						if (i >= specularGlossiness->specularFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
-						if (factor.get_double().get(value) != SUCCESS) {
+						if (factor.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
 							return Error::InvalidGltf;
 						}
 						specularGlossiness->specularFactor[i++] = static_cast<num>(value);
 					}
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double glossinessFactor;
-				if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) {
+				if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) FASTGLTF_LIKELY {
 					specularGlossiness->glossinessFactor = static_cast<num>(glossinessFactor);
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo specularGlossinessTexture;
-				if (auto error = parseTextureInfo(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) {
+				if (auto error = parseTextureInfo(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 					specularGlossiness->specularGlossinessTexture = std::move(specularGlossinessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
@@ -2785,30 +2790,30 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
     asset.materials.reserve(materials.size());
     for (auto materialValue : materials) {
         dom::object materialObject;
-        if (materialValue.get_object().get(materialObject) != SUCCESS) {
+        if (materialValue.get_object().get(materialObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
         Material material = {};
 
         dom::array emissiveFactor;
-        if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) {
+        if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) FASTGLTF_LIKELY {
             if (emissiveFactor.size() != 3) {
                 return Error::InvalidGltf;
             }
             for (auto i = 0U; i < 3; ++i) {
                 double val;
-                if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) {
+                if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
                 material.emissiveFactor[i] = static_cast<num>(val);
             }
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
 	    {
 		    NormalTextureInfo normalTextureInfo = {};
-		    if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) {
+		    if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) FASTGLTF_LIKELY {
 			    material.normalTexture = std::move(normalTextureInfo);
 		    } else if (error != Error::MissingField) {
 			    return error;
@@ -2817,7 +2822,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 	    {
 			OcclusionTextureInfo occlusionTextureInfo = {};
-	        if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) {
+	        if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) FASTGLTF_LIKELY {
 	            material.occlusionTexture = std::move(occlusionTextureInfo);
 	        } else if (error != Error::MissingField) {
 	            return error;
@@ -2826,7 +2831,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 	    {
 		    TextureInfo textureInfo = {};
-	        if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) {
+	        if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
 	            material.emissiveTexture = std::move(textureInfo);
 	        } else if (error != Error::MissingField) {
 	            return error;
@@ -2834,14 +2839,14 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 	    }
 
         dom::object pbrMetallicRoughness;
-        if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) {
+        if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) FASTGLTF_LIKELY {
             PBRData pbr = {};
 
             dom::array baseColorFactor;
-            if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) {
+            if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) FASTGLTF_LIKELY {
                 for (auto i = 0U; i < 4; ++i) {
                     double val;
-                    if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) {
+                    if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     pbr.baseColorFactor[i] = static_cast<num>(val);
@@ -2849,21 +2854,25 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
             }
 
             double factor;
-            if (pbrMetallicRoughness["metallicFactor"].get_double().get(factor) == SUCCESS) {
+            if (auto error = pbrMetallicRoughness["metallicFactor"].get_double().get(factor); error == SUCCESS) FASTGLTF_LIKELY {
                 pbr.metallicFactor = static_cast<num>(factor);
-            }
-            if (pbrMetallicRoughness["roughnessFactor"].get_double().get(factor) == SUCCESS) {
+            } else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+            if (auto error = pbrMetallicRoughness["roughnessFactor"].get_double().get(factor); error == SUCCESS) FASTGLTF_LIKELY {
                 pbr.roughnessFactor = static_cast<num>(factor);
-            }
+            } else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
 
 	        TextureInfo textureInfo;
-            if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) {
+            if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
                 pbr.baseColorTexture = std::move(textureInfo);
             } else if (error != Error::MissingField) {
                 return error;
             }
 
-            if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) {
+            if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
                 pbr.metallicRoughnessTexture = std::move(textureInfo);
             } else if (error != Error::MissingField) {
                 return error;
@@ -2873,7 +2882,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
         }
 
         std::string_view alphaMode;
-        if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) {
+        if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) FASTGLTF_LIKELY {
             if (alphaMode == "OPAQUE") {
                 material.alphaMode = AlphaMode::Opaque;
             } else if (alphaMode == "MASK") {
@@ -2883,21 +2892,21 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
             } else {
                 return Error::InvalidGltf;
             }
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         double alphaCutoff;
-        if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) {
+        if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) FASTGLTF_LIKELY {
             material.alphaCutoff = static_cast<num>(alphaCutoff);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         bool doubleSided;
-        if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) {
+        if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) FASTGLTF_LIKELY {
             material.doubleSided = doubleSided;
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
@@ -2907,9 +2916,9 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
         }
 
         dom::object extensionsObject;
-        if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
+        if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) FASTGLTF_LIKELY {
 			parseMaterialExtensions(extensionsObject, material);
-        } else if (extensionError != NO_SUCH_FIELD) {
+        } else if (extensionError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
         }
 
@@ -2926,7 +2935,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
     for (auto meshValue : meshes) {
         // Required fields: "primitives"
         dom::object meshObject;
-        if (meshValue.get_object().get(meshObject) != SUCCESS) {
+        if (meshValue.get_object().get(meshObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
         Mesh mesh = {};
@@ -2944,7 +2953,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                 // Required fields: "attributes"
                 Primitive primitive = {};
                 dom::object primitiveObject;
-                if (primitiveValue.get_object().get(primitiveObject) != SUCCESS) {
+                if (primitiveValue.get_object().get(primitiveObject) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
 
@@ -2957,7 +2966,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                         const auto key = field.key;
 
                         std::uint64_t attributeIndex;
-                        if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
+                        if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
 						attributes.emplace_back(
@@ -2967,17 +2976,17 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                 };
 
                 dom::object attributesObject;
-                if (primitiveObject["attributes"].get_object().get(attributesObject) != SUCCESS) {
+                if (primitiveObject["attributes"].get_object().get(attributesObject) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
                 parseAttributes(attributesObject, primitive.attributes);
 
                 dom::array targets;
-                if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) {
+                if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) FASTGLTF_LIKELY {
 	                primitive.targets = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(primitive.targets), resourceAllocator.get(), 0);
 					primitive.targets.reserve(targets.size());
                     for (auto targetValue : targets) {
-                        if (targetValue.get_object().get(attributesObject) != SUCCESS) {
+                        if (targetValue.get_object().get(attributesObject) != SUCCESS) FASTGLTF_UNLIKELY {
                             return Error::InvalidGltf;
                         }
                         auto& map = primitive.targets.emplace_back();
@@ -2986,30 +2995,34 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                 }
 
                 std::uint64_t value;
-                if (auto error = primitiveObject["mode"].get_uint64().get(value); error == SUCCESS) {
+                if (auto error = primitiveObject["mode"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
                     primitive.type = static_cast<PrimitiveType>(value);
-                } else if (error != NO_SUCH_FIELD) {
+                } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
 
-                if (primitiveObject["indices"].get_uint64().get(value) == SUCCESS) {
+                if (auto error = primitiveObject["indices"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
                     primitive.indicesAccessor = static_cast<std::size_t>(value);
-                }
+                } else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
 
-                if (primitiveObject["material"].get_uint64().get(value) == SUCCESS) {
+                if (auto error = primitiveObject["material"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
                     primitive.materialIndex = static_cast<std::size_t>(value);
-                }
+                } else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
 
                 mesh.primitives.emplace_back(std::move(primitive));
             }
         }
 
-        if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) {
+        if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) FASTGLTF_LIKELY {
 	        mesh.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.weights), resourceAllocator.get(), 0);
             mesh.weights.reserve(array.size());
             for (auto weightValue : array) {
                 double val;
-                if (weightValue.get_double().get(val) != SUCCESS) {
+                if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
                 mesh.weights.emplace_back(static_cast<num>(val));
@@ -3036,28 +3049,34 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
     for (auto nodeValue : nodes) {
         Node node = {};
         dom::object nodeObject;
-        if (nodeValue.get_object().get(nodeObject) != SUCCESS) {
+        if (nodeValue.get_object().get(nodeObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         std::uint64_t index;
-        if (nodeObject["mesh"].get_uint64().get(index) == SUCCESS) {
+        if (auto error = nodeObject["mesh"].get_uint64().get(index); error == SUCCESS) {
             node.meshIndex = static_cast<std::size_t>(index);
-        }
-        if (nodeObject["skin"].get_uint64().get(index) == SUCCESS) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+        if (auto error = nodeObject["skin"].get_uint64().get(index); error == SUCCESS) {
             node.skinIndex = static_cast<std::size_t>(index);
-        }
-        if (nodeObject["camera"].get_uint64().get(index) == SUCCESS) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+        if (auto error = nodeObject["camera"].get_uint64().get(index); error == SUCCESS) {
             node.cameraIndex = static_cast<std::size_t>(index);
-        }
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
         dom::array array;
         auto childError = getJsonArray(nodeObject, "children", &array);
-        if (childError == Error::None) {
+        if (childError == Error::None) FASTGLTF_LIKELY {
 	        node.children = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.children), resourceAllocator.get(), 0);
 			node.children.reserve(array.size());
             for (auto childValue : array) {
-                if (childValue.get_uint64().get(index) != SUCCESS) {
+                if (childValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
 
@@ -3074,7 +3093,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                 node.weights.reserve(array.size());
                 for (auto weightValue : array) {
                     double val;
-                    if (weightValue.get_double().get(val) != SUCCESS) {
+                    if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     node.weights.emplace_back(static_cast<num>(val));
@@ -3085,12 +3104,12 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
         }
 
         auto error = nodeObject["matrix"].get_array().get(array);
-        if (error == SUCCESS) {
+        if (error == SUCCESS) FASTGLTF_LIKELY {
             Node::TransformMatrix transformMatrix = {};
             auto i = 0U;
             for (auto num : array) {
                 double val;
-                if (num.get_double().get(val) != SUCCESS) {
+                if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                     break;
                 }
                 transformMatrix[i] = static_cast<fastgltf::num>(val);
@@ -3108,45 +3127,45 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
             TRS trs = {};
 
             // There's no matrix, let's see if there's scale, rotation, or rotation fields.
-            if (auto error = nodeObject["scale"].get_array().get(array); error == SUCCESS) {
+            if (auto error = nodeObject["scale"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
-                    if (num.get_double().get(val) != SUCCESS) {
+                    if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     trs.scale[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else if (error != NO_SUCH_FIELD) {
+            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidJson;
             }
 
-            if (auto error = nodeObject["translation"].get_array().get(array); error == SUCCESS) {
+            if (auto error = nodeObject["translation"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
-                    if (num.get_double().get(val) != SUCCESS) {
+                    if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     trs.translation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else if (error != NO_SUCH_FIELD) {
+            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
-            if (auto error = nodeObject["rotation"].get_array().get(array); error == SUCCESS) {
+            if (auto error = nodeObject["rotation"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
-                    if (num.get_double().get(val) != SUCCESS) {
+                    if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
                     trs.rotation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else if (error != NO_SUCH_FIELD) {
+            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
@@ -3154,19 +3173,19 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
         }
 
         dom::object extensionsObject;
-        if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
+        if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) FASTGLTF_LIKELY {
             dom::object lightsObject;
-            if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) {
+            if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) FASTGLTF_LIKELY {
                 std::uint64_t light;
-                if (lightsObject["light"].get_uint64().get(light) == SUCCESS) {
+                if (lightsObject["light"].get_uint64().get(light) == SUCCESS) FASTGLTF_LIKELY {
                     node.lightIndex = static_cast<std::size_t>(light);
                 }
             }
 
             dom::object gpuInstancingObject;
-            if (extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject) == SUCCESS) {
+            if (extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject) == SUCCESS) FASTGLTF_LIKELY {
                 dom::object attributesObject;
-                if (gpuInstancingObject["attributes"].get_object().get(attributesObject) == SUCCESS) {
+                if (gpuInstancingObject["attributes"].get_object().get(attributesObject) == SUCCESS) FASTGLTF_LIKELY {
                     auto parseAttributes = [this](dom::object& object, decltype(node.instancingAttributes)& attributes) -> auto {
                         // We iterate through the JSON object and write each key/pair value into the
                         // attribute map. The keys are only validated in the validate() method.
@@ -3176,7 +3195,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                             const auto key = field.key;
 
                             std::uint64_t attributeIndex;
-                            if (field.value.get_uint64().get(attributeIndex) != SUCCESS) {
+                            if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
                                 return Error::InvalidGltf;
                             }
                             attributes.emplace_back(
@@ -3208,34 +3227,38 @@ fg::Error fg::Parser::parseSamplers(simdjson::dom::array& samplers, Asset& asset
     for (auto samplerValue : samplers) {
         Sampler sampler = {};
         dom::object samplerObject;
-        if (samplerValue.get_object().get(samplerObject) != SUCCESS) {
+        if (samplerValue.get_object().get(samplerObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
-        std::string_view name;
-        if (samplerObject["name"].get_string().get(name) == SUCCESS) {
-	        sampler.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(sampler.name), resourceAllocator.get(), name);
-        }
-
-        if (samplerObject["magFilter"].get_uint64().get(number) == SUCCESS) {
+        if (auto error = samplerObject["magFilter"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
             sampler.magFilter = static_cast<Filter>(number);
-        }
-        if (samplerObject["minFilter"].get_uint64().get(number) == SUCCESS) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+        if (auto error = samplerObject["minFilter"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
             sampler.minFilter = static_cast<Filter>(number);
-        }
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) {
+        if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
             sampler.wrapS = static_cast<Wrap>(number);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
-        if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) {
+        if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
             sampler.wrapT = static_cast<Wrap>(number);
-        } else if (error != NO_SUCH_FIELD) {
+        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
-        asset.samplers.emplace_back(std::move(sampler));
+		std::string_view name;
+		if (samplerObject["name"].get_string().get(name) == SUCCESS) {
+			sampler.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(sampler.name), resourceAllocator.get(), name);
+		}
+
+		asset.samplers.emplace_back(std::move(sampler));
     }
 
 	return Error::None;
@@ -3249,7 +3272,7 @@ fg::Error fg::Parser::parseScenes(simdjson::dom::array& scenes, Asset& asset) {
         // The scene object can be completely empty
         Scene scene = {};
         dom::object sceneObject;
-        if (sceneValue.get_object().get(sceneObject) != SUCCESS) {
+        if (sceneValue.get_object().get(sceneObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
@@ -3261,12 +3284,12 @@ fg::Error fg::Parser::parseScenes(simdjson::dom::array& scenes, Asset& asset) {
         // Parse the array of nodes.
         dom::array nodes;
         auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
-        if (nodeError == Error::None) {
+        if (nodeError == Error::None) FASTGLTF_LIKELY {
 	        scene.nodeIndices = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.nodeIndices), resourceAllocator.get(), 0);
 			scene.nodeIndices.reserve(nodes.size());
             for (auto nodeValue : nodes) {
                 std::uint64_t index;
-                if (nodeValue.get_uint64().get(index) != SUCCESS) {
+                if (nodeValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
 
@@ -3289,26 +3312,30 @@ fg::Error fg::Parser::parseSkins(simdjson::dom::array& skins, Asset& asset) {
     for (auto skinValue : skins) {
         Skin skin = {};
         dom::object skinObject;
-        if (skinValue.get_object().get(skinObject) != SUCCESS) {
+        if (skinValue.get_object().get(skinObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         std::uint64_t index;
-        if (skinObject["inverseBindMatrices"].get_uint64().get(index) == SUCCESS) {
+        if (auto error = skinObject["inverseBindMatrices"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
             skin.inverseBindMatrices = static_cast<std::size_t>(index);
-        }
-        if (skinObject["skeleton"].get_uint64().get(index) == SUCCESS) {
+        } else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+        if (auto error = skinObject["skeleton"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
             skin.skeleton = static_cast<std::size_t>(index);
-        }
+        } else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
 
         dom::array jointsArray;
-        if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) {
+        if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 		skin.joints = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.joints), resourceAllocator.get(), 0);
         skin.joints.reserve(jointsArray.size());
         for (auto jointValue : jointsArray) {
-            if (jointValue.get_uint64().get(index) != SUCCESS) {
+            if (jointValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
             skin.joints.emplace_back(index);
@@ -3331,20 +3358,24 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
     for (auto textureValue : textures) {
         Texture texture;
         dom::object textureObject;
-        if (textureValue.get_object().get(textureObject) != SUCCESS) {
+        if (textureValue.get_object().get(textureObject) != SUCCESS) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
         std::uint64_t sourceIndex;
-        if (textureObject["source"].get_uint64().get(sourceIndex) == SUCCESS) {
+        if (auto error = textureObject["source"].get_uint64().get(sourceIndex); error == SUCCESS) FASTGLTF_LIKELY {
             texture.imageIndex = static_cast<std::size_t>(sourceIndex);
-        }
+        } else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
 
         bool hasExtensions = false;
         dom::object extensionsObject;
-        if (textureObject["extensions"].get_object().get(extensionsObject) == SUCCESS) {
+        if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) FASTGLTF_LIKELY {
             hasExtensions = true;
-        }
+        } else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
 
         // If we have extensions, we'll use the normal "source" as the fallback and then parse
         // the extensions for any "source" field.
@@ -3357,9 +3388,11 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
         // The index of the sampler used by this texture. When undefined, a sampler with
         // repeat wrapping and auto filtering SHOULD be used.
         std::uint64_t samplerIndex;
-        if (textureObject["sampler"].get_uint64().get(samplerIndex) == SUCCESS) {
+        if (auto error = textureObject["sampler"].get_uint64().get(samplerIndex); error == SUCCESS) FASTGLTF_LIKELY {
             texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
-        }
+        } else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
 
         std::string_view name;
         if (textureObject["name"].get_string().get(name) == SUCCESS) {
@@ -3582,7 +3615,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
 
     auto view = padded_string_view(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer), jsonLength, buffer->allocatedSize);
 	simdjson::dom::object root;
-    if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) {
+    if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) FASTGLTF_UNLIKELY {
 	    return Expected<Asset>(Error::InvalidJson);
     }
 
@@ -3635,7 +3668,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
     offset += jsonChunk.chunkLength;
 
 	simdjson::dom::object root;
-    if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) {
+    if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) FASTGLTF_UNLIKELY {
 	    return Expected<Asset>(Error::InvalidJson);
     }
 

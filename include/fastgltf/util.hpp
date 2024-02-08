@@ -88,6 +88,15 @@
 #define FASTGLTF_IS_A64 1
 #endif
 
+#if FASTGLTF_CPP_20 || (defined(__clang__) && __clang_major__ >= 12) || (defined(__GNUC__) && __GNUC__ >= 9)
+// These attributes were introduced with C++20, but Clang 12 already supports them since C++11.
+#define FASTGLTF_LIKELY [[likely]]
+#define FASTGLTF_UNLIKELY [[unlikely]]
+#else
+#define FASTGLTF_LIKELY
+#define FASTGLTF_UNLIKELY
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
