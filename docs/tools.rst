@@ -29,7 +29,7 @@ For example, ``glm::vec3`` would be a vector of 3 floats, which would be defined
 
 .. warning::
 
-   Note that, by default, these functions will only be able to load from buffers where the source is either a ``sources::ByteView`` or a ``sources::Vector``.
+   Note that, by default, these functions will only be able to load from buffers where the source is either a ``sources::ByteView``, a ``sources::Array`, or a ``sources::Vector``.
    For other data sources, you'll need to provide a functor similar to the already provided ``DefaultBufferDataAdapter`` to the last parameter of each function.
    For more detailed documentation about this see :ref:`this section <bufferdataadapter>`.
 
@@ -106,7 +106,7 @@ BufferDataAdapter interface
 The accessor tools acquire the binary data through this functional interface.
 By default, fastgltf provides a ``DefaultBufferDataAdapter`` struct.
 The accessor functions also default to using this class,
-however it is important to note that this default interface only works with buffers or images that have a ``sources::Vectors`` or a ``sources::ByteView`` in the ``DataSource`` member.
+however it is important to note that this default interface only works with buffers or images that have a ``sources::ByteView``, a ``sources::Array`, or a ``sources::Vector`` in the ``DataSource`` member.
 
 .. doxygenstruct:: fastgltf::DefaultBufferDataAdapter
    :members:

@@ -13,10 +13,10 @@ To view the full changelogs for each release please see the `GitHub releases <ht
 - Add: ``KHR_materials_dispersion`` extension
 - Add: More validation around byteOffsets & byteStride
 - Add `#42 <https://github.com/spnda/fastgltf/issues/42>`_: Set default values in struct initializers
-- Add: Add: Validation for correctly enabled material extensions
+- Add: Validation for correctly enabled material extensions
 - Change: Combine ``loadGLTF`` and ``loadBinaryGLTF``
 - Change: Move ``TRS`` struct out of Node
-- Change: Use custom ``StaticVector`` for base64/buffer data
+- Change: Use custom ``StaticVector`` for large (buffer) allocations
 - Change `#35 <https://github.com/spnda/fastgltf/issues/35>`_: Remove fastgltf_simdjson target
 - Change `#45 <https://github.com/spnda/fastgltf/issues/45>`_: Assert when using accessor tools with unloaded buffers
 - Fix `#38 <https://github.com/spnda/fastgltf/issues/38>`_: Switch documentation of rotation and uvOffset

@@ -872,7 +872,7 @@ namespace fastgltf {
         /**
          * Generates a glTF binary (GLB) blob from the given asset.
          *
-         * If the first buffer holds a sources::Vector or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
+         * If the first buffer holds a sources::Vector, a sources::Array, a or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
          * it will be embedded into the binary. Note that the returned vector might therefore get quite large.
          */
         Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
@@ -900,7 +900,7 @@ namespace fastgltf {
          * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
          * Exporter::setImagePath.
          *
-		 * If the first buffer holds a sources::Vector or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
+		 * If the first buffer holds a sources::Vector, a sources::Array, a or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
          * it will be embedded into the binary.
          *
 		 * \see Exporter::writeGltfBinary

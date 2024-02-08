@@ -73,11 +73,13 @@ namespace fastgltf {
         std::uint32_t length;
     };
     static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
+	static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
 
     struct BinaryGltfChunk {
         std::uint32_t chunkLength;
         std::uint32_t chunkType;
     };
+	static_assert(std::is_trivially_copyable_v<BinaryGltfChunk>);
 
     using CRCStringFunction = std::uint32_t(*)(std::string_view str);
 
@@ -2088,7 +2090,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
                     using T = std::decay_t<decltype(arg)>;
 
                     // This is kinda cursed
-                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array>()) {
+                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>()) {
                         arg.mimeType = getMimeTypeFromString(mimeType);
                     }
                 }, image.data);
@@ -3911,6 +3913,15 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
                 json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
                 bufferPaths.emplace_back(path);
 			},
+			[&](const sources::Vector& vector) {
+				if (bufferIdx == 0 && exportingBinary) {
+					bufferPaths.emplace_back(std::nullopt);
+					return;
+				}
+				auto path = getBufferFilePath(asset, bufferIdx);
+				json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
+				bufferPaths.emplace_back(path);
+			},
 			[&](const sources::ByteView& view) {
                 auto path = getBufferFilePath(asset, bufferIdx);
                 json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
@@ -4078,6 +4089,11 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
                 json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
                 imagePaths.emplace_back(path);
             },
+			[&](const sources::Vector& vector) {
+				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+				json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
+				imagePaths.emplace_back(path);
+			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
                 imagePaths.emplace_back(std::nullopt);
@@ -4996,6 +5012,9 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 			[&](sources::Array& vector) {
 				write(vector.bytes.data(), buffer.byteLength);
 			},
+			[&](sources::Vector& vector) {
+				write(vector.bytes.data(), buffer.byteLength);
+			},
 			[&](sources::ByteView& byteView) {
 				write(byteView.bytes.data(), buffer.byteLength);
 			},
@@ -5009,13 +5028,19 @@ namespace fastgltf {
 	void writeFile(const DataSource& dataSource, fs::path baseFolder, fs::path filePath) {
 		std::visit(visitor {
 			[](auto& arg) {},
-			[&](const fastgltf::sources::Array &vector) {
+			[&](const sources::Array& vector) {
 				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
 				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
 						   static_cast<std::streamsize>(vector.bytes.size()));
 				file.close();
 			},
-			[&](const sources::ByteView &view) {
+			[&](const sources::Vector& vector) {
+				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
+						   static_cast<std::streamsize>(vector.bytes.size()));
+				file.close();
+			},
+			[&](const sources::ByteView& view) {
 				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
 				file.write(reinterpret_cast<const char *>(view.bytes.data()),
 						   static_cast<std::streamsize>(view.bytes.size()));

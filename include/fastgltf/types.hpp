@@ -496,6 +496,21 @@ namespace fastgltf {
 			return *this;
 		}
 
+		/**
+		 * Copies the contents of the given vector into a new StaticVector.
+		 */
+		static StaticVector<T> fromVector(std::vector<T> vector) {
+			StaticVector<T> staticVector(vector.size());
+			if constexpr (std::is_trivially_copyable_v<T>) {
+				std::memcpy(staticVector.data(), vector.data(), vector.size());
+			} else {
+				for (auto it = vector.begin(); it != vector.end(); ++it) {
+					staticVector[std::distance(vector.begin(), it)] = *it;
+				}
+			}
+			return staticVector;
+		}
+
         [[nodiscard]] pointer data() noexcept {
             return &_array.get()[0];
         }
@@ -1410,6 +1425,12 @@ namespace fastgltf {
             MimeType mimeType;
         };
 
+		/** @note This type is not used by the fastgltf parser and is only used for exporting. Use sources::Array instead when importing intead. */
+		struct Vector {
+			std::vector<std::uint8_t> bytes;
+			MimeType mimeType;
+		};
+
         struct CustomBuffer {
             CustomBufferId id;
             MimeType mimeType;
@@ -1425,15 +1446,15 @@ namespace fastgltf {
 
     /**
      * Represents the data source of a buffer or image. These could be a buffer view, a file path
-     * (including offsets), a ordinary vector (if #Options::LoadExternalBuffers or #Options::LoadGLBBuffers
+     * (including offsets), a StaticVector (if #Options::LoadExternalBuffers or #Options::LoadGLBBuffers
      * was specified), or the ID of a custom buffer.
      *
-     * @note As a user, you should never encounter this variant holding the std::monostate, as that would be a ill-formed glTF,
+     * @note As a user, you should never encounter this variant holding the std::monostate, as that would be an ill-formed glTF,
      * which fastgltf already checks for while parsing.
      *
      * @note For buffers, this variant will never hold a sources::BufferView, as only images are able to reference buffer views as a source.
      */
-    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Array, sources::CustomBuffer, sources::ByteView, sources::Fallback>;
+    using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Array, sources::Vector, sources::CustomBuffer, sources::ByteView, sources::Fallback>;
 
     struct AnimationChannel {
         std::size_t samplerIndex;
