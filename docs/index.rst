@@ -18,6 +18,7 @@ Indices and tables
 * :doc:`tools`
 * :doc:`options`
 * :doc:`api`
+* :doc:`changelog`
 
 
 .. toctree::
@@ -29,3 +30,4 @@ Indices and tables
    tools
    options
    api
+   changelog

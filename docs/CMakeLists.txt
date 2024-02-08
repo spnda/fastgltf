@@ -57,6 +57,7 @@ add_custom_command(
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${DOXYGEN_INDEX_FILE} ${CMAKE_CURRENT_SOURCE_DIR}/index.rst ${CMAKE_CURRENT_SOURCE_DIR}/overview.rst
         ${CMAKE_CURRENT_SOURCE_DIR}/api.rst ${CMAKE_CURRENT_SOURCE_DIR}/tools.rst ${CMAKE_CURRENT_SOURCE_DIR}/options.rst
+        ${CMAKE_CURRENT_SOURCE_DIR}/changelog.rst
     COMMAND ${SPHINX_EXECUTABLE} -b html
         -Dbreathe_projects.fastgltf=\"${DOXYGEN_OUTPUT}/xml\"
         ${CMAKE_CURRENT_SOURCE_DIR} ${SPHINX_OUTPUT}
