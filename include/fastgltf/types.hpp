@@ -1982,6 +1982,7 @@ namespace fastgltf {
         /** Range for point and spot lights. If not present, range is infinite. */
         Optional<num> range;
 
+		/** The inner and outer cone angles only apply to spot lights */
         Optional<num> innerConeAngle;
         Optional<num> outerConeAngle;
 

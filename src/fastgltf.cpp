@@ -961,10 +961,25 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 	}
 
 	for (const auto& light : asset.lights) {
+		if (light.type == LightType::Directional && light.range.has_value())
+			return Error::InvalidGltf;
+		if (light.range.has_value() && light.range.value() <= 0)
+			return Error::InvalidGltf;
+
 		if (light.type != LightType::Spot) {
 			if (light.innerConeAngle.has_value() || light.outerConeAngle.has_value()) {
 				return Error::InvalidGltf;
 			}
+		} else {
+			if (!light.innerConeAngle.has_value() || !light.outerConeAngle.has_value())
+				return Error::InvalidGltf;
+			if (light.innerConeAngle.value() < 0)
+				return Error::InvalidGltf;
+			if (light.innerConeAngle.value() > light.outerConeAngle.value())
+				return Error::InvalidGltf;
+			static constexpr double pi = 3.141592653589793116;
+			if (light.outerConeAngle.value() > pi / 2)
+				return Error::InvalidGltf;
 		}
 	}
 
@@ -3179,38 +3194,50 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
         dom::object extensionsObject;
         if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) FASTGLTF_LIKELY {
-            dom::object lightsObject;
-            if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) FASTGLTF_LIKELY {
-                std::uint64_t light;
-                if (lightsObject["light"].get_uint64().get(light) == SUCCESS) FASTGLTF_LIKELY {
-                    node.lightIndex = static_cast<std::size_t>(light);
-                }
-            }
+			if (hasBit(config.extensions, Extensions::KHR_lights_punctual)) {
+				dom::object lightsObject;
+				if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) FASTGLTF_LIKELY {
+					std::uint64_t light;
+					if (auto lightError = lightsObject["light"].get_uint64().get(light); error == SUCCESS) FASTGLTF_LIKELY {
+						node.lightIndex = static_cast<std::size_t>(light);
+					} else {
+						return error == NO_SUCH_FIELD || error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
+					}
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+			}
 
-            dom::object gpuInstancingObject;
-            if (extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject) == SUCCESS) FASTGLTF_LIKELY {
-                dom::object attributesObject;
-                if (gpuInstancingObject["attributes"].get_object().get(attributesObject) == SUCCESS) FASTGLTF_LIKELY {
-                    auto parseAttributes = [this](dom::object& object, decltype(node.instancingAttributes)& attributes) -> auto {
-                        // We iterate through the JSON object and write each key/pair value into the
-                        // attribute map. The keys are only validated in the validate() method.
-	                    attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.instancingAttributes), resourceAllocator.get(), 0);
-                        attributes.reserve(object.size());
-                        for (const auto& field : object) {
-                            const auto key = field.key;
+			if (hasBit(config.extensions, Extensions::EXT_mesh_gpu_instancing)) {
+				dom::object gpuInstancingObject;
+				if (extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject) == SUCCESS) FASTGLTF_LIKELY {
+					dom::object attributesObject;
+					if (gpuInstancingObject["attributes"].get_object().get(attributesObject) == SUCCESS) FASTGLTF_LIKELY {
+						auto parseAttributes = [this](dom::object& object, decltype(node.instancingAttributes)& attributes) -> auto {
+							// We iterate through the JSON object and write each key/pair value into the
+							// attribute map. The keys are only validated in the validate() method.
+							attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.instancingAttributes), resourceAllocator.get(), 0);
+							attributes.reserve(object.size());
+							for (const auto& field : object) {
+								const auto key = field.key;
 
-                            std::uint64_t attributeIndex;
-                            if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
-                                return Error::InvalidGltf;
-                            }
-                            attributes.emplace_back(
-                                std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
-                        }
-                        return Error::None;
-                    };
-                    parseAttributes(attributesObject, node.instancingAttributes);
-                }
-            }
+								std::uint64_t attributeIndex;
+								if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+									return Error::InvalidGltf;
+								}
+								attributes.emplace_back(
+									std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
+							}
+							return Error::None;
+						};
+						parseAttributes(attributesObject, node.instancingAttributes);
+					} else {
+						return Error::InvalidGltf;
+					}
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+			}
         }
 
         std::string_view name;
