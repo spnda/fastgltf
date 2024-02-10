@@ -9,7 +9,7 @@ endif()
 project(fastgltf VERSION 0.7.0 LANGUAGES C CXX)
 
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
-option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastlgtf" OFF)
+option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
 option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
 option(FASTGLTF_ENABLE_DOCS "Enables the configuration of targets that build/generate documentation" OFF)
 option(FASTGLTF_ENABLE_GLTF_RS "Enables the benchmark usage of gltf-rs" OFF)

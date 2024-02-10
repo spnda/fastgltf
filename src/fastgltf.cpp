@@ -91,25 +91,25 @@ namespace fastgltf {
     [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
         std::uint32_t crc = 0;
 
-        // Try to advance forwards until the address is aligned to 4 bytes.
-        const auto address = reinterpret_cast<std::uintptr_t>(d);
-        std::size_t i = 0;
-	    while (address % 4 != 0 && i < len) {
-            crc = _mm_crc32_u8(crc, d[i++]);
-        }
-
-        // Now, try to decode as much as possible using 4 byte steps. We specifically don't use
-        // the 8 byte instruction here because the strings used by glTF are usually very short.
-        while (i < len && (len - i) >= 4) {
+        // Ddecode as much as possible using 4 byte steps.
+        // We specifically don't use the 8 byte instruction here because it uses a 64-bit output integer.
+        auto length = static_cast<std::int64_t>(len);
+        while ((length -= sizeof(std::uint32_t)) >= 0) {
             std::uint32_t v;
-            std::memcpy(&v, &d[i], 4);
+            std::memcpy(&v, d, sizeof v);
             crc = _mm_crc32_u32(crc, v);
-            i += 4;
+            d += sizeof v;
         }
 
-        // Decode the rest
-        while (i < len) {
-            crc = _mm_crc32_u8(crc, d[i++]);
+        if (length & sizeof(std::uint16_t)) {
+            std::uint16_t v;
+            std::memcpy(&v, d, sizeof v);
+            crc = _mm_crc32_u16(crc, v);
+            d += sizeof v;
+        }
+
+        if (length & sizeof(std::uint8_t)) {
+            crc = _mm_crc32_u8(crc, *d);
         }
 
         return crc;

@@ -153,12 +153,11 @@ namespace fastgltf::base64 {
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
     // remaining data.
     const auto encodedSize = encoded.size();
-    const auto outputSize = getOutputSize(encodedSize, padding);
-    const auto alignedSize = outputSize - (outputSize % dataOutputSize);
+    const auto alignedSize = encodedSize - (encodedSize % dataOutputSize);
     auto* out = output;
 
-    // _mm256_setr_epi8 accepts only 'char' but 0xff would overflow a signed char.
-    // This gets optimised to the same assembly as a call to the aformentioned intrinsic.
+    // _mm256_setr_epi8 accepts only 'char' but 0xff would overflow a signed char, which makes some compilers unhappy.
+    // This gets optimised to the same assembly as a call to the aforementioned intrinsic.
     static const std::array<std::uint8_t, 32> shuffleData = {{
         2,  1,  0,
         6,  5,  4,
@@ -190,7 +189,7 @@ namespace fastgltf::base64 {
     }
 
     // Decode the last chunk traditionally
-    fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
+    fallback_decode_inplace(encoded.substr(pos, encodedSize - pos), out, padding);
 }
 
 [[gnu::target("avx2")]] fg::StaticVector<std::uint8_t> fg::base64::avx2_decode(std::string_view encoded) {
@@ -234,13 +233,12 @@ namespace fastgltf::base64 {
     // We align the size to the highest size divisible by 16. By doing this, we don't need to
     // allocate any new memory to hold the encoded data and let the fallback decoder decode the
     // remaining data.
-    const auto encodedSize = encoded.size();
-    const auto outputSize = getOutputSize(encodedSize, padding);
-    const auto alignedSize = outputSize - (outputSize % dataOutputSize);
+	const auto encodedSize = encoded.size();
+	const auto alignedSize = encodedSize - (encodedSize % dataOutputSize);
     auto* out = output;
 
-    // _mm_setr_epi8 accepts only 'char' but 0xff would overflow a signed char.
-    // This gets optimised to the same assembly as a call to the aformentioned intrinsic.
+    // _mm_setr_epi8 accepts only 'char' but 0xff would overflow a signed char, which makes some compilers unhappy.
+    // This gets optimised to the same assembly as a call to the aforementioned intrinsic.
     static const std::array<std::uint8_t, 16> shuffleData = {{
         2,  1,  0,
         6,  5,  4,
@@ -266,7 +264,7 @@ namespace fastgltf::base64 {
     }
 
     // Decode the last chunk traditionally
-    fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
+    fallback_decode_inplace(encoded.substr(pos, encodedSize - pos), out, padding);
 }
 
 [[gnu::target("sse4.1")]] fg::StaticVector<std::uint8_t> fg::base64::sse4_decode(std::string_view encoded) {
@@ -358,7 +356,7 @@ void fg::base64::neon_decode_inplace(std::string_view encoded, std::uint8_t* out
     }
 
     // Decode the last chunk traditionally
-    fallback_decode_inplace(encoded.substr(pos, encodedSize), out, padding);
+    fallback_decode_inplace(encoded.substr(pos, encodedSize - pos), out, padding);
 }
 
 fg::StaticVector<std::uint8_t> fg::base64::neon_decode(std::string_view encoded) {
@@ -386,7 +384,8 @@ static constexpr std::array<std::uint8_t, 128> base64lut = {
 // clang-format on
 
 namespace fastgltf::base64 {
-	[[gnu::always_inline]] FORCEINLINE void decode_block(std::array<std::uint8_t, 4>& sixBitChars, std::uint8_t* output) {
+    template <typename Output>
+	[[gnu::always_inline]] FORCEINLINE void decode_block(std::array<std::uint8_t, 4>& sixBitChars, Output output) {
 		for (std::size_t i = 0; i < 4; i++) {
 			assert(static_cast<std::size_t>(sixBitChars[i]) < base64lut.size());
 			sixBitChars[i] = base64lut[sixBitChars[i]];
@@ -399,29 +398,27 @@ namespace fastgltf::base64 {
 } // namespace fastgltf::base64
 
 void fg::base64::fallback_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding) {
-    constexpr std::size_t blockSize = 4 * sizeof(char);
-	std::array<std::uint8_t, 4> sixBitChars = {};
+	constexpr std::size_t blockSize = 4;
+	std::array<std::uint8_t, blockSize> sixBitChars {};
 
-    // We use i here to track how many we've parsed and to batch 4 chars together.
-    const auto encodedSize = encoded.size();
-    std::size_t cursor = 0U;
-    for (auto pos = 0U; pos + 4 < encodedSize; pos += 4) {
+	const auto encodedSize = encoded.size();
+	for (auto pos = 0U; pos + 4 < encodedSize; pos += 4) {
 		std::memcpy(sixBitChars.data(), &encoded[pos], blockSize);
 
-		decode_block(sixBitChars, &output[cursor]);
-		cursor += 3;
-    }
+		decode_block(sixBitChars, output);
+		output += 3;
+	}
 
 	// Decode the last (possibly) padded characters
 	std::memcpy(sixBitChars.data(), &encoded[encodedSize - 4], blockSize);
 
-	std::array<std::uint8_t, 4> eightBitChars = {};
-	decode_block(sixBitChars, eightBitChars.data());
+	std::array<std::uint8_t, 4> eightBitChars {};
+	decode_block<decltype(eightBitChars)&>(sixBitChars, eightBitChars);
 
 	// Write the last characters, making sure not to write over the end.
 	const std::size_t charsToWrite = 3 - padding;
 	for (std::size_t j = 0; j < charsToWrite; ++j) {
-		output[cursor++] = eightBitChars[j];
+		output[j] = eightBitChars[j];
 	}
 }
 
