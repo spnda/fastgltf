@@ -251,7 +251,9 @@ namespace fastgltf {
      */
     [[gnu::hot, gnu::const]] std::uint32_t sse_crc32c(std::string_view str) noexcept;
     [[gnu::hot, gnu::const]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
-#elif defined(FASTGLTF_IS_A64)
+#elif defined(FASTGLTF_IS_A64) && !defined(_MSC_VER) && !defined(__ANDROID__)
+	// Both MSVC stdlib and Android NDK don't include the arm intrinsics
+#define FASTGLTF_ENABLE_ARMV8_CRC 1
 	[[gnu::hot, gnu::const]] std::uint32_t armv8_crc32c(std::string_view str) noexcept;
 	[[gnu::hot, gnu::const]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
 #endif

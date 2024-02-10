@@ -114,7 +114,7 @@ namespace fastgltf {
 
         return crc;
     }
-#elif defined(FASTGLTF_IS_A64) && !defined(_MSC_VER)
+#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 // MSVC does not provide the arm crc32 intrinsics.
 #include <arm_acle.h>
 
@@ -176,7 +176,7 @@ namespace fastgltf {
         if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
             crcStringFunction = sse_crc32c;
         }
-#elif defined(FASTGLTF_IS_A64)
+#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 		const auto& impls = simdjson::get_available_implementations();
 		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
 			crcStringFunction = armv8_crc32c;
