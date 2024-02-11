@@ -1786,7 +1786,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::ondemand::array& buffers, Asset& as
 
         auto& buffer = asset.buffers.emplace_back();
 
-        std::optional<std::string> uri;
+		bool hasURI = false;
         for (auto field : bufferObject) {
             std::string_view key;
             if (field.unescaped_key().get(key) != SUCCESS) FASTGLTF_UNLIKELY {
@@ -1799,7 +1799,33 @@ fg::Error fg::Parser::parseBuffers(simdjson::ondemand::array& buffers, Asset& as
                     if (auto error = field.value().get_string().get(_uri); error != SUCCESS || _uri.empty()) FASTGLTF_UNLIKELY {
                         return Error::InvalidGltf;
                     }
-                    uri = std::string(_uri);
+
+					URIView uriView(_uri);
+					if (!uriView.valid()) {
+						return Error::InvalidGltf;
+					}
+
+					if (uriView.isDataUri()) {
+						auto expected = decodeDataUri(uriView);
+						if (expected.error() != Error::None) {
+							return expected.error();
+						}
+
+						buffer.data = std::move(expected.get());
+					} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
+						auto [error, source] = loadFileFromUri(uriView);
+						if (error != Error::None) {
+							return error;
+						}
+
+						buffer.data = std::move(source);
+					} else {
+						sources::URI filePath;
+						filePath.fileByteOffset = 0;
+						filePath.uri = std::move(URI(_uri));
+						buffer.data = std::move(filePath);
+					}
+					hasURI = true;
                     break;
                 }
                 case force_consteval<crc32c("byteLength")>: {
@@ -1822,45 +1848,20 @@ fg::Error fg::Parser::parseBuffers(simdjson::ondemand::array& buffers, Asset& as
             }
         }
 
-        if (uri.has_value()) {
-            URIView uriView(uri.value());
+		if (!hasURI) {
+			if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
+				// The first buffer in a GLB points to the embedded buffer when no URI is specified.
+				buffer.data = std::move(glbBuffer);
+			} else if (meshoptCompressionRequired) {
+				// This buffer is not a GLB buffer and has no URI source and is therefore a fallback.
+				buffer.data = sources::Fallback();
+			} else FASTGLTF_UNLIKELY {
+				// All other buffers have to contain an uri field.
+				return Error::InvalidGltf;
+			}
+		}
 
-            if (!uriView.valid()) {
-                return Error::InvalidGltf;
-            }
-
-            if (uriView.isDataUri()) {
-                auto [error, source] = decodeDataUri(uriView);
-                if (error != Error::None) {
-                    return error;
-                }
-
-                buffer.data = std::move(source);
-            } else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
-                auto [error, source] = loadFileFromUri(uriView);
-                if (error != Error::None) {
-                    return error;
-                }
-
-                buffer.data = std::move(source);
-            } else {
-                sources::URI filePath;
-                filePath.fileByteOffset = 0;
-                filePath.uri = uriView;
-                buffer.data = std::move(filePath);
-            }
-        } else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
-            // The first buffer in a GLB points to the embedded buffer when no URI is specified.
-            buffer.data = std::move(glbBuffer);
-        } else if (meshoptCompressionRequired) {
-            // This buffer is not a GLB buffer and has no URI source and is therefore a fallback.
-            buffer.data = sources::Fallback();
-        } else FASTGLTF_UNLIKELY {
-            // All other buffers have to contain an uri field.
-            return Error::InvalidGltf;
-        }
-
-        if (std::holds_alternative<std::monostate>(buffer.data)) {
+        if (std::holds_alternative<std::monostate>(buffer.data)) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
         }
 
