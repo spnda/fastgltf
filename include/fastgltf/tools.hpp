@@ -145,7 +145,7 @@ template<>
 #if FASTGLTF_CONSTEXPR_BITCAST
 constexpr
 #endif
-float deserializeComponent<float>(const std::byte* bytes, std::size_t index) {
+inline float deserializeComponent<float>(const std::byte* bytes, std::size_t index) {
     static_assert(std::numeric_limits<float>::is_iec559 &&
                   std::numeric_limits<float>::radix == 2 &&
                   std::numeric_limits<float>::digits == 24 &&
@@ -158,7 +158,7 @@ template<>
 #if FASTGLTF_CONSTEXPR_BITCAST
 constexpr
 #endif
-double deserializeComponent<double>(const std::byte* bytes, std::size_t index) {
+inline double deserializeComponent<double>(const std::byte* bytes, std::size_t index) {
     static_assert(std::numeric_limits<double>::is_iec559 &&
                   std::numeric_limits<double>::radix == 2 &&
                   std::numeric_limits<double>::digits == 53 &&
