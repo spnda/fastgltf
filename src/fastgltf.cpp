@@ -1227,6 +1227,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::ondemand::object root, Categ
 	asset.memoryResource = resourceAllocator = std::make_shared<ChunkMemoryResource>();
 #endif
 
+	bool hasAsset = false; // Asset is the only category required by the spec
 	Category readCategories = Category::None;
 	for (auto object : root) {
         std::string_view key;
@@ -1256,6 +1257,8 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::ondemand::object root, Categ
                 continue;
             }
             case force_consteval<crc32c("asset")>: {
+				hasAsset = true;
+
                 if (hasBit(options, Options::DontRequireValidAssetMember)) {
                     continue;
                 }
@@ -1371,6 +1374,10 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::ondemand::object root, Categ
 			return Expected<Asset>(error);
 
 #undef KEY_SWITCH_CASE
+	}
+
+	if (!hasAsset && !hasBit(options, Options::DontRequireValidAssetMember)) {
+		return Expected<Asset>(Error::InvalidOrMissingAssetField);
 	}
 
 	asset.availableCategories = readCategories;
@@ -2300,6 +2307,7 @@ fg::Error fg::Parser::parseImages(simdjson::ondemand::array& images, Asset& asse
                     sources::URI filePath;
                     filePath.fileByteOffset = 0;
                     filePath.uri = uriView;
+					filePath.mimeType = MimeType::None;
                     image.data = std::move(filePath);
                 }
 
@@ -2308,7 +2316,9 @@ fg::Error fg::Parser::parseImages(simdjson::ondemand::array& images, Asset& asse
 
                     // This is kinda cursed
                     if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>()) {
-                        arg.mimeType = mimeType;
+						if (arg.mimeType == MimeType::None) {
+							arg.mimeType = mimeType;
+						}
                     }
                 }, image.data);
                 return Error::None;
