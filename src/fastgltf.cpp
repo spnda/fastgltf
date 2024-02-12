@@ -4334,6 +4334,11 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			json += '}';
 		}
 
+		if (it->dispersion != 0.0f) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_dispersion":{"dispersion":)" + std::to_string(it->dispersion) + '}';
+		}
+
 		if (it->emissiveStrength != 1.0f) {
 			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_emissive_strength":{"emissiveStrength":)" + std::to_string(it->emissiveStrength) + '}';
