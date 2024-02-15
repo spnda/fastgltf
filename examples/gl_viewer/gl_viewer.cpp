@@ -42,6 +42,8 @@
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
+#include <fastgltf/glm_element_traits.hpp>
 
 constexpr std::string_view vertexShaderSource = R"(
     #version 460 core
@@ -137,11 +139,19 @@ struct IndirectDrawCommand {
 	std::uint32_t baseInstance;
 };
 
+struct Vertex {
+	glm::vec3 position;
+	glm::vec2 uv;
+};
+
 struct Primitive {
     IndirectDrawCommand draw;
     GLenum primitiveType;
     GLenum indexType;
     GLuint vertexArray;
+
+	GLuint vertexBuffer;
+	GLuint indexBuffer;
 
     size_t materialUniformsIndex;
     GLuint albedoTexture;
@@ -170,7 +180,6 @@ struct MaterialUniforms {
 struct Viewer {
     fastgltf::Asset asset;
 
-    std::vector<GLuint> buffers;
     std::vector<GLuint> bufferAllocations;
     std::vector<Mesh> meshes;
     std::vector<Texture> textures;
@@ -317,31 +326,6 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
         viewer->asset = std::move(asset.get());
     }
 
-    // Some buffers are already allocated during parsing of the glTF, like e.g. base64 buffers
-    // through our callback functions. Therefore, we only resize our output buffer vector, but
-    // create our buffer handles later on.
-    auto& buffers = viewer->asset.buffers;
-    viewer->buffers.reserve(buffers.size());
-
-    for (auto& buffer : buffers) {
-        constexpr GLuint bufferUsage = GL_STATIC_DRAW;
-
-        std::visit(fastgltf::visitor {
-            [](auto& arg) {}, // Covers FilePathWithOffset, BufferView, ... which are all not possible
-            [&](fastgltf::sources::Array& vector) {
-                GLuint glBuffer;
-                glCreateBuffers(1, &glBuffer);
-                glNamedBufferData(glBuffer, static_cast<int64_t>(buffer.byteLength),
-                                  vector.bytes.data(), bufferUsage);
-                viewer->buffers.emplace_back(glBuffer);
-            },
-            [&](fastgltf::sources::CustomBuffer& customBuffer) {
-                // We don't need to do anything special here, the buffer has already been created.
-                viewer->buffers.emplace_back(static_cast<GLuint>(customBuffer.id));
-            },
-        }, buffer.data);
-    }
-
     return true;
 }
 
@@ -383,24 +367,27 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
             if (!positionAccessor.bufferViewIndex.has_value())
                 continue;
 
+			std::vector<glm::vec3> positions(positionAccessor.count);
+			fastgltf::copyFromAccessor<glm::vec3>(asset, positionAccessor, positions.data());
+
+			// Create the vertex buffer for this primitive, and use the accessor tools to copy directly into the mapped buffer.
+			glCreateBuffers(1, &primitive.vertexBuffer);
+			glNamedBufferData(primitive.vertexBuffer, positionAccessor.count * sizeof(Vertex), nullptr, GL_STATIC_DRAW);
+			auto* vertices = static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
+			fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, positionAccessor, [&](glm::vec3 pos, std::size_t idx) {
+				vertices[idx].position = pos;
+				vertices[idx].uv = glm::vec2();
+			});
+			glUnmapNamedBuffer(primitive.vertexBuffer);
+
             glEnableVertexArrayAttrib(vao, 0);
             glVertexArrayAttribFormat(vao, 0,
-                                      static_cast<GLint>(fastgltf::getNumComponents(positionAccessor.type)),
-                                      fastgltf::getGLComponentType(positionAccessor.componentType),
+                                      3, GL_FLOAT,
                                       GL_FALSE, 0);
             glVertexArrayAttribBinding(vao, 0, 0);
 
-            auto& positionView = asset.bufferViews[positionAccessor.bufferViewIndex.value()];
-            auto offset = positionView.byteOffset + positionAccessor.byteOffset;
-            if (positionView.byteStride.has_value()) {
-                glVertexArrayVertexBuffer(vao, 0, viewer->buffers[positionView.bufferIndex],
-                                          static_cast<GLintptr>(offset),
-                                          static_cast<GLsizei>(positionView.byteStride.value()));
-            } else {
-                glVertexArrayVertexBuffer(vao, 0, viewer->buffers[positionView.bufferIndex],
-                                          static_cast<GLintptr>(offset),
-                                          static_cast<GLsizei>(fastgltf::getElementByteSize(positionAccessor.type, positionAccessor.componentType)));
-            }
+			glVertexArrayVertexBuffer(vao, 0, primitive.vertexBuffer,
+									  0, sizeof(Vertex));
         }
 
         if (const auto* texcoord0 = it->findAttribute("TEXCOORD_0"); texcoord0 != it->attributes.end()) {
@@ -409,23 +396,20 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
             if (!texCoordAccessor.bufferViewIndex.has_value())
                 continue;
 
-            glEnableVertexArrayAttrib(vao, 1);
-            glVertexArrayAttribFormat(vao, 1, static_cast<GLint>(fastgltf::getNumComponents(texCoordAccessor.type)),
-                                      fastgltf::getGLComponentType(texCoordAccessor.componentType),
+			auto* vertices = static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
+			fastgltf::iterateAccessorWithIndex<glm::vec2>(asset, texCoordAccessor, [&](glm::vec2 uv, std::size_t idx) {
+				vertices[idx].uv = uv;
+			});
+			glUnmapNamedBuffer(primitive.vertexBuffer);
+
+			glEnableVertexArrayAttrib(vao, 1);
+            glVertexArrayAttribFormat(vao, 1,
+									  2, GL_FLOAT,
                                       GL_FALSE, 0);
             glVertexArrayAttribBinding(vao, 1, 1);
 
-            auto& texCoordView = asset.bufferViews[texCoordAccessor.bufferViewIndex.value()];
-            auto offset = texCoordView.byteOffset + texCoordAccessor.byteOffset;
-            if (texCoordView.byteStride.has_value()) {
-                glVertexArrayVertexBuffer(vao, 1, viewer->buffers[texCoordView.bufferIndex],
-                                          static_cast<GLintptr>(offset),
-                                          static_cast<GLsizei>(texCoordView.byteStride.value()));
-            } else {
-                glVertexArrayVertexBuffer(vao, 1, viewer->buffers[texCoordView.bufferIndex],
-                                          static_cast<GLintptr>(offset),
-                                          static_cast<GLsizei>(fastgltf::getElementByteSize(texCoordAccessor.type, texCoordAccessor.componentType)));
-            }
+			glVertexArrayVertexBuffer(vao, 1, primitive.vertexBuffer,
+									  offsetof(Vertex, uv), sizeof(Vertex));
         }
 
         // Generate the indirect draw command
@@ -433,16 +417,22 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         draw.instanceCount = 1;
         draw.baseInstance = 0;
         draw.baseVertex = 0;
+		draw.firstIndex = 0;
 
-        auto& indices = asset.accessors[it->indicesAccessor.value()];
-        if (!indices.bufferViewIndex.has_value())
+        auto& indexAccessor = asset.accessors[it->indicesAccessor.value()];
+        if (!indexAccessor.bufferViewIndex.has_value())
             return false;
-        draw.count = static_cast<std::uint32_t>(indices.count);
+        draw.count = static_cast<std::uint32_t>(indexAccessor.count);
 
-        auto& indicesView = asset.bufferViews[indices.bufferViewIndex.value()];
-        draw.firstIndex = static_cast<std::uint32_t>(indices.byteOffset + indicesView.byteOffset) / fastgltf::getElementByteSize(indices.type, indices.componentType);
-        primitive.indexType = getGLComponentType(indices.componentType);
-        glVertexArrayElementBuffer(vao, viewer->buffers[indicesView.bufferIndex]);
+		// Create the index buffer and copy 32-bit indices into it.
+		glCreateBuffers(1, &primitive.indexBuffer);
+		glNamedBufferData(primitive.indexBuffer, static_cast<GLsizeiptr>(indexAccessor.count * sizeof(std::uint32_t)), nullptr, GL_STATIC_DRAW);
+		auto* indices = static_cast<std::uint32_t*>(glMapNamedBuffer(primitive.indexBuffer, GL_WRITE_ONLY));
+		fastgltf::copyFromAccessor<std::uint32_t>(asset, indexAccessor, indices);
+		glUnmapNamedBuffer(primitive.indexBuffer);
+
+        primitive.indexType = GL_UNSIGNED_INT;
+        glVertexArrayElementBuffer(vao, primitive.indexBuffer);
     }
 
     // Create the buffer holding all of our primitive structs.
@@ -727,11 +717,12 @@ int main(int argc, char* argv[]) {
 
         for (auto& prim : mesh.primitives) {
             glDeleteVertexArrays(1, &prim.vertexArray);
+			glDeleteBuffers(1, &prim.indexBuffer);
+			glDeleteBuffers(1, &prim.vertexBuffer);
         }
     }
 
     glDeleteProgram(program);
-    glDeleteBuffers(static_cast<GLint>(viewer.buffers.size()), viewer.buffers.data());
 
     glfwDestroyWindow(window);
     glfwTerminate();

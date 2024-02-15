@@ -329,14 +329,14 @@ namespace fastgltf {
     }
 
     constexpr auto getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
-        const auto componentSize = getComponentBitSize(componentType) / 8;
+        const auto componentSize = getComponentBitSize(componentType) / 8U;
         auto numComponents = getNumComponents(type);
         const auto rowCount = getElementRowCount(type);
         if (isMatrix(type) && (rowCount * componentSize) % 4 != 0) {
             // Matrices need extra padding per-column which affects their size.
             numComponents += rowCount * (4 - (rowCount % 4));
         }
-        return static_cast<std::uint16_t>(numComponents) * componentSize;
+        return static_cast<std::size_t>(numComponents * componentSize);
     }
 
     /**
