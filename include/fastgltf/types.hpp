@@ -1005,7 +1005,7 @@ namespace fastgltf {
 		}
 
 		template <typename U = T, std::enable_if_t<std::is_copy_constructible_v<T>, int> = 0>
-		OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
+		OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) noexcept(std::is_nothrow_copy_constructible_v<T>) {
 			if (other.has_value()) {
 				new (std::addressof(_value)) T(*other);
 			} else {
@@ -1014,7 +1014,7 @@ namespace fastgltf {
 		}
 
 		template <typename U = T, std::enable_if_t<std::is_move_constructible_v<T>, int> = 0>
-		OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
+		OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) noexcept(std::is_nothrow_move_constructible_v<T>) {
 			if (other.has_value()) {
 				new (std::addressof(_value)) T(std::move(*other));
 			} else {
@@ -2055,31 +2055,7 @@ namespace fastgltf {
 				availableCategories(other.availableCategories) {}
 
 		Asset& operator=(const Asset& other) = delete;
-		Asset& operator=(Asset&& other) noexcept {
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-			memoryResource = std::move(other.memoryResource);
-#endif
-			assetInfo = std::move(other.assetInfo);
-			extensionsUsed = std::move(other.extensionsUsed);
-			extensionsRequired = std::move(other.extensionsRequired);
-			defaultScene = other.defaultScene;
-			accessors = std::move(other.accessors);
-			animations = std::move(other.animations);
-			buffers = std::move(other.buffers);
-			bufferViews = std::move(other.bufferViews);
-			cameras = std::move(other.cameras);
-			images = std::move(other.images);
-			lights = std::move(other.lights);
-			materials = std::move(other.materials);
-			meshes = std::move(other.meshes);
-			nodes = std::move(other.nodes);
-			samplers = std::move(other.samplers);
-			scenes = std::move(other.scenes);
-			skins = std::move(other.skins);
-			textures = std::move(other.textures);
-			availableCategories = other.availableCategories;
-			return *this;
-		}
+		Asset& operator=(Asset&& other) noexcept = delete;
     };
 #pragma endregion
 } // namespace fastgltf
