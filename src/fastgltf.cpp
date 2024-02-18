@@ -539,7 +539,14 @@ fg::URI::URI(std::string_view uri) noexcept : uri(uri) {
 }
 
 fg::URI::URI(const URIView& view) noexcept : uri(view.view) {
-	readjustViews(view);
+	auto oldSize = uri.size();
+	decodePercents(uri);
+	if (uri.size() == oldSize) {
+		readjustViews(view);
+	} else {
+		// Reparses the URI string
+		this->view = this->uri;
+	}
 }
 
 // Some C++ stdlib implementations copy in some cases when moving strings, which invalidates the
@@ -698,7 +705,8 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
 }
 
 fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noexcept {
-    auto path = directory / fs::u8path(uri.path());
+	URI decodedUri(uri.path()); // Re-allocate so we can decode potential characters.
+    auto path = directory / fs::u8path(decodedUri.path());
     std::error_code error;
     // If we were instructed to load external buffers and the files don't exist, we'll return an error.
     if (!fs::exists(path, error) || error) {
