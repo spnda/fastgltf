@@ -274,7 +274,7 @@ namespace fastgltf {
 #if FASTGLTF_HAS_CONCEPTS
     requires std::integral<T>
 #endif
-    [[gnu::const]] std::uint8_t clz(T value) {
+    [[gnu::const]] constexpr std::uint8_t clz(T value) {
         static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
         return static_cast<std::uint8_t>(std::countl_zero(value));
@@ -294,7 +294,7 @@ namespace fastgltf {
     }
 
 	template <typename T>
-	[[gnu::const]] std::uint8_t popcount(T value) {
+	[[gnu::const]] constexpr std::uint8_t popcount(T value) {
 		static_assert(std::is_integral_v<T>);
 #if FASTGLTF_HAS_BIT
 		return static_cast<std::uint8_t>(std::popcount(value));
