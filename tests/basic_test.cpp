@@ -18,6 +18,7 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include "gltf_path.hpp"
+#include <simdjson.h>
 
 constexpr auto noOptions = fastgltf::Options::None;
 
@@ -585,4 +586,38 @@ TEST_CASE("Test unicode characters", "[gltf-loader]") {
 	REQUIRE(!asset->buffers.empty());
 	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers[0].data);
 	REQUIRE(bufferUri.uri.path() == reinterpret_cast<const char*>(u8"Unicode❤♻Binary.bin"));
+}
+
+TEST_CASE("Test extras callback", "[gltf-loader]") {
+	auto materialVariants = sampleModels / "2.0" / "MaterialsVariantsShoe" / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(materialVariants / "MaterialsVariantsShoe.gltf"));
+
+	std::vector<std::string> nodeNames;
+
+	auto extrasCallback = [](simdjson::dom::object* extras, std::size_t objectIndex, fastgltf::Category category, void* userPointer) {
+		if (category != fastgltf::Category::Nodes)
+			return;
+		auto* nodeNames = static_cast<std::vector<std::string>*>(userPointer);
+		nodeNames->resize(fastgltf::max(nodeNames->size(), objectIndex + 1));
+
+		std::string_view nodeName;
+		if ((*extras)["name"].get_string().get(nodeName) == simdjson::SUCCESS) {
+			(*nodeNames)[objectIndex] = std::string(nodeName);
+		}
+	};
+
+	fastgltf::Parser parser;
+	parser.setExtrasParseCallback(extrasCallback);
+	parser.setUserPointer(&nodeNames);
+	auto asset = parser.loadGltfJson(&jsonData, materialVariants);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(nodeNames.size() == 3);
+	REQUIRE(nodeNames.size() == asset->nodes.size());
+
+	REQUIRE(nodeNames[0] == "Shoe");
+	REQUIRE(nodeNames[1] == "g Shoe");
+	REQUIRE(nodeNames[2] == "Shoe.obj");
 }

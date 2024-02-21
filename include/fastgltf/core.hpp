@@ -378,12 +378,14 @@ namespace fastgltf {
 	std::string_view stringifyExtension(Extensions extensions) {
 		// Find the first set bit and mask the value to that
 		std::uint8_t position = 0;
-		while (position < std::numeric_limits<std::underlying_type_t<Extensions>>::digits) {
-			if (((to_underlying(extensions) >> position) & 1) != 0) {
-				extensions &= static_cast<Extensions>(1 << position);
-				break;
+		if (popcount(to_underlying(extensions)) > 1) {
+			while (position < std::numeric_limits<std::underlying_type_t<Extensions>>::digits) {
+				if (((to_underlying(extensions) >> position) & 1) != 0) {
+					extensions &= static_cast<Extensions>(1 << position);
+					break;
+				}
+				++position;
 			}
-			++position;
 		}
 
 		for (const auto& [string, value] : extensionStrings)
@@ -553,6 +555,7 @@ namespace fastgltf {
     using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
     using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
     using Base64DecodeCallback = void(std::string_view base64, std::uint8_t* dataOutput, std::size_t padding, std::size_t dataOutputSize, void* userPointer);
+	using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
 
     /**
      * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
@@ -674,6 +677,7 @@ namespace fastgltf {
         BufferMapCallback* mapCallback = nullptr;
         BufferUnmapCallback* unmapCallback = nullptr;
         Base64DecodeCallback* decodeCallback = nullptr;
+		ExtrasParseCallback* extrasCallback = nullptr;
 
         void* userPointer = nullptr;
         Extensions extensions = Extensions::None;
@@ -785,6 +789,9 @@ namespace fastgltf {
          * @param decodeCallback function called when the parser tries to decode a base64 buffer
          */
         void setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept;
+
+		void setExtrasParseCallback(ExtrasParseCallback* extrasCallback) noexcept;
+
         void setUserPointer(void* pointer) noexcept;
     };
 

@@ -1573,7 +1573,16 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
             accessor.sparse = sparse;
         }
 
-        std::string_view name;
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = accessorObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.accessors.size(), Category::Accessors, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		std::string_view name;
         if (accessorObject["name"].get_string().get(name) == SUCCESS) {
 	        accessor.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(accessor.name), resourceAllocator.get(), name);
         }
@@ -1694,7 +1703,17 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
             animation.samplers.emplace_back(sampler);
         }
 
-        std::string_view name;
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = animationObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.animations.size(), Category::Animations, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+
+		std::string_view name;
         if (animationObject["name"].get_string().get(name) == SUCCESS) {
 	        animation.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.name), resourceAllocator.get(), name);
         }
@@ -1781,7 +1800,16 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
             return Error::InvalidGltf;
         }
 
-        std::string_view name;
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = bufferObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.buffers.size(), Category::Buffers, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		std::string_view name;
         if (bufferObject["name"].get_string().get(name) == SUCCESS) {
 	        buffer.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(buffer.name), resourceAllocator.get(), name);
         }
@@ -1927,7 +1955,16 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
             }
         }
 
-	    asset.bufferViews.emplace_back(std::move(view));
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = bufferViewObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.bufferViews.size(), Category::BufferViews, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		asset.bufferViews.emplace_back(std::move(view));
     }
 
 	return Error::None;
@@ -2024,7 +2061,16 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
             return Error::InvalidGltf;
         }
 
-	    asset.cameras.emplace_back(std::move(camera));
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = cameraObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.cameras.size(), Category::Cameras, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		asset.cameras.emplace_back(std::move(camera));
     }
 
 	return Error::None;
@@ -2138,7 +2184,16 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
             return Error::InvalidGltf;
         }
 
-        // name is optional.
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = imageObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.images.size(), Category::Images, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		// name is optional.
         std::string_view name;
         if (imageObject["name"].get_string().get(name) == SUCCESS) {
 	        image.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(image.name), resourceAllocator.get(), name);
@@ -2241,7 +2296,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
             light.range = static_cast<num>(range);
         }
 
-        std::string_view name;
+		std::string_view name;
         if (lightObject["name"].get_string().get(name) == SUCCESS) {
 	        light.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(light.name), resourceAllocator.get(), name);
         }
@@ -2950,7 +3005,16 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
             return Error::InvalidJson;
         }
 
-        asset.materials.emplace_back(std::move(material));
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = materialObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.materials.size(), Category::Materials, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		asset.materials.emplace_back(std::move(material));
     }
 
 	return Error::None;
@@ -3059,7 +3123,16 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
             return Error::InvalidGltf;
         }
 
-        std::string_view name;
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = meshObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.meshes.size(), Category::Meshes, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		std::string_view name;
         if (meshObject["name"].get_string().get(name) == SUCCESS) {
 	        mesh.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.name), resourceAllocator.get(), name);
         }
@@ -3248,6 +3321,15 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			}
         }
 
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = nodeObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.nodes.size(), Category::Nodes, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
         std::string_view name;
         if (nodeObject["name"].get_string().get(name) == SUCCESS) {
 	        node.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.name), resourceAllocator.get(), name);
@@ -3293,6 +3375,15 @@ fg::Error fg::Parser::parseSamplers(simdjson::dom::array& samplers, Asset& asset
             return Error::InvalidGltf;
         }
 
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = samplerObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.samplers.size(), Category::Samplers, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
 		std::string_view name;
 		if (samplerObject["name"].get_string().get(name) == SUCCESS) {
 			sampler.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(sampler.name), resourceAllocator.get(), name);
@@ -3321,7 +3412,16 @@ fg::Error fg::Parser::parseScenes(simdjson::dom::array& scenes, Asset& asset) {
 	        scene.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.name), resourceAllocator.get(), name);
         }
 
-        // Parse the array of nodes.
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = sceneObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.scenes.size(), Category::Scenes, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		// Parse the array of nodes.
         dom::array nodes;
         auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
         if (nodeError == Error::None) FASTGLTF_LIKELY {
@@ -3381,7 +3481,16 @@ fg::Error fg::Parser::parseSkins(simdjson::dom::array& skins, Asset& asset) {
             skin.joints.emplace_back(index);
         }
 
-        std::string_view name;
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = skinObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.skins.size(), Category::Skins, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		std::string_view name;
         if (skinObject["name"].get_string().get(name) == SUCCESS) {
 	        skin.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.name), resourceAllocator.get(), name);
         }
@@ -3434,7 +3543,16 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 			return Error::InvalidGltf;
 		}
 
-        std::string_view name;
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = textureObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.textures.size(), Category::Textures, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+
+		std::string_view name;
         if (textureObject["name"].get_string().get(name) == SUCCESS) {
 			texture.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(texture.name), resourceAllocator.get(), name);
         }
@@ -3762,6 +3880,10 @@ void fg::Parser::setBufferAllocationCallback(BufferMapCallback* mapCallback, Buf
 
 void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept {
     config.decodeCallback = decodeCallback;
+}
+
+void fg::Parser::setExtrasParseCallback(ExtrasParseCallback *extrasCallback) noexcept {
+	config.extrasCallback = extrasCallback;
 }
 
 void fg::Parser::setUserPointer(void* pointer) noexcept {
