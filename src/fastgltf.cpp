@@ -836,6 +836,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 
 			sources::Array indicesArray {
 				std::move(generatedIndices),
+				MimeType::GltfBuffer,
 			};
 			auto& buffer = asset.buffers.emplace_back();
 			buffer.byteLength = generatedIndices.size_bytes();
@@ -1784,6 +1785,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
                 sources::URI filePath;
                 filePath.fileByteOffset = 0;
                 filePath.uri = uriView;
+				filePath.mimeType = MimeType::None;
                 buffer.data = std::move(filePath);
             }
         } else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
@@ -2150,6 +2152,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
                 sources::URI filePath;
                 filePath.fileByteOffset = 0;
                 filePath.uri = uriView;
+				filePath.mimeType = MimeType::None;
                 image.data = std::move(filePath);
             }
 
