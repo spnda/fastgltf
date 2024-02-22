@@ -1577,7 +1577,7 @@ namespace fastgltf {
             }
             return instancingAttributes.cend();
         }
-   };
+    };
 
     struct Primitive {
 		using attribute_type = std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>;
@@ -1591,6 +1591,13 @@ namespace fastgltf {
 
         Optional<std::size_t> indicesAccessor;
         Optional<std::size_t> materialIndex;
+
+		/**
+		 * Represents the mappings data from KHR_material_variants.
+		 * Use the variant index to index into this array to get the corresponding material index to use.
+		 * If the optional has no value, the normal materialIndex should be used as a fallback.
+		 */
+		std::vector<Optional<std::size_t>> mappings;
 
 		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
 			for (auto it = attributes.begin(); it != attributes.end(); ++it) {
@@ -2025,6 +2032,8 @@ namespace fastgltf {
         std::vector<Skin> skins;
         std::vector<Texture> textures;
 
+		std::vector<std::string> materialVariants;
+
         // Keeps tracked of categories that were actually parsed.
         Category availableCategories = Category::None;
 
@@ -2052,6 +2061,7 @@ namespace fastgltf {
 				scenes(std::move(other.scenes)),
 				skins(std::move(other.skins)),
 				textures(std::move(other.textures)),
+				materialVariants(std::move(other.materialVariants)),
 				availableCategories(other.availableCategories) {}
 
 		Asset& operator=(const Asset& other) = delete;
@@ -2077,6 +2087,7 @@ namespace fastgltf {
 			scenes = std::move(other.scenes);
 			skins = std::move(other.skins);
 			textures = std::move(other.textures);
+			materialVariants = std::move(other.materialVariants);
 			availableCategories = other.availableCategories;
 			return *this;
 		}

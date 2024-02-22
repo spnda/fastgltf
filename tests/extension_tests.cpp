@@ -280,3 +280,32 @@ TEST_CASE("Test KHR_materials_dispersion", "[gltf-loader]") {
 	REQUIRE(asset->materials.size() == 1);
 	REQUIRE(asset->materials.front().dispersion == 0.1f);
 }
+
+TEST_CASE("Test KHR_materials_variant", "[gltf-loader]") {
+	auto velvetSofa = sampleModels / "2.0" / "GlamVelvetSofa" / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(velvetSofa / "GlamVelvetSofa.gltf"));
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_variants | fastgltf::Extensions::KHR_texture_transform);
+	auto asset = parser.loadGltfJson(&jsonData, velvetSofa, fastgltf::Options::None);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->materialVariants.size() == 5);
+	REQUIRE(asset->materialVariants[0] == "Champagne");
+	REQUIRE(asset->materialVariants[1] == "Navy");
+	REQUIRE(asset->materialVariants[2] == "Gray");
+	REQUIRE(asset->materialVariants[3] == "Black");
+	REQUIRE(asset->materialVariants[4] == "Pale Pink");
+
+	REQUIRE(asset->meshes.size() >= 2);
+	REQUIRE(asset->meshes[1].primitives.size() == 1);
+
+	auto& primitive = asset->meshes[1].primitives[0];
+	REQUIRE(primitive.mappings.size() == 5);
+	REQUIRE(primitive.mappings[0] == 2);
+	REQUIRE(primitive.mappings[1] == 3);
+	REQUIRE(primitive.mappings[2] == 4);
+	REQUIRE(primitive.mappings[3] == 5);
+	REQUIRE(primitive.mappings[4] == 6);
+}

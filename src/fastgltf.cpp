@@ -2100,11 +2100,35 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
                 if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) FASTGLTF_LIKELY {
                     if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
 						return lightsError;
-                } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+                } else if (error != NO_SUCH_FIELD) {
                     return Error::InvalidGltf;
                 }
                 break;
             }
+			case force_consteval<crc32c(extensions::KHR_materials_variants)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
+					break;
+
+				dom::array variantsArray;
+				if (auto arrayError = extensionObject["variants"].get_array().get(variantsArray); arrayError == SUCCESS) FASTGLTF_LIKELY {
+					asset.materialVariants.reserve(variantsArray.size());
+					for (auto variant : variantsArray) {
+						dom::object variantObject;
+						if (auto error = variant.get_object().get(variantObject); error == SUCCESS) {
+							std::string_view name;
+							if (variantObject["name"].get_string().get(name) != SUCCESS) {
+								return Error::InvalidGltf;
+							}
+							asset.materialVariants.emplace_back(name);
+						} else {
+							return Error::InvalidGltf;
+						}
+					}
+				} else {
+					return Error::InvalidGltf;
+				}
+				break;
+			}
         }
     }
 
@@ -3106,6 +3130,50 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                     primitive.materialIndex = static_cast<std::size_t>(value);
                 } else if (error != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
+				}
+
+				if (hasBit(config.extensions, Extensions::KHR_materials_variants)) {
+					dom::object extensionsObject;
+					if (auto error = primitiveObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) {
+						dom::object extensionObject;
+						if (auto variantsError = extensionsObject[extensions::KHR_materials_variants].get_object().get(extensionObject); variantsError != SUCCESS) {
+							return Error::InvalidGltf;
+						}
+
+						dom::array mappingsArray;
+						if (extensionObject["mappings"].get_array().get(mappingsArray) != SUCCESS) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						for (auto mapping : mappingsArray) {
+							dom::object mappingObject;
+							if (mapping.get_object().get(mappingObject) != SUCCESS) FASTGLTF_UNLIKELY {
+								return Error::InvalidGltf;
+							}
+
+							std::uint64_t materialIndex;
+							if (mappingObject["material"].get_uint64().get(materialIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+								return Error::InvalidGltf;
+							}
+
+							dom::array variantsArray;
+							if (mappingObject["variants"].get_array().get(variantsArray) != SUCCESS) FASTGLTF_UNLIKELY {
+								return Error::InvalidGltf;
+							}
+							for (auto variant : variantsArray) {
+								std::uint64_t variantIndex;
+								if (variant.get_uint64().get(variantIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+									return Error::InvalidGltf;
+								}
+
+								primitive.mappings.resize(max(primitive.mappings.size(),
+															  static_cast<std::size_t>(variantIndex + 1)));
+								primitive.mappings[std::size_t(variantIndex)] = materialIndex;
+							}
+						}
+					} else if (error != NO_SUCH_FIELD) {
+						return Error::InvalidGltf;
+					}
 				}
 
                 mesh.primitives.emplace_back(std::move(primitive));
@@ -4685,6 +4753,19 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                     json += R"(,"type":)" + std::to_string(to_underlying(itp->type));
                 }
 
+				if (!itp->mappings.empty()) {
+					json += R"(,"extensions":{"KHR_materials_variants":{"mappings":[)";
+					// TODO: We should optimise to avoid writing multiple objects for the same material index
+					for (std::size_t i = 0; i < asset.materialVariants.size(); ++i) {
+						if (!itp->mappings[i].has_value())
+							continue;
+						if (json.back() == '}')
+							json += ',';
+						json += "{\"material\":" + std::to_string(itp->mappings[i].value()) + ",\"variants\":[" + std::to_string(i) + "]}";
+					}
+					json += "]}}";
+				}
+
                 json += '}';
                 ++itp;
                 if (std::distance(it->primitives.begin(), itp) < it->primitives.size())
@@ -4989,6 +5070,18 @@ void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& js
     json += "\"extensions\":{";
 
     writeLights(asset, json);
+
+	if (!asset.materialVariants.empty()) {
+		if (json.back() != '{')
+			json += ',';
+		json += R"("KHR_materials_variants":{"variants":[)";
+		for (const auto& variant : asset.materialVariants) {
+			if (json.back() == '}')
+				json += ',';
+			json += R"({"name":")" + variant + "\"}";
+		}
+		json += "]}";
+	}
 
     json += '}';
 }

@@ -198,6 +198,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_dispersion
 		KHR_materials_dispersion = 1 << 23,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_variants
+		KHR_materials_variants = 1 << 24,
     };
     // clang-format on
 
@@ -313,6 +316,7 @@ namespace fastgltf {
         constexpr std::string_view KHR_materials_specular = "KHR_materials_specular";
         constexpr std::string_view KHR_materials_transmission = "KHR_materials_transmission";
         constexpr std::string_view KHR_materials_unlit = "KHR_materials_unlit";
+		constexpr std::string_view KHR_materials_variants = "KHR_materials_variants";
         constexpr std::string_view KHR_materials_volume = "KHR_materials_volume";
         constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";
         constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
@@ -331,9 +335,9 @@ namespace fastgltf {
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 22;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 23;
 #else
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 21;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 22;
 #endif
 	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
@@ -350,6 +354,7 @@ namespace fastgltf {
 		{ extensions::KHR_materials_specular,                   Extensions::KHR_materials_specular },
 		{ extensions::KHR_materials_transmission,               Extensions::KHR_materials_transmission },
 		{ extensions::KHR_materials_unlit,                      Extensions::KHR_materials_unlit },
+		{ extensions::KHR_materials_variants,                   Extensions::KHR_materials_variants },
 		{ extensions::KHR_materials_volume,                     Extensions::KHR_materials_volume },
 		{ extensions::KHR_mesh_quantization,                    Extensions::KHR_mesh_quantization },
 		{ extensions::KHR_texture_basisu,                       Extensions::KHR_texture_basisu },
