@@ -600,29 +600,70 @@ TEST_CASE("Test extras callback", "[gltf-loader]") {
 
 	std::vector<std::string> nodeNames;
 
-	auto extrasCallback = [](simdjson::dom::object* extras, std::size_t objectIndex, fastgltf::Category category, void* userPointer) {
-		if (category != fastgltf::Category::Nodes)
-			return;
-		auto* nodeNames = static_cast<std::vector<std::string>*>(userPointer);
-		nodeNames->resize(fastgltf::max(nodeNames->size(), objectIndex + 1));
+	// lambda callback to parse the glTF JSON from the jsonData buffer
+	auto parseJson = [&]() {
+		auto extrasCallback = [](simdjson::dom::object *extras, std::size_t objectIndex, fastgltf::Category category,
+								 void *userPointer) {
+			if (category != fastgltf::Category::Nodes)
+				return;
+			auto *nodeNames = static_cast<std::vector<std::string> *>(userPointer);
+			nodeNames->resize(fastgltf::max(nodeNames->size(), objectIndex + 1));
 
-		std::string_view nodeName;
-		if ((*extras)["name"].get_string().get(nodeName) == simdjson::SUCCESS) {
-			(*nodeNames)[objectIndex] = std::string(nodeName);
-		}
+			std::string_view nodeName;
+			if ((*extras)["name"].get_string().get(nodeName) == simdjson::SUCCESS) {
+				(*nodeNames)[objectIndex] = std::string(nodeName);
+			}
+		};
+
+		fastgltf::Parser parser;
+		parser.setExtrasParseCallback(extrasCallback);
+		parser.setUserPointer(&nodeNames);
+		return parser.loadGltfJson(&jsonData, materialVariants);
 	};
 
-	fastgltf::Parser parser;
-	parser.setExtrasParseCallback(extrasCallback);
-	parser.setUserPointer(&nodeNames);
-	auto asset = parser.loadGltfJson(&jsonData, materialVariants);
-	REQUIRE(asset.error() == fastgltf::Error::None);
-	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	// The asset has to be reused for exporting in the next section.
+	auto asset = parseJson();
+	SECTION("Validate node names from extras") {
+		REQUIRE(asset.error() == fastgltf::Error::None);
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-	REQUIRE(nodeNames.size() == 3);
-	REQUIRE(nodeNames.size() == asset->nodes.size());
+		REQUIRE(nodeNames.size() == 3);
+		REQUIRE(nodeNames.size() == asset->nodes.size());
 
-	REQUIRE(nodeNames[0] == "Shoe");
-	REQUIRE(nodeNames[1] == "g Shoe");
-	REQUIRE(nodeNames[2] == "Shoe.obj");
+		REQUIRE(nodeNames[0] == "Shoe");
+		REQUIRE(nodeNames[1] == "g Shoe");
+		REQUIRE(nodeNames[2] == "Shoe.obj");
+	}
+
+	SECTION("Re-export asset") {
+		auto extrasWriteCallback = [](std::size_t objectIndex, fastgltf::Category category,
+									  void *userPointer) -> std::optional<std::string> {
+			if (category != fastgltf::Category::Nodes)
+				return std::nullopt;
+
+			auto *nodeNames = static_cast<std::vector<std::string> *>(userPointer);
+			if (objectIndex >= nodeNames->size())
+				return std::nullopt; // TODO: Error?
+			return {std::string(R"({"name":")") + (*nodeNames)[objectIndex] + "\"}"};
+		};
+		fastgltf::Exporter exporter;
+		exporter.setUserPointer(&nodeNames);
+		exporter.setExtrasWriteCallback(extrasWriteCallback);
+		auto json = exporter.writeGltfJson(asset.get());
+		REQUIRE(json.error() == fastgltf::Error::None);
+
+		// Update the data buffer
+		auto& string = json.get().output;
+		jsonData.fromByteView(reinterpret_cast<std::uint8_t*>(string.data()), string.size(), string.capacity());
+
+		nodeNames.clear();
+		auto reparsed = parseJson();
+		REQUIRE(reparsed.error() == fastgltf::Error::None);
+		REQUIRE(fastgltf::validate(reparsed.get()) == fastgltf::Error::None);
+
+		REQUIRE(nodeNames.size() == 3);
+		REQUIRE(nodeNames[0] == "Shoe");
+		REQUIRE(nodeNames[1] == "g Shoe");
+		REQUIRE(nodeNames[2] == "Shoe.obj");
+	}
 }

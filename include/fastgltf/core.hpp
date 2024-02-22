@@ -585,6 +585,7 @@ namespace fastgltf {
     using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
     using Base64DecodeCallback = void(std::string_view base64, std::uint8_t* dataOutput, std::size_t padding, std::size_t dataOutputSize, void* userPointer);
 	using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
+	using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
 
     /**
      * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
@@ -644,13 +645,10 @@ namespace fastgltf {
         virtual ~GltfDataBuffer() noexcept;
 
         /**
-         * Saves the pointer including its range. Does not copy any data. This requires the
-         * original allocation to outlive the parsing of the glTF, so after the last relevant
-         * call to fastgltf::Parser::loadGltf. However, this function asks for a capacity size, as
-         * the JSON parsing requires some padding. See fastgltf::getGltfBufferPadding for more information.
-         * If the capacity does not have enough padding, the function will instead copy the bytes
-         * with the copyBytes method. Also, it will set the padding bytes all to 0, so be sure to
-         * not use that for any other data.
+         * Saves the given pointer including the given range.
+         * If the capacity of the allocation minus the used size is smaller than fastgltf::getGltfBufferPadding,
+         * this function will re-allocate and copy the bytes.
+         * Also, it will set the padding bytes all to 0, so be sure to not use that for any other data.
          */
         bool fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept;
 
@@ -858,6 +856,9 @@ namespace fastgltf {
         std::filesystem::path bufferFolder = "";
         std::filesystem::path imageFolder = "";
 
+		void* userPointer = nullptr;
+		ExtrasWriteCallback* extrasWriteCallback = nullptr;
+
         std::vector<std::optional<std::filesystem::path>> bufferPaths;
         std::vector<std::optional<std::filesystem::path>> imagePaths;
 
@@ -894,6 +895,10 @@ namespace fastgltf {
          * If folder.is_relative() returns false, this has no effect.
          */
         void setImagePath(std::filesystem::path folder);
+
+		void setExtrasWriteCallback(ExtrasWriteCallback* callback) noexcept;
+
+		void setUserPointer(void* pointer) noexcept;
 
         /**
          * Generates a glTF JSON string from the given asset.
