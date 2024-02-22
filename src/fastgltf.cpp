@@ -861,6 +861,15 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 	if (asset.extensionsRequired.size() > asset.extensionsUsed.size()) {
 		return Error::InvalidGltf;
 	}
+	for (const auto& required : asset.extensionsRequired) {
+		bool found = false;
+		for (const auto& used : asset.extensionsUsed) {
+			if (required == used)
+				found = true;
+		}
+		if (!found)
+			return Error::InvalidGltf;
+	}
 
 	for (const auto& accessor : asset.accessors) {
 		if (accessor.type == AccessorType::Invalid)
@@ -918,7 +927,7 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 	for (const auto& bufferView : asset.bufferViews) {
 		if (bufferView.byteLength < 1)
 			return Error::InvalidGltf;
-		if (bufferView.byteStride.has_value() && (bufferView.byteStride < 4U || bufferView.byteStride > 252U))
+		if (bufferView.byteStride.has_value() && (*bufferView.byteStride < 4U || *bufferView.byteStride > 252U || *bufferView.byteStride % 4 != 0))
 			return Error::InvalidGltf;
 		if (bufferView.bufferIndex >= asset.buffers.size())
 			return Error::InvalidGltf;
@@ -1039,8 +1048,36 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 	}
 
 	for (const auto& mesh : asset.meshes) {
-		for (const auto& primitives : mesh.primitives) {
-			for (auto [name, index] : primitives.attributes) {
+		for (const auto& primitive : mesh.primitives) {
+			if (primitive.materialIndex.has_value() && *primitive.materialIndex >= asset.materials.size())
+				return Error::InvalidGltf;
+
+			if (!primitive.mappings.empty()) {
+				if (!isExtensionUsed(fastgltf::extensions::KHR_materials_variants))
+					return Error::InvalidGltf;
+				if (primitive.mappings.size() != asset.materialVariants.size())
+					return Error::InvalidGltf;
+				for (const auto& mapping : primitive.mappings) {
+					if (!mapping.has_value())
+						continue;
+					if (mapping.value() >= asset.materials.size())
+						return Error::InvalidGltf;
+				}
+			}
+
+			if (primitive.indicesAccessor.has_value()) {
+				if (*primitive.indicesAccessor >= asset.accessors.size())
+					return Error::InvalidGltf;
+				auto &accessor = asset.accessors[*primitive.indicesAccessor];
+				if (accessor.bufferViewIndex.has_value()) {
+					auto &bufferView = asset.bufferViews[*accessor.bufferViewIndex];
+					// The byteStride property must not be set on anything but vertex attributes.
+					if (bufferView.byteStride.has_value())
+						return Error::InvalidGltf;
+				}
+			}
+
+			for (auto& [name, index] : primitive.attributes) {
 				if (asset.accessors.size() <= index)
 					return Error::InvalidGltf;
 
@@ -1377,6 +1414,18 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	if (hasBit(options, Options::GenerateMeshIndices)) {
 		if (auto error = generateMeshIndices(asset); error != Error::None) {
 			return Expected<Asset>(error);
+		}
+	}
+
+	// Resize primitive mappings to match the global variant count
+	if (hasBit(config.extensions, Extensions::KHR_materials_variants) && !asset.materialVariants.empty()) {
+		std::size_t variantCount = asset.materialVariants.size();
+		for (auto& mesh : asset.meshes) {
+			for (auto& primitive : mesh.primitives) {
+				if (!primitive.mappings.empty() || primitive.mappings.size() == variantCount)
+					continue;
+				primitive.mappings.resize(variantCount);
+			}
 		}
 	}
 
