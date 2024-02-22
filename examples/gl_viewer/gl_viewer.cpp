@@ -30,6 +30,10 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
+
 // All headers not in the root directory require this
 #define GLM_ENABLE_EXPERIMENTAL 1
 #include <glm/glm.hpp>
@@ -153,7 +157,7 @@ struct Primitive {
 	GLuint vertexBuffer;
 	GLuint indexBuffer;
 
-    size_t materialUniformsIndex;
+    std::size_t materialUniformsIndex;
     GLuint albedoTexture;
 };
 
@@ -203,6 +207,9 @@ struct Viewer {
     float yaw = -90.0f;
     float pitch = 0.0f;
     bool firstMouse = true;
+
+	std::size_t sceneIndex = 0;
+	std::size_t materialVariant = 0;
 };
 
 void updateCameraMatrix(Viewer* viewer) {
@@ -224,6 +231,11 @@ void windowSizeCallback(GLFWwindow* window, int width, int height) {
 void cursorCallback(GLFWwindow* window, double xpos, double ypos) {
     void* ptr = glfwGetWindowUserPointer(window);
     auto* viewer = static_cast<Viewer*>(ptr);
+
+	int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE);
+	if (state != GLFW_PRESS) {
+		return;
+	}
 
     if (viewer->firstMouse) {
         viewer->lastCursorPosition = { xpos, ypos };
@@ -302,7 +314,11 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
 
     // Parse the glTF file and get the constructed asset
     {
-        fastgltf::Parser parser(fastgltf::Extensions::KHR_mesh_quantization);
+		static constexpr auto supportedExtensions =
+			fastgltf::Extensions::KHR_mesh_quantization |
+			fastgltf::Extensions::KHR_materials_variants;
+
+        fastgltf::Parser parser(supportedExtensions);
 
         auto path = std::filesystem::path{cPath};
 
@@ -521,7 +537,15 @@ void drawMesh(Viewer* viewer, size_t meshIndex, glm::mat4 matrix) {
     for (auto i = 0U; i < mesh.primitives.size(); ++i) {
         auto& prim = mesh.primitives[i];
 
-        auto& material = viewer->materialBuffers[prim.materialUniformsIndex];
+		std::size_t materialIndex;
+		auto& mappings = viewer->asset.meshes[meshIndex].primitives[i].mappings;
+		if (!mappings.empty() && mappings[viewer->materialVariant].has_value()) {
+			materialIndex = mappings[viewer->materialVariant].value() + 1; // Adjust for default material
+		} else {
+			materialIndex = prim.materialUniformsIndex;
+		}
+
+        auto& material = viewer->materialBuffers[materialIndex];
         glBindTextureUnit(0, prim.albedoTexture);
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, material);
         glBindVertexArray(prim.vertexArray);
@@ -574,7 +598,15 @@ int main(int argc, char* argv[]) {
     glfwSetCursorPosCallback(window, cursorCallback);
     glfwSetWindowSizeCallback(window, windowSizeCallback);
 
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
+
+	// All of our callbacks need to be set before calling this so that it correctly chains them
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init();
 
     if (!gladLoadGL(glfwGetProcAddress)) {
         std::cerr << "Failed to initialize OpenGL context." << '\n';
@@ -675,6 +707,15 @@ int main(int argc, char* argv[]) {
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
 
+	auto& sceneIndex = viewer.sceneIndex = viewer.asset.defaultScene.value_or(0);
+
+	// Give every scene a readable name, if not yet available
+	for (std::size_t i = 0; i < asset.scenes.size(); ++i) {
+		if (!asset.scenes[i].name.empty())
+			continue;
+		asset.scenes[i].name = std::string("Scene ") + std::to_string(i);
+	}
+
     viewer.lastFrame = static_cast<float>(glfwGetTime());
     while (glfwWindowShouldClose(window) != GLFW_TRUE) {
         auto currentFrame = static_cast<float>(glfwGetTime());
@@ -687,27 +728,68 @@ int main(int argc, char* argv[]) {
         // Updates the acceleration vector and direction vectors.
         glfwPollEvents();
 
-        // Factor the deltaTime into the amount of acceleration
-        viewer.velocity += (viewer.accelerationVector * 50.0f) * viewer.deltaTime;
-        // Lerp the velocity to 0, adding deceleration.
-        viewer.velocity = viewer.velocity + (2.0f * viewer.deltaTime) * (glm::vec3(0.0f) - viewer.velocity);
-        // Add the velocity into the position
-        viewer.position += viewer.velocity * viewer.deltaTime;
-        viewer.viewMatrix = glm::lookAt(viewer.position, viewer.position + viewer.direction, glm::vec3(0.0f, 1.0f, 0.0f));
-        updateCameraMatrix(&viewer);
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+		auto& io = ImGui::GetIO();
+
+		if (ImGui::Begin("gl_viewer")) {
+			auto& name = asset.scenes[sceneIndex].name;
+			if (ImGui::BeginCombo("Scene", name.c_str(), ImGuiComboFlags_None)) {
+				for (std::size_t i = 0; i < asset.scenes.size(); ++i) {
+					bool isSelected = i == sceneIndex;
+					if (ImGui::Selectable(asset.scenes[i].name.c_str(), isSelected))
+						sceneIndex = i;
+					if (isSelected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+
+			ImGui::BeginDisabled(asset.materialVariants.empty());
+			const auto currentVariantName = asset.materialVariants.empty()
+				? "N/A"
+				: asset.materialVariants[viewer.materialVariant].c_str();
+			if (ImGui::BeginCombo("Variant", currentVariantName, ImGuiComboFlags_None)) {
+				for (std::size_t i = 0; i < asset.materialVariants.size(); ++i) {
+					bool isSelected = i == viewer.materialVariant;
+					if (ImGui::Selectable(asset.materialVariants[i].c_str(), isSelected))
+						viewer.materialVariant = i;
+					if (isSelected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::EndDisabled();
+
+			ImGui::End();
+		}
+
+		// Factor the deltaTime into the amount of acceleration
+		viewer.velocity += (viewer.accelerationVector * 50.0f) * viewer.deltaTime;
+		// Lerp the velocity to 0, adding deceleration.
+		viewer.velocity = viewer.velocity + (2.0f * viewer.deltaTime) * (glm::vec3(0.0f) - viewer.velocity);
+		// Add the velocity into the position
+		viewer.position += viewer.velocity * viewer.deltaTime;
+		viewer.viewMatrix = glm::lookAt(viewer.position, viewer.position + viewer.direction,
+										glm::vec3(0.0f, 1.0f, 0.0f));
+		updateCameraMatrix(&viewer);
 
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		std::size_t sceneIndex = 0;
-		if (viewer.asset.defaultScene.has_value())
-			sceneIndex = viewer.asset.defaultScene.value();
-        auto& scene = viewer.asset.scenes[sceneIndex];
-        for (auto& node : scene.nodeIndices) {
-            drawNode(&viewer, node, glm::mat4(1.0f));
-        }
+		if (!viewer.asset.scenes.empty() && sceneIndex < viewer.asset.scenes.size()) {
+			auto& scene = viewer.asset.scenes[sceneIndex];
+			for (auto& node: scene.nodeIndices) {
+				drawNode(&viewer, node, glm::mat4(1.0f));
+			}
+		}
+
+		// Render ImGui
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
     }
@@ -724,6 +806,10 @@ int main(int argc, char* argv[]) {
 
     glDeleteProgram(program);
 
-    glfwDestroyWindow(window);
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
+	glfwDestroyWindow(window);
     glfwTerminate();
 }

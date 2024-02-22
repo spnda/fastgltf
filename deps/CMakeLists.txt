@@ -79,3 +79,30 @@ if (FASTGLTF_ENABLE_GLTF_RS AND EXISTS "${FASTGLTF_DEPS_DIR}/corrosion")
     message(STATUS "fastgltf: Found corrosion")
     add_subdirectory(${FASTGLTF_DEPS_DIR}/corrosion)
 endif()
+
+# imgui
+if (EXISTS "${FASTGLTF_DEPS_DIR}/imgui")
+    message(STATUS "fastgltf: Found imgui")
+
+    set(IMGUI_DIRECTORY "${FASTGLTF_DEPS_DIR}/imgui")
+    if(NOT EXISTS "${IMGUI_DIRECTORY}")
+        message(FATAL_ERROR "The imgui submodule does not exist.")
+    endif()
+
+    add_library(imgui)
+    add_library(imgui::imgui ALIAS imgui)
+    fastgltf_add_source_directory(TARGET imgui FOLDER "${IMGUI_DIRECTORY}")
+    fastgltf_add_source_directory(TARGET imgui FOLDER "${IMGUI_DIRECTORY}/misc/cpp/")
+
+    target_include_directories(imgui SYSTEM PUBLIC "${IMGUI_DIRECTORY}")
+    target_include_directories(imgui SYSTEM PUBLIC "${IMGUI_DIRECTORY}/backends")
+    target_include_directories(imgui SYSTEM PUBLIC "${IMGUI_DIRECTORY}/misc/cpp")
+
+    target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS=1)
+
+    # We only need the GLFW implementation
+    target_sources(imgui PUBLIC "${IMGUI_DIRECTORY}/backends/imgui_impl_glfw.h" "${IMGUI_DIRECTORY}/backends/imgui_impl_glfw.cpp")
+    target_sources(imgui PUBLIC "${IMGUI_DIRECTORY}/backends/imgui_impl_opengl3.h" "${IMGUI_DIRECTORY}/backends/imgui_impl_opengl3.cpp")
+
+    target_link_libraries(imgui PUBLIC glfw::glfw)
+endif()

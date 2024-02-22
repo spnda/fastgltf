@@ -9,9 +9,10 @@ import zipfile
 
 example_deps_urls = {
     'glfw': "https://github.com/glfw/glfw/releases/download/3.3.9/glfw-3.3.9.zip",
-    'glm': "https://github.com/g-truc/glm/archive/refs/tags/1.0.0.zip",
+    'glm': "https://github.com/g-truc/glm/archive/refs/tags/0.9.9.8.zip",
     'stb': "https://github.com/nothings/stb/archive/refs/heads/master.zip",
     'glad': "https://github.com/Dav1dde/glad/archive/refs/heads/glad2.zip",
+    'imgui': "https://github.com/ocornut/imgui/archive/refs/tags/v1.90.4.zip"
 }
 test_deps_urls = {
     'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.5.2.zip",
