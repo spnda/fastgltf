@@ -399,12 +399,7 @@ namespace fastgltf {
 	/**
 	 * Returns a list of extension names based on the given extension flags.
 	 */
-#if FASTGLTF_CPP_20
-	constexpr
-#else
-	inline
-#endif
-	auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
+	inline auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
 		decltype(Asset::extensionsRequired) stringified;
 		for (std::uint8_t i = 0; i < std::numeric_limits<std::underlying_type_t<Extensions>>::digits; ++i) {
 			// The 1 has to be cast to the underlying type as uint8_t(1) << 9 will overflow and be effectively the same as uint8_t(1).
