@@ -87,6 +87,11 @@ TEST_CASE("Test extension stringification", "[gltf-loader]") {
 
 	stringified = stringifyExtension(fastgltf::Extensions::EXT_meshopt_compression | fastgltf::Extensions::EXT_texture_webp);
 	REQUIRE(stringified == fastgltf::extensions::EXT_meshopt_compression);
+
+	auto list = stringifyExtensionBits(fastgltf::Extensions::EXT_meshopt_compression | fastgltf::Extensions::EXT_texture_webp);
+	REQUIRE(list.size() == 2);
+	REQUIRE(list[0] == fastgltf::extensions::EXT_meshopt_compression);
+	REQUIRE(list[1] == fastgltf::extensions::EXT_texture_webp);
 }
 
 TEST_CASE("Test if glTF type detection works", "[gltf-loader]") {

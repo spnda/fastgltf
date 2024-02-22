@@ -4029,24 +4029,6 @@ std::string fg::escapeString(std::string_view string) {
     return ret;
 }
 
-auto fg::stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
-	decltype(Asset::extensionsRequired) stringified;
-	for (std::uint8_t i = 0; i < std::numeric_limits<std::underlying_type_t<Extensions>>::digits; ++i) {
-		auto curExtension = static_cast<Extensions>(1 << i);
-		if ((extensions & curExtension) == Extensions::None)
-			continue;
-
-		// Find the stringified extension name
-		for (const auto& [name, ext] : extensionStrings) {
-			if (ext == curExtension) {
-				stringified.emplace_back(name);
-				break;
-			}
-		}
-	}
-	return stringified;
-}
-
 void fg::Exporter::setBufferPath(std::filesystem::path folder) {
     if (!folder.is_relative()) {
         return;

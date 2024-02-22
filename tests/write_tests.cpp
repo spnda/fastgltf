@@ -6,20 +6,6 @@
 #include <fastgltf/core.hpp>
 #include "gltf_path.hpp"
 
-TEST_CASE("Test stringifyExtensionBits function", "[write-tests]") {
-	// Just used random extensions here to see if the stringify function works
-	auto exts1 = fastgltf::stringifyExtensionBits(fastgltf::Extensions::KHR_lights_punctual | fastgltf::Extensions::EXT_meshopt_compression);
-	REQUIRE(exts1.end() != std::find_if(exts1.begin(), exts1.end(), [](decltype(exts1)::value_type& ext) {
-		return ext == fastgltf::extensions::KHR_lights_punctual;
-	}));
-	REQUIRE(exts1.end() != std::find_if(exts1.begin(), exts1.end(), [](decltype(exts1)::value_type& ext) {
-		return ext == fastgltf::extensions::EXT_meshopt_compression;
-	}));
-	REQUIRE(exts1.end() == std::find_if(exts1.begin(), exts1.end(), [](decltype(exts1)::value_type& ext) {
-		return ext == fastgltf::extensions::EXT_mesh_gpu_instancing;
-	}));
-}
-
 TEST_CASE("Test simple glTF composition", "[write-tests]") {
 	fastgltf::BufferView bufferView = {};
 	bufferView.bufferIndex = 0;

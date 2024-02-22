@@ -206,9 +206,15 @@ namespace fastgltf {
 
     FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Extensions, Extensions, |)
     FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
+	FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Extensions, Extensions, -)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, |)
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Extensions, ~)
+
+	constexpr Extensions operator-(const Extensions& a, const std::underlying_type_t<Extensions>& b) noexcept {
+		static_assert(std::is_enum_v<Extensions>);
+		return static_cast<Extensions>(to_underlying(a) - b);
+	}
 
     // clang-format off
     enum class Options : std::uint64_t {
@@ -381,22 +387,40 @@ namespace fastgltf {
 	inline
 #endif
 	std::string_view stringifyExtension(Extensions extensions) {
-		// Find the first set bit and mask the value to that
-		std::uint8_t position = 0;
-		if (popcount(to_underlying(extensions)) > 1) {
-			while (position < std::numeric_limits<std::underlying_type_t<Extensions>>::digits) {
-				if (((to_underlying(extensions) >> position) & 1) != 0) {
-					extensions &= static_cast<Extensions>(1 << position);
-					break;
-				}
-				++position;
-			}
-		}
+		// Remove everything but the rightmost bit
+		extensions = extensions - (extensions & (extensions - 1));
 
 		for (const auto& [string, value] : extensionStrings)
 			if (value == extensions)
 				return string;
 		return "";
+	}
+
+	/**
+	 * Returns a list of extension names based on the given extension flags.
+	 */
+#if FASTGLTF_CPP_20
+	constexpr
+#else
+	inline
+#endif
+	auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
+		decltype(Asset::extensionsRequired) stringified;
+		for (std::uint8_t i = 0; i < std::numeric_limits<std::underlying_type_t<Extensions>>::digits; ++i) {
+			// The 1 has to be cast to the underlying type as uint8_t(1) << 9 will overflow and be effectively the same as uint8_t(1).
+			auto curExtension = static_cast<Extensions>(std::underlying_type_t<Extensions>(1) << i);
+			if ((extensions & curExtension) == Extensions::None)
+				continue;
+
+			// Find the stringified extension name
+			for (const auto& [name, ext] : extensionStrings) {
+				if (ext == curExtension) {
+					stringified.emplace_back(name);
+					break;
+				}
+			}
+		}
+		return stringified;
 	}
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
@@ -809,11 +833,6 @@ namespace fastgltf {
      * Escapes a string for use in JSON.
      */
     std::string escapeString(std::string_view string);
-
-	/**
-	 * Returns a list of extension names based on the given extension flags.
-	 */
-	auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired);
 
     template <typename T>
     struct ExportResult {
