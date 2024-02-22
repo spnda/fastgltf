@@ -1422,7 +1422,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		std::size_t variantCount = asset.materialVariants.size();
 		for (auto& mesh : asset.meshes) {
 			for (auto& primitive : mesh.primitives) {
-				if (!primitive.mappings.empty() || primitive.mappings.size() == variantCount)
+				if (primitive.mappings.empty() || primitive.mappings.size() == variantCount)
 					continue;
 				primitive.mappings.resize(variantCount);
 			}
