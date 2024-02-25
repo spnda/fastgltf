@@ -73,6 +73,9 @@ constexpr std::string_view fragmentShaderSource = R"(
     in vec2 texCoord;
     out vec4 finalColor;
 
+	uniform vec2 uvOffset, uvScale;
+	uniform float uvRotation;
+
     const uint HAS_BASE_COLOR_TEXTURE = 1;
 
     layout(location = 0) uniform sampler2D albedoTexture;
@@ -86,10 +89,18 @@ constexpr std::string_view fragmentShaderSource = R"(
         return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
     }
 
+	vec2 transformUv(vec2 uv) {
+		mat2 rotationMat = mat2(
+			cos(uvRotation), -sin(uvRotation),
+		   	sin(uvRotation), cos(uvRotation)
+		);
+		return rotationMat * uv * uvScale + uvOffset;
+	}
+
     void main() {
         vec4 color = material.baseColorFactor;
         if ((material.flags & HAS_BASE_COLOR_TEXTURE) == HAS_BASE_COLOR_TEXTURE) {
-            color *= texture(albedoTexture, texCoord);
+            color *= texture(albedoTexture, transformUv(texCoord));
         }
         float factor = (rand(gl_FragCoord.xy) - 0.5) / 8;
         if (color.a < material.alphaCutoff + factor)
@@ -180,6 +191,8 @@ struct MaterialUniforms {
     glm::fvec4 baseColorFactor;
     float alphaCutoff;
 	std::uint32_t flags;
+
+	glm::vec2 padding;
 };
 
 struct Viewer {
@@ -192,6 +205,10 @@ struct Viewer {
 
     std::vector<MaterialUniforms> materials;
     std::vector<GLuint> materialBuffers;
+
+	GLint uvOffsetUniform = GL_NONE;
+	GLint uvScaleUniform = GL_NONE;
+	GLint uvRotationUniform = GL_NONE;
 
 	glm::ivec2 windowDimensions = glm::ivec2(0);
     glm::mat4 viewMatrix = glm::mat4(1.0f);
@@ -319,6 +336,7 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
     {
 		static constexpr auto supportedExtensions =
 			fastgltf::Extensions::KHR_mesh_quantization |
+			fastgltf::Extensions::KHR_texture_transform |
 			fastgltf::Extensions::KHR_materials_variants;
 
         fastgltf::Parser parser(supportedExtensions);
@@ -362,6 +380,8 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         GLuint vao = GL_NONE;
         glCreateVertexArrays(1, &vao);
 
+		std::size_t baseColorTexcoordIndex = 0;
+
         // Get the output primitive
         auto index = std::distance(mesh.primitives.begin(), it);
         auto& primitive = outMesh.primitives[index];
@@ -370,11 +390,19 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         if (it->materialIndex.has_value()) {
             primitive.materialUniformsIndex = it->materialIndex.value() + 1; // Adjust for default material
             auto& material = viewer->asset.materials[it->materialIndex.value()];
-            if (material.pbrData.baseColorTexture.has_value()) {
-                auto& texture = viewer->asset.textures[material.pbrData.baseColorTexture->textureIndex];
+
+			auto& baseColorTexture = material.pbrData.baseColorTexture;
+            if (baseColorTexture.has_value()) {
+                auto& texture = viewer->asset.textures[baseColorTexture->textureIndex];
 				if (!texture.imageIndex.has_value())
 					return false;
                 primitive.albedoTexture = viewer->textures[texture.imageIndex.value()].texture;
+
+				if (baseColorTexture->transform && baseColorTexture->transform->texCoordIndex.has_value()) {
+					baseColorTexcoordIndex = baseColorTexture->transform->texCoordIndex.value();
+				} else {
+					baseColorTexcoordIndex = material.pbrData.baseColorTexture->texCoordIndex;
+				}
             }
         } else {
 			primitive.materialUniformsIndex = 0;
@@ -409,9 +437,10 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 									  0, sizeof(Vertex));
         }
 
-        if (const auto* texcoord0 = it->findAttribute("TEXCOORD_0"); texcoord0 != it->attributes.end()) {
+		auto texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
+        if (const auto* texcoord = it->findAttribute(texcoordAttribute); texcoord != it->attributes.end()) {
             // Tex coord
-			auto& texCoordAccessor = asset.accessors[texcoord0->second];
+			auto& texCoordAccessor = asset.accessors[texcoord->second];
             if (!texCoordAccessor.bufferViewIndex.has_value())
                 continue;
 
@@ -576,9 +605,10 @@ void drawMesh(Viewer* viewer, std::size_t meshIndex, glm::mat4 matrix) {
 
     for (auto i = 0U; i < mesh.primitives.size(); ++i) {
         auto& prim = mesh.primitives[i];
+		auto& gltfPrimitive = viewer->asset.meshes[meshIndex].primitives[i];
 
 		std::size_t materialIndex;
-		auto& mappings = viewer->asset.meshes[meshIndex].primitives[i].mappings;
+		auto& mappings = gltfPrimitive.mappings;
 		if (!mappings.empty() && mappings[viewer->materialVariant].has_value()) {
 			materialIndex = mappings[viewer->materialVariant].value() + 1; // Adjust for default material
 		} else {
@@ -589,6 +619,20 @@ void drawMesh(Viewer* viewer, std::size_t meshIndex, glm::mat4 matrix) {
         glBindTextureUnit(0, prim.albedoTexture);
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, material);
         glBindVertexArray(prim.vertexArray);
+
+		// Update texture transform uniforms
+		glUniform2f(viewer->uvOffsetUniform, 0, 0);
+		glUniform2f(viewer->uvScaleUniform, 1.f, 1.f);
+		glUniform1f(viewer->uvRotationUniform, 0);
+		if (materialIndex != 0) {
+			auto& gltfMaterial = viewer->asset.materials[materialIndex - 1];
+			if (gltfMaterial.pbrData.baseColorTexture.has_value() && gltfMaterial.pbrData.baseColorTexture->transform) {
+				auto& transform = gltfMaterial.pbrData.baseColorTexture->transform;
+				glUniform2f(viewer->uvOffsetUniform, transform->uvOffset[0], transform->uvOffset[1]);
+				glUniform2f(viewer->uvScaleUniform, transform->uvScale[0], transform->uvScale[1]);
+				glUniform1f(viewer->uvRotationUniform, static_cast<float>(transform->rotation));
+			}
+		}
 
         glDrawElementsIndirect(prim.primitiveType, prim.indexType,
                                reinterpret_cast<const void*>(i * sizeof(Primitive)));
@@ -776,6 +820,9 @@ int main(int argc, char* argv[]) {
 
     viewer.modelMatrixUniform = glGetUniformLocation(program, "modelMatrix");
     viewer.viewProjectionMatrixUniform = glGetUniformLocation(program, "viewProjectionMatrix");
+	viewer.uvOffsetUniform = glGetUniformLocation(program, "uvOffset");
+	viewer.uvScaleUniform = glGetUniformLocation(program, "uvScale");
+	viewer.uvRotationUniform = glGetUniformLocation(program, "uvRotation");
     glUseProgram(program);
 
     glEnable(GL_BLEND);
