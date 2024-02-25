@@ -29,7 +29,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>

@@ -28,6 +28,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <string_view>
 #include <type_traits>

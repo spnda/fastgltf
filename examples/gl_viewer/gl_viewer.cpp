@@ -38,6 +38,7 @@
 #define GLM_ENABLE_EXPERIMENTAL 1
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 
@@ -187,10 +188,12 @@ struct Viewer {
     std::vector<GLuint> bufferAllocations;
     std::vector<Mesh> meshes;
     std::vector<Texture> textures;
+	std::vector<glm::mat4> cameras;
 
     std::vector<MaterialUniforms> materials;
     std::vector<GLuint> materialBuffers;
 
+	glm::ivec2 windowDimensions = glm::ivec2(0);
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
     GLint viewProjectionMatrixUniform = GL_NONE;
@@ -210,20 +213,19 @@ struct Viewer {
 
 	std::size_t sceneIndex = 0;
 	std::size_t materialVariant = 0;
+	fastgltf::Optional<std::size_t> cameraIndex = std::nullopt;
 };
 
 void updateCameraMatrix(Viewer* viewer) {
     glm::mat4 viewProjection = viewer->projectionMatrix * viewer->viewMatrix;
-    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, &viewProjection[0][0]);
+    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, glm::value_ptr(viewProjection));
 }
 
 void windowSizeCallback(GLFWwindow* window, int width, int height) {
     void* ptr = glfwGetWindowUserPointer(window);
     auto* viewer = static_cast<Viewer*>(ptr);
 
-    viewer->projectionMatrix = glm::perspective(glm::radians(75.0f),
-                                                static_cast<float>(width) / static_cast<float>(height),
-                                                0.01f, 1000.0f);
+	viewer->windowDimensions = { width, height };
 
     glViewport(0, 0, width, height);
 }
@@ -527,7 +529,44 @@ bool loadMaterial(Viewer* viewer, fastgltf::Material& material) {
     return true;
 }
 
-void drawMesh(Viewer* viewer, size_t meshIndex, glm::mat4 matrix) {
+bool loadCamera(Viewer* viewer, fastgltf::Camera& camera) {
+	// The following matrix math is for the projection matrices as defined by the glTF spec:
+	// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#projection-matrices
+	std::visit(fastgltf::visitor {
+		[&](fastgltf::Camera::Perspective& perspective) {
+			glm::mat4x4 mat(0.0f);
+
+			assert(viewer->windowDimensions[0] != 0 && viewer->windowDimensions[1] != 0);
+			auto aspectRatio = perspective.aspectRatio.value_or(
+				static_cast<float>(viewer->windowDimensions[0]) / static_cast<float>(viewer->windowDimensions[1]));
+			mat[0][0] = 1.f / (aspectRatio * tan(0.5f * perspective.yfov));
+			mat[1][1] = 1.f / (tan(0.5f * perspective.yfov));
+			mat[2][3] = -1;
+
+			if (perspective.zfar.has_value()) {
+				// Finite projection matrix
+				mat[2][2] = (*perspective.zfar + perspective.znear) / (perspective.znear - *perspective.zfar);
+				mat[3][2] = (2 * *perspective.zfar * perspective.znear) / (perspective.znear - *perspective.zfar);
+			} else {
+				// Infinite projection matrix
+				mat[2][2] = -1;
+				mat[3][2] = -2 * perspective.znear;
+			}
+			viewer->cameras.emplace_back(mat);
+		},
+		[&](fastgltf::Camera::Orthographic& orthographic) {
+			glm::mat4x4 mat(1.0f);
+			mat[0][0] = 1.f / orthographic.xmag;
+			mat[1][1] = 1.f / orthographic.ymag;
+			mat[2][2] = 2.f / (orthographic.znear - orthographic.zfar);
+			mat[3][2] = (orthographic.zfar + orthographic.znear) / (orthographic.znear - orthographic.zfar);
+			viewer->cameras.emplace_back(mat);
+		},
+	}, camera.camera);
+	return true;
+}
+
+void drawMesh(Viewer* viewer, std::size_t meshIndex, glm::mat4 matrix) {
     auto& mesh = viewer->meshes[meshIndex];
 
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
@@ -555,7 +594,7 @@ void drawMesh(Viewer* viewer, size_t meshIndex, glm::mat4 matrix) {
     }
 }
 
-void drawNode(Viewer* viewer, size_t nodeIndex, glm::mat4 matrix) {
+void drawNode(Viewer* viewer, std::size_t nodeIndex, glm::mat4 matrix) {
     auto& node = viewer->asset.nodes[nodeIndex];
     matrix = getTransformMatrix(node, matrix);
 
@@ -566,6 +605,37 @@ void drawNode(Viewer* viewer, size_t nodeIndex, glm::mat4 matrix) {
     for (auto& child : node.children) {
         drawNode(viewer, child, matrix);
     }
+}
+
+void updateCameraNodes(Viewer* viewer, std::vector<fastgltf::Node*>& cameraNodes, std::size_t nodeIndex) {
+	// This function recursively traverses the node hierarchy starting with the node at nodeIndex
+	// to find any nodes holding cameras.
+	auto& node = viewer->asset.nodes[nodeIndex];
+
+	if (node.cameraIndex.has_value()) {
+		if (node.name.empty()) {
+			// Always have a non-empty string for the ImGui UI
+			node.name = std::string("Camera ") + std::to_string(cameraNodes.size());
+		}
+		cameraNodes.emplace_back(&node);
+	}
+
+	for (auto& child : node.children) {
+		updateCameraNodes(viewer, cameraNodes, child);
+	}
+}
+
+void getCameraViewMatrix(Viewer* viewer, std::vector<fastgltf::Node*>& cameraNodes, std::size_t nodeIndex, glm::mat4 matrix) {
+	auto& node = viewer->asset.nodes[nodeIndex];
+	matrix = getTransformMatrix(node, matrix);
+
+	if (node.cameraIndex.has_value() && &node == cameraNodes[*viewer->cameraIndex]) {
+		viewer->viewMatrix = matrix;
+	}
+
+	for (auto& child : node.children) {
+		getCameraViewMatrix(viewer, cameraNodes, child, matrix);
+	}
 }
 
 int main(int argc, char* argv[]) {
@@ -657,7 +727,14 @@ int main(int argc, char* argv[]) {
         glDeleteShader(vertexShader);
     }
 
-    // Load the glTF file
+	{
+		// We just emulate the initial sizing of the window with a manual call.
+		int width, height;
+		glfwGetWindowSize(window, &width, &height);
+		windowSizeCallback(window, width, height);
+	}
+
+	// Load the glTF file
     auto start = std::chrono::high_resolution_clock::now();
     if (!loadGltf(&viewer, gltfFile)) {
         std::cerr << "Failed to parse glTF" << '\n';
@@ -681,7 +758,11 @@ int main(int argc, char* argv[]) {
     for (auto& mesh : asset.meshes) {
         loadMesh(&viewer, mesh);
     }
-    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+	// Loading the cameras (possibly) requires knowing the viewport size, which we get using glfwGetWindowSize above.
+	for (auto& camera : asset.cameras) {
+		loadCamera(&viewer, camera);
+	}
+	auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
     std::cout << "Loaded glTF file in " << diff.count() << "ms." << '\n';
 
     // Create the material uniform buffer
@@ -696,13 +777,6 @@ int main(int argc, char* argv[]) {
     viewer.viewProjectionMatrixUniform = glGetUniformLocation(program, "viewProjectionMatrix");
     glUseProgram(program);
 
-    {
-        // We just emulate the initial sizing of the window with a manual call.
-        int width, height;
-        glfwGetWindowSize(window, &width, &height);
-        windowSizeCallback(window, width, height);
-    }
-
     glEnable(GL_BLEND);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
@@ -715,6 +789,21 @@ int main(int argc, char* argv[]) {
 			continue;
 		asset.scenes[i].name = std::string("Scene ") + std::to_string(i);
 	}
+
+	// We keep a list of all camera nodes present in the current scene.
+	// When the cameraIndex has no value (because none is selected or there were none defined by the glTF),
+	// a default free camera should be used.
+	std::vector<fastgltf::Node*> cameraNodes;
+	if (!viewer.asset.scenes.empty() && sceneIndex < viewer.asset.scenes.size()) {
+		auto& scene = viewer.asset.scenes[sceneIndex];
+		for (auto& node: scene.nodeIndices) {
+			updateCameraNodes(&viewer, cameraNodes, node);
+		}
+	}
+
+	// Set the initial direction and position of the camera.
+	viewer.position = glm::vec3(2.f, 2.f, 2.f);
+	viewer.direction = -viewer.position;
 
     viewer.lastFrame = static_cast<float>(glfwGetTime());
     while (glfwWindowShouldClose(window) != GLFW_TRUE) {
@@ -731,17 +820,50 @@ int main(int argc, char* argv[]) {
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-		auto& io = ImGui::GetIO();
 
-		if (ImGui::Begin("gl_viewer")) {
+		if (ImGui::Begin("gl_viewer", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
 			auto& name = asset.scenes[sceneIndex].name;
 			if (ImGui::BeginCombo("Scene", name.c_str(), ImGuiComboFlags_None)) {
 				for (std::size_t i = 0; i < asset.scenes.size(); ++i) {
-					bool isSelected = i == sceneIndex;
-					if (ImGui::Selectable(asset.scenes[i].name.c_str(), isSelected))
+					const bool isSelected = i == sceneIndex;
+					if (ImGui::Selectable(asset.scenes[i].name.c_str(), isSelected)) {
 						sceneIndex = i;
+
+						// Reset & update the camera nodes array
+						cameraNodes.clear();
+						auto& scene = viewer.asset.scenes[sceneIndex];
+						for (auto& node : scene.nodeIndices) {
+							updateCameraNodes(&viewer, cameraNodes, node);
+						}
+					}
 					if (isSelected)
 						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+
+			if (ImGui::BeginCombo("Camera",
+								  viewer.cameraIndex.has_value() ? cameraNodes[*viewer.cameraIndex]->name.c_str() : "Default",
+								  ImGuiComboFlags_None)) {
+				{
+					// Default camera entry
+					const bool isSelected = !viewer.cameraIndex.has_value();
+					if (ImGui::Selectable("Default", isSelected)) {
+						viewer.cameraIndex.reset();
+					}
+					if (isSelected) {
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+
+				for (std::size_t i = 0; i < cameraNodes.size(); ++i) {
+					const bool isSelected = i == *viewer.cameraIndex;
+					if (ImGui::Selectable(cameraNodes[i]->name.c_str(), isSelected)) {
+						viewer.cameraIndex = i;
+					}
+					if (isSelected) {
+						ImGui::SetItemDefaultFocus();
+					}
 				}
 				ImGui::EndCombo();
 			}
@@ -752,7 +874,7 @@ int main(int argc, char* argv[]) {
 				: asset.materialVariants[viewer.materialVariant].c_str();
 			if (ImGui::BeginCombo("Variant", currentVariantName, ImGuiComboFlags_None)) {
 				for (std::size_t i = 0; i < asset.materialVariants.size(); ++i) {
-					bool isSelected = i == viewer.materialVariant;
+					const bool isSelected = i == viewer.materialVariant;
 					if (ImGui::Selectable(asset.materialVariants[i].c_str(), isSelected))
 						viewer.materialVariant = i;
 					if (isSelected)
@@ -761,27 +883,43 @@ int main(int argc, char* argv[]) {
 				ImGui::EndCombo();
 			}
 			ImGui::EndDisabled();
-
-			ImGui::End();
 		}
-
-		// Factor the deltaTime into the amount of acceleration
-		viewer.velocity += (viewer.accelerationVector * 50.0f) * viewer.deltaTime;
-		// Lerp the velocity to 0, adding deceleration.
-		viewer.velocity = viewer.velocity + (2.0f * viewer.deltaTime) * (glm::vec3(0.0f) - viewer.velocity);
-		// Add the velocity into the position
-		viewer.position += viewer.velocity * viewer.deltaTime;
-		viewer.viewMatrix = glm::lookAt(viewer.position, viewer.position + viewer.direction,
-										glm::vec3(0.0f, 1.0f, 0.0f));
-		updateCameraMatrix(&viewer);
+		ImGui::End();
 
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		if (!viewer.asset.scenes.empty() && sceneIndex < viewer.asset.scenes.size()) {
-			auto& scene = viewer.asset.scenes[sceneIndex];
+		if (!asset.scenes.empty() && sceneIndex < asset.scenes.size()) {
+			auto& scene = asset.scenes[sceneIndex];
+
+			// Update the camera view and projection matrices
+			if (viewer.cameraIndex.has_value()) {
+				for (auto& sceneNode: scene.nodeIndices) {
+					getCameraViewMatrix(&viewer, cameraNodes, sceneNode, glm::mat4(1.0f));
+				}
+
+				viewer.viewMatrix = glm::affineInverse(viewer.viewMatrix);
+				viewer.projectionMatrix = viewer.cameras[viewer.cameraIndex.value()];
+			} else {
+				// Factor the deltaTime into the amount of acceleration
+				viewer.velocity += (viewer.accelerationVector * 50.0f) * viewer.deltaTime;
+				// Lerp the velocity to 0, adding deceleration.
+				viewer.velocity = viewer.velocity + (2.0f * viewer.deltaTime) * (glm::vec3(0.0f) - viewer.velocity);
+				// Add the velocity into the position
+				viewer.position += viewer.velocity * viewer.deltaTime;
+				viewer.viewMatrix = glm::lookAt(viewer.position, viewer.position + viewer.direction,
+												glm::vec3(0.0f, 1.0f, 0.0f));
+
+				auto aspectRatio = static_cast<float>(viewer.windowDimensions[0]) / static_cast<float>(viewer.windowDimensions[1]);
+				viewer.projectionMatrix = glm::perspective(glm::radians(75.0f),
+														   aspectRatio,
+															0.01f, 1000.0f);
+			}
+
+			updateCameraMatrix(&viewer);
+
 			for (auto& node: scene.nodeIndices) {
 				drawNode(&viewer, node, glm::mat4(1.0f));
 			}
