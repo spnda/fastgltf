@@ -145,7 +145,6 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 			continue; // Skip any glTF 1.0 or 0.x files or glTFs with unsupported extensions.
 
 		REQUIRE(model.error() == fastgltf::Error::None);
-
 		REQUIRE(fastgltf::validate(model.get()) == fastgltf::Error::None);
 
 		// Re-export the glTF as an in-memory JSON

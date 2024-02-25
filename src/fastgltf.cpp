@@ -3185,40 +3185,40 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 					dom::object extensionsObject;
 					if (auto error = primitiveObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) {
 						dom::object extensionObject;
-						if (auto variantsError = extensionsObject[extensions::KHR_materials_variants].get_object().get(extensionObject); variantsError != SUCCESS) {
-							return Error::InvalidGltf;
-						}
-
-						dom::array mappingsArray;
-						if (extensionObject["mappings"].get_array().get(mappingsArray) != SUCCESS) FASTGLTF_UNLIKELY {
-							return Error::InvalidGltf;
-						}
-
-						for (auto mapping : mappingsArray) {
-							dom::object mappingObject;
-							if (mapping.get_object().get(mappingObject) != SUCCESS) FASTGLTF_UNLIKELY {
+						if (auto variantsError = extensionsObject[extensions::KHR_materials_variants].get_object().get(extensionObject); variantsError == SUCCESS) {
+							dom::array mappingsArray;
+							if (extensionObject["mappings"].get_array().get(mappingsArray) != SUCCESS) FASTGLTF_UNLIKELY {
 								return Error::InvalidGltf;
 							}
 
-							std::uint64_t materialIndex;
-							if (mappingObject["material"].get_uint64().get(materialIndex) != SUCCESS) FASTGLTF_UNLIKELY {
-								return Error::InvalidGltf;
-							}
-
-							dom::array variantsArray;
-							if (mappingObject["variants"].get_array().get(variantsArray) != SUCCESS) FASTGLTF_UNLIKELY {
-								return Error::InvalidGltf;
-							}
-							for (auto variant : variantsArray) {
-								std::uint64_t variantIndex;
-								if (variant.get_uint64().get(variantIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+							for (auto mapping : mappingsArray) {
+								dom::object mappingObject;
+								if (mapping.get_object().get(mappingObject) != SUCCESS) FASTGLTF_UNLIKELY {
 									return Error::InvalidGltf;
 								}
 
-								primitive.mappings.resize(max(primitive.mappings.size(),
-															  static_cast<std::size_t>(variantIndex + 1)));
-								primitive.mappings[std::size_t(variantIndex)] = materialIndex;
+								std::uint64_t materialIndex;
+								if (mappingObject["material"].get_uint64().get(materialIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+									return Error::InvalidGltf;
+								}
+
+								dom::array variantsArray;
+								if (mappingObject["variants"].get_array().get(variantsArray) != SUCCESS) FASTGLTF_UNLIKELY {
+									return Error::InvalidGltf;
+								}
+								for (auto variant : variantsArray) {
+									std::uint64_t variantIndex;
+									if (variant.get_uint64().get(variantIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+										return Error::InvalidGltf;
+									}
+
+									primitive.mappings.resize(max(primitive.mappings.size(),
+																  static_cast<std::size_t>(variantIndex + 1)));
+									primitive.mappings[std::size_t(variantIndex)] = materialIndex;
+								}
 							}
+						} else if (variantsError != NO_SUCH_FIELD) {
+							return Error::InvalidGltf;
 						}
 					} else if (error != NO_SUCH_FIELD) {
 						return Error::InvalidGltf;
