@@ -3399,10 +3399,10 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 				dom::object lightsObject;
 				if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) FASTGLTF_LIKELY {
 					std::uint64_t light;
-					if (auto lightError = lightsObject["light"].get_uint64().get(light); error == SUCCESS) FASTGLTF_LIKELY {
+					if (auto lightError = lightsObject["light"].get_uint64().get(light); lightError == SUCCESS) FASTGLTF_LIKELY {
 						node.lightIndex = static_cast<std::size_t>(light);
 					} else {
-						return error == NO_SUCH_FIELD || error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
+						return lightError == NO_SUCH_FIELD || lightError == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
 					}
 				} else if (error != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
@@ -3411,31 +3411,32 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
 			if (hasBit(config.extensions, Extensions::EXT_mesh_gpu_instancing)) {
 				dom::object gpuInstancingObject;
-				if (extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject) == SUCCESS) FASTGLTF_LIKELY {
+				if (auto instancingError = extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject); instancingError == SUCCESS) FASTGLTF_LIKELY {
 					dom::object attributesObject;
-					if (gpuInstancingObject["attributes"].get_object().get(attributesObject) == SUCCESS) FASTGLTF_LIKELY {
-						auto parseAttributes = [this](dom::object& object, decltype(node.instancingAttributes)& attributes) -> auto {
-							// We iterate through the JSON object and write each key/pair value into the
-							// attribute map. The keys are only validated in the validate() method.
-							attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.instancingAttributes), resourceAllocator.get(), 0);
-							attributes.reserve(object.size());
-							for (const auto& field : object) {
-								const auto key = field.key;
 
-								std::uint64_t attributeIndex;
-								if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
-									return Error::InvalidGltf;
-								}
-								attributes.emplace_back(
-									std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
-							}
-							return Error::None;
-						};
-						parseAttributes(attributesObject, node.instancingAttributes);
-					} else {
+					if (gpuInstancingObject["attributes"].get_object().get(attributesObject) != SUCCESS) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-				} else if (error != NO_SUCH_FIELD) {
+
+					auto parseAttributes = [this](dom::object& object, decltype(node.instancingAttributes)& attributes) -> auto {
+						// We iterate through the JSON object and write each key/pair value into the
+						// attribute map. The keys are only validated in the validate() method.
+						attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.instancingAttributes), resourceAllocator.get(), 0);
+						attributes.reserve(object.size());
+						for (const auto& field : object) {
+							const auto key = field.key;
+
+							std::uint64_t attributeIndex;
+							if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+								return Error::InvalidGltf;
+							}
+							attributes.emplace_back(
+								std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
+						}
+						return Error::None;
+					};
+					parseAttributes(attributesObject, node.instancingAttributes);
+				} else if (instancingError != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
 				}
 			}
