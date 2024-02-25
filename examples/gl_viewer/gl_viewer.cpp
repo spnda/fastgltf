@@ -236,6 +236,7 @@ void cursorCallback(GLFWwindow* window, double xpos, double ypos) {
 
 	int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE);
 	if (state != GLFW_PRESS) {
+		viewer->lastCursorPosition = { xpos, ypos };
 		return;
 	}
 
@@ -801,9 +802,14 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	// Set the initial direction and position of the camera.
+	// Set the initial direction (incl. pitch and yaw) and position of the camera.
 	viewer.position = glm::vec3(2.f, 2.f, 2.f);
 	viewer.direction = -viewer.position;
+	{
+		auto len = std::sqrt(std::pow(viewer.direction.x, 2) + std::pow(viewer.direction.z, 2));
+		viewer.pitch = glm::degrees(std::tan(viewer.direction.y / len));
+		viewer.yaw = -135.f;
+	}
 
     viewer.lastFrame = static_cast<float>(glfwGetTime());
     while (glfwWindowShouldClose(window) != GLFW_TRUE) {
