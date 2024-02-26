@@ -18,6 +18,16 @@ including accessor tools, the ability to directly write to mapped GPU buffers, a
 
 To learn more about fastgltf, its features, performance and API you can read [the docs](https://fastgltf.readthedocs.io/v0.6.x/).
 
+## Examples and real-world usage
+
+You can find some examples in the `examples/` directory of this repository on how to use fastgltf in a 3D renderer to load glTF files.
+Additionally, this is a list of some interesting projects using fastgltf:
+
+- [Fwog](https://github.com/JuanDiegoMontoya/Fwog): The examples of this modern OpenGL 4.6 abstraction make use of fastgltf.
+- [wad2gltf](https://github.com/DethRaid/wad2gltf): A WAD to glTF converter
+- [Castor3D](https://github.com/DragonJoker/Castor3D): A multi-OS 3D engine
+
+
 ## License
 
 The **fastgltf** library is licensed under the MIT License.

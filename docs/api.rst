@@ -162,6 +162,7 @@ Extensions
 
 .. doxygenfunction:: fastgltf::stringifyExtension
 
+.. doxygenfunction:: fastgltf::stringifyExtensionBits
 
 Category
 --------
@@ -218,8 +219,6 @@ Parser
 
 Exporter
 --------
-
-.. doxygenfunction:: fastgltf::stringifyExtensionBits
 
 .. doxygenclass:: fastgltf::Exporter
    :members:

@@ -160,6 +160,18 @@ All the nodes, meshes, buffers, textures, ... can now be accessed through the ``
 References in between objects are done with a single ``size_t``,
 which is used to index into the various vectors in the asset.
 
+.. _examples:
+
+Examples and real-world usage
+=============================
+
+You can find some examples in the `examples/` directory of this repository on how to use fastgltf in a 3D renderer to load glTF files.
+Additionally, this is a list of some interesting projects using fastgltf:
+
+- `Fwog <https://github.com/JuanDiegoMontoya/Fwog>`_: The examples of this modern OpenGL 4.6 abstraction make use of fastgltf.
+- `wad2gltf <https://github.com/DethRaid/wad2gltf>`_: A WAD to glTF converter
+- `Castor3D <https://github.com/DragonJoker/Castor3D>`_: A multi-OS 3D engine
+
 
 .. _accessor-tools:
 

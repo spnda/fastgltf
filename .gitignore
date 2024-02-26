@@ -9,9 +9,10 @@ vcpkg_installed/*
 cmake-build-*/
 
 # IDE specific folders
-.idea/*
-.vscode/*
-.vs/*
+.idea/
+.vscode/
+.vs/
+.cache/
 
 # Binary files
 *.exe
@@ -47,3 +48,4 @@ SpirvTemp/
 docs/xml/
 docs/Doxyfile
 docs/conf.py
+docs/.venv/

@@ -414,9 +414,6 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
             if (!positionAccessor.bufferViewIndex.has_value())
                 continue;
 
-			std::vector<glm::vec3> positions(positionAccessor.count);
-			fastgltf::copyFromAccessor<glm::vec3>(asset, positionAccessor, positions.data());
-
 			// Create the vertex buffer for this primitive, and use the accessor tools to copy directly into the mapped buffer.
 			glCreateBuffers(1, &primitive.vertexBuffer);
 			glNamedBufferData(primitive.vertexBuffer, positionAccessor.count * sizeof(Vertex), nullptr, GL_STATIC_DRAW);

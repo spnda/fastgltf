@@ -79,7 +79,7 @@ This function essentially does a ``memcpy`` on the contents of the accessor data
 In cases where the `ElementType` is default-constructible, and the accessor type allows direct copying, this performs a direct ``memcpy``.
 Otherwise, this function properly respects normalization and sparse accessors while copying and converting the data.
 
-.. doxygenfunction:: copyFromAccessor(const Asset &asset, const Accessor &accessor, void *dest, const BufferDataAdapter &adapter = {}) -> void
+.. doxygenfunction:: copyFromAccessor(const Asset &asset, const Accessor &accessor, void *dest, const BufferDataAdapter &adapter) -> void
 
 
 Accessor iterators
@@ -124,4 +124,37 @@ As this is a functional interface it is possible to also use lambdas for this:
    std::vector<std::uint8_t> accessorData(accessor.count);
    fastgltf::copyFromAccessor(asset.get(), accessor, accessorData.data(), [&](const fastgltf::Buffer& buffer) const {
        return fileBytes.data();
+   });
+
+
+Example: Loading primitive positions
+====================================
+
+The following snippet illustrates how one could potentially load vertex positions for a primitive into a OpenGL buffer using the accessor tools.
+
+.. code:: c++
+
+   fastgltf::Primitive* primitive = ...;
+
+   // findAttribute returns a iterator into the underlying vector of primitive attributes.
+   // Note that the glTF spec requires every primitive to have a POSITION,
+   // so it's perfectly valid to assert that positionIt is never nullptr.
+   auto* positionIt = primitive->findAttribute("POSITION");
+   auto& positionAccessor = asset.accessors[positionIt->second];
+   if (!positionAccessor.bufferViewIndex.has_value())
+      continue;
+
+   // Create the vertex buffer for this primitive,
+   // and use the accessor tools to copy directly into the mapped buffer.
+   glCreateBuffers(1, &primitive.vertexBuffer);
+   glNamedBufferData(primitive.vertexBuffer,
+                     positionAccessor.count * sizeof(Vertex), nullptr, GL_STATIC_DRAW);
+   auto* vertices = static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
+   
+   // Iterates over the accessor (potentially handling any sparse accessors),
+   // and gives each vertex UV a default value, which need to be loaded separately.
+   fastgltf::iterateAccessorWithIndex<glm::vec3>(
+         asset, positionAccessor, [&](glm::vec3 pos, std::size_t idx) {
+      vertices[idx].position = pos;
+      vertices[idx].uv = glm::vec2();
    });
