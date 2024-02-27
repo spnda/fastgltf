@@ -3820,22 +3820,29 @@ bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::
 
 #pragma region Parser
 fastgltf::GltfType fg::determineGltfFileType(GltfDataBuffer* buffer) {
-    // First, check if any of the first four characters is a '{'.
-    std::array<std::uint8_t, 4> begin = {};
-    std::memcpy(begin.data(), buffer->bufferPointer, sizeof begin);
-    for (const auto& i : begin) {
-        if ((char)i == '{')
-            return GltfType::glTF;
-    }
+	if (buffer->bufferPointer == nullptr)
+		return GltfType::Invalid;
 
-    // We'll try and read a BinaryGltfHeader from the buffer to see if the magic is correct.
-    BinaryGltfHeader header = {};
-    std::memcpy(&header, buffer->bufferPointer, sizeof header);
-    if (header.magic == binaryGltfHeaderMagic) {
-        return GltfType::GLB;
-    }
+	if (buffer->dataSize > sizeof(BinaryGltfHeader)) {
+		// We'll try and read a BinaryGltfHeader from the buffer to see if the magic is correct.
+		BinaryGltfHeader header = {};
+		std::memcpy(&header, buffer->bufferPointer, sizeof header);
+		if (header.magic == binaryGltfHeaderMagic) {
+			return GltfType::GLB;
+		}
+	}
 
-    return GltfType::Invalid;
+	if (buffer->dataSize > sizeof(std::uint8_t) * 4) {
+		// First, check if any of the first four characters is a '{'.
+		std::array<std::uint8_t, 4> begin = {};
+		std::memcpy(begin.data(), buffer->bufferPointer, sizeof begin);
+		for (const auto& i : begin) {
+			if ((char)i == '{')
+				return GltfType::glTF;
+		}
+	}
+
+	return GltfType::Invalid;
 }
 
 fg::Parser::Parser(Extensions extensionsToLoad) noexcept {
