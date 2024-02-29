@@ -26,6 +26,7 @@ Additionally, this is a list of some interesting projects using fastgltf:
 - [Fwog](https://github.com/JuanDiegoMontoya/Fwog): The examples of this modern OpenGL 4.6 abstraction make use of fastgltf.
 - [wad2gltf](https://github.com/DethRaid/wad2gltf): A WAD to glTF converter
 - [Castor3D](https://github.com/DragonJoker/Castor3D): A multi-OS 3D engine
+- [Raz](https://github.com/Razakhel/RaZ): A modern & multiplatform 3D game engine in C++17
 
 
 ## License

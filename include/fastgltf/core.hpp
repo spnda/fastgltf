@@ -87,6 +87,7 @@ namespace fastgltf {
 		UnsupportedVersion = 10, ///< The glTF version is not supported by fastgltf.
 		InvalidURI = 11, ///< A URI from a buffer or image failed to be parsed.
 		InvalidFileData = 12, ///< The file data is invalid, or the file type could not be determined.
+		FailedWritingFiles = 13, ///< The exporter failed to write some files (buffers/images) to disk.
     };
 
 	inline std::string_view getErrorName(Error error) {
@@ -104,6 +105,7 @@ namespace fastgltf {
 			case Error::UnsupportedVersion: return "UnsupportedVersion";
 			case Error::InvalidURI: return "InvalidURI";
             case Error::InvalidFileData: return "InvalidFileData";
+            case Error::FailedWritingFiles: return "FailedWritingFiles";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}
@@ -123,6 +125,7 @@ namespace fastgltf {
 			case Error::UnsupportedVersion: return "The glTF version is not supported by fastgltf.";
 			case Error::InvalidURI: return "A URI from a buffer or image failed to be parsed.";
             case Error::InvalidFileData: return "The file data is invalid, or the file type could not be determined.";
+            case Error::FailedWritingFiles: return "The exporter failed to write some files (buffers/images) to disk.";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}

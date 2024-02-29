@@ -4205,6 +4205,10 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 				bufferPaths.emplace_back(path);
 			},
 			[&](const sources::ByteView& view) {
+				if (bufferIdx == 0 && exportingBinary) {
+					bufferPaths.emplace_back(std::nullopt);
+					return;
+				}
                 auto path = getBufferFilePath(asset, bufferIdx);
                 json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
                 bufferPaths.emplace_back(path);
@@ -5436,46 +5440,60 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 }
 
 namespace fastgltf {
-	void writeFile(const DataSource& dataSource, fs::path baseFolder, fs::path filePath) {
-		std::visit(visitor {
-			[](auto& arg) {},
+	bool writeFile(const DataSource& dataSource, fs::path baseFolder, fs::path filePath) {
+		return std::visit(visitor {
+			[](auto& arg) {
+				return false;
+			},
 			[&](const sources::Array& vector) {
 				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				if (!file.is_open())
+					return false;
 				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
 						   static_cast<std::streamsize>(vector.bytes.size()));
 				file.close();
+				return file.good();
 			},
 			[&](const sources::Vector& vector) {
 				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				if (!file.is_open())
+					return false;
 				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
 						   static_cast<std::streamsize>(vector.bytes.size()));
 				file.close();
+				return file.good();
 			},
 			[&](const sources::ByteView& view) {
 				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				if (!file.is_open())
+					return false;
 				file.write(reinterpret_cast<const char *>(view.bytes.data()),
 						   static_cast<std::streamsize>(view.bytes.size()));
 				file.close();
+				return file.good();
 			},
 		}, dataSource);
 	}
 
-    template<typename T>
-    void writeFiles(const Asset& asset, ExportResult<T> &result, fs::path baseFolder) {
-        for (std::size_t i = 0; i < asset.buffers.size(); ++i) {
-            auto &path = result.bufferPaths[i];
-            if (path.has_value()) {
-                writeFile(asset.buffers[i].data, baseFolder, path.value());
-            }
-        }
+	template<typename T>
+	bool writeFiles(const Asset& asset, ExportResult<T> &result, fs::path baseFolder) {
+		for (std::size_t i = 0; i < asset.buffers.size(); ++i) {
+			auto &path = result.bufferPaths[i];
+			if (path.has_value()) {
+				if (!writeFile(asset.buffers[i].data, baseFolder, path.value()))
+					return false;
+			}
+		}
 
-        for (std::size_t i = 0; i < asset.images.size(); ++i) {
-            auto &path = result.imagePaths[i];
-            if (path.has_value()) {
-				writeFile(asset.images[i].data, baseFolder, path.value());
-            }
-        }
-    }
+		for (std::size_t i = 0; i < asset.images.size(); ++i) {
+			auto &path = result.imagePaths[i];
+			if (path.has_value()) {
+				if (!writeFile(asset.images[i].data, baseFolder, path.value()))
+					return false;
+			}
+		}
+		return true;
+	}
 } // namespace fastgltf
 
 fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options) {
@@ -5494,7 +5512,9 @@ fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::p
     file << result.output;
     file.close();
 
-    writeFiles(asset, result, target.parent_path());
+	if (!writeFiles(asset, result, target.parent_path())) {
+		return Error::FailedWritingFiles;
+	}
     return Error::None;
 }
 
@@ -5514,7 +5534,9 @@ fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, std::filesystem:
     file.write(reinterpret_cast<const char*>(result.output.data()),
                static_cast<std::streamsize>(result.output.size()));
 
-    writeFiles(asset, result, target.parent_path());
+	if (!writeFiles(asset, result, target.parent_path())) {
+		return Error::FailedWritingFiles;
+	}
     return Error::None;
 }
 #pragma endregion
