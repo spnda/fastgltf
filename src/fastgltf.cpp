@@ -3967,33 +3967,39 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 	        return Expected<Asset>(Error::InvalidGLB);
         }
 
-        if (hasBit(options, Options::LoadGLBBuffers)) {
-            if (config.mapCallback != nullptr) {
-                auto info = config.mapCallback(binaryChunk.chunkLength, config.userPointer);
-                if (info.mappedMemory != nullptr) {
-                    read(info.mappedMemory, binaryChunk.chunkLength);
-                    if (config.unmapCallback != nullptr) {
-                        config.unmapCallback(&info, config.userPointer);
-                    }
-                    glbBuffer = sources::CustomBuffer { info.customId, MimeType::None };
-                }
-            } else {
-				StaticVector<std::uint8_t> binaryData(binaryChunk.chunkLength);
-				read(binaryData.data(), binaryChunk.chunkLength);
+		// The binary chunk is allowed to be empty:
+		// When the binary buffer is empty or when it is stored by other means,
+		// this chunk SHOULD be omitted.
+		if (binaryChunk.chunkLength != 0) {
+			if (hasBit(options, Options::LoadGLBBuffers)) {
+				if (config.mapCallback != nullptr) {
+					auto info = config.mapCallback(binaryChunk.chunkLength, config.userPointer);
+					if (info.mappedMemory != nullptr) {
+						read(info.mappedMemory, binaryChunk.chunkLength);
+						if (config.unmapCallback != nullptr) {
+							config.unmapCallback(&info, config.userPointer);
+						}
+						glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
+					}
+				} else {
+					StaticVector<std::uint8_t> binaryData(binaryChunk.chunkLength);
+					read(binaryData.data(), binaryChunk.chunkLength);
 
-                sources::Array vectorData = {
-					std::move(binaryData),
-					MimeType::GltfBuffer,
-				};
-                glbBuffer = std::move(vectorData);
-            }
-        } else {
-            const span<const std::byte> glbBytes(reinterpret_cast<std::byte*>(buffer->bufferPointer + offset), binaryChunk.chunkLength);
-            sources::ByteView glbByteView = {};
-            glbByteView.bytes = glbBytes;
-            glbByteView.mimeType = MimeType::GltfBuffer;
-            glbBuffer = glbByteView;
-        }
+					sources::Array vectorData = {
+							std::move(binaryData),
+							MimeType::GltfBuffer,
+					};
+					glbBuffer = std::move(vectorData);
+				}
+			} else {
+				const span<const std::byte> glbBytes(reinterpret_cast<std::byte *>(buffer->bufferPointer + offset),
+													 binaryChunk.chunkLength);
+				sources::ByteView glbByteView = {};
+				glbByteView.bytes = glbBytes;
+				glbByteView.mimeType = MimeType::GltfBuffer;
+				glbBuffer = glbByteView;
+			}
+		}
     }
 
 	return parse(root, categories);
