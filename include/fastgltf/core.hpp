@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <fstream>
 #include <memory>
 #include <tuple>
 
@@ -67,7 +68,7 @@ namespace std {
 
 namespace fastgltf {
     struct BinaryGltfChunk;
-    class GltfDataBuffer;
+    class GltfDataGetter;
 
     enum class Error : std::uint64_t {
 		None = 0,
@@ -259,15 +260,8 @@ namespace fastgltf {
          */
         DecomposeNodeMatrices           = 1 << 5,
 
-        /**
-         * This option makes fastgltf minimise the JSON file before parsing. In most cases,
-         * minimising it beforehand actually reduces the time spent. However, there are plenty
-         * of cases where this option slows down parsing drastically, which from my testing seem
-         * to all be glTFs which contain embedded buffers and/or are already minimised. Note that
-         * fastgltf only minimises the string if the data was loaded using GltfDataBuffer::loadFromFile
-         * or GltfDataBuffer::copyBytes, and that the bytes will also be overwritten.
-         */
-        MinimiseJsonBeforeParsing       = 1 << 6,
+		// TODO: Remove or keep for any compatibility?
+        MinimiseJsonBeforeParsing [[deprecated]] = 1 << 6,
 
         /**
          * Loads all external images into CPU memory. It does not decode any texture data. Complementary
@@ -606,72 +600,80 @@ namespace fastgltf {
 	 * @return The type of the glTF file, either glTF, GLB, or Invalid if it was not determinable. If this function
 	 * returns Invalid it is highly likely that the buffer does not actually represent a valid glTF file.
 	 */
-    GltfType determineGltfFileType(GltfDataBuffer* buffer);
+    GltfType determineGltfFileType(GltfDataGetter& data);
 
-    /**
-     * Gets the amount of byte padding required on the GltfDataBuffer, as simdjson requires to be
-     * able to overflow as it uses SIMD to load N bytes at a time.
-     */
-    std::size_t getGltfBufferPadding() noexcept;
-
-    /**
-     * This class holds a chunk of data that makes up a JSON string that the glTF parser will use
-     * and read from.
-     */
-    class GltfDataBuffer {
-        friend class Parser;
-        friend GltfType determineGltfFileType(GltfDataBuffer* buffer);
-
-    protected:
-        std::size_t allocatedSize = 0;
-        std::size_t dataSize = 0;
-        std::byte* bufferPointer = nullptr;
-
-        std::unique_ptr<std::byte[]> buffer;
-
-        std::filesystem::path filePath = {};
-
-    public:
-        explicit GltfDataBuffer() noexcept;
+	/**
+	 * This interface defines how the parser can read the bytes making up a glTF or GLB file.
+	 */
+	class GltfDataGetter {
+	public:
+		virtual void read(void* ptr, std::size_t count) = 0;
+		[[nodiscard]] virtual span<std::byte> read(std::size_t count, std::size_t padding) = 0;
 
 		/**
-		 * Constructs a new GltfDataBuffer from a span object, copying its data as there
-		 * is no guarantee for the allocation size to have the adequate padding.
+		 * Reset is used to put the offset index back to the start of the buffer/file.
+		 * This is only used with determineGltfFileType, as it needs to peek into the beginning of the file.
 		 */
-		explicit GltfDataBuffer(span<std::byte> data) noexcept;
+		virtual void reset() = 0;
 
-        virtual ~GltfDataBuffer() noexcept;
+		[[nodiscard]] virtual std::size_t bytesRead() = 0;
+		[[nodiscard]] virtual std::size_t totalSize() = 0;
+	};
 
-        /**
-         * Saves the given pointer including the given range.
-         * If the capacity of the allocation minus the used size is smaller than fastgltf::getGltfBufferPadding,
-         * this function will re-allocate and copy the bytes.
-         * Also, it will set the padding bytes all to 0, so be sure to not use that for any other data.
-         */
-        bool fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept;
+	class GltfDataBuffer : public GltfDataGetter {
+		std::unique_ptr<std::byte[]> buffer;
 
-        /**
-         * This will create a copy of the passed bytes and allocate an adequately sized buffer.
-         */
-        bool copyBytes(const std::uint8_t* bytes, std::size_t byteCount) noexcept;
+		std::size_t allocatedSize = 0;
+		std::size_t dataSize = 0;
 
-        /**
-         * Loads the file with a optional byte offset into a memory buffer.
-         */
-        bool loadFromFile(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
+		std::size_t idx = 0;
 
-        /**
-         * Returns the size, in bytes,
-         * @return
-         */
-        [[nodiscard]] std::size_t getBufferSize() const noexcept {
-			return dataSize;
+		void allocateAndCopy(const std::byte* bytes);
+
+	public:
+		GltfDataBuffer(const std::filesystem::path& path);
+		GltfDataBuffer(const std::byte* bytes, std::size_t count);
+
+#if FASTGLTF_CPP_20
+		GltfDataBuffer(std::span<std::byte> span);
+#endif
+
+		void read(void* ptr, std::size_t count) override;
+
+		span<std::byte> read(std::size_t count, std::size_t padding) override;
+
+		void reset() override;
+
+		std::size_t bytesRead() override;
+
+		std::size_t totalSize() override;
+
+		[[nodiscard]] explicit operator span<std::byte>() {
+			return span<std::byte>(buffer.get(), dataSize);
 		}
+	};
 
-        [[nodiscard]] explicit operator span<std::byte>() {
-            return span<std::byte>(bufferPointer, dataSize);
-        }
-    };
+	class GltfFileStream : public GltfDataGetter {
+		std::ifstream fileStream;
+		std::vector<std::ifstream::char_type> buf;
+
+		std::size_t fileSize;
+
+	public:
+		GltfFileStream(const std::filesystem::path& path);
+
+		bool isOpen() const;
+
+		void read(void* ptr, std::size_t count) override;
+
+		span<std::byte> read(std::size_t count, std::size_t padding) override;
+
+		void reset() override;
+
+		std::size_t bytesRead() override;
+
+		std::size_t totalSize() override;
+	};
 
     #if defined(__ANDROID__)
 	void setAndroidAssetManager(AAssetManager* assetManager) noexcept;
@@ -774,21 +776,21 @@ namespace fastgltf {
          *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
          */
-        [[nodiscard]] Expected<Asset> loadGltf(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+        [[nodiscard]] Expected<Asset> loadGltf(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
 
         /**
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
          *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
          */
-        [[nodiscard]] Expected<Asset> loadGltfJson(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+        [[nodiscard]] Expected<Asset> loadGltfJson(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
 
 		/**
 		 * Loads a glTF file embedded within a GLB container, which may contain the first buffer of the glTF asset.
 		 *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
 		 */
-		[[nodiscard]] Expected<Asset> loadGltfBinary(GltfDataBuffer* buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+		[[nodiscard]] Expected<Asset> loadGltfBinary(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
 
         /**
          * This function can be used to set callbacks so that you can control memory allocation for

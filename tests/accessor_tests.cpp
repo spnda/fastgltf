@@ -113,11 +113,12 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
 
 TEST_CASE("Test accessor", "[gltf-tools]") {
     auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
-    fastgltf::GltfDataBuffer jsonData;
-    REQUIRE(jsonData.loadFromFile(lightsLamp / "LightsPunctualLamp.gltf"));
+
+	fastgltf::GltfFileStream jsonData(lightsLamp / "LightsPunctualLamp.gltf");
+	REQUIRE(jsonData.isOpen());
 
     fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
-    auto asset = parser.loadGltfJson(&jsonData, lightsLamp, fastgltf::Options::LoadExternalBuffers,
+    auto asset = parser.loadGltfJson(jsonData, lightsLamp, fastgltf::Options::LoadExternalBuffers,
 								 fastgltf::Category::Buffers | fastgltf::Category::BufferViews | fastgltf::Category::Accessors);
     REQUIRE(asset.error() == fastgltf::Error::None);
 
@@ -189,11 +190,12 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 
 TEST_CASE("Test sparse accessor", "[gltf-tools]") {
     auto simpleSparseAccessor = sampleModels / "2.0" / "SimpleSparseAccessor" / "glTF";
-    auto jsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-    REQUIRE(jsonData->loadFromFile(simpleSparseAccessor / "SimpleSparseAccessor.gltf"));
+
+	fastgltf::GltfFileStream jsonData(simpleSparseAccessor / "SimpleSparseAccessor.gltf");
+	REQUIRE(jsonData.isOpen());
 
     fastgltf::Parser parser;
-    auto asset = parser.loadGltfJson(jsonData.get(), simpleSparseAccessor, fastgltf::Options::LoadExternalBuffers,
+    auto asset = parser.loadGltfJson(jsonData, simpleSparseAccessor, fastgltf::Options::LoadExternalBuffers,
 								 fastgltf::Category::Buffers | fastgltf::Category::BufferViews | fastgltf::Category::Accessors);
     REQUIRE(asset.error() == fastgltf::Error::None);
 
