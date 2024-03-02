@@ -7,13 +7,13 @@
 #include "gltf_path.hpp"
 
 TEST_CASE("Load basic GLB file", "[gltf-loader]") {
-    fastgltf::Parser parser;
     auto folder = sampleModels / "2.0" / "Box" / "glTF-Binary";
-    fastgltf::GltfDataBuffer jsonData;
-    REQUIRE(jsonData.loadFromFile(folder / "Box.glb"));
+	fastgltf::GltfDataBuffer jsonData(folder / "Box.glb");
+	// REQUIRE(jsonData.isOpen());
 
+	fastgltf::Parser parser;
     SECTION("Load basic Box.glb") {
-        auto asset = parser.loadGltfBinary(&jsonData, folder, fastgltf::Options::None, fastgltf::Category::Buffers);
+        auto asset = parser.loadGltfBinary(jsonData, folder, fastgltf::Options::None, fastgltf::Category::Buffers);
         REQUIRE(asset.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
@@ -28,7 +28,7 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
     }
 
     SECTION("Load basic Box.glb and load buffers") {
-        auto asset = parser.loadGltfBinary(&jsonData, folder, fastgltf::Options::LoadGLBBuffers, fastgltf::Category::Buffers);
+        auto asset = parser.loadGltfBinary(jsonData, folder, fastgltf::Options::LoadGLBBuffers, fastgltf::Category::Buffers);
         REQUIRE(asset.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
@@ -45,13 +45,12 @@ TEST_CASE("Load basic GLB file", "[gltf-loader]") {
         std::ifstream file(folder / "Box.glb", std::ios::binary | std::ios::ate);
         auto length = static_cast<size_t>(file.tellg());
         file.seekg(0, std::ifstream::beg);
-        std::vector<uint8_t> bytes(length + fastgltf::getGltfBufferPadding());
+        std::vector<uint8_t> bytes(length);
         file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(length));
 
-        fastgltf::GltfDataBuffer byteBuffer;
-        REQUIRE(byteBuffer.fromByteView(bytes.data(), length, length + fastgltf::getGltfBufferPadding()));
+        fastgltf::GltfDataBuffer byteBuffer(reinterpret_cast<const std::byte*>(bytes.data()), length);
 
-        auto asset = parser.loadGltfBinary(&byteBuffer, folder, fastgltf::Options::LoadGLBBuffers, fastgltf::Category::Buffers);
+        auto asset = parser.loadGltfBinary(byteBuffer, folder, fastgltf::Options::LoadGLBBuffers, fastgltf::Category::Buffers);
         REQUIRE(asset.error() == fastgltf::Error::None);
     }
 }
