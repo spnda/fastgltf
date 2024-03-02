@@ -6,6 +6,19 @@ Changelog
 
 To view the full changelogs for each release please see the `GitHub releases <https://github.com/spnda/fastgltf/releases>`_.
 
+0.7.1
+=====
+- Add: Support for **glTF extras**
+- Add: ``KHR_materials_variants``
+- Fix: Inline ``deserializeComponent`` template specializations (#47)
+- Fix #48: Allow exporting ``ByteView`` in GLB & catch file write errors
+- Fix: Support ``KHR_materials_dispersion`` when exporting
+- Fix: Decode percents when loading local files
+- Fix: Set ``MimeType::None`` in all sources
+- Fix: Use correct error variable when parsing gpu instancing extension
+- Fix: Make sure gltf buffer is valid before determining type
+- Fix: Allow the GLB BIN chunk to be empty
+
 0.7.0
 =====
 - Add: glTF Exporter (`#33 <https://github.com/spnda/fastgltf/pull/33>`_)
