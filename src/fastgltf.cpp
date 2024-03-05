@@ -43,6 +43,7 @@
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
 #pragma warning(disable : 4514) // unreferenced inline function has been removed
+#pragma warning(disable : 4710) // function not inlined
 #endif
 
 #include <simdjson.h>
@@ -733,7 +734,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
         }
     }
 
-	StaticVector<std::uint8_t> data(length);
+	StaticVector<std::uint8_t> data(static_cast<std::size_t>(length));
 	file.read(reinterpret_cast<char*>(data.data()), length);
     sources::Array vectorSource = {
 		std::move(data),
@@ -3348,7 +3349,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
             TRS trs = {};
 
             // There's no matrix, let's see if there's scale, rotation, or rotation fields.
-            if (auto error = nodeObject["scale"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
+            if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) FASTGLTF_LIKELY {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -3358,11 +3359,11 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     trs.scale[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+            } else if (scaleError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidJson;
             }
 
-            if (auto error = nodeObject["translation"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
+            if (auto translationError = nodeObject["translation"].get_array().get(array); translationError == SUCCESS) FASTGLTF_LIKELY {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -3372,11 +3373,11 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     trs.translation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+            } else if (translationError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
-            if (auto error = nodeObject["rotation"].get_array().get(array); error == SUCCESS) FASTGLTF_LIKELY {
+            if (auto rotationError = nodeObject["rotation"].get_array().get(array); rotationError == SUCCESS) FASTGLTF_LIKELY {
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -3386,7 +3387,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
                     trs.rotation[i] = static_cast<fastgltf::num>(val);
                     ++i;
                 }
-            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+            } else if (rotationError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
             }
 
@@ -4149,7 +4150,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 				[&](auto arg) {
 					for (auto it = arg.begin(); it != arg.end(); ++it) {
 						json += std::to_string(*it);
-						if (std::distance(arg.begin(), it) + 1 < arg.size())
+						if (uabs(std::distance(arg.begin(), it)) + 1 <arg.size())
 							json += ',';
 					}
 				}
@@ -4160,7 +4161,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 		writeMinMax(it->min, "min");
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.accessors.begin(), it), fastgltf::Category::Accessors, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.accessors.begin(), it)), fastgltf::Category::Accessors, userPointer);
 			if (extras.has_value()) {
 				json += std::string(",\"extras\":") + *extras;
 			}
@@ -4170,7 +4171,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 
 		json += '}';
-		if (std::distance(asset.accessors.begin(), it) + 1 < asset.accessors.size())
+		if (uabs(std::distance(asset.accessors.begin(), it)) + 1 <asset.accessors.size())
 			json += ',';
 	}
 	json += ']';
@@ -4186,7 +4187,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 	for (auto it = asset.buffers.begin(); it != asset.buffers.end(); ++it) {
 		json += '{';
 
-        auto bufferIdx = static_cast<std::size_t>(std::distance(asset.buffers.begin(), it));
+        auto bufferIdx = uabs(std::distance(asset.buffers.begin(), it));
 		std::visit(visitor {
 			[&](auto arg) {
 				// Covers BufferView and CustomBuffer.
@@ -4232,7 +4233,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 		json += "\"byteLength\":" + std::to_string(it->byteLength);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.buffers.begin(), it), fastgltf::Category::Buffers, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.buffers.begin(), it)), fastgltf::Category::Buffers, userPointer);
 			if (extras.has_value()) {
 				json += std::string(",\"extras\":") + *extras;
 			}
@@ -4241,7 +4242,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
-		if (std::distance(asset.buffers.begin(), it) + 1 < asset.buffers.size())
+		if (uabs(std::distance(asset.buffers.begin(), it)) + 1 <asset.buffers.size())
 			json += ',';
 	}
 	json += "]";
@@ -4305,7 +4306,7 @@ void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
         }
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.bufferViews.begin(), it), fastgltf::Category::BufferViews, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.bufferViews.begin(), it)), fastgltf::Category::BufferViews, userPointer);
 			if (extras.has_value()) {
 				json += std::string(",\"extras\":") + *extras;
 			}
@@ -4315,7 +4316,7 @@ void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 
 		json += '}';
-		if (std::distance(asset.bufferViews.begin(), it) + 1 < asset.bufferViews.size())
+		if (uabs(std::distance(asset.bufferViews.begin(), it)) + 1 <asset.bufferViews.size())
 			json += ',';
 	}
 	json += ']';
@@ -4361,7 +4362,7 @@ void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
 		}, it->camera);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.cameras.begin(), it), fastgltf::Category::Cameras, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.cameras.begin(), it)), fastgltf::Category::Cameras, userPointer);
 			if (extras.has_value()) {
 				json += std::string(",\"extras\":") + *extras;
 			}
@@ -4371,7 +4372,7 @@ void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 
 		json += '}';
-		if (std::distance(asset.cameras.begin(), it) + 1 < asset.cameras.size())
+		if (uabs(std::distance(asset.cameras.begin(), it)) + 1 <asset.cameras.size())
 			json += ',';
 	}
 	json += ']';
@@ -4387,7 +4388,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
 		json += '{';
 
-        auto imageIdx = std::distance(asset.images.begin(), it);
+        auto imageIdx = uabs(std::distance(asset.images.begin(), it));
 		std::visit(visitor {
 			[&](auto arg) {
 				errorCode = Error::InvalidGltf;
@@ -4422,7 +4423,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 			return;
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.images.begin(), it), fastgltf::Category::Images, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.images.begin(), it)), fastgltf::Category::Images, userPointer);
 			if (extras.has_value()) {
 				json += std::string(",\"extras\":") + *extras;
 			}
@@ -4431,7 +4432,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
-		if (std::distance(asset.images.begin(), it) + 1 < asset.images.size())
+		if (uabs(std::distance(asset.images.begin(), it)) + 1 <asset.images.size())
 			json += ',';
 	}
 	json += ']';
@@ -4488,7 +4489,7 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
-		if (std::distance(asset.lights.begin(), it) + 1 < asset.lights.size())
+		if (uabs(std::distance(asset.lights.begin(), it)) + 1 <asset.lights.size())
 			json += ',';
 	}
 	json += "]}";
@@ -4799,7 +4800,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		json += '}';
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.materials.begin(), it), fastgltf::Category::Materials, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.materials.begin(), it)), fastgltf::Category::Materials, userPointer);
 			if (extras.has_value()) {
 				if (json.back() != '{')
 					json += ',';
@@ -4812,7 +4813,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			json += R"("name":")" + fg::escapeString(it->name) + '"';
 		}
 		json += '}';
-		if (std::distance(asset.materials.begin(), it) + 1 < asset.materials.size())
+		if (uabs(std::distance(asset.materials.begin(), it)) + 1 <asset.materials.size())
 			json += ',';
 	}
 	json += ']';
@@ -4838,7 +4839,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                     json += R"("attributes":{)";
                     for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
                         json += '"' + std::string(ita->first) + "\":" + std::to_string(ita->second);
-                        if (std::distance(itp->attributes.begin(), ita) + 1 < itp->attributes.size())
+                        if (uabs(std::distance(itp->attributes.begin(), ita)) + 1 <itp->attributes.size())
                             json += ',';
                     }
                     json += '}';
@@ -4871,7 +4872,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 
                 json += '}';
                 ++itp;
-                if (std::distance(it->primitives.begin(), itp) < it->primitives.size())
+                if (uabs(std::distance(it->primitives.begin(), itp)) < it->primitives.size())
                     json += ',';
             }
             json += ']';
@@ -4885,14 +4886,14 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 			while (itw != it->weights.end()) {
 				json += std::to_string(*itw);
 				++itw;
-				if (std::distance(it->weights.begin(), itw) < it->weights.size())
+				if (uabs(std::distance(it->weights.begin(), itw)) < it->weights.size())
 					json += ',';
 			}
 			json += ']';
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.meshes.begin(), it), fastgltf::Category::Meshes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.meshes.begin(), it)), fastgltf::Category::Meshes, userPointer);
 			if (extras.has_value()) {
 				if (json.back() != '{')
 					json += ',';
@@ -4906,7 +4907,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
             json += R"("name":")" + fg::escapeString(it->name) + '"';
         }
 		json += '}';
-		if (std::distance(asset.meshes.begin(), it) + 1 < asset.meshes.size())
+		if (uabs(std::distance(asset.meshes.begin(), it)) + 1 <asset.meshes.size())
 			json += ',';
 	}
 	json += ']';
@@ -4944,7 +4945,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			while (itc != it->children.end()) {
 				json += std::to_string(*itc);
 				++itc;
-				if (std::distance(it->children.begin(), itc) < it->children.size())
+				if (uabs(std::distance(it->children.begin(), itc)) < it->children.size())
 					json += ',';
 			}
 			json += ']';
@@ -4958,7 +4959,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			while (itw != it->weights.end()) {
 				json += std::to_string(*itw);
 				++itw;
-				if (std::distance(it->weights.begin(), itw) < it->weights.size())
+				if (uabs(std::distance(it->weights.begin(), itw)) < it->weights.size())
 					json += ',';
 			}
 			json += ']';
@@ -5009,14 +5010,14 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
             json += R"("extensions":{"EXT_mesh_gpu_instancing":{"attributes":{)";
             for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
                 json += '"' + std::string(ait->first) + "\":" + std::to_string(ait->second);
-                if (std::distance(it->instancingAttributes.begin(), ait) + 1 < it->instancingAttributes.size())
+                if (uabs(std::distance(it->instancingAttributes.begin(), ait)) + 1 <it->instancingAttributes.size())
                     json += ',';
             }
             json += "}}}";
         }
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.nodes.begin(), it), fastgltf::Category::Nodes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.nodes.begin(), it)), fastgltf::Category::Nodes, userPointer);
 			if (extras.has_value()) {
 				if (json.back() != '{')
 					json += ',';
@@ -5030,7 +5031,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			json += R"("name":")" + fg::escapeString(it->name) + '"';
 		}
 		json += '}';
-		if (std::distance(asset.nodes.begin(), it) + 1 < asset.nodes.size())
+		if (uabs(std::distance(asset.nodes.begin(), it)) + 1 <asset.nodes.size())
 			json += ',';
 	}
 	json += ']';
@@ -5063,7 +5064,7 @@ void fg::Exporter::writeSamplers(const Asset& asset, std::string& json) {
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.samplers.begin(), it), fastgltf::Category::Samplers, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.samplers.begin(), it)), fastgltf::Category::Samplers, userPointer);
 			if (extras.has_value()) {
 				if (json.back() != '{')
 					json += ',';
@@ -5076,7 +5077,7 @@ void fg::Exporter::writeSamplers(const Asset& asset, std::string& json) {
 			json += R"("name":")" + fg::escapeString(it->name) + '"';
 		}
 		json += '}';
-		if (std::distance(asset.samplers.begin(), it) + 1 < asset.samplers.size())
+		if (uabs(std::distance(asset.samplers.begin(), it)) + 1 <asset.samplers.size())
 			json += ',';
 	}
 	json += ']';
@@ -5101,13 +5102,13 @@ void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
 		while (itn != it->nodeIndices.end()) {
 			json += std::to_string(*itn);
 			++itn;
-			if (std::distance(it->nodeIndices.begin(), itn) < it->nodeIndices.size())
+			if (uabs(std::distance(it->nodeIndices.begin(), itn)) < it->nodeIndices.size())
 				json += ',';
 		}
 		json += ']';
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.scenes.begin(), it), fastgltf::Category::Scenes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.scenes.begin(), it)), fastgltf::Category::Scenes, userPointer);
 			if (extras.has_value()) {
 				if (json.back() != '{')
 					json += ',';
@@ -5118,7 +5119,7 @@ void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
-		if (std::distance(asset.scenes.begin(), it) + 1 < asset.scenes.size())
+		if (uabs(std::distance(asset.scenes.begin(), it)) + 1 <asset.scenes.size())
 			json += ',';
 	}
 	json += ']';
@@ -5145,13 +5146,13 @@ void fg::Exporter::writeSkins(const Asset& asset, std::string& json) {
 		while (itj != it->joints.end()) {
 			json += std::to_string(*itj);
 			++itj;
-			if (std::distance(it->joints.begin(), itj) < it->joints.size())
+			if (uabs(std::distance(it->joints.begin(), itj)) < it->joints.size())
 				json += ',';
 		}
 		json += ']';
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.skins.begin(), it), fastgltf::Category::Skins, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.skins.begin(), it)), fastgltf::Category::Skins, userPointer);
 			if (extras.has_value()) {
 				if (json.back() != '{')
 					json += ',';
@@ -5162,7 +5163,7 @@ void fg::Exporter::writeSkins(const Asset& asset, std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
-		if (std::distance(asset.skins.begin(), it) + 1 < asset.skins.size())
+		if (uabs(std::distance(asset.skins.begin(), it)) + 1 <asset.skins.size())
 			json += ',';
 	}
 	json += ']';
@@ -5204,7 +5205,7 @@ void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(std::distance(asset.textures.begin(), it), fastgltf::Category::Textures, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.textures.begin(), it)), fastgltf::Category::Textures, userPointer);
 			if (extras.has_value()) {
 				if (json.back() != '{')
 					json += ',';
@@ -5215,7 +5216,7 @@ void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
 		if (!it->name.empty())
 			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
 		json += '}';
-		if (std::distance(asset.textures.begin(), it) + 1 < asset.textures.size())
+		if (uabs(std::distance(asset.textures.begin(), it)) + 1 <asset.textures.size())
 			json += ',';
 	}
 	json += ']';
@@ -5257,16 +5258,24 @@ fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) 
 fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
     std::string_view extension;
     switch (mimeType) {
-        default:
-        case MimeType::None:
-            extension = ".bin";
-            break;
         case MimeType::JPEG:
             extension = ".jpeg";
             break;
         case MimeType::PNG:
             extension = ".png";
             break;
+		case MimeType::KTX2:
+			extension = ".ktx2";
+			break;
+		case MimeType::DDS:
+			extension = ".dds";
+			break;
+		default:
+		case MimeType::None:
+		case MimeType::GltfBuffer:
+		case MimeType::OctetStream:
+			extension = ".bin";
+			break;
     }
 
     const auto& imageName = asset.images[index].name;
@@ -5300,7 +5309,7 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
 		outputString += "\"extensionsUsed\":[";
 		for (auto it = asset.extensionsUsed.begin(); it != asset.extensionsUsed.end(); ++it) {
 			outputString += '\"' + *it + '\"';
-			if (std::distance(asset.extensionsUsed.begin(), it) + 1 < asset.extensionsUsed.size())
+			if (uabs(std::distance(asset.extensionsUsed.begin(), it)) + 1 <asset.extensionsUsed.size())
 				outputString += ',';
 		}
 		outputString += ']';
@@ -5310,7 +5319,7 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
 		outputString += "\"extensionsRequired\":[";
 		for (auto it = asset.extensionsRequired.begin(); it != asset.extensionsRequired.end(); ++it) {
 			outputString += '\"' + *it + '\"';
-			if (std::distance(asset.extensionsRequired.begin(), it) + 1 < asset.extensionsRequired.size())
+			if (uabs(std::distance(asset.extensionsRequired.begin(), it)) + 1 <asset.extensionsRequired.size())
 				outputString += ',';
 		}
 		outputString += ']';
@@ -5397,6 +5406,11 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
         binarySize += sizeof(BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4);
     }
 
+	// A GLB is limited to 2^32 bytes since the length field in the file header is a 32-bit integer.
+	if (binarySize >= static_cast<std::size_t>(std::numeric_limits<decltype(BinaryGltfHeader::length)>::max())) {
+		return Expected<ExportResult<std::vector<std::byte>>>(Error::InvalidGLB);
+	}
+
     result.output.resize(binarySize);
     auto write = [output = result.output.data()](const void* data, std::size_t size) mutable {
         std::memcpy(output, data, size);
@@ -5406,12 +5420,12 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
     BinaryGltfHeader header;
     header.magic = binaryGltfHeaderMagic;
     header.version = 2;
-    header.length = binarySize;
+    header.length = static_cast<std::uint32_t>(binarySize);
     write(&header, sizeof header);
 
     BinaryGltfChunk jsonChunk;
     jsonChunk.chunkType = binaryGltfJsonChunkMagic;
-    jsonChunk.chunkLength = json.size();
+    jsonChunk.chunkLength = static_cast<std::uint32_t>(json.size());
     write(&jsonChunk, sizeof jsonChunk);
 
     write(json.data(), json.size() * sizeof(decltype(json)::value_type));
@@ -5421,7 +5435,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 
         BinaryGltfChunk dataChunk;
         dataChunk.chunkType = binaryGltfDataChunkMagic;
-        dataChunk.chunkLength = alignUp(buffer.byteLength, 4);
+        dataChunk.chunkLength = static_cast<std::uint32_t>(alignUp(buffer.byteLength, 4));
         write(&dataChunk, sizeof dataChunk);
 		for (std::size_t i = 0; i < buffer.byteLength % 4; ++i) {
 			static constexpr std::uint8_t zero = 0x0U;
