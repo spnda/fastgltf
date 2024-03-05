@@ -4,6 +4,95 @@ API
 
 .. contents:: Table of Contents
 
+glTF enumerations
+=================
+
+AccessorType
+-------------
+
+.. doxygenenum:: fastgltf::AccessorType
+
+.. doxygenfunction:: fastgltf::getNumComponents
+
+.. doxygenfunction:: fastgltf::getElementRowCount
+
+.. doxygenfunction:: fastgltf::isMatrix
+
+.. doxygenfunction:: fastgltf::getElementByteSize
+
+.. doxygenfunction:: fastgltf::getAccessorType
+
+.. doxygenfunction:: fastgltf::getAccessorTypeName
+
+ComponentType
+-------------
+
+.. doxygenenum:: fastgltf::ComponentType
+
+.. doxygenfunction:: fastgltf::getComponentByteSize
+
+.. doxygenfunction:: fastgltf::getComponentBitSize
+
+.. doxygenfunction:: fastgltf::getGLComponentType
+
+.. doxygenfunction:: fastgltf::getComponentType
+
+PrimitiveType
+-------------
+
+.. doxygenenum:: fastgltf::PrimitiveType
+
+Filter
+-------------
+
+.. doxygenenum:: fastgltf::Filter
+
+Wrap
+-------------
+
+.. doxygenenum:: fastgltf::Wrap
+
+BufferTarget
+-------------
+
+.. doxygenenum:: fastgltf::BufferTarget
+
+MimeType
+-------------
+
+.. doxygenenum:: fastgltf::MimeType
+
+AnimationInterpolation
+-------------
+
+.. doxygenenum:: fastgltf::AnimationInterpolation
+
+AnimationPath
+-------------
+
+.. doxygenenum:: fastgltf::AnimationPath
+
+AlphaMode
+-------------
+
+.. doxygenenum:: fastgltf::AlphaMode
+
+MeshoptCompressionMode
+-------------
+
+.. doxygenenum:: fastgltf::MeshoptCompressionMode
+
+MeshoptCompressionFilter
+-------------
+
+.. doxygenenum:: fastgltf::MeshoptCompressionFilter
+
+LightType
+-------------
+
+.. doxygenenum:: fastgltf::LightType
+
+
 glTF structs
 ============
 

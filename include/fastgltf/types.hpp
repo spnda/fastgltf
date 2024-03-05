@@ -231,11 +231,6 @@ namespace fastgltf {
         Weights = 4,
     };
 
-    enum class CameraType : std::uint8_t {
-        Perspective = 0,
-        Orthographic = 1,
-    };
-
     enum class AlphaMode : std::uint8_t {
         Opaque,
         Mask,
