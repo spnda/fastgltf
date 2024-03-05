@@ -150,6 +150,15 @@ namespace fastgltf {
         return (a > b) ? a : b;
     }
 
+    template<typename T, typename... A>
+    [[noreturn]] constexpr void raise(A&&... args) {
+#ifdef __cpp_exceptions
+        throw T(std::forward<A>(args)...);
+#else
+        std::abort();
+#endif
+    }
+
     /**
      * Decomposes a transform matrix into the translation, rotation, and scale components. This
      * function does not support skew, shear, or perspective. This currently uses a quick algorithm
@@ -328,7 +337,7 @@ namespace fastgltf {
 	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
 	 * std::visit
 	 */
-	template<class... Ts> 
+	template<class... Ts>
 	struct visitor : Ts... {
 		using Ts::operator()...;
 	};
