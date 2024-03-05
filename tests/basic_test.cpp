@@ -55,6 +55,15 @@ TEST_CASE("Component type tests", "[gltf-loader]") {
     REQUIRE(fastgltf::getComponentType(5126) == ComponentType::Float);
     REQUIRE(fastgltf::getComponentType(5130) == ComponentType::Double);
     REQUIRE(fastgltf::getComponentType(5131) == ComponentType::Invalid);
+
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::Byte) == 5120);
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::UnsignedByte) == 5121);
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::Short) == 5122);
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::UnsignedShort) == 5123);
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::UnsignedInt) == 5125);
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::Float) == 5126);
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::Double) == 5130);
+	REQUIRE(fastgltf::getGLComponentType(ComponentType::Invalid) == 0);
     // clang-format on
 }
 

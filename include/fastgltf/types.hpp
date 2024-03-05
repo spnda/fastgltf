@@ -135,28 +135,31 @@ namespace fastgltf {
      * Represents the various types of components an accessor could point at. This describes the
      * format each component of the structure, which in return is described by fastgltf::AccessorType, is in.
      *
-     * We use the top 16-bits to encode the amount of bits this component type needs.
-     * The lower 16-bits are used to store the glTF ID for the type. Therefore, use the fastgltf::getComponentBitSize
-     * and fastgltf::getGLComponentType functions should be used to extract data from this enum.
+     * As the constants used to identify component type in glTF fit within 13-bits, we store them in the lower 13 bits.
+     * The remaining three bits are then used to store the byte width of the type, minus 1, as 8 is not representable
+     * with just three bits.
+     *
+     * To get the byte or bit size of a component, use the fastgltf::getComponentByteSize or fastgltf::getComponentBitSize,
+     * respectively. To get the OpenGL constant for the component type, use fastgltf::getGLComponentType.
      */
-    enum class ComponentType : std::uint32_t {
+    enum class ComponentType : std::uint16_t {
         Invalid         = 0,
-        Byte            = ( 8 << 16) | 5120,
-        UnsignedByte    = ( 8 << 16) | 5121,
-        Short           = (16 << 16) | 5122,
-        UnsignedShort   = (16 << 16) | 5123,
+        Byte            = (0 << 13) | 5120,
+        UnsignedByte    = (0 << 13) | 5121,
+        Short           = (1 << 13) | 5122,
+        UnsignedShort   = (1 << 13) | 5123,
         /**
          * Signed integers are not officially allowed by the glTF spec, but are placed here for
          * the sake of completeness.
          */
-        Int             = (32 << 16) | 5124,
-        UnsignedInt     = (32 << 16) | 5125,
-        Float           = (32 << 16) | 5126,
+        Int             = (3 << 13) | 5124,
+        UnsignedInt     = (3 << 13) | 5125,
+        Float           = (3 << 13) | 5126,
         /**
          * Doubles are not officially allowed by the glTF spec, but can be enabled by passing
          * Options::AllowDouble if you require it.
          */
-        Double          = (64 << 16) | 5130,
+        Double          = (7 << 13) | 5130,
     };
 
     enum class Filter : std::uint16_t {
@@ -322,13 +325,19 @@ namespace fastgltf {
         return type == AccessorType::Mat2 || type == AccessorType::Mat3 || type == AccessorType::Mat4;
     }
 
-    constexpr auto getComponentBitSize(ComponentType componentType) noexcept {
-    	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
-    	return static_cast<std::uint16_t>(to_underlying(componentType) >> 16U);
-    }
+	constexpr auto getComponentByteSize(ComponentType componentType) noexcept {
+		static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint16_t>);
+		if (componentType == ComponentType::Invalid)
+			return 0;
+		return (to_underlying(componentType) >> 13U) + 1;
+	}
+
+	constexpr auto getComponentBitSize(ComponentType componentType) noexcept {
+		return getComponentByteSize(componentType) * 8U;
+	}
 
     constexpr auto getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
-        const auto componentSize = getComponentBitSize(componentType) / 8U;
+        const auto componentSize = getComponentByteSize(componentType);
         auto numComponents = getNumComponents(type);
         const auto rowCount = getElementRowCount(type);
         if (isMatrix(type) && (rowCount * componentSize) % 4 != 0) {
@@ -344,8 +353,8 @@ namespace fastgltf {
      * For example, getGLComponentType(ComponentType::Float) will return GL_FLOAT (0x1406).
      */
     constexpr auto getGLComponentType(ComponentType type) noexcept {
-    	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
-        return static_cast<std::uint16_t>(to_underlying(type));
+    	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint16_t>);
+        return to_underlying(type) & 0x1FFF; // 2^13 - 1 in hex, to mask the lower 13 bits.
     }
 
     /**
