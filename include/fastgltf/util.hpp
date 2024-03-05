@@ -397,7 +397,7 @@ namespace fastgltf {
 	constexpr std::make_unsigned_t<T> uabs(T val) {
 		using unsigned_t = std::make_unsigned_t<T>;
 		return (val < 0)
-			? static_cast<unsigned_t>(-(val - 1)) - 1
+			? static_cast<unsigned_t>(-(val + 1)) + 1
 			: static_cast<unsigned_t>(val);
 	}
 } // namespace fastgltf
