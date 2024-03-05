@@ -860,21 +860,13 @@ namespace fastgltf {
 
         [[nodiscard]] T& at(std::size_t idx) {
             if (idx >= size()) {
-#ifdef __cpp_exceptions
-                throw std::out_of_range("Index is out of range for SmallVector");
-#else
-				std::abort();
-#endif
+                fastgltf::raise<std::out_of_range>("Index is out of range for SmallVector");
             }
             return begin()[idx];
         }
         [[nodiscard]] const T& at(std::size_t idx) const {
             if (idx >= size()) {
-#ifdef __cpp_exceptions
-                throw std::out_of_range("Index is out of range for SmallVector");
-#else
-	            std::abort();
-#endif
+                fastgltf::raise<std::out_of_range>("Index is out of range for SmallVector");
             }
             return begin()[idx];
         }
@@ -1083,28 +1075,28 @@ namespace fastgltf {
 
 		[[nodiscard]] T& value()& {
 			if (!has_value()) {
-				throw std::bad_optional_access();
+                fastgltf::raise<std::bad_optional_access>();
 			}
 			return _value;
 		}
 
 		[[nodiscard]] const T& value() const& {
 			if (!has_value()) {
-				throw std::bad_optional_access();
+				fastgltf::raise<std::bad_optional_access>();
 			}
 			return _value;
 		}
 
 		[[nodiscard]] T&& value()&& {
 			if (!has_value()) {
-				throw std::bad_optional_access();
+				fastgltf::raise<std::bad_optional_access>();
 			}
 			return std::move(_value);
 		}
 
 		[[nodiscard]] const T&& value() const&& {
 			if (!has_value()) {
-				throw std::bad_optional_access();
+				fastgltf::raise<std::bad_optional_access>();
 			}
 			return std::move(_value);
 		}
@@ -1560,7 +1552,7 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::vector<std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>> instancingAttributes;
 
         FASTGLTF_STD_PMR_NS::string name;
- 
+
         [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
                 if (it->first == attributeName)
@@ -1931,7 +1923,7 @@ namespace fastgltf {
         AccessorType type;
         ComponentType componentType;
         bool normalized = false;
-        
+
         std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> max;
         std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> min;
 
