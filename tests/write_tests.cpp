@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cinttypes>
 #include <cstdint>
 
 #include <catch2/catch_test_macros.hpp>
@@ -163,5 +164,5 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 
 		++testedAssets;
 	}
-	std::printf("Successfully tested fastgltf exporter on %llu assets.", testedAssets);
+	printf("Successfully tested fastgltf exporter on %" PRIu64 " assets.", testedAssets);
 }

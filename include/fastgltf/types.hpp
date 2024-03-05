@@ -1806,15 +1806,35 @@ namespace fastgltf {
         AlphaMode alphaMode = AlphaMode::Opaque;
 
 		/**
+		 * Determines whether back-face culling should be disabled when using this material.
+		 */
+		bool doubleSided = false;
+
+		/**
+		 * Only true when KHR_materials_unlit is enabled and specified for this material.
+		 */
+		bool unlit = false;
+
+		/**
 		 * The alpha value that determines the upper limit for fragments that
 		 * should be discarded for transparency.
 		 */
         num alphaCutoff = 0.5f;
 
-        /**
-         * Determines whether back-face culling should be disabled when using this material.
-         */
-        bool doubleSided = false;
+		/**
+		 * The emissive strength from the KHR_materials_emissive_strength extension.
+		 */
+		num emissiveStrength = 1.0f;
+
+		/**
+		 * The index of refraction as specified through KHR_materials_ior.
+		 */
+		num ior = 1.5f;
+
+		/**
+		 * The dispersion factor from KHR_materials_dispersion, specifies as 20/Abbe number (20/V).
+		 */
+		num dispersion = 0.0f;
 
 		std::unique_ptr<MaterialAnisotropy> anisotropy;
 
@@ -1849,16 +1869,6 @@ namespace fastgltf {
          */
         std::unique_ptr<MaterialVolume> volume;
 
-        /**
-         * The emissive strength from the KHR_materials_emissive_strength extension.
-         */
-        num emissiveStrength = 1.0f;
-
-        /**
-         * The index of refraction as specified through KHR_materials_ior.
-         */
-        num ior = 1.5f;
-
 		/**
 		 * The index of a packed texture from the MSFT_packing_normalRoughnessMetallic extension,
 		 * providing normal, roughness and metallic data.
@@ -1866,16 +1876,6 @@ namespace fastgltf {
 		Optional<TextureInfo> packedNormalMetallicRoughnessTexture;
 
 		std::unique_ptr<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
-
-        /**
-         * Only applicable if KHR_materials_unlit is enabled.
-         */
-        bool unlit = false;
-
-		/**
-		 * The dispersion factor from KHR_materials_dispersion, specifies as 20/Abbe number (20/V).
-		 */
-		num dispersion = 0.0f;
 
         FASTGLTF_STD_PMR_NS::string name;
     };

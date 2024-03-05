@@ -1,6 +1,7 @@
-#include <random>
-#include <type_traits>
 #include <limits>
+#include <random>
+#include <string>
+#include <type_traits>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -39,4 +40,5 @@ TEST_CASE("Verify uabs functionality", "[util-tests]") {
 
 	// The issue with 2's complementary not being able to represent INT_MIN is fixed with uabs.
 	REQUIRE(fastgltf::uabs(std::numeric_limits<int>::min()) == 2147483648);
+	REQUIRE(fastgltf::uabs(std::numeric_limits<int>::max()) == 2147483647);
 }
