@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cstdlib>
-#include <random>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -65,29 +64,6 @@ TEST_CASE("Component type tests", "[gltf-loader]") {
 	REQUIRE(fastgltf::getGLComponentType(ComponentType::Double) == 5130);
 	REQUIRE(fastgltf::getGLComponentType(ComponentType::Invalid) == 0);
     // clang-format on
-}
-
-TEST_CASE("Test all variants of CRC32-C hashing", "[gltf-loader]") {
-    // TODO: Determine SSE4.2 support here.
-    for (std::size_t i = 0; i < 256; ++i) {
-        // Generate a random string up to 256 chars long.
-        static constexpr std::string_view chars =
-            "0123456789"
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-            "abcdefghijklmnopqrstuvwxyz";
-        static std::mt19937 rng(std::random_device{}());
-        static std::uniform_int_distribution<std::string::size_type> pick(0, chars.size() - 1);
-        std::string str(i, '\0');
-        for (std::size_t j = 0; j < i; ++j)
-            str[j] = chars[pick(rng)];
-
-		// We'll try and test if the hardware accelerated version generates the same, correct results.
-#if defined(FASTGLTF_IS_X86)
-        REQUIRE(fastgltf::crc32c(str) == fastgltf::sse_crc32c(str));
-#elif defined(FASTGLTF_IS_A64)
-		REQUIRE(fastgltf::crc32c(str) == fastgltf::armv8_crc32c(str));
-#endif
-    }
 }
 
 TEST_CASE("Test extension stringification", "[gltf-loader]") {

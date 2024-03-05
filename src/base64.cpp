@@ -55,7 +55,8 @@
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 5030)
+#pragma warning(disable : 5030) // attribute 'x' is not recognized
+#pragma warning(disable : 4710) // function not inlined
 #endif
 
 namespace fg = fastgltf;
@@ -391,9 +392,9 @@ namespace fastgltf::base64 {
 			sixBitChars[i] = base64lut[sixBitChars[i]];
 		}
 
-		output[0] = (sixBitChars[0] << 2) + ((sixBitChars[1] & 0x30) >> 4);
-		output[1] = ((sixBitChars[1] & 0xf) << 4) + ((sixBitChars[2] & 0x3c) >> 2);
-		output[2] = ((sixBitChars[2] & 0x3) << 6) + sixBitChars[3];
+		output[0] = (sixBitChars[0] << 2U) + ((sixBitChars[1] & 0x30U) >> 4U);
+		output[1] = ((sixBitChars[1] & 0xfU) << 4U) + ((sixBitChars[2] & 0x3cU) >> 2U);
+		output[2] = ((sixBitChars[2] & 0x3U) << 6U) + sixBitChars[3];
 	}
 } // namespace fastgltf::base64
 

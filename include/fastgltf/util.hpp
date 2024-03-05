@@ -388,6 +388,18 @@ namespace fastgltf {
 		return dst;
 	}
 #endif
+
+	/**
+	 * Returns the absolute value of the given integer in its unsigned type.
+	 * This avoids the issue with two complementary signed integers not being able to represent INT_MIN.
+	 */
+	template <typename T>
+	constexpr std::make_unsigned_t<T> uabs(T val) {
+		using unsigned_t = std::make_unsigned_t<T>;
+		return (val < 0)
+			? static_cast<unsigned_t>(-(val - 1)) - 1
+			: static_cast<unsigned_t>(val);
+	}
 } // namespace fastgltf
 
 #ifdef _MSC_VER
