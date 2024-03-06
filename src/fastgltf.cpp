@@ -723,7 +723,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 	    return Expected<DataSource> { Error::MissingExternalBuffer };
     }
 
-    auto length = static_cast<std::streamsize>(std::filesystem::file_size(path, error));
+    auto length = static_cast<std::streamsize>(fs::file_size(path, error));
     if (error) {
 	    return Expected<DataSource> { Error::InvalidURI };
     }
@@ -3749,7 +3749,7 @@ bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCo
 bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOffset) noexcept {
     using namespace simdjson;
     std::error_code ec;
-    auto length = static_cast<std::streamsize>(std::filesystem::file_size(path, ec));
+    auto length = static_cast<std::streamsize>(fs::file_size(path, ec));
     if (ec) {
         return false;
     }
@@ -3886,7 +3886,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
     using namespace simdjson;
 
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
-    if (hasBit(options, Options::LoadExternalBuffers) && !fs::is_directory(directory)) {
+    if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
         return Expected<Asset>(Error::InvalidPath);
     }
 
@@ -3919,7 +3919,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
     using namespace simdjson;
 
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
-    if (hasBit(options, Options::LoadExternalBuffers) && !fs::is_directory(directory)) {
+    if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
 	    return Expected<Asset>(Error::InvalidPath);
     }
 
@@ -4115,14 +4115,14 @@ std::string fg::escapeString(std::string_view string) {
     return ret;
 }
 
-void fg::Exporter::setBufferPath(std::filesystem::path folder) {
+void fg::Exporter::setBufferPath(fs::path folder) {
     if (!folder.is_relative()) {
         return;
     }
     bufferFolder = std::move(folder);
 }
 
-void fg::Exporter::setImagePath(std::filesystem::path folder) {
+void fg::Exporter::setImagePath(fs::path folder) {
     if (!folder.is_relative()) {
         return;
     }
@@ -5537,7 +5537,7 @@ namespace fastgltf {
 	}
 } // namespace fastgltf
 
-fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options) {
+fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, fs::path target, ExportOptions options) {
     auto expected = Exporter::writeGltfJson(asset, options);
 
     if (!expected) {
@@ -5559,7 +5559,7 @@ fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, std::filesystem::p
     return Error::None;
 }
 
-fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options) {
+fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, fs::path target, ExportOptions options) {
     auto expected = Exporter::writeGltfBinary(asset, options);
 
     if (!expected) {

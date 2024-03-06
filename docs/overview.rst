@@ -172,8 +172,7 @@ Additionally, this is a list of some interesting projects using fastgltf:
 - `wad2gltf <https://github.com/DethRaid/wad2gltf>`_: A WAD to glTF converter
 - `Castor3D <https://github.com/DragonJoker/Castor3D>`_: A multi-OS 3D engine
 - `Raz <https://github.com/Razakhel/RaZ>`_: A modern & multiplatform 3D game engine in C++17
-
-
+- `vkguide <https://vkguide.dev>`_: A modern Vulkan tutorial
 
 .. _accessor-tools:
 
