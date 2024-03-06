@@ -16,6 +16,7 @@ Indices and tables
 
 * :doc:`overview`
 * :doc:`tools`
+* :doc:`guides`
 * :doc:`options`
 * :doc:`api`
 * :doc:`changelog`
@@ -28,6 +29,7 @@ Indices and tables
 
    overview
    tools
+   guides
    options
    api
    changelog

@@ -30,6 +30,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <string_view>
 #include <type_traits>
 
