@@ -66,9 +66,10 @@ TEST_CASE("Test generic URIs", "[uri-tests]") {
 }
 
 TEST_CASE("Test percent decoding", "[uri-tests]") {
-    std::string test = "%22 %25";
+	// All reserved characters as per RFC 3986 section 2.2 Reserved Characters (January 2005)
+    std::string test = "%20%21%22%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
     fastgltf::URI::decodePercents(test);
-    REQUIRE(test == "\" %");
+    REQUIRE(test == " !\"#$%&'()*+,/:;=?@[]");
 }
 
 TEST_CASE("Test data URI parsing", "[uri-tests]") {

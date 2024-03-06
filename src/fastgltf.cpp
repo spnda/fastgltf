@@ -617,13 +617,14 @@ void fg::URI::readjustViews(const URIView& other) {
 }
 
 void fg::URI::decodePercents(std::string& x) noexcept {
-	for (auto it = x.begin(); it != x.end(); ++it) {
-		if (*it == '%') {
-			// Read the next two chars and store them.
-			std::array<char, 3> chars = {*(it + 1), *(it + 2), 0};
-			*it = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
-			x.erase(it + 1, it + 3);
-		}
+	for (std::size_t i = 0; i < x.size(); ++i) {
+		if (x[i] != '%')
+			continue;
+
+		// Read the next two chars and store them
+		std::array<char, 3> chars = {x[i + 1], x[i + 2]};
+		x[i] = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
+		x.erase(i + 1, 2);
 	}
 }
 
