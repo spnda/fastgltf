@@ -204,6 +204,56 @@ TEST_CASE("Test Unicode exporting", "[write-tests]") {
 	REQUIRE(asset->materials[0].name == "Unicode❤♻Material");
 
 	REQUIRE(!asset->buffers.empty());
-	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers[0].data);
+	REQUIRE(std::holds_alternative<fastgltf::sources::URI>(asset->buffers.front().data));
+	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers.front().data);
 	REQUIRE(bufferUri.uri.path() == "Unicode❤♻Binary.bin");
+}
+
+TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
+#if FASTGLTF_CPP_20
+	auto unicodePath = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf")));
+#else
+	auto unicodePath = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf")));
+#endif
+
+	fastgltf::Parser parser;
+	auto asset = parser.loadGltfJson(&jsonData, unicodePath, fastgltf::Options::LoadExternalImages);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+
+	REQUIRE(asset->images.size() == 1);
+	asset->images.front().name = "Unicode❤♻Texture";
+
+	// When exporting, we specify a redundant image base path to test if the normalization properly works.
+	// Additionally, on Windows we test if the slashes are changed properly.
+	fastgltf::Exporter exporter;
+#ifdef _WIN32
+	// When on Windows the default path separator is a backslash, but glTF requires a forward slash.
+	exporter.setImagePath(".\\textures1\\textures2\\..\\");
+#else
+	exporter.setImagePath("./textures1/textures2/../");
+#endif
+	auto exported = exporter.writeGltfJson(asset.get());
+
+	// Parse the JSON and inspect the image URI.
+	simdjson::ondemand::parser jsonParser;
+	simdjson::ondemand::document doc;
+	REQUIRE(jsonParser.iterate(exported.get().output.c_str(), exported.get().output.size(), exported.get().output.capacity()).get(doc) == simdjson::SUCCESS);
+
+	simdjson::ondemand::object object;
+	REQUIRE(doc.get_object().get(object) == simdjson::SUCCESS);
+
+	simdjson::ondemand::array images;
+	REQUIRE(doc["images"].get_array().get(images) == simdjson::SUCCESS);
+	REQUIRE(images.count_elements().value() == 1);
+
+	simdjson::ondemand::object imageObject;
+	REQUIRE(images.at(0).get_object().get(imageObject) == simdjson::SUCCESS);
+
+	std::string_view imageUri;
+	REQUIRE(imageObject["uri"].get_string().get(imageUri) == simdjson::SUCCESS);
+	REQUIRE(imageUri == "textures1/Unicode❤♻Texture.bin");
 }

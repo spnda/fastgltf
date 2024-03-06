@@ -4072,26 +4072,42 @@ void fg::prettyPrintJson(std::string& json) {
     }
 }
 
+namespace fastgltf {
+	static void escapeString(std::string& string) {
+		std::size_t i = 0;
+		do {
+			switch (string[i]) {
+				case '\"': {
+					const std::string_view s = "\\\"";
+					string.replace(i, 1, s);
+					i += s.size();
+					break;
+				}
+				case '\\': {
+					const std::string_view s = "\\\\";
+					string.replace(i, 1, s);
+					i += s.size();
+					break;
+				}
+			}
+			++i;
+		} while (i < string.size());
+	}
+
+	/**
+	 * Normalizes the path using lexically_normal, calls generic_string to always use forward slashes,
+	 * and escapes any necessary characters.
+	 */
+	static std::string normalizeAndFormatPath(fs::path& path) {
+		auto string = path.lexically_normal().generic_string();
+		escapeString(string);
+		return string;
+	}
+} // namespace fastgltf
+
 std::string fg::escapeString(std::string_view string) {
     std::string ret(string);
-    std::size_t i = 0;
-    do {
-        switch (ret[i]) {
-            case '\"': {
-                const std::string_view s = "\\\"";
-                ret.replace(i, 1, s);
-                i += s.size();
-                break;
-            }
-            case '\\': {
-                const std::string_view s = "\\\\";
-                ret.replace(i, 1, s);
-                i += s.size();
-                break;
-            }
-        }
-        ++i;
-    } while (i < ret.size());
+	escapeString(ret);
     return ret;
 }
 
@@ -4201,7 +4217,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
                     return;
                 }
                 auto path = getBufferFilePath(asset, bufferIdx);
-                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
+                json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
                 bufferPaths.emplace_back(path);
 			},
 			[&](const sources::Vector& vector) {
@@ -4210,7 +4226,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 					return;
 				}
 				auto path = getBufferFilePath(asset, bufferIdx);
-				json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
+				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
 				bufferPaths.emplace_back(path);
 			},
 			[&](const sources::ByteView& view) {
@@ -4219,7 +4235,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 					return;
 				}
                 auto path = getBufferFilePath(asset, bufferIdx);
-                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"' + ',';
+                json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
                 bufferPaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
@@ -4402,7 +4418,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
             },
             [&](const sources::Array& vector) {
                 auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
-                json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
+                json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
@@ -4410,7 +4426,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
             },
 			[&](const sources::Vector& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
-				json += std::string(R"("uri":")") + fg::escapeString(path.string()) + '"';
+				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
@@ -5250,11 +5266,8 @@ fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) 
     const auto& bufferName = asset.buffers[index].name;
     if (bufferName.empty()) {
         return bufferFolder / ("buffer" + std::to_string(index) + ".bin");
-    } else {
-        return bufferFolder / (bufferName + ".bin");
     }
-    std::string name = bufferName.empty() ? "buffer" : std::string(bufferName);
-    return bufferFolder / (name + std::to_string(index) + ".bin");
+	return bufferFolder / (bufferName + ".bin");
 }
 
 fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
@@ -5281,8 +5294,10 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
     }
 
     const auto& imageName = asset.images[index].name;
-    std::string name = imageName.empty() ? "image" : std::string(imageName);
-    return imageFolder / (name + std::to_string(index) + std::string(extension));
+	if (imageName.empty()) {
+		return imageFolder / ("image" + std::to_string(index) + std::string(extension));
+	}
+	return imageFolder / (std::string(imageName) + std::string(extension));
 }
 
 std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
