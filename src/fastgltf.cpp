@@ -710,7 +710,10 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 	URI decodedUri(uri.path()); // Re-allocate so we can decode potential characters.
 #if FASTGLTF_CPP_20
 	// JSON strings need always be in UTF-8, so we can safely assume that the URI contains UTF-8 characters.
-	auto path = directory / fs::path(decodedUri.path());
+	// This is technically UB... but I'm not sure how to do it otherwise.
+	std::u8string_view u8path(reinterpret_cast<const char8_t*>(decodedUri.path().data()),
+							  decodedUri.path().size());
+	auto path = directory / fs::path(u8path);
 #else
     auto path = directory / fs::u8path(decodedUri.path());
 #endif
