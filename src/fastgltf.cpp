@@ -707,7 +707,12 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
 
 fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noexcept {
 	URI decodedUri(uri.path()); // Re-allocate so we can decode potential characters.
+#if FASTGLTF_CPP_20
+	// JSON strings need always be in UTF-8, so we can safely assume that the URI contains UTF-8 characters.
+	auto path = directory / fs::path(decodedUri.path());
+#else
     auto path = directory / fs::u8path(decodedUri.path());
+#endif
     std::error_code error;
     // If we were instructed to load external buffers and the files don't exist, we'll return an error.
     if (!fs::exists(path, error) || error) {

@@ -561,9 +561,15 @@ TEST_CASE("Test accessors min/max", "[gltf-loader]") {
 }
 
 TEST_CASE("Test unicode characters", "[gltf-loader]") {
+#if FASTGLTF_CPP_20
+	auto lightsLamp = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(lightsLamp / std::filesystem::path(u8"Unicode❤♻Test.gltf")));
+#else
 	auto lightsLamp = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfDataBuffer jsonData;
 	REQUIRE(jsonData.loadFromFile(lightsLamp / std::filesystem::u8path(u8"Unicode❤♻Test.gltf")));
+#endif
 
 	fastgltf::Parser parser;
 	auto asset = parser.loadGltfJson(&jsonData, lightsLamp);
@@ -571,11 +577,11 @@ TEST_CASE("Test unicode characters", "[gltf-loader]") {
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
 	REQUIRE(!asset->materials.empty());
-	REQUIRE(asset->materials[0].name == reinterpret_cast<const char*>(u8"Unicode❤♻Material"));
+	REQUIRE(asset->materials[0].name == "Unicode❤♻Material");
 
 	REQUIRE(!asset->buffers.empty());
 	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers[0].data);
-	REQUIRE(bufferUri.uri.path() == reinterpret_cast<const char*>(u8"Unicode❤♻Binary.bin"));
+	REQUIRE(bufferUri.uri.path() == "Unicode❤♻Binary.bin");
 }
 
 TEST_CASE("Test extras callback", "[gltf-loader]") {
