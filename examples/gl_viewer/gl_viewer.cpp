@@ -324,13 +324,17 @@ glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
 	return base;
 }
 
-bool loadGltf(Viewer* viewer, std::string_view cPath) {
-	if (!std::filesystem::exists(cPath)) {
-		std::cout << "Failed to find " << cPath << '\n';
+bool loadGltf(Viewer* viewer, std::filesystem::path path) {
+	if (!std::filesystem::exists(path)) {
+		std::cout << "Failed to find " << path << '\n';
 		return false;
 	}
 
-    std::cout << "Loading " << cPath << '\n';
+	if constexpr (std::is_same_v<std::filesystem::path::value_type, wchar_t>) {
+		std::wcout << "Loading " << path << '\n';
+	} else {
+		std::cout << "Loading " << path << '\n';
+	}
 
     // Parse the glTF file and get the constructed asset
     {
@@ -340,8 +344,6 @@ bool loadGltf(Viewer* viewer, std::string_view cPath) {
 			fastgltf::Extensions::KHR_materials_variants;
 
         fastgltf::Parser parser(supportedExtensions);
-
-        auto path = std::filesystem::path{cPath};
 
         constexpr auto gltfOptions =
             fastgltf::Options::DontRequireValidAssetMember |
@@ -679,13 +681,22 @@ void getCameraViewMatrix(Viewer* viewer, std::vector<fastgltf::Node*>& cameraNod
 		getCameraViewMatrix(viewer, cameraNodes, child, matrix);
 	}
 }
-
+#ifdef _MSC_VER
+int wmain(int argc, wchar_t* argv[]) {
+	if (argc < 2) {
+		std::cerr << "No gltf file specified." << '\n';
+		return -1;
+	}
+	auto gltfFile = std::wstring_view { argv[1] };
+#else
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "No gltf file specified." << '\n';
         return -1;
     }
     auto gltfFile = std::string_view { argv[1] };
+#endif
+
     Viewer viewer;
 
     if (glfwInit() != GLFW_TRUE) {
