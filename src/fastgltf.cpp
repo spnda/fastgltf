@@ -729,7 +729,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
     if (config.mapCallback != nullptr) {
         auto info = config.mapCallback(static_cast<std::uint64_t>(length), config.userPointer);
         if (info.mappedMemory != nullptr) {
-            const sources::CustomBuffer customBufferSource = { info.customId, MimeType::None };
+            const sources::CustomBuffer customBufferSource = { info.customId };
             file.read(reinterpret_cast<char*>(info.mappedMemory), length);
             if (config.unmapCallback != nullptr) {
                 config.unmapCallback(&info, config.userPointer);
@@ -743,7 +743,6 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 	file.read(reinterpret_cast<char*>(data.data()), length);
     sources::Array vectorSource = {
 		std::move(data),
-		MimeType::None,
 	};
 	return Expected<DataSource> { std::move(vectorSource) };
 }
@@ -1840,7 +1839,6 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
                 sources::URI filePath;
                 filePath.fileByteOffset = 0;
                 filePath.uri = uriView;
-				filePath.mimeType = MimeType::None;
                 buffer.data = std::move(filePath);
             }
         } else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
@@ -2231,7 +2229,6 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
                 sources::URI filePath;
                 filePath.fileByteOffset = 0;
                 filePath.uri = uriView;
-				filePath.mimeType = MimeType::None;
                 image.data = std::move(filePath);
             }
 
@@ -3985,7 +3982,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 						if (config.unmapCallback != nullptr) {
 							config.unmapCallback(&info, config.userPointer);
 						}
-						glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
+						glbBuffer = sources::CustomBuffer{info.customId};
 					}
 				} else {
 					StaticVector<std::uint8_t> binaryData(binaryChunk.chunkLength);
