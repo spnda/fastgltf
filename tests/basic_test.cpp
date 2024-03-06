@@ -562,17 +562,17 @@ TEST_CASE("Test accessors min/max", "[gltf-loader]") {
 
 TEST_CASE("Test unicode characters", "[gltf-loader]") {
 #if FASTGLTF_CPP_20
-	auto lightsLamp = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
+	auto unicodePath = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfDataBuffer jsonData;
-	REQUIRE(jsonData.loadFromFile(lightsLamp / std::filesystem::path(u8"Unicode❤♻Test.gltf")));
+	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf")));
 #else
-	auto lightsLamp = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
+	auto unicodePath = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfDataBuffer jsonData;
-	REQUIRE(jsonData.loadFromFile(lightsLamp / std::filesystem::u8path(u8"Unicode❤♻Test.gltf")));
+	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf")));
 #endif
 
 	fastgltf::Parser parser;
-	auto asset = parser.loadGltfJson(&jsonData, lightsLamp);
+	auto asset = parser.loadGltfJson(&jsonData, unicodePath);
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 

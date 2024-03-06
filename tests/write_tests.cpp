@@ -4,6 +4,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <simdjson.h>
+
 #include <fastgltf/core.hpp>
 #include "gltf_path.hpp"
 
@@ -153,8 +155,11 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		auto exported = exporter.writeGltfJson(model.get());
 		REQUIRE(exported.error() == fastgltf::Error::None);
 
-		// Parse the re-generated glTF and validate
+		// UTF-8 validation on the exported JSON string
 		auto& exportedJson = exported.get().output;
+		REQUIRE(simdjson::validate_utf8(exportedJson));
+
+		// Parse the re-generated glTF and validate
 		fastgltf::GltfDataBuffer regeneratedJson;
 		regeneratedJson.copyBytes(reinterpret_cast<const uint8_t*>(exportedJson.data()), exportedJson.size());
 		auto regeneratedModel = parser.loadGltf(&regeneratedJson, epath.parent_path());
@@ -165,4 +170,40 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		++testedAssets;
 	}
 	printf("Successfully tested fastgltf exporter on %" PRIu64 " assets.", testedAssets);
+}
+
+TEST_CASE("Test Unicode exporting", "[write-tests]") {
+#if FASTGLTF_CPP_20
+	auto unicodePath = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf")));
+#else
+	auto unicodePath = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf")));
+#endif
+
+	fastgltf::Parser parser;
+	auto asset = parser.loadGltfJson(&jsonData, unicodePath);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+
+	fastgltf::Exporter exporter;
+	auto exported = exporter.writeGltfJson(asset.get());
+	REQUIRE(exported.error() == fastgltf::Error::None);
+
+	// UTF-8 validation on the exported JSON string
+	auto& exportedJson = exported.get().output;
+	REQUIRE(simdjson::validate_utf8(exportedJson));
+
+	fastgltf::GltfDataBuffer regeneratedJson;
+	regeneratedJson.copyBytes(reinterpret_cast<const uint8_t*>(exportedJson.data()), exportedJson.size());
+	auto reparsed = parser.loadGltfJson(&regeneratedJson, unicodePath);
+	REQUIRE(reparsed.error() == fastgltf::Error::None);
+
+	REQUIRE(!asset->materials.empty());
+	REQUIRE(asset->materials[0].name == "Unicode❤♻Material");
+
+	REQUIRE(!asset->buffers.empty());
+	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers[0].data);
+	REQUIRE(bufferUri.uri.path() == "Unicode❤♻Binary.bin");
 }
