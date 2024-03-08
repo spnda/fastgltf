@@ -84,9 +84,16 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
-    std::filesystem::create_directory(path / "export");
+	// Destroy the directory to make sure that the FileExporter correctly creates directories.
+	auto exportedFolder = path / "export";
+	if (std::filesystem::exists(exportedFolder)) {
+		std::error_code ec;
+		std::filesystem::remove_all(exportedFolder, ec);
+		REQUIRE(!ec);
+	}
+
     fastgltf::FileExporter exporter;
-    auto error = exporter.writeGltfJson(cube.get(), path / "export" / "cube.gltf",
+    auto error = exporter.writeGltfJson(cube.get(), exportedFolder / "cube.gltf",
                                         fastgltf::ExportOptions::PrettyPrintJson);
     REQUIRE(error == fastgltf::Error::None);
 }
@@ -102,9 +109,17 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
-    std::filesystem::create_directory(path / "export_glb");
+	// Destroy the directory to make sure that the FileExporter correctly creates directories.
+	auto exportedFolder = path / "export_glb";
+	if (std::filesystem::exists(exportedFolder)) {
+		std::error_code ec;
+		std::filesystem::remove_all(exportedFolder, ec);
+		REQUIRE(!ec);
+	}
+
     fastgltf::FileExporter exporter;
-    auto error = exporter.writeGltfBinary(cube.get(), path / "export_glb" / "cube.glb");
+	auto exportedPath = exportedFolder / "cube.glb";
+    auto error = exporter.writeGltfBinary(cube.get(), exportedPath);
     REQUIRE(error == fastgltf::Error::None);
 }
 

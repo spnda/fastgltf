@@ -5540,13 +5540,23 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 }
 
 namespace fastgltf {
-	bool writeFile(const DataSource& dataSource, fs::path baseFolder, fs::path filePath) {
+	bool writeFile(const DataSource& dataSource, const fs::path& baseFolder, const fs::path& filePath) {
+		// Get the final normalized path. TODO: Perhaps move these filesystem checks to the parent function?
+		auto finalPath = (baseFolder / filePath).lexically_normal();
+		if (std::error_code ec; !fs::exists(finalPath.parent_path(), ec) || ec) {
+			// If the parent folder of the destination file does not exist, we'll create it.
+			fs::create_directory(finalPath.parent_path(), ec);
+			if (!ec) {
+				return false;
+			}
+		}
+
 		return std::visit(visitor {
 			[](auto& arg) {
 				return false;
 			},
 			[&](const sources::Array& vector) {
-				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				std::ofstream file(finalPath, std::ios::out | std::ios::binary);
 				if (!file.is_open())
 					return false;
 				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
@@ -5555,7 +5565,7 @@ namespace fastgltf {
 				return file.good();
 			},
 			[&](const sources::Vector& vector) {
-				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				std::ofstream file(finalPath, std::ios::out | std::ios::binary);
 				if (!file.is_open())
 					return false;
 				file.write(reinterpret_cast<const char *>(vector.bytes.data()),
@@ -5564,7 +5574,7 @@ namespace fastgltf {
 				return file.good();
 			},
 			[&](const sources::ByteView& view) {
-				std::ofstream file(baseFolder / filePath, std::ios::out | std::ios::binary);
+				std::ofstream file(finalPath, std::ios::out | std::ios::binary);
 				if (!file.is_open())
 					return false;
 				file.write(reinterpret_cast<const char *>(view.bytes.data()),
@@ -5578,7 +5588,7 @@ namespace fastgltf {
 	template<typename T>
 	bool writeFiles(const Asset& asset, ExportResult<T> &result, fs::path baseFolder) {
 		for (std::size_t i = 0; i < asset.buffers.size(); ++i) {
-			auto &path = result.bufferPaths[i];
+			auto& path = result.bufferPaths[i];
 			if (path.has_value()) {
 				if (!writeFile(asset.buffers[i].data, baseFolder, path.value()))
 					return false;
@@ -5586,7 +5596,7 @@ namespace fastgltf {
 		}
 
 		for (std::size_t i = 0; i < asset.images.size(); ++i) {
-			auto &path = result.imagePaths[i];
+			auto& path = result.imagePaths[i];
 			if (path.has_value()) {
 				if (!writeFile(asset.images[i].data, baseFolder, path.value()))
 					return false;
@@ -5597,7 +5607,14 @@ namespace fastgltf {
 } // namespace fastgltf
 
 fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, fs::path target, ExportOptions options) {
-    auto expected = Exporter::writeGltfJson(asset, options);
+	if (std::error_code ec; !fs::exists(target.parent_path(), ec) || ec) {
+		fs::create_directory(target.parent_path(), ec);
+		if (ec) {
+			return Error::InvalidPath;
+		}
+	}
+
+	auto expected = Exporter::writeGltfJson(asset, options);
 
     if (!expected) {
         return expected.error();
@@ -5619,6 +5636,13 @@ fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, fs::path target, E
 }
 
 fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, fs::path target, ExportOptions options) {
+	if (std::error_code ec; !fs::exists(target.parent_path(), ec) || ec) {
+		fs::create_directory(target.parent_path(), ec);
+		if (ec) {
+			return Error::InvalidPath;
+		}
+	}
+
     auto expected = Exporter::writeGltfBinary(asset, options);
 
     if (!expected) {
