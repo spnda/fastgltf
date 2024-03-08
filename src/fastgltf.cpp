@@ -872,16 +872,23 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			if (positionAttribute == primitive.attributes.end()) {
 				return Error::InvalidGltf;
 			}
-			auto& positionAccessor = asset.accessors[positionAttribute->second];
+			auto positionCount = asset.accessors[positionAttribute->second].count;
 
-			StaticVector<std::uint8_t> generatedIndices(positionAccessor.count * getElementByteSize(positionAccessor.type, positionAccessor.componentType));
+			StaticVector<std::uint8_t> generatedIndices(positionCount * sizeof(std::uint32_t));
 			fastgltf::span<std::uint32_t> indices { reinterpret_cast<std::uint32_t*>(generatedIndices.data()),
 													generatedIndices.size() / sizeof(std::uint32_t) };
-			for (std::size_t i = 0; i < positionAccessor.count; ++i) {
+			for (std::size_t i = 0; i < positionCount; ++i) {
 				indices[i] = static_cast<std::uint32_t>(i);
 			}
 
 			auto bufferIdx = asset.buffers.size();
+			auto& buffer = asset.buffers.emplace_back();
+			sources::Array indicesArray {
+					std::move(generatedIndices),
+					MimeType::GltfBuffer,
+			};
+			buffer.byteLength = generatedIndices.size_bytes();
+			buffer.data = std::move(indicesArray);
 
 			auto bufferViewIdx = asset.bufferViews.size();
 			auto& bufferView = asset.bufferViews.emplace_back();
@@ -889,23 +896,14 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			bufferView.bufferIndex = bufferIdx;
 			bufferView.byteOffset = 0;
 
-			auto accessorIdx = asset.accessors.size();
+			primitive.indicesAccessor = asset.accessors.size();
 			auto& accessor = asset.accessors.emplace_back();
 			accessor.byteOffset = 0;
-			accessor.count = positionAccessor.count;
+			accessor.count = positionCount;
 			accessor.type = AccessorType::Scalar;
 			accessor.componentType = ComponentType::UnsignedInt;
 			accessor.normalized = false;
 			accessor.bufferViewIndex = bufferViewIdx;
-
-			sources::Array indicesArray {
-				std::move(generatedIndices),
-				MimeType::GltfBuffer,
-			};
-			auto& buffer = asset.buffers.emplace_back();
-			buffer.byteLength = generatedIndices.size_bytes();
-			buffer.data = std::move(indicesArray);
-			primitive.indicesAccessor = accessorIdx;
 		}
 	}
 	return Error::None;
