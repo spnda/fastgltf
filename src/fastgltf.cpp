@@ -5546,7 +5546,7 @@ namespace fastgltf {
 		if (std::error_code ec; !fs::exists(finalPath.parent_path(), ec) || ec) {
 			// If the parent folder of the destination file does not exist, we'll create it.
 			fs::create_directory(finalPath.parent_path(), ec);
-			if (!ec) {
+			if (ec) {
 				return false;
 			}
 		}
