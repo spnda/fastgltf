@@ -4869,7 +4869,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                 }
 
                 if (itp->type != PrimitiveType::Triangles) {
-                    json += R"(,"type":)" + std::to_string(to_underlying(itp->type));
+                    json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
                 }
 
 				if (!itp->mappings.empty()) {
