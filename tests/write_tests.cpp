@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cinttypes>
 #include <cstdint>
+#include <fstream>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -121,6 +122,34 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
 	auto exportedPath = exportedFolder / "cube.glb";
     auto error = exporter.writeGltfBinary(cube.get(), exportedPath);
     REQUIRE(error == fastgltf::Error::None);
+
+	// Make sure the GLB buffer is written
+	std::error_code ec;
+	auto length = std::filesystem::file_size(exportedPath, ec);
+	std::ifstream glb(exportedPath, std::ios::binary);
+	REQUIRE(glb.is_open());
+
+	// Skip over the header
+	glb.seekg(sizeof(std::uint32_t) * 3, std::ifstream::beg);
+
+	// Read the chunk length
+	std::uint32_t chunkLength = 0;
+	glb.read(reinterpret_cast<char*>(&chunkLength), sizeof chunkLength);
+
+	// Skip over the chunk type + chunk
+	glb.seekg(sizeof(std::uint32_t) + fastgltf::alignUp(chunkLength, 4), std::ifstream::cur);
+
+	// Read binary chunk length
+	glb.read(reinterpret_cast<char*>(&chunkLength), sizeof chunkLength);
+	REQUIRE(chunkLength == cube->buffers.front().byteLength);
+
+	// Read & verify BIN chunk type id
+	std::array<std::uint8_t, 4> binType {};
+	glb.read(reinterpret_cast<char*>(binType.data()), sizeof binType);
+	REQUIRE(binType[0] == 'B');
+	REQUIRE(binType[1] == 'I');
+	REQUIRE(binType[2] == 'N');
+	REQUIRE(binType[3] == 0);
 }
 
 TEST_CASE("Test string escape", "[write-tests]") {

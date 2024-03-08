@@ -5524,13 +5524,13 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 
 		std::visit(visitor {
 			[](auto arg) {},
-			[&](sources::Array& vector) {
+			[&](const sources::Array& vector) {
 				write(vector.bytes.data(), buffer.byteLength);
 			},
-			[&](sources::Vector& vector) {
+			[&](const sources::Vector& vector) {
 				write(vector.bytes.data(), buffer.byteLength);
 			},
-			[&](sources::ByteView& byteView) {
+			[&](const sources::ByteView& byteView) {
 				write(byteView.bytes.data(), buffer.byteLength);
 			},
 		}, buffer.data);
