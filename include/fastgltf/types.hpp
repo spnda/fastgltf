@@ -1880,7 +1880,7 @@ namespace fastgltf {
 		/**
 		 * If no sampler is specified, use a default sampler with repeat wrap and auto filter.
 		 */
-		 Optional<std::size_t> samplerIndex;
+		Optional<std::size_t> samplerIndex;
 
 		/**
 		 * The index of the image used by this texture. Either this will have a value,

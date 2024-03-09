@@ -193,60 +193,53 @@ namespace fastgltf {
 #endif
     }
 
-	[[nodiscard, gnu::always_inline]] inline std::tuple<bool, bool, std::size_t> getImageIndexForExtension(const simdjson::dom::object& object, std::string_view extension) {
+	[[nodiscard, gnu::always_inline]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, Optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
 
-		dom::object sourceExtensionObject;
-		if (object[extension].get_object().get(sourceExtensionObject) != SUCCESS) FASTGLTF_UNLIKELY {
-			return std::make_tuple(false, true, 0U);
+		dom::object source;
+		if (element.get(source) != simdjson::SUCCESS) FASTGLTF_UNLIKELY {
+			return false;
 		}
-
 		std::uint64_t imageIndex;
-		if (sourceExtensionObject["source"].get_uint64().get(imageIndex) != SUCCESS) FASTGLTF_UNLIKELY {
-			return std::make_tuple(true, false, 0U);
+		if (source["source"].get_uint64().get(imageIndex) != simdjson::SUCCESS) FASTGLTF_UNLIKELY {
+			return false;
 		}
 
-		return std::make_tuple(false, false, imageIndex);
+		imageIndexOut = static_cast<std::size_t>(imageIndex);
+		return true;
 	}
 
 	[[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags) {
-		if (hasBit(extensionFlags, Extensions::KHR_texture_basisu)) {
-			auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::KHR_texture_basisu);
-			if (invalidGltf) {
-				return false;
-			}
-
-			if (!extensionNotPresent) {
-				texture.basisuImageIndex = imageIndex;
-				return true;
-			}
-		}
-
-		if (hasBit(extensionFlags, Extensions::MSFT_texture_dds)) {
-			auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::MSFT_texture_dds);
-			if (invalidGltf) {
-				return false;
-			}
-
-			if (!extensionNotPresent) {
-				texture.ddsImageIndex = imageIndex;
-				return true;
-			}
-		}
-
-		if (hasBit(extensionFlags, Extensions::EXT_texture_webp)) {
-			auto [invalidGltf, extensionNotPresent, imageIndex] = getImageIndexForExtension(extensions, extensions::EXT_texture_webp);
-			if (invalidGltf) {
-				return false;
-			}
-
-			if (!extensionNotPresent) {
-				texture.webpImageIndex = imageIndex;
-				return true;
+		for (auto extension : extensions) {
+			auto hashedKey = crcStringFunction(extension.key);
+			switch (hashedKey) {
+				case force_consteval<crc32c(extensions::KHR_texture_basisu)>: {
+					if (!hasBit(extensionFlags, Extensions::KHR_texture_basisu))
+						break;
+					if (!getImageIndexForExtension(extension.value, texture.basisuImageIndex))
+						return false;
+					break;
+				}
+				case force_consteval<crc32c(extensions::MSFT_texture_dds)>: {
+					if (!hasBit(extensionFlags, Extensions::MSFT_texture_dds))
+						break;
+					if (!getImageIndexForExtension(extension.value, texture.ddsImageIndex))
+						return false;
+					break;
+				}
+				case force_consteval<crc32c(extensions::EXT_texture_webp)>: {
+					if (!hasBit(extensionFlags, Extensions::EXT_texture_webp))
+						break;
+					if (!getImageIndexForExtension(extension.value, texture.webpImageIndex))
+						return false;
+					break;
+				}
+				default:
+					break;
 			}
 		}
 
-		return false;
+		return true;
 	}
 
 	[[nodiscard, gnu::always_inline]] inline Error getJsonArray(const simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept {
@@ -3699,21 +3692,14 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 			return Error::InvalidGltf;
 		}
 
-        bool hasExtensions = false;
         dom::object extensionsObject;
         if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) FASTGLTF_LIKELY {
-            hasExtensions = true;
+			if (!parseTextureExtensions(texture, extensionsObject, config.extensions)) {
+				return Error::InvalidGltf;
+			}
         } else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
-
-        // If we have extensions, we'll use the normal "source" as the fallback and then parse
-        // the extensions for any "source" field.
-        if (hasExtensions) {
-            if (!parseTextureExtensions(texture, extensionsObject, config.extensions)) {
-                return Error::InvalidGltf;
-            }
-        }
 
         // The index of the sampler used by this texture. When undefined, a sampler with
         // repeat wrapping and auto filtering SHOULD be used.
