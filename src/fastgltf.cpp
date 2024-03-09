@@ -3135,7 +3135,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
         }
 
         dom::object extensionsObject;
-        if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) FASTGLTF_LIKELY {
+        if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
 			parseMaterialExtensions(extensionsObject, material);
         } else if (extensionError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
@@ -5086,15 +5086,24 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			},
 		}, it->transform);
 
-        if (!it->instancingAttributes.empty()) {
+        if (!it->instancingAttributes.empty() || it->lightIndex.has_value()) {
 			if (json.back() != '{') json += ',';
-            json += R"("extensions":{"EXT_mesh_gpu_instancing":{"attributes":{)";
-            for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
-                json += '"' + std::string(ait->first) + "\":" + std::to_string(ait->second);
-                if (uabs(std::distance(it->instancingAttributes.begin(), ait)) + 1 <it->instancingAttributes.size())
-                    json += ',';
-            }
-            json += "}}}";
+			json += R"("extensions":{)";
+			if (!it->instancingAttributes.empty()) {
+				json += R"("EXT_mesh_gpu_instancing":{"attributes":{)";
+				for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
+					json += '"' + std::string(ait->first) + "\":" + std::to_string(ait->second);
+					if (uabs(std::distance(it->instancingAttributes.begin(), ait)) + 1 <
+						it->instancingAttributes.size())
+						json += ',';
+				}
+				json += "}}";
+			}
+			if (it->lightIndex.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + "}";
+			}
+            json += "}";
         }
 
 		if (extrasWriteCallback != nullptr) {
