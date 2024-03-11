@@ -5136,7 +5136,7 @@ void fg::Exporter::writeSamplers(const Asset& asset, std::string& json) {
 		}
 		if (it->wrapT != Wrap::Repeat) {
 			if (json.back() != '{') json += ',';
-			json += R"("wrapTS":)" + std::to_string(to_underlying(it->wrapT));
+			json += R"("wrapT":)" + std::to_string(to_underlying(it->wrapT));
 		}
 
 		if (extrasWriteCallback != nullptr) {
