@@ -5472,13 +5472,11 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
 			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
 
-	// Align the JSON string to a 4-byte length
-	auto alignedJsonLength = alignUp(json.size(), 4);
-	json.resize(alignedJsonLength, ' '); // Needs to be padded with space (0x20) chars.
-
-    std::size_t binarySize = sizeof(BinaryGltfHeader) + sizeof(BinaryGltfChunk) + json.size();
+    std::size_t binarySize = 0;
+    binarySize += sizeof(BinaryGltfHeader); // glTF header
+    binarySize += sizeof(BinaryGltfChunk) + alignUp(json.size(), 4); // JSON chunk
     if (withEmbeddedBuffer) {
-        binarySize += sizeof(BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4);
+        binarySize += sizeof(BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4); // BIN chunk
     }
 
 	// A GLB is limited to 2^32 bytes since the length field in the file header is a 32-bit integer.
@@ -5492,30 +5490,35 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
         output += size;
     };
 
+    // Write glTF header
     BinaryGltfHeader header;
     header.magic = binaryGltfHeaderMagic;
     header.version = 2;
     header.length = static_cast<std::uint32_t>(binarySize);
     write(&header, sizeof header);
 
+    // Write JSON chunk
     BinaryGltfChunk jsonChunk;
     jsonChunk.chunkType = binaryGltfJsonChunkMagic;
-    jsonChunk.chunkLength = static_cast<std::uint32_t>(json.size());
+    jsonChunk.chunkLength = static_cast<std::uint32_t>(alignUp(json.size(), 4));
     write(&jsonChunk, sizeof jsonChunk);
 
-    write(json.data(), json.size() * sizeof(decltype(json)::value_type));
+    write(json.data(), json.size());
+
+    // 4 bytes padding with space character (0x20)
+    for (std::size_t i = json.size(); i % 4 != 0; ++i) {
+        static constexpr std::uint8_t space = 0x20U;
+        write(&space, sizeof space);
+    }
 
     if (withEmbeddedBuffer) {
         const auto& buffer = asset.buffers.front();
 
+        // Write BIN chunk
         BinaryGltfChunk dataChunk;
         dataChunk.chunkType = binaryGltfDataChunkMagic;
         dataChunk.chunkLength = static_cast<std::uint32_t>(alignUp(buffer.byteLength, 4));
         write(&dataChunk, sizeof dataChunk);
-		for (std::size_t i = 0; i < buffer.byteLength % 4; ++i) {
-			static constexpr std::uint8_t zero = 0x0U;
-			write(&zero, sizeof zero);
-		}
 
 		std::visit(visitor {
 			[](auto arg) {},
@@ -5529,6 +5532,12 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 				write(byteView.bytes.data(), buffer.byteLength);
 			},
 		}, buffer.data);
+
+        // 4 bytes padding with zeros
+        for (std::size_t i = buffer.byteLength; i % 4 != 0; ++i) {
+            static constexpr std::uint8_t zero = 0x0U;
+            write(&zero, sizeof zero);
+        }
     }
 
     return Expected { std::move(result) };
