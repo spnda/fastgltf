@@ -665,7 +665,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
     auto encodingEnd = path.find(',');
     auto encoding = path.substr(mimeEnd + 1, encodingEnd - mimeEnd - 1);
     if (encoding != "base64") {
-		return Expected<DataSource> { Error::InvalidURI };
+		return Error::InvalidURI;
     }
 
     auto encodedData = path.substr(encodingEnd + 1);
@@ -688,7 +688,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
             sources::CustomBuffer source = {};
             source.id = info.customId;
             source.mimeType = getMimeTypeFromString(mime);
-			return Expected<DataSource> { source };
+			return { source };
         }
     }
 
@@ -701,11 +701,11 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
         base64::decode_inplace(encodedData, uriData.data(), padding);
     }
 
-    sources::Array source = {
+    sources::Array source {
 		std::move(uriData),
 		getMimeTypeFromString(mime),
     };
-	return Expected<DataSource> { std::move(source) };
+	return { std::move(source) };
 }
 
 #if defined(__ANDROID__)
@@ -713,12 +713,12 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 	auto file = deletable_unique_ptr<AAsset, AAsset_close>(
 		AAssetManager_open(androidAssetManager, path.c_str(), AASSET_MODE_BUFFER));
 	if (file == nullptr) {
-		return Expected<DataSource>(Error::MissingExternalBuffer);
+		return Error::MissingExternalBuffer;
 	}
 
 	const auto length = AAsset_getLength(file.get());
 	if (length == 0) {
-		return Expected<DataSource>(Error::MissingExternalBuffer);
+		return Error::MissingExternalBuffer;
 	}
 
 	if (config.mapCallback != nullptr) {
@@ -730,17 +730,16 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 				config.unmapCallback(&info, config.userPointer);
 			}
 
-			return Expected<DataSource> { customBufferSource };
+			return { customBufferSource };
 		}
 	}
 
-	sources::Array arraySource = {
-		StaticVector<std::uint8_t>(length),
-		MimeType::GltfBuffer
+	sources::Array arraySource {
+		StaticVector<std::uint8_t>(length)
 	};
 	AAsset_read(file.get(), arraySource.bytes.data(), length);
 
-	return Expected<DataSource> { std::move(arraySource) };
+	return { std::move(arraySource) };
 }
 #endif
 
@@ -760,7 +759,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 	if (androidAssetManager != nullptr) {
 		// Try to load external buffers from the APK. If they're not there, fall through to the file case
 		if (auto androidResult = loadFileFromApk(path); androidResult.error() == Error::None) {
-			return Expected<DataSource>(std::move(androidResult.get()));
+			return std::move(androidResult.get());
 		}
 	}
 #endif
@@ -768,12 +767,12 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
     // If we were instructed to load external buffers and the files don't exist, we'll return an error.
 	std::error_code error;
     if (!fs::exists(path, error) || error) {
-	    return Expected<DataSource> { Error::MissingExternalBuffer };
+	    return Error::MissingExternalBuffer;
     }
 
     auto length = static_cast<std::streamsize>(fs::file_size(path, error));
     if (error) {
-	    return Expected<DataSource> { Error::InvalidURI };
+	    return Error::InvalidURI;
     }
 
     std::ifstream file(path, std::ios::binary);
@@ -787,16 +786,16 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
                 config.unmapCallback(&info, config.userPointer);
             }
 
-	        return Expected<DataSource> { customBufferSource };
+			return { customBufferSource };
         }
     }
 
 	StaticVector<std::uint8_t> data(static_cast<std::size_t>(length));
 	file.read(reinterpret_cast<char*>(data.data()), length);
-    sources::Array vectorSource = {
+    sources::Array arraySource {
 		std::move(data),
 	};
-	return Expected<DataSource> { std::move(vectorSource) };
+	return { std::move(arraySource) };
 }
 
 void fg::Parser::fillCategories(Category& inputCategories) noexcept {
@@ -1326,21 +1325,21 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		AssetInfo info = {};
 		auto error = root["asset"].get_object().get(assetInfo);
 		if (error == NO_SUCH_FIELD) {
-			return Expected<Asset>(Error::InvalidOrMissingAssetField);
+			return Error::InvalidOrMissingAssetField;
 		}
 		if (error != SUCCESS) FASTGLTF_UNLIKELY {
-			return Expected<Asset>(Error::InvalidJson);
+			return Error::InvalidJson;
 		}
 
 		std::string_view version;
 		if (assetInfo["version"].get_string().get(version) != SUCCESS) FASTGLTF_UNLIKELY {
-			return Expected<Asset>(Error::InvalidOrMissingAssetField);
+			return Error::InvalidOrMissingAssetField;
 		}
 
 		const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
 		// std::uint32_t minor = version.substr(2, 3)[0] - '0';
 		if (major != 2) {
-			return Expected<Asset>(Error::UnsupportedVersion);
+			return Error::UnsupportedVersion;
 		}
 		info.gltfVersion = std::string { version };
 
@@ -1362,7 +1361,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		for (auto extension : extensionsRequired) {
 			std::string_view string;
 			if (extension.get_string().get(string) != SUCCESS) FASTGLTF_UNLIKELY {
-				return Expected<Asset>(Error::InvalidGltf);
+				return Error::InvalidGltf;
 			}
 
 			bool known = false;
@@ -1371,13 +1370,13 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 					known = true;
 					if (!hasBit(config.extensions, extensionEnum)) {
 						// The extension is required, but not enabled by the user.
-						return Expected<Asset>(Error::MissingExtensions);
+						return Error::MissingExtensions;
 					}
 					break;
 				}
 			}
 			if (!known) {
-				return Expected<Asset>(Error::UnknownRequiredExtension);
+				return Error::UnknownRequiredExtension;
 			}
 
 			FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(requiredExtension, resourceAllocator.get(), string);
@@ -1391,7 +1390,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		if (hashedKey == force_consteval<crc32c("scene")>) {
 			std::uint64_t defaultScene;
 			if (object.value.get_uint64().get(defaultScene) != SUCCESS) FASTGLTF_UNLIKELY {
-				return Expected<Asset>(Error::InvalidGltf);
+				return Error::InvalidGltf;
 			}
 			asset.defaultScene = static_cast<std::size_t>(defaultScene);
 			continue;
@@ -1400,11 +1399,11 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		if (hashedKey == force_consteval<crc32c("extensions")>) {
 			dom::object extensionsObject;
 			if (object.value.get_object().get(extensionsObject) != SUCCESS) FASTGLTF_UNLIKELY {
-				return Expected<Asset>(Error::InvalidGltf);
+				return Error::InvalidGltf;
 			}
 
 			if (auto error = parseExtensions(extensionsObject, asset); error != Error::None)
-				return Expected<Asset>(error);
+				return error;
 			continue;
 		}
 
@@ -1414,7 +1413,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 		dom::array array;
 		if (object.value.get_array().get(array) != SUCCESS) FASTGLTF_UNLIKELY {
-			return Expected<Asset>(Error::InvalidGltf);
+			return Error::InvalidGltf;
 		}
 
 #define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>:       \
@@ -1459,7 +1458,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 
 		if (error != Error::None)
-			return Expected<Asset>(error);
+			return error;
 
 #undef KEY_SWITCH_CASE
 	}
@@ -1468,7 +1467,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 	if (hasBit(options, Options::GenerateMeshIndices)) {
 		if (auto error = generateMeshIndices(asset); error != Error::None) {
-			return Expected<Asset>(error);
+			return error;
 		}
 	}
 
@@ -1484,7 +1483,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 	}
 
-	return Expected(std::move(asset));
+	return std::move(asset);
 }
 
 fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& asset) {
@@ -3922,7 +3921,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltf(GltfDataBuffer* buffer, fs::path di
         return loadGltfBinary(buffer, std::move(directory), options, categories);
     }
 
-    return Expected<Asset> { Error::InvalidFileData };
+    return Error::InvalidFileData;
 }
 
 fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
@@ -3931,7 +3930,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
 #if !defined(__ANDROID__)
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
     if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
-        return Expected<Asset>(Error::InvalidPath);
+        return Error::InvalidPath;
     }
 #endif
 
@@ -3946,7 +3945,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
         auto result = simdjson::minify(reinterpret_cast<const char*>(buffer->bufferPointer), buffer->getBufferSize(),
                                        reinterpret_cast<char*>(buffer->bufferPointer), newLength);
         if (result != SUCCESS || newLength == 0) {
-            return Expected<Asset>(Error::InvalidJson);
+            return Error::InvalidJson;
         }
         buffer->dataSize = jsonLength = newLength;
     }
@@ -3954,7 +3953,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
     auto view = padded_string_view(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer), jsonLength, buffer->allocatedSize);
 	simdjson::dom::object root;
     if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) FASTGLTF_UNLIKELY {
-	    return Expected<Asset>(Error::InvalidJson);
+	    return Error::InvalidJson;
     }
 
 	return parse(root, categories);
@@ -3965,7 +3964,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
     if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
-	    return Expected<Asset>(Error::InvalidPath);
+	    return Error::InvalidPath;
     }
 
 	this->options = options;
@@ -3980,13 +3979,13 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
     BinaryGltfHeader header = {};
     read(&header, sizeof header);
     if (header.magic != binaryGltfHeaderMagic) {
-	    return Expected<Asset>(Error::InvalidGLB);
+	    return Error::InvalidGLB;
     }
 	if (header.version != 2) {
-		return Expected<Asset>(Error::UnsupportedVersion);
+		return Error::UnsupportedVersion;
 	}
     if (header.length >= buffer->allocatedSize) {
-	    return Expected<Asset>(Error::InvalidGLB);
+	    return Error::InvalidGLB;
     }
 
     // The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
@@ -3995,7 +3994,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
     BinaryGltfChunk jsonChunk = {};
     read(&jsonChunk, sizeof jsonChunk);
     if (jsonChunk.chunkType != binaryGltfJsonChunkMagic) {
-	    return Expected<Asset>(Error::InvalidGLB);
+	    return Error::InvalidGLB;
     }
 
     // Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
@@ -4007,7 +4006,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 
 	simdjson::dom::object root;
     if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) FASTGLTF_UNLIKELY {
-	    return Expected<Asset>(Error::InvalidJson);
+	    return Error::InvalidJson;
     }
 
     // Is there enough room for another chunk header?
@@ -4016,7 +4015,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
         read(&binaryChunk, sizeof binaryChunk);
 
         if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
-	        return Expected<Asset>(Error::InvalidGLB);
+	        return Error::InvalidGLB;
         }
 
 		// The binary chunk is allowed to be empty:
@@ -5432,21 +5431,21 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const As
     if (hasBit(options, ExportOptions::ValidateAsset)) {
         auto validation = validate(asset);
         if (validation != Error::None) {
-            return Expected<ExportResult<std::string>>{errorCode};
+            return validation;
         }
     }
 
     // Fairly rudimentary approach of just composing the JSON string using a std::string.
     std::string outputString = writeJson(asset);
     if (errorCode != Error::None) {
-        return Expected<ExportResult<std::string>> { errorCode };
+		return errorCode;
     }
 
     ExportResult<std::string> result;
     result.output = std::move(outputString);
     result.bufferPaths = std::move(bufferPaths);
     result.imagePaths = std::move(imagePaths);
-    return Expected { std::move(result) };
+    return std::move(result);
 }
 
 fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions nOptions) {
@@ -5460,7 +5459,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
     ExportResult<std::vector<std::byte>> result;
     auto json = writeJson(asset);
     if (errorCode != Error::None) {
-        return Expected<ExportResult<std::vector<std::byte>>> { errorCode };
+		return errorCode;
     }
 
     result.bufferPaths = std::move(bufferPaths);
@@ -5481,7 +5480,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 
 	// A GLB is limited to 2^32 bytes since the length field in the file header is a 32-bit integer.
 	if (binarySize >= static_cast<std::size_t>(std::numeric_limits<decltype(BinaryGltfHeader::length)>::max())) {
-		return Expected<ExportResult<std::vector<std::byte>>>(Error::InvalidGLB);
+		return Error::InvalidGLB;
 	}
 
     result.output.resize(binarySize);
@@ -5540,7 +5539,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
         }
     }
 
-    return Expected { std::move(result) };
+    return std::move(result);
 }
 
 namespace fastgltf {
