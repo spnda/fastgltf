@@ -309,3 +309,38 @@ TEST_CASE("Test KHR_materials_variant", "[gltf-loader]") {
 	REQUIRE(primitive.mappings[3] == 5);
 	REQUIRE(primitive.mappings[4] == 6);
 }
+
+TEST_CASE("Test EXT_meshopt_compression", "[gltf-loader]") {
+	auto brainStem = sampleModels / "2.0" / "BrainStem" / "glTF-Meshopt";
+	fastgltf::GltfDataBuffer jsonData;
+	REQUIRE(jsonData.loadFromFile(brainStem / "BrainStem.gltf"));
+
+	fastgltf::Parser parser(fastgltf::Extensions::EXT_meshopt_compression | fastgltf::Extensions::KHR_mesh_quantization);
+	auto asset = parser.loadGltfJson(&jsonData, brainStem, fastgltf::Options::None);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	for (auto i = 0; i < 8; ++i) {
+		REQUIRE(bool(asset->bufferViews[i].meshoptCompression));
+	}
+
+	{
+		auto& mc = *asset->bufferViews[0].meshoptCompression.get();
+		REQUIRE(mc.bufferIndex == 0);
+		REQUIRE(mc.byteOffset == 0);
+		REQUIRE(mc.byteLength == 2646);
+		REQUIRE(mc.byteStride == 4);
+		REQUIRE(mc.mode == fastgltf::MeshoptCompressionMode::Attributes);
+		REQUIRE(mc.count == 34084);
+	}
+	{
+		auto& mc = *asset->bufferViews[1].meshoptCompression.get();
+		REQUIRE(mc.bufferIndex == 0);
+		REQUIRE(mc.byteOffset == 2648);
+		REQUIRE(mc.byteLength == 68972);
+		REQUIRE(mc.byteStride == 4);
+		REQUIRE(mc.mode == fastgltf::MeshoptCompressionMode::Attributes);
+		REQUIRE(mc.filter == fastgltf::MeshoptCompressionFilter::Octahedral);
+		REQUIRE(mc.count == 34084);
+	}
+}
