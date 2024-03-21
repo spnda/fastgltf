@@ -465,14 +465,33 @@ namespace fastgltf {
      */
     template <typename T>
     class StaticVector final {
-        using array_t = T[];
+	public:
+		using value_type = T;
+		using size_type = std::size_t;
+        using array_t = value_type[];
 
+	private:
         std::unique_ptr<array_t> _array;
-        std::size_t _size = 0;
+        size_type _size = 0;
+
+		void copy(const T* first, size_type count, T* result) {
+            if (count > 0) {
+				if constexpr (std::is_trivially_copyable_v<T>) {
+					std::memcpy(result, first, count * sizeof(T));
+				} else {
+					*result++ = *first;
+					for (size_type i = 1; i < count; ++i) {
+						*result++ = *++first;
+					}
+				}
+            }
+        }
 
     public:
-        using pointer = T*;
-        using const_pointer = const T*;
+		using reference = value_type&;
+		using const_reference = const value_type&;
+        using pointer = value_type*;
+        using const_pointer = const value_type*;
         using iterator = pointer;
         using const_iterator = const_pointer;
 
@@ -485,6 +504,7 @@ namespace fastgltf {
             } else {
                 _array.reset(new std::remove_extent_t<array_t>[other.size()]);
                 _size = other.size();
+				copy(other.begin(), _size, begin());
             }
         }
 
@@ -522,12 +542,12 @@ namespace fastgltf {
             return &_array.get()[0];
         }
 
-        [[nodiscard]] std::size_t size() const noexcept {
+        [[nodiscard]] size_type size() const noexcept {
             return _size;
         }
 
-        [[nodiscard]] std::size_t size_bytes() const noexcept {
-            return _size * sizeof(T);
+        [[nodiscard]] size_type size_bytes() const noexcept {
+            return _size * sizeof(value_type);
         }
 
         [[nodiscard]] bool empty() const noexcept {
@@ -541,13 +561,13 @@ namespace fastgltf {
         [[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
         [[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
 
-        bool operator==(const StaticVector<T>& other) const {
+        bool operator==(const StaticVector<value_type>& other) const {
             if (other.size() != size()) return false;
             return std::memcmp(data(), other.data(), size_bytes()) == 0;
         }
 
         // This is mostly just here for compatibility and the tests
-        bool operator==(const std::vector<T>& other) const {
+        bool operator==(const std::vector<value_type>& other) const {
             if (other.size() != size()) return false;
             return std::memcmp(data(), other.data(), size_bytes()) == 0;
         }
@@ -1398,6 +1418,10 @@ namespace fastgltf {
         }
 #endif
     };
+
+	// Deduction guide for easily instantiating spans
+	template <typename T>
+	span(const T* data, std::size_t size) -> span<const T>;
 
     using CustomBufferId = std::uint64_t;
 
