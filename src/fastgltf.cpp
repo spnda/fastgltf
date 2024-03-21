@@ -2477,6 +2477,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 				} else if (error != Error::MissingField) {
 					return error;
 				}
+
+				material.anisotropy = std::move(anisotropy);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_clearcoat)>: {
