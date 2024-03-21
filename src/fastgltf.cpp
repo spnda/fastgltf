@@ -986,7 +986,7 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		if (bufferView.bufferIndex >= asset.buffers.size())
 			return Error::InvalidGltf;
 
-		if (bufferView.meshoptCompression != nullptr && isExtensionUsed(extensions::EXT_meshopt_compression))
+		if (bufferView.meshoptCompression != nullptr && !isExtensionUsed(extensions::EXT_meshopt_compression))
 			return Error::InvalidGltf;
 
 		if (bufferView.meshoptCompression) {
@@ -1975,7 +1975,7 @@ fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset&
         dom::object extensionObject;
         if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) FASTGLTF_LIKELY {
             dom::object meshoptCompression;
-            if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && bufferViewObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) FASTGLTF_LIKELY {
+            if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) FASTGLTF_LIKELY {
                 auto compression = std::make_unique<CompressedBufferView>();
 
                 if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
