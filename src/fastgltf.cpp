@@ -39,6 +39,13 @@
 #include <android/asset_manager.h>
 #endif
 
+#if defined(__APPLE__) || defined(__linux__)
+#include <unistd.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -3734,86 +3741,196 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 #pragma endregion
 
 #pragma region GltfDataBuffer
-std::size_t fg::getGltfBufferPadding() noexcept {
-    return simdjson::SIMDJSON_PADDING;
+fg::GltfDataBuffer::GltfDataBuffer(const fs::path& path) noexcept {
+	std::error_code ec;
+	dataSize = static_cast<std::streamsize>(fs::file_size(path, ec));
+	if (ec) {
+		error = Error::InvalidPath;
+		return;
+	}
+
+	// Open the file and determine the size.
+	std::ifstream file(path, std::ios::binary);
+	if (!file.is_open() || file.bad()) {
+		error = Error::InvalidPath;
+		return;
+	}
+
+	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
+	buffer = decltype(buffer)(new(std::nothrow) std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
+
+	if (buffer != nullptr) {
+		// Copy the data and fill the padding region with zeros.
+		file.read(reinterpret_cast<std::ifstream::char_type *>(buffer.get()), static_cast<std::streamsize>(dataSize));
+		std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	} else {
+		error = Error::FileBufferAllocationFailed;
+	}
 }
 
-fg::GltfDataBuffer::GltfDataBuffer() noexcept = default;
-fg::GltfDataBuffer::~GltfDataBuffer() noexcept = default;
-
-fg::GltfDataBuffer::GltfDataBuffer(span<std::byte> data) noexcept {
-	dataSize = data.size();
-
-	allocatedSize = data.size() + getGltfBufferPadding();
-	buffer = decltype(buffer)(new std::byte[allocatedSize]);
-	auto* ptr = buffer.get();
-
-	std::memcpy(ptr, data.data(), dataSize);
-	std::memset(ptr + dataSize, 0, allocatedSize - dataSize);
-
-	bufferPointer = ptr;
+fg::GltfDataBuffer::GltfDataBuffer(const std::byte *bytes, std::size_t count) noexcept {
+	dataSize = count;
+	allocateAndCopy(bytes);
 }
 
-bool fg::GltfDataBuffer::fromByteView(std::uint8_t* bytes, std::size_t byteCount, std::size_t capacity) noexcept {
-    using namespace simdjson;
-    if (bytes == nullptr || byteCount == 0 || capacity == 0)
-        return false;
+#if FASTGLTF_CPP_20
+fg::GltfDataBuffer::GltfDataBuffer(std::span<std::byte> span) noexcept {
+	dataSize = span.size_bytes();
+	allocateAndCopy(span.data());
+}
+#endif
 
-    if (capacity - byteCount < getGltfBufferPadding())
-        return copyBytes(bytes, byteCount);
+void fg::GltfDataBuffer::allocateAndCopy(const std::byte *bytes) noexcept {
+	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
+	buffer = decltype(buffer)(new(std::nothrow) std::byte[allocatedSize]);
 
-    dataSize = byteCount;
-    bufferPointer = reinterpret_cast<std::byte*>(bytes);
-    allocatedSize = capacity;
-    std::memset(bufferPointer + dataSize, 0, getGltfBufferPadding());
-    return true;
+	if (buffer != nullptr) {
+		std::memcpy(buffer.get(), bytes, dataSize);
+		std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	} else {
+		error = Error::FileBufferAllocationFailed;
+	}
 }
 
-bool fg::GltfDataBuffer::copyBytes(const std::uint8_t* bytes, std::size_t byteCount) noexcept {
-    using namespace simdjson;
-    if (bytes == nullptr || byteCount == 0)
-        return false;
-
-    // Allocate a byte array with a bit of padding.
-    dataSize = byteCount;
-    allocatedSize = byteCount + getGltfBufferPadding();
-    buffer = decltype(buffer)(new std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
-    bufferPointer = buffer.get();
-
-    // Copy the data and fill the padding region with zeros.
-    std::memcpy(bufferPointer, bytes, dataSize);
-    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
-    return true;
+void fg::GltfDataBuffer::read(void *ptr, std::size_t count) {
+	std::memcpy(ptr, buffer.get() + idx, count);
+	idx += count;
 }
 
-bool fg::GltfDataBuffer::loadFromFile(const fs::path& path, std::uint64_t byteOffset) noexcept {
-    using namespace simdjson;
-    std::error_code ec;
-    auto length = static_cast<std::streamsize>(fs::file_size(path, ec));
-    if (ec) {
-        return false;
-    }
+fg::span<std::byte> fg::GltfDataBuffer::read(std::size_t count, std::size_t padding) {
+	span<std::byte> sub(buffer.get() + idx, count);
+	idx += count;
+	return sub;
+}
 
-    // Open the file and determine the size.
-    std::ifstream file(path, std::ios::binary);
-    if (!file.is_open() || file.bad())
-        return false;
+void fg::GltfDataBuffer::reset() {
+	idx = 0;
+}
 
-    filePath = path;
+std::size_t fg::GltfDataBuffer::bytesRead() {
+	return idx;
+}
 
-    file.seekg(static_cast<std::streamsize>(byteOffset), std::ifstream::beg);
+std::size_t fg::GltfDataBuffer::totalSize() {
+	return dataSize;
+}
 
-    dataSize = static_cast<std::uint64_t>(length) - byteOffset;
-    allocatedSize = dataSize + getGltfBufferPadding();
-    buffer = decltype(buffer)(new std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
-    if (!buffer)
-        return false;
-    bufferPointer = buffer.get();
+#if defined(__APPLE__) || defined(__linux__)
+fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
+	// Open the file
+	int fd = open(path.c_str(), O_RDONLY, 0);
+	if (fd == 0) {
+		// TODO: Cover actual error messages using std::strerror(errno)?
+		error = Error::InvalidPath;
+		return;
+	}
 
-    // Copy the data and fill the padding region with zeros.
-    file.read(reinterpret_cast<char*>(bufferPointer), static_cast<std::streamsize>(dataSize));
-    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
-    return true;
+	// Get the file size
+	struct stat statInfo;
+	if (fstat(fd, &statInfo) != 0) {
+		error = Error::InvalidPath;
+		return;
+	}
+
+	// Map the file
+	mappedFile = mmap(nullptr,
+					  statInfo.st_size,
+					  PROT_READ,
+					  MAP_PRIVATE,
+					  fd,
+					  0);
+	if (mappedFile != MAP_FAILED) {
+		fileSize = static_cast<std::uint64_t>(statInfo.st_size);
+	} else {
+		std::perror("Mapping file");
+		error = Error::FileBufferAllocationFailed;
+	}
+
+	// The file descriptor is not used for the memory mapped and is not required anymore.
+	close(fd);
+}
+
+fg::MappedGltfFile::MappedGltfFile(fastgltf::MappedGltfFile &&other) noexcept {
+	// Make sure that munmap is never called when other gets destructud.
+	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
+	fileSize = other.fileSize;
+	idx = other.idx;
+	error = other.error;
+}
+
+fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&other) noexcept {
+	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
+	fileSize = other.fileSize;
+	idx = other.idx;
+	error = other.error;
+	return *this;
+}
+
+fg::MappedGltfFile::~MappedGltfFile() noexcept {
+	if (mappedFile != MAP_FAILED) {
+		munmap(mappedFile, fileSize);
+	}
+}
+
+void fg::MappedGltfFile::read(void *ptr, std::size_t count) {
+	std::memcpy(ptr, static_cast<std::byte*>(mappedFile) + idx, count);
+	idx += count;
+}
+
+fg::span<std::byte> fg::MappedGltfFile::read(std::size_t count, std::size_t padding) {
+	span<std::byte> sub(static_cast<std::byte*>(mappedFile) + idx, count);
+	idx += count;
+	return sub;
+}
+
+void fg::MappedGltfFile::reset() {
+	idx = 0;
+}
+
+std::size_t fg::MappedGltfFile::bytesRead() {
+	return idx;
+}
+
+std::size_t fg::MappedGltfFile::totalSize() {
+	return fileSize;
+}
+#endif
+
+fg::GltfFileStream::GltfFileStream(const fs::path& path) : fileStream(path, std::ios::binary) {
+	fileSize = fs::file_size(path);
+}
+
+bool fg::GltfFileStream::isOpen() const {
+	return fileStream.is_open();
+}
+
+void fg::GltfFileStream::read(void *ptr, std::size_t count) {
+	fileStream.read(
+			reinterpret_cast<char*>(ptr),
+			static_cast<std::streamsize>(count));
+}
+
+fg::span<std::byte> fg::GltfFileStream::read(std::size_t count, std::size_t padding) {
+	static_assert(sizeof(decltype(buf)::value_type) == sizeof(std::byte));
+
+	buf.resize(count + padding);
+	fileStream.read(
+			reinterpret_cast<char*>(buf.data()),
+			static_cast<std::streamsize>(count));
+
+	return span<std::byte>(reinterpret_cast<std::byte*>(buf.data()), buf.size());
+}
+
+void fg::GltfFileStream::reset() {
+	fileStream.seekg(0, std::ifstream::beg);
+}
+
+std::size_t fg::GltfFileStream::bytesRead() {
+	return fileStream.tellg();
+}
+
+std::size_t fg::GltfFileStream::totalSize() {
+	return fileSize;
 }
 #pragma endregion
 
@@ -3823,74 +3940,63 @@ void fg::setAndroidAssetManager(AAssetManager* assetManager) noexcept {
 	androidAssetManager = assetManager;
 }
 
-fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer() noexcept = default;
-
-bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::uint64_t byteOffset) noexcept {
+fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(const fs::path& path, std::uint64_t byteOffset) noexcept {
     if (androidAssetManager == nullptr) {
-        return false;
+        error = Error::InvalidPath;
+		return;
     }
 
-    using namespace simdjson;
-
     const auto filenameString = path.string();
-
 	auto file = deletable_unique_ptr<AAsset, AAsset_close>(
 		AAssetManager_open(androidAssetManager, filenameString.c_str(), AASSET_MODE_BUFFER));
     if (file == nullptr) {
-        return false;
+        error = Error::InvalidPath;
+		return;
     }
 
     const auto length = AAsset_getLength(file.get());
     if (length == 0) {
-        return false;
+        error = Error::InvalidPath;
+		return;
     }
 
     dataSize = length - byteOffset;
     allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new std::byte[allocatedSize]);
-    if (!buffer) {
-        return false;
-    }
+    buffer = decltype(buffer)(new(std::nothrow) std::byte[allocatedSize]);
 
-    bufferPointer = buffer.get();
+	if (buffer == nullptr) {
+        error = Error::FileBufferAllocationFailed;
+    } else {
+		if (byteOffset > 0)
+			AAsset_seek64(file.get(), byteOffset, SEEK_SET);
 
-    if (byteOffset > 0) {
-        AAsset_seek64(file.get(), byteOffset, SEEK_SET);
-    }
-
-    AAsset_read(file.get(), bufferPointer, dataSize);
-
-    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
-
-    filePath = path;
-
-    return true;
+		// Copy the data and fill the padding region with zeros.
+		AAsset_read(file.get(), buffer.get(), dataSize);
+		std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	}
 }
 #endif
 #pragma endregion
 
 #pragma region Parser
-fastgltf::GltfType fg::determineGltfFileType(GltfDataBuffer* buffer) {
-	if (buffer->bufferPointer == nullptr)
-		return GltfType::Invalid;
-
-	if (buffer->dataSize > sizeof(BinaryGltfHeader)) {
-		// We'll try and read a BinaryGltfHeader from the buffer to see if the magic is correct.
-		BinaryGltfHeader header = {};
-		std::memcpy(&header, buffer->bufferPointer, sizeof header);
-		if (header.magic == binaryGltfHeaderMagic) {
-			return GltfType::GLB;
-		}
+fastgltf::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
+	// We'll try and read a BinaryGltfHeader from the buffer to see if the magic is correct.
+	BinaryGltfHeader header = {};
+	data.read(&header, sizeof header);
+	data.reset();
+	if (header.magic == binaryGltfHeaderMagic) {
+		return GltfType::GLB;
 	}
 
-	if (buffer->dataSize > sizeof(std::uint8_t) * 4) {
-		// First, check if any of the first four characters is a '{'.
-		std::array<std::uint8_t, 4> begin = {};
-		std::memcpy(begin.data(), buffer->bufferPointer, sizeof begin);
-		for (const auto& i : begin) {
-			if ((char)i == '{')
-				return GltfType::glTF;
-		}
+	// First, check if any of the first four characters is a '{'.
+	std::array<std::uint8_t, 4> begin = {};
+	data.read(begin.data(), begin.size());
+	data.reset();
+	for (const auto& i : begin) {
+		if ((char)i == ' ')
+			continue;
+		if ((char)i == '{')
+			return GltfType::glTF;
 	}
 
 	return GltfType::Invalid;
@@ -3912,21 +4018,21 @@ fg::Parser& fg::Parser::operator=(Parser&& other) noexcept {
 
 fg::Parser::~Parser() = default;
 
-fg::Expected<fg::Asset> fg::Parser::loadGltf(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
-    auto type = fastgltf::determineGltfFileType(buffer);
+fg::Expected<fg::Asset> fg::Parser::loadGltf(GltfDataGetter& data, fs::path directory, Options options, Category categories) {
+    auto type = fastgltf::determineGltfFileType(data);
 
     if (type == fastgltf::GltfType::glTF) {
-        return loadGltfJson(buffer, std::move(directory), options, categories);
+        return loadGltfJson(data, std::move(directory), options, categories);
     }
 
     if (type == fastgltf::GltfType::GLB) {
-        return loadGltfBinary(buffer, std::move(directory), options, categories);
+        return loadGltfBinary(data, std::move(directory), options, categories);
     }
 
     return Error::InvalidFileData;
 }
 
-fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
+fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path directory, Options options, Category categories) {
     using namespace simdjson;
 
 #if !defined(__ANDROID__)
@@ -3939,20 +4045,10 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
 	this->options = options;
 	this->directory = std::move(directory);
 
-    // If we own the allocation of the JSON data, we'll try to minify the JSON, which, in most cases,
-    // will speed up the parsing by a small amount.
-    std::size_t jsonLength = buffer->getBufferSize();
-    if (buffer->buffer != nullptr && hasBit(options, Options::MinimiseJsonBeforeParsing)) {
-        std::size_t newLength = 0;
-        auto result = simdjson::minify(reinterpret_cast<const char*>(buffer->bufferPointer), buffer->getBufferSize(),
-                                       reinterpret_cast<char*>(buffer->bufferPointer), newLength);
-        if (result != SUCCESS || newLength == 0) {
-            return Error::InvalidJson;
-        }
-        buffer->dataSize = jsonLength = newLength;
-    }
-
-    auto view = padded_string_view(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer), jsonLength, buffer->allocatedSize);
+	auto jsonSpan = data.read(data.totalSize(), SIMDJSON_PADDING);
+	simdjson::padded_string_view view(reinterpret_cast<const std::uint8_t*>(jsonSpan.data()),
+									  data.totalSize(),
+									  data.totalSize() + SIMDJSON_PADDING);
 	simdjson::dom::object root;
     if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) FASTGLTF_UNLIKELY {
 	    return Error::InvalidJson;
@@ -3961,7 +4057,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataBuffer* buffer, fs::pat
 	return parse(root, categories);
 }
 
-fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::path directory, Options options, Category categories) {
+fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::path directory, Options options, Category categories) {
     using namespace simdjson;
 
     // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
@@ -3972,21 +4068,15 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 	this->options = options;
     this->directory = std::move(directory);
 
-	std::size_t offset = 0UL;
-    auto read = [&buffer, &offset](void* dst, std::size_t size) mutable {
-        std::memcpy(dst, buffer->bufferPointer + offset, size);
-        offset += size;
-    };
-
     BinaryGltfHeader header = {};
-    read(&header, sizeof header);
+    data.read(&header, sizeof header);
     if (header.magic != binaryGltfHeaderMagic) {
 	    return Error::InvalidGLB;
     }
 	if (header.version != 2) {
 		return Error::UnsupportedVersion;
 	}
-    if (header.length >= buffer->allocatedSize) {
+    if (header.length > data.totalSize()) {
 	    return Error::InvalidGLB;
     }
 
@@ -3994,17 +4084,17 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
     //  1. JSON chunk
     //  2. BIN chunk (optional)
     BinaryGltfChunk jsonChunk = {};
-    read(&jsonChunk, sizeof jsonChunk);
+    data.read(&jsonChunk, sizeof jsonChunk);
     if (jsonChunk.chunkType != binaryGltfJsonChunkMagic) {
 	    return Error::InvalidGLB;
     }
 
     // Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
     // says the padding can be initialised to anything, apparently. Therefore, this should work.
-    simdjson::padded_string_view jsonChunkView(reinterpret_cast<const std::uint8_t*>(buffer->bufferPointer) + offset,
+	auto jsonSpan = data.read(jsonChunk.chunkLength, SIMDJSON_PADDING);
+    simdjson::padded_string_view jsonChunkView(reinterpret_cast<const std::uint8_t*>(jsonSpan.data()),
                                                jsonChunk.chunkLength,
                                                jsonChunk.chunkLength + SIMDJSON_PADDING);
-    offset += jsonChunk.chunkLength;
 
 	simdjson::dom::object root;
     if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) FASTGLTF_UNLIKELY {
@@ -4012,31 +4102,28 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
     }
 
     // Is there enough room for another chunk header?
-    if (header.length > (offset + sizeof(BinaryGltfChunk))) {
+    if (header.length > (data.bytesRead() + sizeof(BinaryGltfChunk))) {
         BinaryGltfChunk binaryChunk = {};
-        read(&binaryChunk, sizeof binaryChunk);
+		data.read(&binaryChunk, sizeof binaryChunk);
 
         if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
 	        return Error::InvalidGLB;
         }
 
-		// The binary chunk is allowed to be empty:
-		// When the binary buffer is empty or when it is stored by other means,
-		// this chunk SHOULD be omitted.
 		if (binaryChunk.chunkLength != 0) {
 			if (hasBit(options, Options::LoadGLBBuffers)) {
 				if (config.mapCallback != nullptr) {
 					auto info = config.mapCallback(binaryChunk.chunkLength, config.userPointer);
 					if (info.mappedMemory != nullptr) {
-						read(info.mappedMemory, binaryChunk.chunkLength);
+						data.read(info.mappedMemory, binaryChunk.chunkLength);
 						if (config.unmapCallback != nullptr) {
 							config.unmapCallback(&info, config.userPointer);
 						}
-						glbBuffer = sources::CustomBuffer{info.customId};
+						glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
 					}
 				} else {
 					StaticVector<std::uint8_t> binaryData(binaryChunk.chunkLength);
-					read(binaryData.data(), binaryChunk.chunkLength);
+					data.read(binaryData.data(), binaryChunk.chunkLength);
 
 					sources::Array vectorData = {
 							std::move(binaryData),
@@ -4045,10 +4132,10 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataBuffer* buffer, fs::p
 					glbBuffer = std::move(vectorData);
 				}
 			} else {
-				const span<const std::byte> glbBytes(reinterpret_cast<std::byte *>(buffer->bufferPointer + offset),
-													 binaryChunk.chunkLength);
+				// TODO: What to do with this?
+				//const span<const std::byte> glbBytes(reinterpret_cast<std::byte*>(buffer->bufferPointer + offset), binaryChunk.chunkLength);
 				sources::ByteView glbByteView = {};
-				glbByteView.bytes = glbBytes;
+				//glbByteView.bytes = glbBytes;
 				glbByteView.mimeType = MimeType::GltfBuffer;
 				glbBuffer = glbByteView;
 			}
