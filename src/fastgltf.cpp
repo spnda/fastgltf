@@ -39,6 +39,13 @@
 #include <android/asset_manager.h>
 #endif
 
+#if defined(__APPLE__) || defined(__linux__)
+#include <unistd.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -3806,8 +3813,89 @@ std::size_t fg::GltfDataBuffer::totalSize() {
 	return dataSize;
 }
 
-fg::GltfFileStream::GltfFileStream(const std::filesystem::path &path) : fileStream(path, std::ios::binary) {
-	fileSize = std::filesystem::file_size(path);
+#if defined(__APPLE__) || defined(__linux__)
+fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
+	// Open the file
+	int fd = open(path.c_str(), O_RDONLY, 0);
+	if (fd == 0) {
+		// TODO: Cover actual error messages using std::strerror(errno)?
+		error = Error::InvalidPath;
+		return;
+	}
+
+	// Get the file size
+	struct stat statInfo;
+	if (fstat(fd, &statInfo) != 0) {
+		error = Error::InvalidPath;
+		return;
+	}
+
+	// Map the file
+	mappedFile = mmap(nullptr,
+					  statInfo.st_size,
+					  PROT_READ,
+					  MAP_PRIVATE,
+					  fd,
+					  0);
+	if (mappedFile != MAP_FAILED) {
+		fileSize = static_cast<std::uint64_t>(statInfo.st_size);
+	} else {
+		std::perror("Mapping file");
+		error = Error::FileBufferAllocationFailed;
+	}
+
+	// The file descriptor is not used for the memory mapped and is not required anymore.
+	close(fd);
+}
+
+fg::MappedGltfFile::MappedGltfFile(fastgltf::MappedGltfFile &&other) noexcept {
+	// Make sure that munmap is never called when other gets destructud.
+	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
+	fileSize = other.fileSize;
+	idx = other.idx;
+	error = other.error;
+}
+
+fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&other) noexcept {
+	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
+	fileSize = other.fileSize;
+	idx = other.idx;
+	error = other.error;
+	return *this;
+}
+
+fg::MappedGltfFile::~MappedGltfFile() noexcept {
+	if (mappedFile != MAP_FAILED) {
+		munmap(mappedFile, fileSize);
+	}
+}
+
+void fg::MappedGltfFile::read(void *ptr, std::size_t count) {
+	std::memcpy(ptr, static_cast<std::byte*>(mappedFile) + idx, count);
+	idx += count;
+}
+
+fg::span<std::byte> fg::MappedGltfFile::read(std::size_t count, std::size_t padding) {
+	span<std::byte> sub(static_cast<std::byte*>(mappedFile) + idx, count);
+	idx += count;
+	return sub;
+}
+
+void fg::MappedGltfFile::reset() {
+	idx = 0;
+}
+
+std::size_t fg::MappedGltfFile::bytesRead() {
+	return idx;
+}
+
+std::size_t fg::MappedGltfFile::totalSize() {
+	return fileSize;
+}
+#endif
+
+fg::GltfFileStream::GltfFileStream(const fs::path& path) : fileStream(path, std::ios::binary) {
+	fileSize = fs::file_size(path);
 }
 
 bool fg::GltfFileStream::isOpen() const {

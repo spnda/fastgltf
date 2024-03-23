@@ -666,3 +666,19 @@ TEST_CASE("Test extras callback", "[gltf-loader]") {
 		REQUIRE(nodeNames[2] == "Shoe.obj");
 	}
 }
+
+#if defined(__APPLE__) || defined(__linux__)
+TEST_CASE("Test glTF file loading", "[gltf-loader]") {
+	SECTION("Mapped files") {
+		auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
+		auto mappedFile = fastgltf::MappedGltfFile::FromPath(cubePath / "Cube.gltf");
+		REQUIRE(mappedFile.error() == fastgltf::Error::None);
+
+		REQUIRE(fastgltf::determineGltfFileType(mappedFile.get()) == fastgltf::GltfType::glTF);
+
+		fastgltf::Parser parser;
+		auto asset = parser.loadGltfJson(mappedFile.get(), cubePath);
+		REQUIRE(asset.error() == fastgltf::Error::None);
+	}
+}
+#endif
