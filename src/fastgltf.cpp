@@ -3732,46 +3732,55 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 #pragma endregion
 
 #pragma region GltfDataBuffer
-fg::GltfDataBuffer::GltfDataBuffer(const std::filesystem::path& path) {
+fg::GltfDataBuffer::GltfDataBuffer(const fs::path& path) noexcept {
 	std::error_code ec;
-	dataSize = static_cast<std::streamsize>(std::filesystem::file_size(path, ec));
+	dataSize = static_cast<std::streamsize>(fs::file_size(path, ec));
 	if (ec) {
-		// TODO: Fail?
+		error = Error::InvalidPath;
+		return;
 	}
 
 	// Open the file and determine the size.
 	std::ifstream file(path, std::ios::binary);
-	if (!file.is_open() || file.bad())
+	if (!file.is_open() || file.bad()) {
+		error = Error::InvalidPath;
 		return;
+	}
 
 	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-	buffer = decltype(buffer)(new std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
-	if (!buffer)
-		return;
+	buffer = decltype(buffer)(new(std::nothrow) std::byte[allocatedSize]); // To mimic std::make_unique_for_overwrite (C++20)
 
-	// Copy the data and fill the padding region with zeros.
-	file.read(reinterpret_cast<std::ifstream::char_type*>(buffer.get()), static_cast<std::streamsize>(dataSize));
-	std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	if (buffer != nullptr) {
+		// Copy the data and fill the padding region with zeros.
+		file.read(reinterpret_cast<std::ifstream::char_type *>(buffer.get()), static_cast<std::streamsize>(dataSize));
+		std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	} else {
+		error = Error::FileBufferAllocationFailed;
+	}
 }
 
-fg::GltfDataBuffer::GltfDataBuffer(const std::byte *bytes, std::size_t count) {
+fg::GltfDataBuffer::GltfDataBuffer(const std::byte *bytes, std::size_t count) noexcept {
 	dataSize = count;
 	allocateAndCopy(bytes);
 }
 
 #if FASTGLTF_CPP_20
-fg::GltfDataBuffer::GltfDataBuffer(std::span<std::byte> span) {
+fg::GltfDataBuffer::GltfDataBuffer(std::span<std::byte> span) noexcept {
 	dataSize = span.size_bytes();
 	allocateAndCopy(span.data());
 }
 #endif
 
-void fg::GltfDataBuffer::allocateAndCopy(const std::byte *bytes) {
+void fg::GltfDataBuffer::allocateAndCopy(const std::byte *bytes) noexcept {
 	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-	buffer = decltype(buffer)(new std::byte[allocatedSize]);
+	buffer = decltype(buffer)(new(std::nothrow) std::byte[allocatedSize]);
 
-	std::memcpy(buffer.get(), bytes, dataSize);
-	std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	if (buffer != nullptr) {
+		std::memcpy(buffer.get(), bytes, dataSize);
+		std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	} else {
+		error = Error::FileBufferAllocationFailed;
+	}
 }
 
 void fg::GltfDataBuffer::read(void *ptr, std::size_t count) {
@@ -3841,48 +3850,40 @@ void fg::setAndroidAssetManager(AAssetManager* assetManager) noexcept {
 	androidAssetManager = assetManager;
 }
 
-fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer() noexcept = default;
-
-bool fg::AndroidGltfDataBuffer::loadFromAndroidAsset(const fs::path& path, std::uint64_t byteOffset) noexcept {
+fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(const fs::path& path, std::uint64_t byteOffset) noexcept {
     if (androidAssetManager == nullptr) {
-        return false;
+        error = Error::InvalidPath;
+		return;
     }
 
-    using namespace simdjson;
-
     const auto filenameString = path.string();
-
 	auto file = deletable_unique_ptr<AAsset, AAsset_close>(
 		AAssetManager_open(androidAssetManager, filenameString.c_str(), AASSET_MODE_BUFFER));
     if (file == nullptr) {
-        return false;
+        error = Error::InvalidPath;
+		return;
     }
 
     const auto length = AAsset_getLength(file.get());
     if (length == 0) {
-        return false;
+        error = Error::InvalidPath;
+		return;
     }
 
     dataSize = length - byteOffset;
     allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-    buffer = decltype(buffer)(new std::byte[allocatedSize]);
-    if (!buffer) {
-        return false;
-    }
+    buffer = decltype(buffer)(new(std::nothrow) std::byte[allocatedSize]);
 
-    bufferPointer = buffer.get();
+	if (buffer == nullptr) {
+        error = Error::FileBufferAllocationFailed;
+    } else {
+		if (byteOffset > 0)
+			AAsset_seek64(file.get(), byteOffset, SEEK_SET);
 
-    if (byteOffset > 0) {
-        AAsset_seek64(file.get(), byteOffset, SEEK_SET);
-    }
-
-    AAsset_read(file.get(), bufferPointer, dataSize);
-
-    std::memset(bufferPointer + dataSize, 0, allocatedSize - dataSize);
-
-    filePath = path;
-
-    return true;
+		// Copy the data and fill the padding region with zeros.
+		AAsset_read(file.get(), buffer.get(), dataSize);
+		std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
+	}
 }
 #endif
 #pragma endregion

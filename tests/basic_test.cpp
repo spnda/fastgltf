@@ -651,11 +651,12 @@ TEST_CASE("Test extras callback", "[gltf-loader]") {
 
 		// Update the data buffer
 		auto& string = json.get().output;
-		fastgltf::GltfDataBuffer reexportedJson(reinterpret_cast<const std::byte*>(string.data()),
-								 				string.size());
+		auto reexportedJson = fastgltf::GltfDataBuffer::FromBytes(
+				reinterpret_cast<const std::byte*>(string.data()), string.size());
+		REQUIRE(reexportedJson.error() == fastgltf::Error::None);
 
 		nodeNames.clear();
-		auto reparsed = parseJson(reexportedJson);
+		auto reparsed = parseJson(reexportedJson.get());
 		REQUIRE(reparsed.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(reparsed.get()) == fastgltf::Error::None);
 

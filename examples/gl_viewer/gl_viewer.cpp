@@ -353,10 +353,10 @@ bool loadGltf(Viewer* viewer, std::filesystem::path path) {
             fastgltf::Options::LoadExternalImages |
 			fastgltf::Options::GenerateMeshIndices;
 
-        fastgltf::GltfDataBuffer data;
-        data.loadFromFile(path);
+		fastgltf::GltfFileStream fileStream(path);
+		REQUIRE(fileStream.isOpen());
 
-        auto asset = parser.loadGltf(&data, path.parent_path(), gltfOptions);
+        auto asset = parser.loadGltf(fileStream, path.parent_path(), gltfOptions);
         if (asset.error() != fastgltf::Error::None) {
             std::cerr << "Failed to load glTF: " << fastgltf::getErrorMessage(asset.error()) << '\n';
             return false;

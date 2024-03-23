@@ -89,6 +89,7 @@ namespace fastgltf {
 		InvalidURI = 11, ///< A URI from a buffer or image failed to be parsed.
 		InvalidFileData = 12, ///< The file data is invalid, or the file type could not be determined.
 		FailedWritingFiles = 13, ///< The exporter failed to write some files (buffers/images) to disk.
+		FileBufferAllocationFailed = 14, ///< The constructor of GltfDataBuffer failed to allocate a sufficiently large buffer.
     };
 
 	inline std::string_view getErrorName(Error error) {
@@ -107,6 +108,7 @@ namespace fastgltf {
 			case Error::InvalidURI: return "InvalidURI";
             case Error::InvalidFileData: return "InvalidFileData";
             case Error::FailedWritingFiles: return "FailedWritingFiles";
+			case Error::FileBufferAllocationFailed: return "FileBufferAllocationFailed";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}
@@ -127,6 +129,7 @@ namespace fastgltf {
 			case Error::InvalidURI: return "A URI from a buffer or image failed to be parsed.";
             case Error::InvalidFileData: return "The file data is invalid, or the file type could not be determined.";
             case Error::FailedWritingFiles: return "The exporter failed to write some files (buffers/images) to disk.";
+			case Error::FileBufferAllocationFailed: return "The constructor of GltfDataBuffer failed to allocate a sufficiently large buffer.";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}
@@ -259,9 +262,6 @@ namespace fastgltf {
          * especially with animations.
          */
         DecomposeNodeMatrices           = 1 << 5,
-
-		// TODO: Remove or keep for any compatibility?
-        MinimiseJsonBeforeParsing [[deprecated]] = 1 << 6,
 
         /**
          * Loads all external images into CPU memory. It does not decode any texture data. Complementary
@@ -628,25 +628,59 @@ namespace fastgltf {
 
 		std::size_t idx = 0;
 
-		void allocateAndCopy(const std::byte* bytes);
+		Error error = Error::None;
+
+		void allocateAndCopy(const std::byte* bytes) noexcept;
+
+		explicit GltfDataBuffer(const std::filesystem::path& path) noexcept;
+		explicit GltfDataBuffer(const std::byte* bytes, std::size_t count) noexcept;
+#if FASTGLTF_CPP_20
+		explicit GltfDataBuffer(std::span<std::byte> span) noexcept;
+#endif
 
 	public:
-		GltfDataBuffer(const std::filesystem::path& path);
-		GltfDataBuffer(const std::byte* bytes, std::size_t count);
+		explicit GltfDataBuffer() noexcept = default;
+		GltfDataBuffer(const GltfDataBuffer& other) = delete;
+		GltfDataBuffer& operator=(const GltfDataBuffer& other) = delete;
+		GltfDataBuffer(GltfDataBuffer&& other) noexcept = default;
+		GltfDataBuffer& operator=(GltfDataBuffer&& other) noexcept = default;
+		~GltfDataBuffer() noexcept = default;
+
+		static Expected<GltfDataBuffer> FromPath(const std::filesystem::path& path) noexcept {
+			GltfDataBuffer buffer(path);
+			if (buffer.error != fastgltf::Error::None) {
+				return buffer.error;
+			}
+			return std::move(buffer);
+		}
+
+		static Expected<GltfDataBuffer> FromBytes(const std::byte* bytes, std::size_t count) noexcept {
+			GltfDataBuffer buffer(bytes, count);
+			if (buffer.error != fastgltf::Error::None) {
+				return buffer.error;
+			}
+			return std::move(buffer);
+		}
 
 #if FASTGLTF_CPP_20
-		GltfDataBuffer(std::span<std::byte> span);
+		static Expected<GltfDataBuffer> FromSpan(std::span<std::byte> data) noexcept {
+			GltfDataBuffer buffer(data);
+			if (buffer.buffer.get() == nullptr) {
+				return buffer.error;
+			}
+			return std::move(buffer);
+		}
 #endif
 
 		void read(void* ptr, std::size_t count) override;
 
-		span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] span<std::byte> read(std::size_t count, std::size_t padding) override;
 
 		void reset() override;
 
-		std::size_t bytesRead() override;
+		[[nodiscard]] std::size_t bytesRead() override;
 
-		std::size_t totalSize() override;
+		[[nodiscard]] std::size_t totalSize() override;
 
 		[[nodiscard]] explicit operator span<std::byte>() {
 			return span<std::byte>(buffer.get(), dataSize);
@@ -660,36 +694,40 @@ namespace fastgltf {
 		std::size_t fileSize;
 
 	public:
-		GltfFileStream(const std::filesystem::path& path);
+		explicit GltfFileStream(const std::filesystem::path& path);
+		~GltfFileStream() noexcept = default;
 
-		bool isOpen() const;
+		[[nodiscard]] bool isOpen() const;
 
 		void read(void* ptr, std::size_t count) override;
 
-		span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] span<std::byte> read(std::size_t count, std::size_t padding) override;
 
 		void reset() override;
 
-		std::size_t bytesRead() override;
+		[[nodiscard]] std::size_t bytesRead() override;
 
-		std::size_t totalSize() override;
+		[[nodiscard]] std::size_t totalSize() override;
 	};
 
     #if defined(__ANDROID__)
 	void setAndroidAssetManager(AAssetManager* assetManager) noexcept;
 
     class AndroidGltfDataBuffer : public GltfDataBuffer {
+		explicit AndroidGltfDataBuffer(const std::filesystem::path& path, std::uint64_t byteOffset);
+
     public:
-        explicit AndroidGltfDataBuffer() noexcept;
+        explicit AndroidGltfDataBuffer() noexcept = default;
         ~AndroidGltfDataBuffer() noexcept = default;
 
-        /**
-         * Loads a file from within an Android APK.
-         *
-         * @note This requires a valid AAssetManager to have been specified through fastgltf::setAndroidAssetManager.
-         */
-        bool loadFromAndroidAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept;
-    };
+		static Expected<AndroidGltfDataBuffer> FromAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept {
+			AndroidGltfDataBuffer buffer(path);
+			if (buffer.buffer.get() == nullptr) {
+				return buffer.error;
+			}
+			return std::move(buffer);
+		}
+	};
 	#endif
 
 	/**

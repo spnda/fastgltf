@@ -39,9 +39,10 @@ TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-te
 	auto expected = exporter.writeGltfJson(cube.get());
     REQUIRE(expected.error() == fastgltf::Error::None);
 
-	fastgltf::GltfDataBuffer exportedJsonData(reinterpret_cast<const std::byte*>(expected.get().output.data()),
-											  expected.get().output.size());
-	auto cube2 = parser.loadGltfJson(exportedJsonData, cubePath);
+	auto exportedJsonData = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(expected.get().output.data()), expected.get().output.size());
+	REQUIRE(exportedJsonData.error() == fastgltf::Error::None);
+	auto cube2 = parser.loadGltfJson(exportedJsonData.get(), cubePath);
 	REQUIRE(cube2.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(cube2.get()) == fastgltf::Error::None);
 }
@@ -65,9 +66,10 @@ TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]"
 	auto expected = exporter.writeGltfJson(dish.get());
 	REQUIRE(expected.error() == fastgltf::Error::None);
 
-	fastgltf::GltfDataBuffer exportedDishJsonData(reinterpret_cast<const std::byte*>(expected.get().output.data()),
-											  expected.get().output.size());
-	auto exportedDish = parser.loadGltfJson(exportedDishJsonData, dishPath);
+	auto exportedDishJsonData = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(expected.get().output.data()), expected.get().output.size());
+	REQUIRE(exportedDishJsonData.error() == fastgltf::Error::None);
+	auto exportedDish = parser.loadGltfJson(exportedDishJsonData.get(), dishPath);
 	REQUIRE(exportedDish.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(exportedDish.get()) == fastgltf::Error::None);
 }
@@ -204,9 +206,10 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		REQUIRE(simdjson::validate_utf8(exportedJson));
 
 		// Parse the re-generated glTF and validate
-		fastgltf::GltfDataBuffer regeneratedJson(reinterpret_cast<const std::byte*>(exportedJson.data()),
-												 exportedJson.size());
-		auto regeneratedModel = parser.loadGltf(regeneratedJson, epath.parent_path());
+		auto regeneratedJson = fastgltf::GltfDataBuffer::FromBytes(
+				reinterpret_cast<const std::byte*>(exportedJson.data()), exportedJson.size());
+		REQUIRE(regeneratedJson.error() == fastgltf::Error::None);
+		auto regeneratedModel = parser.loadGltf(regeneratedJson.get(), epath.parent_path());
 		REQUIRE(regeneratedModel.error() == fastgltf::Error::None);
 
 		REQUIRE(fastgltf::validate(regeneratedModel.get()) == fastgltf::Error::None);
@@ -238,8 +241,10 @@ TEST_CASE("Test Unicode exporting", "[write-tests]") {
 	auto& exportedJson = exported.get().output;
 	REQUIRE(simdjson::validate_utf8(exportedJson));
 
-	fastgltf::GltfDataBuffer regeneratedJson(reinterpret_cast<const std::byte*>(exportedJson.data()), exportedJson.size());
-	auto reparsed = parser.loadGltfJson(regeneratedJson, unicodePath);
+	auto regeneratedJson = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(exportedJson.data()), exportedJson.size());
+	REQUIRE(regeneratedJson.error() == fastgltf::Error::None);
+	auto reparsed = parser.loadGltfJson(regeneratedJson.get(), unicodePath);
 	REQUIRE(reparsed.error() == fastgltf::Error::None);
 
 	REQUIRE(!asset->materials.empty());

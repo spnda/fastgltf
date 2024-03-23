@@ -402,10 +402,12 @@ TEST_CASE("Extension KHR_materials_dispersion", "[gltf-loader]") {
             }
         }
     ]})";
-	fastgltf::GltfDataBuffer jsonData(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
 	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_dispersion);
-	auto asset = parser.loadGltfJson(jsonData, {}, fastgltf::Options::DontRequireValidAssetMember);
+	auto asset = parser.loadGltfJson(jsonData.get(), {}, fastgltf::Options::DontRequireValidAssetMember);
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
