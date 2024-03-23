@@ -621,6 +621,7 @@ namespace fastgltf {
 	};
 
 	class GltfDataBuffer : public GltfDataGetter {
+	protected:
 		std::unique_ptr<std::byte[]> buffer;
 
 		std::size_t allocatedSize = 0;
@@ -686,6 +687,51 @@ namespace fastgltf {
 			return span<std::byte>(buffer.get(), dataSize);
 		}
 	};
+
+#if defined(__APPLE__) || defined(__linux__)
+	/** Maps a glTF file into memory using mmap */
+	class MappedGltfFile : public GltfDataGetter {
+		void* mappedFile = nullptr;
+		std::uint64_t fileSize = 0;
+
+		std::size_t idx = 0;
+
+		Error error = Error::None;
+
+		explicit MappedGltfFile(const std::filesystem::path& path) noexcept;
+
+	public:
+		explicit MappedGltfFile() = default;
+		MappedGltfFile(const MappedGltfFile& other) = delete;
+		MappedGltfFile& operator=(const MappedGltfFile& other) = delete;
+		MappedGltfFile(MappedGltfFile&& other) noexcept;
+		MappedGltfFile& operator=(MappedGltfFile&& other) noexcept;
+
+		static Expected<MappedGltfFile> FromPath(const std::filesystem::path& path) noexcept {
+			MappedGltfFile buffer(path);
+			if (buffer.error != fastgltf::Error::None) {
+				return buffer.error;
+			}
+			return std::move(buffer);
+		}
+
+		~MappedGltfFile() noexcept;
+
+		void read(void* ptr, std::size_t count) override;
+
+		[[nodiscard]] span<std::byte> read(std::size_t count, std::size_t padding) override;
+
+		void reset() override;
+
+		[[nodiscard]] std::size_t bytesRead() override;
+
+		[[nodiscard]] std::size_t totalSize() override;
+
+		[[nodiscard]] explicit operator span<std::byte>() {
+			return span<std::byte>(static_cast<std::byte*>(mappedFile), fileSize);
+		}
+	};
+#endif
 
 	class GltfFileStream : public GltfDataGetter {
 		std::ifstream fileStream;
