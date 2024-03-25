@@ -496,6 +496,11 @@ namespace fastgltf {
         using const_iterator = const_pointer;
 
         explicit StaticVector(std::size_t size) : _size(size), _array(std::move(std::unique_ptr<array_t>(new std::remove_extent_t<array_t>[size]))) {}
+		explicit StaticVector(std::size_t size, const T& initialValue) : _size(size), _array(std::move(std::unique_ptr<array_t>(new std::remove_extent_t<array_t>[size]))) {
+			for (auto& value : *this) {
+				value = initialValue;
+			}
+		}
 
         StaticVector(const StaticVector& other) {
             if (other.size() == 0) {
@@ -560,6 +565,15 @@ namespace fastgltf {
         [[nodiscard]] iterator end() noexcept { return begin() + size(); }
         [[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
         [[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
+
+		[[nodiscard]] T& operator[](std::size_t idx) {
+            assert(idx < size());
+            return begin()[idx];
+        }
+        [[nodiscard]] const T& operator[](std::size_t idx) const {
+            assert(idx < size());
+            return begin()[idx];
+        }
 
         bool operator==(const StaticVector<value_type>& other) const {
             if (other.size() != size()) return false;

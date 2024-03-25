@@ -113,3 +113,13 @@ TEST_CASE("Test vectors with polymorphic allocators", "[vector-tests]") {
 		REQUIRE(i == 5);
 	}
 }
+
+TEST_CASE("Test initial value for StaticVector", "[vector-tests]") {
+	fastgltf::StaticVector<std::uint32_t> vector(10, 25);
+	std::size_t count = 0;
+	for (auto& i : vector) {
+		REQUIRE(i == 25);
+		++count;
+	}
+	REQUIRE(count == 10);
+}
