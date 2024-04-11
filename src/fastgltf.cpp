@@ -1554,20 +1554,18 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
                     auto type = element.type();
                     switch (type) {
                         case dom::element_type::DOUBLE: {
-                            // We can't safely promote double to ints. Therefore, if the element is a double,
-                            // but our component type is not a floating point, that's invalid.
-                            if (accessor.componentType != ComponentType::Float && accessor.componentType != ComponentType::Double) {
-                                return Error::InvalidGltf;
-                            }
-
                             double value;
                             if (element.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
                                 return Error::InvalidGltf;
                             }
-                            if (!std::holds_alternative<double_vec>(variant)) {
+
+                            if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
+                                (*doubles)[idx++] = static_cast<double>(value);
+                            } else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
+                                (*ints)[idx++] = static_cast<std::int64_t>(value);
+                            } else {
                                 return Error::InvalidGltf;
                             }
-                            std::get<double_vec>(variant)[idx++] = value;
                             break;
                         }
                         case dom::element_type::INT64: {
