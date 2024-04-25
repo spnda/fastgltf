@@ -121,24 +121,29 @@ The following snippet illustrates how to use fastgltf to load a glTF file.
    #include <fastgltf/core.hpp>
    #include <fastgltf/types.hpp>
 
-   void load(std::filesystem::path path) {
+   bool load(std::filesystem::path path) {
        // Creates a Parser instance. Optimally, you should reuse this across loads, but don't use it
        // across threads. To enable extensions, you have to pass them into the parser's constructor.
        fastgltf::Parser parser;
 
-       // The GltfDataBuffer class is designed for re-usability of the same JSON string. It contains
-       // utility functions to load data from a std::filesystem::path, copy from an existing buffer,
-       // or re-use an already existing allocation. Note that it has to outlive the process of every
-       // parsing function you call.
-       fastgltf::GltfDataBuffer data;
-       data.loadFromFile(path);
+       // The GltfDataBuffer class contains static factories which create a buffer for holding the
+       // glTF data. These return Expected<GltfDataBuffer>, which can be checked if an error occurs.
+       // The parser accepts any subtype of GltfDataGetter, which defines an interface for reading
+       // chunks of the glTF file for the Parser to handle. fastgltf provides a few predefined classes
+       // which inherit from GltfDataGetter, so choose whichever fits your usecase the best.
+       auto data = fastgltf::GltfDataBuffer::FromPath(path);
+       if (data.error() != fastgltf::Error::None) {
+           // The file couldn't be loaded, or the buffer could not be allocated.
+           return false;
+       }
 
        // This loads the glTF file into the gltf object and parses the JSON.
        // It automatically detects whether this is a JSON-based or binary glTF.
        // If you know the type, you can also use loadGltfJson or loadGltfBinary.
-       auto asset = parser.loadGltf(&data, path.parent_path(), fastgltf::Options::None);
+       auto asset = parser.loadGltf(data.get(), path.parent_path(), fastgltf::Options::None);
        if (auto error = asset.error(); error != fastgltf::Error::None) {
            // Some error occurred while reading the buffer, parsing the JSON, or validating the data.
+           return false;
        }
 
        // The glTF 2.0 asset is now ready to be used. Simply call asset.get(), asset.get_if() or
@@ -153,12 +158,14 @@ The following snippet illustrates how to use fastgltf to load a glTF file.
        // recommend it in a development environment or when debugging to avoid mishaps.
 
        // fastgltf::validate(asset.get());
+
+       return true;
    }
 
 
 All the nodes, meshes, buffers, textures, ... can now be accessed through the ``fastgltf::Asset`` type.
-References in between objects are done with a single ``size_t``,
-which is used to index into the various vectors in the asset.
+References in between objects are done with a single ``std::size_t``, which is used to index into the
+various vectors in the asset.
 
 .. _examples:
 

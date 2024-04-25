@@ -283,12 +283,28 @@ Expected
    :undoc-members:
 
 
-GltfDataBuffer
+GltfDataGetter
 --------------
 
 .. doxygenfunction:: fastgltf::getGltfBufferPadding
 
+.. doxygenclass:: fastgltf::GltfDataGetter
+   :members:
+   :undoc-members:
+
+
+GltfDataBuffer
+--------------
+
 .. doxygenclass:: fastgltf::GltfDataBuffer
+   :members:
+   :undoc-members:
+
+
+GltfFileStream
+--------------
+
+.. doxygenclass:: fastgltf::GltfFileStream
    :members:
    :undoc-members:
 
@@ -296,11 +312,11 @@ GltfDataBuffer
 Parser
 ------
 
+.. doxygenfunction:: fastgltf::determineGltfFileType
+
 .. doxygenclass:: fastgltf::Parser
    :members:
    :undoc-members:
-
-.. doxygenfunction:: fastgltf::determineGltfFileType
 
 .. doxygenstruct:: fastgltf::BufferInfo
    :members:
@@ -316,6 +332,7 @@ Exporter
 .. doxygenclass:: fastgltf::FileExporter
    :members:
    :undoc-members:
+
 
 Utility
 =======
