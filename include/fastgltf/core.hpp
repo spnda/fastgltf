@@ -245,7 +245,7 @@ namespace fastgltf {
          * a byte offset and length into the GLB file, which can be useful when using APIs like
          * DirectStorage or Metal IO.
          */
-        LoadGLBBuffers                  = 1 << 3,
+		LoadGLBBuffers [[deprecated]]   = 1 << 3,
 
         /**
          * Loads all external buffers into CPU memory. If disabled, fastgltf will only provide
@@ -607,12 +607,23 @@ namespace fastgltf {
 	 */
 	class GltfDataGetter {
 	public:
+		/**
+		 * The read functions expect the implementation to store an offset from the start
+		 * of the buffer/file to the current position. The parse process will always linearly
+		 * access the memory, meaning it will go through the memory once from start to finish.
+		 */
 		virtual void read(void* ptr, std::size_t count) = 0;
+		/**
+		 * Reads a chunk of memory from the current offset, with some amount of padding.
+		 * This padding is necessary for the simdjson parser, but can be initialized to anything.
+		 * The memory pointed to by the span only needs to live until the next call to read().
+		 */
 		[[nodiscard]] virtual span<std::byte> read(std::size_t count, std::size_t padding) = 0;
 
 		/**
 		 * Reset is used to put the offset index back to the start of the buffer/file.
-		 * This is only used with determineGltfFileType, as it needs to peek into the beginning of the file.
+		 * This is only necessary for functionality like determineGltfFileType. However, reset()
+		 * will be called at the beginning of every parse process.
 		 */
 		virtual void reset() = 0;
 
@@ -707,6 +718,7 @@ namespace fastgltf {
 		MappedGltfFile(MappedGltfFile&& other) noexcept;
 		MappedGltfFile& operator=(MappedGltfFile&& other) noexcept;
 
+		/** Memory maps a file. If this fails, you can check std::strerror for a more exact error. */
 		static Expected<MappedGltfFile> FromPath(const std::filesystem::path& path) noexcept {
 			MappedGltfFile buffer(path);
 			if (buffer.error != fastgltf::Error::None) {

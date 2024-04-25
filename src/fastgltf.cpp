@@ -3824,7 +3824,7 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 	}
 
 	// Get the file size
-	struct stat statInfo;
+	struct stat statInfo {};
 	if (fstat(fd, &statInfo) != 0) {
 		error = Error::InvalidPath;
 		return;
@@ -3840,7 +3840,6 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 	if (mappedFile != MAP_FAILED) {
 		fileSize = static_cast<std::uint64_t>(statInfo.st_size);
 	} else {
-		std::perror("Mapping file");
 		error = Error::FileBufferAllocationFailed;
 	}
 
@@ -3849,7 +3848,7 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 }
 
 fg::MappedGltfFile::MappedGltfFile(fastgltf::MappedGltfFile &&other) noexcept {
-	// Make sure that munmap is never called when other gets destructud.
+	// Make sure that munmap is never called when other gets destructed.
 	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
 	fileSize = other.fileSize;
 	idx = other.idx;
@@ -4043,11 +4042,12 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path 
     }
 #endif
 
+	data.reset();
 	auto jsonSpan = data.read(data.totalSize(), SIMDJSON_PADDING);
-	simdjson::padded_string_view view(reinterpret_cast<const std::uint8_t*>(jsonSpan.data()),
+	padded_string_view view(reinterpret_cast<const std::uint8_t*>(jsonSpan.data()),
 									  data.totalSize(),
 									  data.totalSize() + SIMDJSON_PADDING);
-	simdjson::dom::object root;
+	dom::object root;
     if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) FASTGLTF_UNLIKELY {
 	    return Error::InvalidJson;
     }
@@ -4065,6 +4065,8 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
     if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
 	    return Error::InvalidPath;
     }
+
+	data.reset();
 
     BinaryGltfHeader header = {};
     data.read(&header, sizeof header);
@@ -4108,34 +4110,26 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 	        return Error::InvalidGLB;
         }
 
+		// TODO: Somehow allow skipping the binary part in the future?
 		if (binaryChunk.chunkLength != 0) {
-			if (hasBit(options, Options::LoadGLBBuffers)) {
-				if (config.mapCallback != nullptr) {
-					auto info = config.mapCallback(binaryChunk.chunkLength, config.userPointer);
-					if (info.mappedMemory != nullptr) {
-						data.read(info.mappedMemory, binaryChunk.chunkLength);
-						if (config.unmapCallback != nullptr) {
-							config.unmapCallback(&info, config.userPointer);
-						}
-						glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
+			if (config.mapCallback != nullptr) {
+				auto info = config.mapCallback(binaryChunk.chunkLength, config.userPointer);
+				if (info.mappedMemory != nullptr) {
+					data.read(info.mappedMemory, binaryChunk.chunkLength);
+					if (config.unmapCallback != nullptr) {
+						config.unmapCallback(&info, config.userPointer);
 					}
-				} else {
-					StaticVector<std::uint8_t> binaryData(binaryChunk.chunkLength);
-					data.read(binaryData.data(), binaryChunk.chunkLength);
-
-					sources::Array vectorData = {
-							std::move(binaryData),
-							MimeType::GltfBuffer,
-					};
-					glbBuffer = std::move(vectorData);
+					glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
 				}
 			} else {
-				// TODO: What to do with this?
-				//const span<const std::byte> glbBytes(reinterpret_cast<std::byte*>(buffer->bufferPointer + offset), binaryChunk.chunkLength);
-				sources::ByteView glbByteView = {};
-				//glbByteView.bytes = glbBytes;
-				glbByteView.mimeType = MimeType::GltfBuffer;
-				glbBuffer = glbByteView;
+				StaticVector<std::uint8_t> binaryData(binaryChunk.chunkLength);
+				data.read(binaryData.data(), binaryChunk.chunkLength);
+
+				sources::Array vectorData = {
+						std::move(binaryData),
+						MimeType::GltfBuffer,
+				};
+				glbBuffer = std::move(vectorData);
 			}
 		}
     }
