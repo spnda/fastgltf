@@ -8,8 +8,8 @@ macro(fastgltf_compiler_flags TARGET)
             if (MSVC_VERSION GREATER 1929)
                 target_compile_options(${TARGET} PRIVATE /external:W0 /external:anglebrackets)
             endif()
-        elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-            target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-O3>)
+        elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-O3> -Wall)
 
             if (MINGW)
                 # Issue with MinGW: https://github.com/simdjson/simdjson/issues/1963

@@ -324,7 +324,7 @@ namespace fastgltf {
 		static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint16_t>);
 		if (componentType == ComponentType::Invalid)
 			return std::size_t(0U);
-		return static_cast<std::size_t>((to_underlying(componentType) >> 13U) + 1);
+		return static_cast<std::size_t>(to_underlying(componentType) >> 13U) + 1;
 	}
 
 	constexpr auto getComponentBitSize(ComponentType componentType) noexcept {
@@ -473,8 +473,8 @@ namespace fastgltf {
         using array_t = value_type[];
 
 	private:
+		size_type _size = 0;
         std::unique_ptr<array_t> _array;
-        size_type _size = 0;
 
 		void copy(const T* first, size_type count, T* result) {
             if (count > 0) {

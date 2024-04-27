@@ -124,8 +124,6 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     REQUIRE(error == fastgltf::Error::None);
 
 	// Make sure the GLB buffer is written
-	std::error_code ec;
-	auto length = std::filesystem::file_size(exportedPath, ec);
 	std::ifstream glb(exportedPath, std::ios::binary);
 	REQUIRE(glb.is_open());
 
