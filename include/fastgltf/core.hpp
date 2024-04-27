@@ -782,14 +782,18 @@ namespace fastgltf {
 	void setAndroidAssetManager(AAssetManager* assetManager) noexcept;
 
     class AndroidGltfDataBuffer : public GltfDataBuffer {
-		explicit AndroidGltfDataBuffer(const std::filesystem::path& path, std::uint64_t byteOffset);
+		explicit AndroidGltfDataBuffer(const std::filesystem::path& path, std::uint64_t byteOffset) noexcept;
 
     public:
         explicit AndroidGltfDataBuffer() noexcept = default;
+        AndroidGltfDataBuffer(const AndroidGltfDataBuffer& other) = delete;
+        AndroidGltfDataBuffer& operator=(const AndroidGltfDataBuffer& other) = delete;
+        AndroidGltfDataBuffer(AndroidGltfDataBuffer&& other) noexcept = default;
+        AndroidGltfDataBuffer& operator=(AndroidGltfDataBuffer&& other) noexcept = default;
         ~AndroidGltfDataBuffer() noexcept override = default;
 
 		static Expected<AndroidGltfDataBuffer> FromAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept {
-			AndroidGltfDataBuffer buffer(path);
+			AndroidGltfDataBuffer buffer(path, byteOffset);
 			if (buffer.buffer.get() == nullptr) {
 				return buffer.error;
 			}
