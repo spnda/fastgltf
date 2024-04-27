@@ -312,6 +312,8 @@ std::size_t fg::MappedGltfFile::totalSize() {
 
 #pragma region AndroidGltfDataBuffer
 #if defined(__ANDROID__)
+#include <android/asset_manager.h>
+
 namespace fastgltf {
 	/**
 	 * Global asset manager that can be accessed freely.

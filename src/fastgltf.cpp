@@ -35,10 +35,6 @@
 #include <mutex>
 #include <utility>
 
-#if defined(__ANDROID__)
-#include <android/asset_manager.h>
-#endif
-
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
