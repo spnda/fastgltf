@@ -58,6 +58,9 @@ static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, 
 
 #if defined(FASTGLTF_IS_X86)
 #include <nmmintrin.h> // SSE4.2 for the CRC-32C instructions
+#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
+// MSVC does not provide the arm crc32 intrinsics.
+#include <arm_acle.h>
 #endif
 
 namespace fg = fastgltf;
@@ -124,9 +127,6 @@ namespace fastgltf {
         return crc;
     }
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
-// MSVC does not provide the arm crc32 intrinsics.
-#include <arm_acle.h>
-
 	[[gnu::hot, gnu::const, gnu::target("+crc")]] std::uint32_t armv8_crc32c(std::string_view str) noexcept {
 		return armv8_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
 	}
