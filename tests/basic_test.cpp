@@ -667,7 +667,7 @@ TEST_CASE("Test extras callback", "[gltf-loader]") {
 	}
 }
 
-#if defined(__APPLE__) || defined(__linux__)
+#if defined(FASTGLTF_HAS_MEMORY_MAPPED_FILE)
 TEST_CASE("Test glTF file loading", "[gltf-loader]") {
 	SECTION("Mapped files") {
 		auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
@@ -679,6 +679,7 @@ TEST_CASE("Test glTF file loading", "[gltf-loader]") {
 		fastgltf::Parser parser;
 		auto asset = parser.loadGltfJson(mappedFile.get(), cubePath);
 		REQUIRE(asset.error() == fastgltf::Error::None);
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 	}
 }
 #endif

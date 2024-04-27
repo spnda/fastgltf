@@ -701,10 +701,19 @@ namespace fastgltf {
 		}
 	};
 
-#if defined(__APPLE__) || defined(__linux__)
-	/** Maps a glTF file into memory using mmap */
+#if defined(__APPLE__) || defined(__linux__) || defined(_WIN32)
+#define FASTGLTF_HAS_MEMORY_MAPPED_FILE 1
+	/**
+	 * Memory-maps a file. This uses mmap on macOS and Linux, and MapViewOfFile on Windows, and is not available elsewhere.
+	 * You should check for FASTGLTF_HAS_MEMORY_MAPPED_FILE before using this class.
+	 */
 	class MappedGltfFile : public GltfDataGetter {
-		void* mappedFile = nullptr;
+		void* mappedFile;
+#if defined(_WIN32)
+		// Windows requires us to keep the file handle alive. Win32 HANDLE is a void*.
+		void* fileHandle = nullptr;
+		void* fileMapping = nullptr;
+#endif
 		std::uint64_t fileSize = 0;
 
 		std::size_t idx = 0;
@@ -719,6 +728,7 @@ namespace fastgltf {
 		MappedGltfFile& operator=(const MappedGltfFile& other) = delete;
 		MappedGltfFile(MappedGltfFile&& other) noexcept;
 		MappedGltfFile& operator=(MappedGltfFile&& other) noexcept;
+		~MappedGltfFile() noexcept override;
 
 		/** Memory maps a file. If this fails, you can check std::strerror for a more exact error. */
 		static Expected<MappedGltfFile> FromPath(const std::filesystem::path& path) noexcept {
@@ -728,8 +738,6 @@ namespace fastgltf {
 			}
 			return std::move(buffer);
 		}
-
-		~MappedGltfFile() noexcept;
 
 		void read(void* ptr, std::size_t count) override;
 
