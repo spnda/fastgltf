@@ -296,7 +296,7 @@ namespace fastgltf {
      */
     constexpr auto getNumComponents(AccessorType type) noexcept {
     	static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint16_t>);
-        return static_cast<std::uint8_t>(to_underlying(type) >> 8U);
+        return static_cast<std::size_t>(to_underlying(type) >> 8U);
     }
 
     /**
@@ -306,15 +306,15 @@ namespace fastgltf {
         switch (type) {
             case AccessorType::Mat2:
             case AccessorType::Vec2:
-                return 2;
+                return std::size_t(2U);
             case AccessorType::Mat3:
             case AccessorType::Vec3:
-                return 3;
+                return std::size_t(3U);
             case AccessorType::Mat4:
             case AccessorType::Vec4:
-                return 4;
+                return std::size_t(4U);
             default:
-                return 1;
+                return std::size_t(1U);
         }
     }
 
@@ -324,7 +324,7 @@ namespace fastgltf {
 
     constexpr auto getComponentBitSize(ComponentType componentType) noexcept {
     	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
-    	return static_cast<std::uint16_t>(to_underlying(componentType) >> 16U);
+    	return static_cast<std::size_t>(to_underlying(componentType) >> 16U);
     }
 
     constexpr auto getElementByteSize(AccessorType type, ComponentType componentType) noexcept {
@@ -335,21 +335,23 @@ namespace fastgltf {
             // Matrices need extra padding per-column which affects their size.
             numComponents += rowCount * (4 - (rowCount % 4));
         }
-        return static_cast<std::size_t>(numComponents * componentSize);
+        return numComponents * componentSize;
     }
 
     /**
      * Returns the OpenGL component type enumeration for the given component type.
+     * All OpenGL enumerations use GLenum, which is a 32-bit wide integer, which is why
+     * this function returns a std::uint32_t.
      *
      * For example, getGLComponentType(ComponentType::Float) will return GL_FLOAT (0x1406).
      */
     constexpr auto getGLComponentType(ComponentType type) noexcept {
-    	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
-        return static_cast<std::uint16_t>(to_underlying(type));
+        static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint32_t>);
+        return static_cast<std::uint32_t>(to_underlying(type) & 0xFFFF);
     }
 
     /**
-     * Don't use this, use getComponenType instead.
+     * Don't use this, use getComponentType instead.
      * This order matters as we assume that their glTF constant is ascending to index it.
      */
     static constexpr std::array<ComponentType, 11> components = {
@@ -367,7 +369,7 @@ namespace fastgltf {
     };
 
     constexpr auto getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
-        const auto index = componentType - getGLComponentType(ComponentType::Byte);
+        const auto index = static_cast<std::size_t>(componentType - getGLComponentType(ComponentType::Byte));
         if (index >= components.size()) {
             return ComponentType::Invalid;
 		}
