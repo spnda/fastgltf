@@ -4,7 +4,7 @@
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "simdjson.h"
+#include <simdjson.h>
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
@@ -32,8 +32,8 @@ bool tinygltf_FileExistsFunction([[maybe_unused]] const std::string& filename, [
     return true;
 }
 
-std::string tinygltf_ExpandFilePathFunction(const std::string& path, [[maybe_unused]] void* user) {
-    return path;
+std::string tinygltf_ExpandFilePathFunction(const std::string& filePath, [[maybe_unused]] void* user) {
+    return filePath;
 }
 
 bool tinygltf_ReadWholeFileFunction(std::vector<unsigned char>* data, std::string*, const std::string&, void*) {
@@ -76,10 +76,10 @@ void setTinyGLTFCallbacks(tinygltf::TinyGLTF& gltf) {
 #include <assimp/Base64.hpp>
 #endif
 
-fastgltf::StaticVector<std::uint8_t> readFileAsBytes(const std::filesystem::path& path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
+fastgltf::StaticVector<std::uint8_t> readFileAsBytes(const std::filesystem::path& filePath) {
+    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
     if (!file.is_open())
-        throw std::runtime_error(std::string { "Failed to open file: " } + path.string());
+        throw std::runtime_error(std::string { "Failed to open file: " } + filePath.string());
 
     auto fileSize = file.tellg();
     fastgltf::StaticVector<std::uint8_t> bytes(static_cast<std::size_t>(fileSize) + fastgltf::getGltfBufferPadding());

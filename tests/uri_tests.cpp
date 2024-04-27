@@ -10,13 +10,13 @@ TEST_CASE("Test basic URIs", "[uri-tests]") {
     REQUIRE(uri1.scheme().empty());
     REQUIRE(uri1.path().empty());
 
-    std::string_view path = "path/somewhere.xyz";
+    std::string_view relpath = "path/somewhere.xyz";
     SECTION("Basic local path") {
-        const fastgltf::URI uri2(path);
+        const fastgltf::URI uri2(relpath);
         REQUIRE(uri2.scheme().empty());
-        REQUIRE(uri2.path() == path);
+        REQUIRE(uri2.path() == relpath);
         REQUIRE(uri2.isLocalPath());
-        REQUIRE(uri2.fspath() == path);
+        REQUIRE(uri2.fspath() == relpath);
     }
 
     std::string_view abspath = "/path/somewhere.xyz";
