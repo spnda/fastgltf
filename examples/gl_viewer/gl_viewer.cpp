@@ -354,7 +354,10 @@ bool loadGltf(Viewer* viewer, std::filesystem::path path) {
 			fastgltf::Options::GenerateMeshIndices;
 
 		fastgltf::GltfFileStream fileStream(path);
-		REQUIRE(fileStream.isOpen());
+		if (!fileStream.isOpen()) {
+			std::cerr << "Failed to open glTF file" << '\n';
+			return false;
+		}
 
         auto asset = parser.loadGltf(fileStream, path.parent_path(), gltfOptions);
         if (asset.error() != fastgltf::Error::None) {

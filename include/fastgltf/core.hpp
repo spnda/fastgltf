@@ -245,7 +245,7 @@ namespace fastgltf {
          * a byte offset and length into the GLB file, which can be useful when using APIs like
          * DirectStorage or Metal IO.
          */
-		LoadGLBBuffers [[deprecated]]   = 1 << 3,
+		LoadGLBBuffers [[deprecated("This is now default behaviour")]]   = 1 << 3,
 
         /**
          * Loads all external buffers into CPU memory. If disabled, fastgltf will only provide
@@ -607,6 +607,8 @@ namespace fastgltf {
 	 */
 	class GltfDataGetter {
 	public:
+		virtual ~GltfDataGetter() noexcept = default;
+
 		/**
 		 * The read functions expect the implementation to store an offset from the start
 		 * of the buffer/file to the current position. The parse process will always linearly
@@ -656,7 +658,7 @@ namespace fastgltf {
 		GltfDataBuffer& operator=(const GltfDataBuffer& other) = delete;
 		GltfDataBuffer(GltfDataBuffer&& other) noexcept = default;
 		GltfDataBuffer& operator=(GltfDataBuffer&& other) noexcept = default;
-		~GltfDataBuffer() noexcept = default;
+		~GltfDataBuffer() noexcept override = default;
 
 		static Expected<GltfDataBuffer> FromPath(const std::filesystem::path& path) noexcept {
 			GltfDataBuffer buffer(path);
@@ -753,7 +755,7 @@ namespace fastgltf {
 
 	public:
 		explicit GltfFileStream(const std::filesystem::path& path);
-		~GltfFileStream() noexcept = default;
+		~GltfFileStream() noexcept override = default;
 
 		[[nodiscard]] bool isOpen() const;
 
@@ -776,7 +778,7 @@ namespace fastgltf {
 
     public:
         explicit AndroidGltfDataBuffer() noexcept = default;
-        ~AndroidGltfDataBuffer() noexcept = default;
+        ~AndroidGltfDataBuffer() noexcept override = default;
 
 		static Expected<AndroidGltfDataBuffer> FromAsset(const std::filesystem::path& path, std::uint64_t byteOffset = 0) noexcept {
 			AndroidGltfDataBuffer buffer(path);

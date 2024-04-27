@@ -130,7 +130,6 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
 #endif
 
 #ifdef HAS_GLTFRS
-	auto padding = fastgltf::getGltfBufferPadding();
 	BENCHMARK("Parse NewSponza with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size());
 		return rust::gltf::run(slice);
@@ -183,7 +182,6 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
 #endif
 
 #ifdef HAS_GLTFRS
-	auto padding = fastgltf::getGltfBufferPadding();
 	BENCHMARK("2CylinderEngine with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size());
 		return rust::gltf::run(slice);
@@ -237,7 +235,6 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
 #endif
 
 #ifdef HAS_GLTFRS
-	auto padding = fastgltf::getGltfBufferPadding();
 	BENCHMARK("Parse Buggy.gltf with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size());
 		return rust::gltf::run(slice);
@@ -293,7 +290,6 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
 #endif
 
 #ifdef HAS_GLTFRS
-	auto padding = fastgltf::getGltfBufferPadding();
 	BENCHMARK("Parse Bistro with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size());
 		return rust::gltf::run(slice);

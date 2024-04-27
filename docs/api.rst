@@ -286,8 +286,6 @@ Expected
 GltfDataGetter
 --------------
 
-.. doxygenfunction:: fastgltf::getGltfBufferPadding
-
 .. doxygenclass:: fastgltf::GltfDataGetter
    :members:
    :undoc-members:
