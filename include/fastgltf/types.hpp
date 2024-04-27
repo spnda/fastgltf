@@ -1569,6 +1569,8 @@ namespace fastgltf {
         std::array<num, 3> scale = {{ 1.f, 1.f, 1.f }};
     };
 
+	using attribute_type = std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>;
+
     struct Node {
         Optional<std::size_t> meshIndex;
 	    Optional<std::size_t> skinIndex;
@@ -1594,7 +1596,7 @@ namespace fastgltf {
         /**
          * Only ever non-empty when EXT_mesh_gpu_instancing is enabled and used by the asset.
          */
-        FASTGLTF_STD_PMR_NS::vector<std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>> instancingAttributes;
+        FASTGLTF_STD_PMR_NS::vector<attribute_type> instancingAttributes;
 
         FASTGLTF_STD_PMR_NS::string name;
 
@@ -1616,8 +1618,6 @@ namespace fastgltf {
     };
 
     struct Primitive {
-		using attribute_type = std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>;
-
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
 		FASTGLTF_FG_PMR_NS::SmallVector<attribute_type, 4> attributes;

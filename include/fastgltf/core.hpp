@@ -732,6 +732,9 @@ namespace fastgltf {
 		static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 		static void fillCategories(Category& inputCategories) noexcept;
 
+		template <typename T>
+		Error parseAttributes(simdjson::dom::object& object, T& attributes);
+
 		[[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> Expected<DataSource>;
 		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
 #if defined(__ANDROID__)

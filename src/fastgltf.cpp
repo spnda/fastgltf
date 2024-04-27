@@ -854,6 +854,32 @@ fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
     }
 }
 
+template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::object& object, T& attributes) {
+	using namespace simdjson;
+
+	// We iterate through the JSON object and write each key/pair value into the
+	// attribute map. The keys are only validated in the validate() method.
+	attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
+	attributes.reserve(object.size());
+	for (const auto& field : object) {
+		const auto key = field.key;
+
+		std::uint64_t attributeIndex;
+		if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		attributes.emplace_back(
+			std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
+	}
+	return Error::None;
+}
+
+// TODO: Is there some nicer way of declaring a templated version parseAttributes?
+//       Currently, this exists because resourceAllocator is a optional field of Parser, which we can't unconditionally
+//       pass as a parameter to a function, so parseAttributes needs to be a member function of Parser.
+template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, FASTGLTF_STD_PMR_NS::vector<attribute_type>&);
+template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, decltype(fastgltf::Primitive::attributes)&);
+
 fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 	for (auto& mesh : asset.meshes) {
 		for (auto& primitive : mesh.primitives) {
@@ -3177,29 +3203,13 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                     return Error::InvalidGltf;
                 }
 
-                auto parseAttributes = [FASTGLTF_IF_PMR(this)](dom::object& object, decltype(primitive.attributes)& attributes) -> auto {
-                    // We iterate through the JSON object and write each key/pair value into the
-                    // attribute map. The keys are only validated in the validate() method.
-					attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
-					attributes.reserve(object.size());
-                    for (const auto& field : object) {
-                        const auto key = field.key;
-
-                        std::uint64_t attributeIndex;
-                        if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
-                            return Error::InvalidGltf;
-                        }
-						attributes.emplace_back(
-							std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
-                    }
-                    return Error::None;
-                };
-
                 dom::object attributesObject;
                 if (primitiveObject["attributes"].get_object().get(attributesObject) != SUCCESS) FASTGLTF_UNLIKELY {
                     return Error::InvalidGltf;
                 }
-                parseAttributes(attributesObject, primitive.attributes);
+				if (auto error = parseAttributes(attributesObject, primitive.attributes); error != Error::None) {
+					return error;
+				}
 
                 dom::array targets;
                 if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) FASTGLTF_LIKELY {
@@ -3210,7 +3220,9 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
                             return Error::InvalidGltf;
                         }
                         auto& map = primitive.targets.emplace_back();
-                        parseAttributes(attributesObject, map);
+						if (auto error = parseAttributes(attributesObject, map); error != Error::None) {
+							return error;
+						}
                     }
                 }
 
@@ -3470,24 +3482,9 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
-					auto parseAttributes = [this](dom::object& object, decltype(node.instancingAttributes)& attributes) -> auto {
-						// We iterate through the JSON object and write each key/pair value into the
-						// attribute map. The keys are only validated in the validate() method.
-						attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.instancingAttributes), resourceAllocator.get(), 0);
-						attributes.reserve(object.size());
-						for (const auto& field : object) {
-							const auto key = field.key;
-
-							std::uint64_t attributeIndex;
-							if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
-								return Error::InvalidGltf;
-							}
-							attributes.emplace_back(
-								std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
-						}
-						return Error::None;
-					};
-					parseAttributes(attributesObject, node.instancingAttributes);
+					if (auto error = parseAttributes(attributesObject, node.instancingAttributes); error != Error::None) {
+						return error;
+					}
 				} else if (instancingError != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
 				}
