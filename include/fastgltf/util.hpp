@@ -28,6 +28,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -110,7 +111,7 @@ namespace fastgltf {
 #if FASTGLTF_HAS_CONCEPTS
     requires std::is_enum_v<T>
 #endif
-    [[nodiscard]] constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
+    [[nodiscard, msvc::intrinsic]] constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
 #if !FASTGLTF_HAS_CONCEPTS
         static_assert(std::is_enum_v<T>, "to_underlying only works with enum types.");
 #endif
