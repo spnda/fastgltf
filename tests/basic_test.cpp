@@ -9,13 +9,12 @@
 #define GLM_ENABLE_EXPERIMENTAL 1
 
 #include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/epsilon.hpp>
 
 #include <fastgltf/base64.hpp>
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
+#include <fastgltf/math.hpp>
 #include "gltf_path.hpp"
 #include <simdjson.h>
 
@@ -367,90 +366,6 @@ TEST_CASE("Test base64 decoding callbacks", "[gltf-loader]") {
     REQUIRE(decodeCounter != 0);
 }
 
-TEST_CASE("Test TRS parsing and optional decomposition", "[gltf-loader]") {
-    SECTION("Test decomposition on glTF asset") {
-		fastgltf::GltfFileStream jsonData(path / "transform_matrices.gltf");
-		REQUIRE(jsonData.isOpen());
-
-        // Parse once without decomposing, once with decomposing the matrix.
-        fastgltf::Parser parser;
-        auto assetWithMatrix = parser.loadGltfJson(jsonData, path, noOptions, fastgltf::Category::Nodes | fastgltf::Category::Cameras);
-        REQUIRE(assetWithMatrix.error() == fastgltf::Error::None);
-		REQUIRE(fastgltf::validate(assetWithMatrix.get()) == fastgltf::Error::None);
-
-        auto assetDecomposed = parser.loadGltfJson(jsonData, path, fastgltf::Options::DecomposeNodeMatrices, fastgltf::Category::Nodes | fastgltf::Category::Cameras);
-        REQUIRE(assetDecomposed.error() == fastgltf::Error::None);
-		REQUIRE(fastgltf::validate(assetDecomposed.get()) == fastgltf::Error::None);
-
-        REQUIRE(assetWithMatrix->cameras.size() == 1);
-        REQUIRE(assetDecomposed->cameras.size() == 1);
-        REQUIRE(assetWithMatrix->nodes.size() == 2);
-        REQUIRE(assetDecomposed->nodes.size() == 2);
-        REQUIRE(std::holds_alternative<fastgltf::Node::TransformMatrix>(assetWithMatrix->nodes.back().transform));
-        REQUIRE(std::holds_alternative<fastgltf::TRS>(assetDecomposed->nodes.back().transform));
-
-        // Get the TRS components from the first node and use them as the test data for decomposing.
-        const auto* pDefaultTRS = std::get_if<fastgltf::TRS>(&assetWithMatrix->nodes.front().transform);
-        REQUIRE(pDefaultTRS != nullptr);
-        auto translation = glm::make_vec3(pDefaultTRS->translation.data());
-        auto rotation = glm::make_quat(pDefaultTRS->rotation.data());
-        auto scale = glm::make_vec3(pDefaultTRS->scale.data());
-        auto rotationMatrix = glm::toMat4(rotation);
-        auto transform = glm::translate(glm::mat4(1.0f), translation) * rotationMatrix * glm::scale(glm::mat4(1.0f), scale);
-
-        // Check if the parsed matrix is correct.
-        const auto* pMatrix = std::get_if<fastgltf::Node::TransformMatrix>(&assetWithMatrix->nodes.back().transform);
-        REQUIRE(pMatrix != nullptr);
-        REQUIRE(glm::make_mat4x4(pMatrix->data()) == transform);
-
-        // Check if the decomposed components equal the original components.
-        const auto* pDecomposedTRS = std::get_if<fastgltf::TRS>(&assetDecomposed->nodes.back().transform);
-        REQUIRE(glm::make_vec3(pDecomposedTRS->translation.data()) == translation);
-        REQUIRE(glm::make_quat(pDecomposedTRS->rotation.data()) == rotation);
-        REQUIRE(glm::make_vec3(pDecomposedTRS->scale.data()) == scale);
-    }
-
-    SECTION("Test decomposition against glm decomposition") {
-        // Some random complex transform matrix from one of the glTF sample models.
-        std::array<float, 16> matrix = {
-            -0.4234085381031037F,
-            -0.9059388637542724F,
-            -7.575183536001616e-11F,
-            0.0F,
-            -0.9059388637542724F,
-            0.4234085381031037F,
-            -4.821281221478735e-11F,
-            0.0F,
-            7.575183536001616e-11F,
-            4.821281221478735e-11F,
-            -1.0F,
-            0.0F,
-            -90.59386444091796F,
-            -24.379817962646489F,
-            -40.05522918701172F,
-            1.0F
-        };
-
-        std::array<float, 3> translation = {}, scale = {};
-        std::array<float, 4> rotation = {};
-        fastgltf::decomposeTransformMatrix(matrix, scale, rotation, translation);
-
-        auto glmMatrix = glm::make_mat4x4(matrix.data());
-        glm::vec3 glmScale, glmTranslation, glmSkew;
-        glm::quat glmRotation;
-        glm::vec4 glmPerspective;
-        glm::decompose(glmMatrix, glmScale, glmRotation, glmTranslation, glmSkew, glmPerspective);
-
-        // I use glm::epsilon<float>() * 10 here because some matrices I tested this with resulted
-        // in an error margin greater than the normal epsilon value. I will investigate this in the
-        // future, but I suspect using double in the decompose functions should help mitigate most
-        // of it.
-        REQUIRE(glm::make_vec3(translation.data()) == glmTranslation);
-        REQUIRE(glm::all(glm::epsilonEqual(glm::make_quat(rotation.data()), glmRotation, glm::epsilon<float>() * 10)));
-        REQUIRE(glm::all(glm::epsilonEqual(glm::make_vec3(scale.data()), glmScale, glm::epsilon<float>())));
-    }
-}
-
 TEST_CASE("Validate sparse accessor parsing", "[gltf-loader]") {
     auto simpleSparseAccessor = sampleModels / "2.0" / "SimpleSparseAccessor" / "glTF";
 	fastgltf::GltfFileStream jsonData(simpleSparseAccessor / "SimpleSparseAccessor.gltf");
@@ -544,13 +459,13 @@ TEST_CASE("Test accessors min/max", "[gltf-loader]") {
         REQUIRE(max->size() == 3);
         REQUIRE(min->size() == 3);
 
-        REQUIRE(glm::epsilonEqual(max->at(0), 0.81497824192047119, glm::epsilon<double>()));
-        REQUIRE(glm::epsilonEqual(max->at(1), 1.8746249675750732, glm::epsilon<double>()));
-        REQUIRE(glm::epsilonEqual(max->at(2), 0.32295516133308411, glm::epsilon<double>()));
+		REQUIRE(max->at(0) == Catch::Approx(0.81497824192047119));
+		REQUIRE(max->at(1) == Catch::Approx(1.8746249675750732));
+		REQUIRE(max->at(2) == Catch::Approx(0.32295516133308411));
 
-        REQUIRE(glm::epsilonEqual(min->at(0), -0.12269512563943863, glm::epsilon<double>()));
-        REQUIRE(glm::epsilonEqual(min->at(1), 0.013025385327637196, glm::epsilon<double>()));
-        REQUIRE(glm::epsilonEqual(min->at(2), -0.32393229007720947, glm::epsilon<double>()));
+		REQUIRE(min->at(0) == Catch::Approx(-0.12269512563943863));
+		REQUIRE(min->at(1) == Catch::Approx(0.013025385327637196));
+		REQUIRE(min->at(2) == Catch::Approx(-0.32393229007720947));
     }
 
     {

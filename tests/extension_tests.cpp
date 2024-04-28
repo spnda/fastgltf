@@ -2,9 +2,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
-#include <glm/gtc/epsilon.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #include <fastgltf/core.hpp>
 #include "gltf_path.hpp"
 
@@ -126,9 +123,9 @@ TEST_CASE("Extension KHR_lights_punctual", "[gltf-loader]") {
 		REQUIRE(lights[0].name == "Point");
 		REQUIRE(lights[0].type == fastgltf::LightType::Point);
 		REQUIRE(lights[0].intensity == 15.0f);
-		REQUIRE(glm::epsilonEqual(lights[0].color[0], 1.0f, glm::epsilon<float>()));
-		REQUIRE(glm::epsilonEqual(lights[0].color[1], 0.63187497854232788f, glm::epsilon<float>()));
-		REQUIRE(glm::epsilonEqual(lights[0].color[2], 0.23909975588321689f, glm::epsilon<float>()));
+		REQUIRE(lights[0].color[0] == Catch::Approx(1.0f));
+		REQUIRE(lights[0].color[1] == Catch::Approx(0.63187497854232788f));
+		REQUIRE(lights[0].color[2] == Catch::Approx(0.23909975588321689f));
 	}
 
 	SECTION("Directional light") {
@@ -170,12 +167,12 @@ TEST_CASE("Extension KHR_materials_specular", "[gltf-loader]") {
     REQUIRE(materials[1].specular->specularFactor == 0.0f);
 
     REQUIRE(materials[2].specular != nullptr);
-    REQUIRE(glm::epsilonEqual(materials[2].specular->specularFactor, 0.051269f, glm::epsilon<float>()));
+	REQUIRE(materials[2].specular->specularFactor == Catch::Approx(0.051269f));
 
     REQUIRE(materials[8].specular != nullptr);
-    REQUIRE(glm::epsilonEqual(materials[8].specular->specularColorFactor[0], 0.051269f, glm::epsilon<float>()));
-    REQUIRE(glm::epsilonEqual(materials[8].specular->specularColorFactor[1], 0.051269f, glm::epsilon<float>()));
-    REQUIRE(glm::epsilonEqual(materials[8].specular->specularColorFactor[2], 0.051269f, glm::epsilon<float>()));
+	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
+	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
+	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
 
     REQUIRE(materials[12].specular != nullptr);
     REQUIRE(materials[12].specular->specularColorTexture.has_value());
@@ -225,10 +222,10 @@ TEST_CASE("Extension KHR_materials_volume and KHR_materials_transmission", "[glt
 
     auto& materials = asset->materials;
     REQUIRE(materials[5].volume != nullptr);
-    REQUIRE(glm::epsilonEqual(materials[5].volume->thicknessFactor, 0.2199999988079071f, glm::epsilon<float>()));
-    REQUIRE(glm::epsilonEqual(materials[5].volume->attenuationColor[0], 0.800000011920929f, glm::epsilon<float>()));
-    REQUIRE(glm::epsilonEqual(materials[5].volume->attenuationColor[1], 0.800000011920929f, glm::epsilon<float>()));
-    REQUIRE(glm::epsilonEqual(materials[5].volume->attenuationColor[2], 0.800000011920929f, glm::epsilon<float>()));
+	REQUIRE(materials[5].volume->thicknessFactor == Catch::Approx(0.2199999988079071f));
+	REQUIRE(materials[5].volume->attenuationColor[0] == Catch::Approx(0.800000011920929f));
+	REQUIRE(materials[5].volume->attenuationColor[1] == Catch::Approx(0.800000011920929f));
+	REQUIRE(materials[5].volume->attenuationColor[2] == Catch::Approx(0.800000011920929f));
 
     REQUIRE(materials[5].transmission != nullptr);
     REQUIRE(materials[5].transmission->transmissionFactor == 1.0f);

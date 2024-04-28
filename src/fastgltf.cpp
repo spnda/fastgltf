@@ -970,8 +970,7 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 				return Error::InvalidGltf;
 			if (light.innerConeAngle.value() > light.outerConeAngle.value())
 				return Error::InvalidGltf;
-			static constexpr double pi = 3.141592653589793116;
-			if (light.outerConeAngle.value() > pi / 2)
+			if (light.outerConeAngle.value() > math::pi / 2)
 				return Error::InvalidGltf;
 		}
 	}
@@ -1163,9 +1162,14 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			return Error::InvalidGltf;
 
 		if (const auto* pTRS = std::get_if<TRS>(&node.transform)) {
-			for (const auto& x : pTRS->rotation)
-				if (x > 1.0 || x < -1.0)
-					return Error::InvalidGltf;
+			if (pTRS->rotation.x() > 1.0 || pTRS->rotation.x() < -1.0)
+				return Error::InvalidGltf;
+			if (pTRS->rotation.y() > 1.0 || pTRS->rotation.y() < -1.0)
+				return Error::InvalidGltf;
+			if (pTRS->rotation.z() > 1.0 || pTRS->rotation.z() < -1.0)
+				return Error::InvalidGltf;
+			if (pTRS->rotation.w() > 1.0 || pTRS->rotation.w() < -1.0)
+				return Error::InvalidGltf;
 		}
 
 		if ((node.skinIndex.has_value() || !node.weights.empty()) && !node.meshIndex.has_value()) {
@@ -2305,8 +2309,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
             if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
                 light.outerConeAngle = static_cast<num>(outerConeAngle);
             } else if (error == NO_SUCH_FIELD) {
-                static constexpr double pi = 3.141592653589793116;
-                light.outerConeAngle = static_cast<num>(pi / 4.0);
+                light.outerConeAngle = static_cast<num>(math::pi / 4.0);
             } else {
                 return Error::InvalidGltf;
             }
@@ -3283,20 +3286,23 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
         auto error = nodeObject["matrix"].get_array().get(array);
         if (error == SUCCESS) FASTGLTF_LIKELY {
-            Node::TransformMatrix transformMatrix = {};
-            auto i = 0U;
-            for (auto num : array) {
+            math::fmat4x4 transformMatrix;
+            std::size_t i = 0, j = 0;
+			for (auto num : array) {
                 double val;
                 if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
                     break;
                 }
-                transformMatrix[i] = static_cast<fastgltf::num>(val);
-                ++i;
+				transformMatrix.col(i)[j++] = static_cast<fastgltf::num>(val);
+				if (j == 4) {
+					j = 0;
+					++i;
+				}
             }
 
             if (hasBit(options, Options::DecomposeNodeMatrices)) {
                 TRS trs = {};
-                decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
+                math::decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
                 node.transform = trs;
             } else {
                 node.transform = transformMatrix;
@@ -4760,7 +4766,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 
 		std::visit(visitor {
 			[&](const TRS& trs) {
-				if (trs.rotation != std::array<num, 4>{{.0f, .0f, .0f, 1.0f}}) {
+				if (trs.rotation != math::fquat(0.f, 0.f, 0.f, 1.f)) {
                     if (json.back() != '{')
                         json += ',';
 					json += R"("rotation":[)";
@@ -4768,7 +4774,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					json += "]";
 				}
 
-				if (trs.scale != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+				if (trs.scale != math::fvec3(1.f)) {
                     if (json.back() != '{')
                         json += ',';
 					json += R"("scale":[)";
@@ -4776,7 +4782,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					json += "]";
 				}
 
-				if (trs.translation != std::array<num, 3>{{.0f, .0f, .0f}}) {
+				if (trs.translation != math::fvec3(0.f)) {
                     if (json.back() != '{')
                         json += ',';
 					json += R"("translation":[)";
@@ -4784,14 +4790,16 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					json += "]";
 				}
 			},
-			[&](const Node::TransformMatrix& matrix) {
+			[&](const math::fmat4x4& matrix) {
 				if (json.back() != '{')
 					json += ',';
 				json += R"("matrix":[)";
-				for (std::size_t i = 0; i < matrix.size(); ++i) {
-					json += std::to_string(matrix[i]);
-					if (i + 1 < matrix.size()) {
-						json += ',';
+				for (std::size_t i = 0; i < matrix.columns(); ++i) {
+					for (std::size_t j = 0; j < matrix.rows(); ++j) {
+						json += std::to_string(matrix.col(i)[j]);
+						if (i * matrix.columns() + j + 1 < matrix.columns() * matrix.rows()) {
+							json += ',';
+						}
 					}
 				}
 				json += ']';

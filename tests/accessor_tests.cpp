@@ -1,12 +1,8 @@
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
-#include <glm/vec3.hpp>
-#include <glm/gtc/epsilon.hpp>
-#include <glm/ext/scalar_constants.hpp>
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
-#include <fastgltf/glm_element_traits.hpp>
 #include "gltf_path.hpp"
 
 static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {
@@ -29,22 +25,22 @@ TEST_CASE("Test data type conversion", "[gltf-tools]") {
 	// normalized int-to-float and normalized float-to-int
 	for (auto i = std::numeric_limits<std::int8_t>::min(); i < std::numeric_limits<std::int8_t>::max(); ++i) {
 		auto converted = fastgltf::internal::convertComponent<float>(i, true);
-		REQUIRE(glm::epsilonEqual<float>(converted, fastgltf::max<float>(i / 127.0f, -1), glm::epsilon<float>()));
+		REQUIRE(converted == Catch::Approx(fastgltf::max<float>(i / 127.0f, -1)));
 		REQUIRE(fastgltf::internal::convertComponent<std::int8_t>(converted, true) == std::round(converted * 127.0f));
 	}
 	for (auto i = std::numeric_limits<std::uint8_t>::min(); i < std::numeric_limits<std::uint8_t>::max(); ++i) {
 		auto converted = fastgltf::internal::convertComponent<float>(i, true);
-		REQUIRE(glm::epsilonEqual<float>(converted, i / 255.0f, glm::epsilon<float>()));
+		REQUIRE(converted == Catch::Approx(i / 255.0f));
 		REQUIRE(fastgltf::internal::convertComponent<std::uint8_t>(converted, true) == std::round(converted * 255.0f));
 	}
 	for (auto i = std::numeric_limits<std::int16_t>::min(); i < std::numeric_limits<std::int16_t>::max(); ++i) {
 		auto converted = fastgltf::internal::convertComponent<float>(i, true);
-		REQUIRE(glm::epsilonEqual<float>(converted, fastgltf::max<float>(i / 32767.0f, -1), glm::epsilon<float>()));
+		REQUIRE(converted == Catch::Approx(fastgltf::max<float>(i / 32767.0f, -1)));
 		REQUIRE(fastgltf::internal::convertComponent<std::int16_t>(converted, true) == std::round(converted * 32767.0f));
 	}
 	for (auto i = std::numeric_limits<std::uint16_t>::min(); i < std::numeric_limits<std::uint16_t>::max(); ++i) {
 		auto converted = fastgltf::internal::convertComponent<float>(i, true);
-		REQUIRE(glm::epsilonEqual<float>(converted, i / 65535.0f, glm::epsilon<float>()));
+		REQUIRE(converted == Catch::Approx(i / 65535.0f));
 		REQUIRE(fastgltf::internal::convertComponent<std::uint16_t>(converted, true) == std::round(converted * 65535.0f));
 	}
 }
@@ -65,11 +61,11 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
        3, 4
     }};
     REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedShort) == unpaddedMat2.size() * sizeof(std::uint16_t));
-    auto umat2 = fastgltf::internal::getAccessorElementAt<glm::mat2x2>(
+    auto umat2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat2x2>(
             fastgltf::ComponentType::UnsignedShort,
             reinterpret_cast<const std::byte*>(unpaddedMat2.data()));
-    REQUIRE(umat2[0] == glm::vec2(1, 2));
-    REQUIRE(umat2[1] == glm::vec2(3, 4));
+    REQUIRE(umat2[0] == fastgltf::math::fvec2(1, 2));
+    REQUIRE(umat2[1] == fastgltf::math::fvec2(3, 4));
 
     // This will simulate a padded 2x2 matrix with the correct 4-byte padding per column
     std::array<std::uint8_t, 8> paddedMat2 {{
@@ -77,11 +73,11 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
         3, 4, 0, 0
     }};
     REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedByte) == paddedMat2.size());
-    auto mat2 = fastgltf::internal::getAccessorElementAt<glm::mat2x2>(
+    auto mat2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat2x2>(
             fastgltf::ComponentType::UnsignedByte,
             reinterpret_cast<const std::byte*>(paddedMat2.data()));
-    REQUIRE(mat2[0] == glm::vec2(1, 2));
-    REQUIRE(mat2[1] == glm::vec2(3, 4));
+    REQUIRE(mat2[0] == fastgltf::math::fvec2(1, 2));
+    REQUIRE(mat2[1] == fastgltf::math::fvec2(3, 4));
 
     std::array<std::uint8_t, 12> paddedMat3 {{
         1, 2, 3, 0,
@@ -89,12 +85,12 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
         7, 8, 9, 0
     }};
     REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedByte) == paddedMat3.size());
-    auto mat3 = fastgltf::internal::getAccessorElementAt<glm::mat3x3>(
+    auto mat3 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat3x3>(
             fastgltf::ComponentType::UnsignedByte,
             reinterpret_cast<const std::byte*>(paddedMat3.data()));
-    REQUIRE(mat3[0] == glm::vec3(1, 2, 3));
-    REQUIRE(mat3[1] == glm::vec3(4, 5, 6));
-    REQUIRE(mat3[2] == glm::vec3(7, 8, 9));
+    REQUIRE(mat3[0] == fastgltf::math::fvec3(1, 2, 3));
+    REQUIRE(mat3[1] == fastgltf::math::fvec3(4, 5, 6));
+    REQUIRE(mat3[2] == fastgltf::math::fvec3(7, 8, 9));
 
     // This now uses 16-bit shorts for the component types.
     std::array<std::uint16_t, 12> padded2BMat3 {{
@@ -103,12 +99,12 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
         7, 8, 9, 0
     }};
     REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedShort) == paddedMat3.size() * sizeof(std::uint16_t));
-    auto mat3_2 = fastgltf::internal::getAccessorElementAt<glm::mat3x3>(
+    auto mat3_2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat3x3>(
             fastgltf::ComponentType::UnsignedShort,
             reinterpret_cast<const std::byte*>(padded2BMat3.data()));
-    REQUIRE(mat3_2[0] == glm::vec3(1, 2, 3));
-    REQUIRE(mat3_2[1] == glm::vec3(4, 5, 6));
-    REQUIRE(mat3_2[2] == glm::vec3(7, 8, 9));
+    REQUIRE(mat3_2[0] == fastgltf::math::fvec3(1, 2, 3));
+    REQUIRE(mat3_2[1] == fastgltf::math::fvec3(4, 5, 6));
+    REQUIRE(mat3_2[2] == fastgltf::math::fvec3(7, 8, 9));
 }
 
 TEST_CASE("Test accessor", "[gltf-tools]") {
@@ -153,37 +149,37 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 		auto* bufferData = getBufferData(asset->buffers[view.bufferIndex]);
 		REQUIRE(bufferData != nullptr);
 
-		auto* checkData = reinterpret_cast<const glm::vec3*>(bufferData + view.byteOffset
+		auto* checkData = reinterpret_cast<const fastgltf::math::fvec3*>(bufferData + view.byteOffset
 				+ secondAccessor.byteOffset);
 
-		SECTION("getAccessorElement<glm::vec3>") {
-			REQUIRE(*checkData == fastgltf::getAccessorElement<glm::vec3>(asset.get(), secondAccessor, 0));
+		SECTION("getAccessorElement<fastgltf::math::fvec3>") {
+			REQUIRE(*checkData == fastgltf::getAccessorElement<fastgltf::math::fvec3>(asset.get(), secondAccessor, 0));
 		}
 
 		SECTION("iterateAccessor") {
-			auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+			auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
 			std::size_t i = 0;
 
-			fastgltf::iterateAccessor<glm::vec3>(asset.get(), secondAccessor, [&](auto&& v3) {
-				dstCopy[i++] = std::forward<glm::vec3>(v3);
+			fastgltf::iterateAccessor<fastgltf::math::fvec3>(asset.get(), secondAccessor, [&](auto&& v3) {
+				dstCopy[i++] = std::forward<fastgltf::math::fvec3>(v3);
 			});
 
-			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 		}
 
 		SECTION("copyFromAccessor") {
-			auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
-			fastgltf::copyFromAccessor<glm::vec3>(asset.get(), secondAccessor, dstCopy.get());
-			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+			auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
+			fastgltf::copyFromAccessor<fastgltf::math::fvec3>(asset.get(), secondAccessor, dstCopy.get());
+			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 		}
 
 		SECTION("Iterator test") {
-			auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
-			auto accessor = fastgltf::iterateAccessor<glm::vec3>(asset.get(), secondAccessor);
+			auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
+			auto accessor = fastgltf::iterateAccessor<fastgltf::math::fvec3>(asset.get(), secondAccessor);
 			for (auto it = accessor.begin(); it != accessor.end(); ++it) {
 				dstCopy[std::distance(accessor.begin(), it)] = *it;
 			}
-			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(glm::vec3)) == 0);
+			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 		}
 	}
 }
@@ -222,59 +218,59 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
 
 	auto* dataIndices = reinterpret_cast<const std::uint16_t*>(getBufferData(asset->buffers[viewIndices.bufferIndex])
 			+ viewIndices.byteOffset + secondAccessor.sparse->indicesByteOffset);
-	auto* dataValues = reinterpret_cast<const glm::vec3*>(getBufferData(asset->buffers[viewValues.bufferIndex])
+	auto* dataValues = reinterpret_cast<const fastgltf::math::fvec3*>(getBufferData(asset->buffers[viewValues.bufferIndex])
 			+ viewValues.byteOffset + secondAccessor.sparse->valuesByteOffset);
 
-	auto checkValues = std::make_unique<glm::vec3[]>(secondAccessor.count);
+	auto checkValues = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
 
 	for (std::size_t i = 0, sparseIndex = 0; i < secondAccessor.count; ++i) {
 		if (sparseIndex < secondAccessor.sparse->count && dataIndices[sparseIndex] == i) {
 			checkValues[i] = dataValues[sparseIndex];
 			++sparseIndex;
 		} else {
-			checkValues[i] = *reinterpret_cast<const glm::vec3*>(bufferData + dataStride * i);
+			checkValues[i] = *reinterpret_cast<const fastgltf::math::fvec3*>(bufferData + dataStride * i);
 		}
 	}
 
 	SECTION("getAccessorElement") {
 		for (std::size_t i = 0; i < secondAccessor.count; ++i) {
-			REQUIRE(checkValues[i] == fastgltf::getAccessorElement<glm::vec3>(asset.get(), secondAccessor, i));
+			REQUIRE(checkValues[i] == fastgltf::getAccessorElement<fastgltf::math::fvec3>(asset.get(), secondAccessor, i));
 		}
 	}
 
 	SECTION("iterateAccessor") {
-		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+		auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
 		std::size_t i = 0;
 
-		fastgltf::iterateAccessor<glm::vec3>(asset.get(), secondAccessor, [&](auto&& v3) {
-			dstCopy[i++] = std::forward<glm::vec3>(v3);
+		fastgltf::iterateAccessor<fastgltf::math::fvec3>(asset.get(), secondAccessor, [&](auto&& v3) {
+			dstCopy[i++] = std::forward<fastgltf::math::fvec3>(v3);
 		});
 
-		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 	}
 
 	SECTION("iterateAccessor with idx") {
-		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
+		auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
 
-		fastgltf::iterateAccessorWithIndex<glm::vec3>(asset.get(), secondAccessor, [&](auto&& v3, std::size_t i) {
-			dstCopy[i] = std::forward<glm::vec3>(v3);
+		fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset.get(), secondAccessor, [&](auto&& v3, std::size_t i) {
+			dstCopy[i] = std::forward<fastgltf::math::fvec3>(v3);
 		});
 
-		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 	}
 
 	SECTION("copyFromAccessor") {
-		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
-		fastgltf::copyFromAccessor<glm::vec3>(asset.get(), secondAccessor, dstCopy.get());
-		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
+		auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
+		fastgltf::copyFromAccessor<fastgltf::math::fvec3>(asset.get(), secondAccessor, dstCopy.get());
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 	}
 
 	SECTION("Iterator test") {
-		auto dstCopy = std::make_unique<glm::vec3[]>(secondAccessor.count);
-		auto accessor = fastgltf::iterateAccessor<glm::vec3>(asset.get(), secondAccessor);
+		auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(secondAccessor.count);
+		auto accessor = fastgltf::iterateAccessor<fastgltf::math::fvec3>(asset.get(), secondAccessor);
 		for (auto it = accessor.begin(); it != accessor.end(); ++it) {
 			dstCopy[std::distance(accessor.begin(), it)] = *it;
 		}
-		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(glm::vec3)) == 0);
+		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 	}
 }

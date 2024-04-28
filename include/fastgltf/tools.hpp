@@ -87,29 +87,47 @@ struct ElementTraitsBase {
 template <typename>
 struct ElementTraits;
 
-template<>
-struct ElementTraits<std::int8_t> : ElementTraitsBase<std::int8_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::int8_t> : ElementTraitsBase<std::int8_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::uint8_t> : ElementTraitsBase<std::uint8_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::int16_t> : ElementTraitsBase<std::int16_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::uint16_t> : ElementTraitsBase<std::uint16_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::int32_t> : ElementTraitsBase<std::int32_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::uint32_t> : ElementTraitsBase<std::uint32_t, AccessorType::Scalar> {};
 
-template<>
-struct ElementTraits<std::uint8_t> : ElementTraitsBase<std::uint8_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<float> : ElementTraitsBase<float, AccessorType::Scalar> {};
+template<> struct ElementTraits<double> : ElementTraitsBase<double, AccessorType::Scalar> {};
 
-template<>
-struct ElementTraits<std::int16_t> : ElementTraitsBase<std::int16_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<math::s8vec2> : ElementTraitsBase<math::s8vec2, AccessorType::Vec2, std::int8_t> {};
+template<> struct ElementTraits<math::s8vec3> : ElementTraitsBase<math::s8vec3, AccessorType::Vec3, std::int8_t> {};
+template<> struct ElementTraits<math::s8vec4> : ElementTraitsBase<math::s8vec4, AccessorType::Vec4, std::int8_t> {};
+template<> struct ElementTraits<math::u8vec2> : ElementTraitsBase<math::u8vec2, AccessorType::Vec2, std::uint8_t> {};
+template<> struct ElementTraits<math::u8vec3> : ElementTraitsBase<math::u8vec3, AccessorType::Vec3, std::uint8_t> {};
+template<> struct ElementTraits<math::u8vec4> : ElementTraitsBase<math::u8vec4, AccessorType::Vec4, std::uint8_t> {};
 
-template<>
-struct ElementTraits<std::uint16_t> : ElementTraitsBase<std::uint16_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<math::s16vec2> : ElementTraitsBase<math::s16vec2, AccessorType::Vec2, std::int16_t> {};
+template<> struct ElementTraits<math::s16vec3> : ElementTraitsBase<math::s16vec3, AccessorType::Vec3, std::int16_t> {};
+template<> struct ElementTraits<math::s16vec4> : ElementTraitsBase<math::s16vec4, AccessorType::Vec4, std::int16_t> {};
+template<> struct ElementTraits<math::u16vec2> : ElementTraitsBase<math::u16vec2, AccessorType::Vec2, std::uint16_t> {};
+template<> struct ElementTraits<math::u16vec3> : ElementTraitsBase<math::u16vec3, AccessorType::Vec3, std::uint16_t> {};
+template<> struct ElementTraits<math::u16vec4> : ElementTraitsBase<math::u16vec4, AccessorType::Vec4, std::uint16_t> {};
 
-template<>
-struct ElementTraits<std::int32_t> : ElementTraitsBase<std::int32_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<math::s32vec2> : ElementTraitsBase<math::s32vec2, AccessorType::Vec2, std::int16_t> {};
+template<> struct ElementTraits<math::s32vec3> : ElementTraitsBase<math::s32vec3, AccessorType::Vec3, std::int16_t> {};
+template<> struct ElementTraits<math::s32vec4> : ElementTraitsBase<math::s32vec4, AccessorType::Vec4, std::int16_t> {};
+template<> struct ElementTraits<math::u32vec2> : ElementTraitsBase<math::u32vec2, AccessorType::Vec2, std::uint32_t> {};
+template<> struct ElementTraits<math::u32vec3> : ElementTraitsBase<math::u32vec3, AccessorType::Vec3, std::uint32_t> {};
+template<> struct ElementTraits<math::u32vec4> : ElementTraitsBase<math::u32vec4, AccessorType::Vec4, std::uint32_t> {};
 
-template<>
-struct ElementTraits<std::uint32_t> : ElementTraitsBase<std::uint32_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<math::fvec2> : ElementTraitsBase<math::fvec2, AccessorType::Vec2, float> {};
+template<> struct ElementTraits<math::fvec3> : ElementTraitsBase<math::fvec3, AccessorType::Vec3, float> {};
+template<> struct ElementTraits<math::fvec4> : ElementTraitsBase<math::fvec4, AccessorType::Vec4, float> {};
+template<> struct ElementTraits<math::dvec2> : ElementTraitsBase<math::dvec2, AccessorType::Vec2, double> {};
+template<> struct ElementTraits<math::dvec3> : ElementTraitsBase<math::dvec3, AccessorType::Vec3, double> {};
+template<> struct ElementTraits<math::dvec4> : ElementTraitsBase<math::dvec4, AccessorType::Vec4, double> {};
 
-template<>
-struct ElementTraits<float> : ElementTraitsBase<float, AccessorType::Scalar> {};
-
-template<>
-struct ElementTraits<double> : ElementTraitsBase<double, AccessorType::Scalar> {};
+template<> struct ElementTraits<math::fmat2x2> : ElementTraitsBase<math::fmat2x2, AccessorType::Mat2, float> {};
+template<> struct ElementTraits<math::fmat3x3> : ElementTraitsBase<math::fmat3x3, AccessorType::Mat3, float> {};
+template<> struct ElementTraits<math::fmat4x4> : ElementTraitsBase<math::fmat4x4, AccessorType::Mat4, float> {};
 
 #if FASTGLTF_HAS_CONCEPTS
 template <typename ElementType>
@@ -701,6 +719,48 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 			*pDest = internal::getAccessorElementAt<ElementType>(
                     accessor.componentType, &srcBytes[srcStride * i]);
 		}
+	}
+}
+
+/**
+ * Computes the transform matrix for a given node, and multiplies the given base with that matrix.
+ */
+auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
+	return std::visit(visitor {
+		[&](const math::fmat4x4& matrix) {
+			return base * matrix;
+		},
+		[&](const TRS& trs) {
+			return base
+				* translate(math::fmat4x4(), trs.translation)
+				* asMatrix(trs.rotation)
+				* scale(math::fmat4x4(), trs.scale);
+		}
+	}, node.transform);
+}
+
+/**
+ * Iterates over every node within a scene recursively, computing the world space transform of each node,
+ * and calling the callback function with that node and the transform.
+ */
+template <typename Callback>
+void iterateSceneNodes(fastgltf::Asset& asset, std::size_t sceneIndex, math::fmat4x4 initial, Callback callback) {
+	auto& scene = asset.scenes[sceneIndex];
+
+	auto function = [&](std::size_t nodeIndex, math::fmat4x4 nodeMatrix, auto& self) -> void {
+		assert(asset.nodes.size() > nodeIndex);
+		auto& node = asset.nodes[nodeIndex];
+		nodeMatrix = getTransformMatrix(node, nodeMatrix);
+
+		callback(node, nodeMatrix);
+
+		for (auto& child : node.children) {
+			self(child, nodeMatrix, self);
+		}
+	};
+
+	for (auto& sceneNode : scene.nodeIndices) {
+		function(sceneNode, initial, function);
 	}
 }
 

@@ -301,29 +301,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     }
 }
 
-glm::mat4 getTransformMatrix(const fastgltf::Node& node, glm::mat4x4& base) {
-    /** Both a matrix and TRS values are not allowed
-     * to exist at the same time according to the spec */
-    if (const auto* pMatrix = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
-        return base * glm::mat4x4(glm::make_mat4x4(pMatrix->data()));
-    }
-
-	if (const auto* pTransform = std::get_if<fastgltf::TRS>(&node.transform)) {
-		// Warning: The quaternion to mat4x4 conversion here is not correct with all versions of glm.
-		// glTF provides the quaternion as (x, y, z, w), which is the same layout glm used up to version 0.9.9.8.
-		// However, with commit 59ddeb7 (May 2021) the default order was changed to (w, x, y, z).
-		// You could either define GLM_FORCE_QUAT_DATA_XYZW to return to the old layout,
-		// or you could use the recently added static factory constructor glm::quat::wxyz(w, x, y, z),
-		// which guarantees the parameter order.
-        return base
-            * glm::translate(glm::mat4(1.0f), glm::make_vec3(pTransform->translation.data()))
-            * glm::toMat4(glm::make_quat(pTransform->rotation.data()))
-            * glm::scale(glm::mat4(1.0f), glm::make_vec3(pTransform->scale.data()));
-    }
-
-	return base;
-}
-
 bool loadGltf(Viewer* viewer, std::filesystem::path path) {
 	if (!std::filesystem::exists(path)) {
 		std::cout << "Failed to find " << path << '\n';
@@ -598,7 +575,7 @@ bool loadCamera(Viewer* viewer, fastgltf::Camera& camera) {
 	return true;
 }
 
-void drawMesh(Viewer* viewer, std::size_t meshIndex, glm::mat4 matrix) {
+void drawMesh(Viewer* viewer, std::size_t meshIndex, fastgltf::math::fmat4x4 matrix) {
     auto& mesh = viewer->meshes[meshIndex];
 
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
@@ -641,19 +618,6 @@ void drawMesh(Viewer* viewer, std::size_t meshIndex, glm::mat4 matrix) {
     }
 }
 
-void drawNode(Viewer* viewer, std::size_t nodeIndex, glm::mat4 matrix) {
-    auto& node = viewer->asset.nodes[nodeIndex];
-    matrix = getTransformMatrix(node, matrix);
-
-    if (node.meshIndex.has_value()) {
-        drawMesh(viewer, node.meshIndex.value(), matrix);
-    }
-
-    for (auto& child : node.children) {
-        drawNode(viewer, child, matrix);
-    }
-}
-
 void updateCameraNodes(Viewer* viewer, std::vector<fastgltf::Node*>& cameraNodes, std::size_t nodeIndex) {
 	// This function recursively traverses the node hierarchy starting with the node at nodeIndex
 	// to find any nodes holding cameras.
@@ -672,18 +636,6 @@ void updateCameraNodes(Viewer* viewer, std::vector<fastgltf::Node*>& cameraNodes
 	}
 }
 
-void getCameraViewMatrix(Viewer* viewer, std::vector<fastgltf::Node*>& cameraNodes, std::size_t nodeIndex, glm::mat4 matrix) {
-	auto& node = viewer->asset.nodes[nodeIndex];
-	matrix = getTransformMatrix(node, matrix);
-
-	if (node.cameraIndex.has_value() && &node == cameraNodes[*viewer->cameraIndex]) {
-		viewer->viewMatrix = matrix;
-	}
-
-	for (auto& child : node.children) {
-		getCameraViewMatrix(viewer, cameraNodes, child, matrix);
-	}
-}
 #ifdef _MSC_VER
 int wmain(int argc, wchar_t* argv[]) {
 	if (argc < 2) {
@@ -956,13 +908,14 @@ int main(int argc, char* argv[]) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		if (!asset.scenes.empty() && sceneIndex < asset.scenes.size()) {
-			auto& scene = asset.scenes[sceneIndex];
-
 			// Update the camera view and projection matrices
 			if (viewer.cameraIndex.has_value()) {
-				for (auto& sceneNode: scene.nodeIndices) {
-					getCameraViewMatrix(&viewer, cameraNodes, sceneNode, glm::mat4(1.0f));
-				}
+				fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::fmat4x4(),
+											[&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
+					if (node.cameraIndex.has_value() && &node == cameraNodes[*viewer.cameraIndex]) {
+						viewer.viewMatrix = glm::make_mat4x4(&matrix[0][0]);
+					}
+				});
 
 				viewer.viewMatrix = glm::affineInverse(viewer.viewMatrix);
 				viewer.projectionMatrix = viewer.cameras[viewer.cameraIndex.value()];
@@ -984,9 +937,12 @@ int main(int argc, char* argv[]) {
 
 			updateCameraMatrix(&viewer);
 
-			for (auto& node: scene.nodeIndices) {
-				drawNode(&viewer, node, glm::mat4(1.0f));
-			}
+			fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::fmat4x4(),
+										[&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
+				if (node.meshIndex.has_value()) {
+					drawMesh(&viewer, node.meshIndex.value(), matrix);
+				}
+			});
 		}
 
 		// Render ImGui

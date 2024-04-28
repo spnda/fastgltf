@@ -38,6 +38,7 @@
 
 // Utils header already includes some headers, which we'll try and avoid including twice.
 #include <fastgltf/util.hpp>
+#include <fastgltf/math.hpp>
 
 #if defined(_GLIBCXX_USE_CXX11_ABI) && !_GLIBCXX_USE_CXX11_ABI
 // polymorphic allocators are only supported with the 'new' GCC ABI.
@@ -1563,11 +1564,11 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::string name;
     };
 
-    struct TRS {
-        std::array<num, 3> translation = {{ 0.f, 0.f, 0.f }};
-        std::array<num, 4> rotation = {{ 0.f, 0.f, 0.f, 1.f }};
-        std::array<num, 3> scale = {{ 1.f, 1.f, 1.f }};
-    };
+	struct TRS {
+		math::fvec3 translation = math::fvec3(0.f);
+		math::fquat rotation = math::fquat(0.f, 0.f, 0.f, 1.f);
+		math::fvec3 scale = math::fvec3(1.f);
+	};
 
 	using attribute_type = std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>;
 
@@ -1584,14 +1585,12 @@ namespace fastgltf {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> children;
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
-        using TransformMatrix = std::array<num, 16>;
-
         /**
          * Variant holding either the three TRS components; transform, rotation, and scale, or a
          * transformation matrix, which cannot skew or shear. The latter can be decomposed into
          * the TRS components by specifying Options::DecomposeNodeMatrices.
          */
-        std::variant<TRS, TransformMatrix> transform;
+        std::variant<TRS, math::fmat4x4> transform;
 
         /**
          * Only ever non-empty when EXT_mesh_gpu_instancing is enabled and used by the asset.
