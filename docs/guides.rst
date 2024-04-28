@@ -4,6 +4,46 @@ Guides
 
 .. contents:: Table of Contents
 
+How to load glTF files for parsing
+==================================
+
+Before you can have the ``fastgltf::Parser`` object parse the glTF, you need to load it into memory.
+The ``loadGltf`` functions all take a reference to a ``fastgltf::GltfDataGetter``, which defines a common interface for reading memory.
+**fastgltf** provides some implementations for this interface natively, which can be used out of the box.
+Most notably, ``fastgltf::GltfDataBuffer`` and ``fastgltf::GltfFileStream``.
+
+GltfDataBuffer
+--------------
+
+This basic class essentially holds a buffer with the contents of a glTF.
+This buffer can be created and filled using the factory constructors.
+These constructors return an ``Expected<T>`` which holds the buffer, as well as an error, if one occurred.
+Be sure to always check if any of these functions returned an error.
+
+.. code:: c++
+
+   auto gltfFile = fastgltf::GltfDataBuffer::FromPath("./asset.gltf");
+   auto gltfData = fastgltf::GltfDataBuffer::FromBytes(bytes.data(), bytes.size());
+
+GltfFileStream
+--------------
+
+``GltfFileStream`` is a basic wrapper around ``std::ifstream``, implementing the ``fastgltf::GltfDataGetter`` interface.
+The usage of this class is essentially just a cut down version of the stdlib class.
+
+.. code:: c++
+
+   fastgltf::GltfFileStream fileStream("./asset.gltf");
+   if (!fileStream.isOpen())
+       return false;
+
+AndroidGltfDataBuffer
+---------------------
+
+This is essentially the same interface as ``fastgltf::GltfDataBuffer``, but additionally supports loading APK assets.
+See :ref:`this section <android-guide>` for more information.
+
+
 How to read glTF extras
 =======================
 
@@ -76,6 +116,7 @@ Additionally, ``fastgltf::Exporter`` also supports writing extras:
    exporter.setExtrasWriteCallback(extrasWriteCallback);
    auto exported = exporter.writeGltfJson(asset, fastgltf::ExportOptions::None);
 
+.. _android-guide:
 
 How to use fastgltf on Android
 ==============================
@@ -94,12 +135,14 @@ The glTF file itself, however, needs to be loaded using a special function:
 
 .. code:: c++
 
-   fastgltf::AndroidGltfDataBuffer jsonData;
-   jsonData.loadFromAndroidAsset(filePath);
+   auto jsonData = fastgltf::AndroidGltfDataBuffer::FromAsset(filePath);
+   if (jsonData.error() != fastgltf::Error::None)
+       return false;
 
 .. note::
 
-   Always check the return value from functions related to ``fastgltf::GltfDataBuffer``.
+   Always check the return value from the factory functions from classes inheriting ``fastgltf::GltfDataGetter``,
+   since they return an Expected<T> which could possibly contain an error.
 
 
 How to load data from accessors

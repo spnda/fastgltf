@@ -27,11 +27,11 @@ TEST_CASE("Test simple glTF composition", "[write-tests]") {
 
 TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-tests]") {
 	auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
-	auto cubeJsonData = std::make_unique<fastgltf::GltfDataBuffer>();
-	REQUIRE(cubeJsonData->loadFromFile(cubePath / "Cube.gltf"));
+	fastgltf::GltfFileStream cubeJsonData(cubePath / "Cube.gltf");
+	REQUIRE(cubeJsonData.isOpen());
 
 	fastgltf::Parser parser;
-	auto cube = parser.loadGltfJson(cubeJsonData.get(), cubePath);
+	auto cube = parser.loadGltfJson(cubeJsonData, cubePath);
 	REQUIRE(cube.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(cube.get()) == fastgltf::Error::None);
 
@@ -39,18 +39,18 @@ TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-te
 	auto expected = exporter.writeGltfJson(cube.get());
     REQUIRE(expected.error() == fastgltf::Error::None);
 
-	fastgltf::GltfDataBuffer cube2JsonData;
-	cube2JsonData.copyBytes(reinterpret_cast<const uint8_t*>(expected.get().output.data()),
-                            expected.get().output.size());
-	auto cube2 = parser.loadGltfJson(&cube2JsonData, cubePath);
+	auto exportedJsonData = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(expected.get().output.data()), expected.get().output.size());
+	REQUIRE(exportedJsonData.error() == fastgltf::Error::None);
+	auto cube2 = parser.loadGltfJson(exportedJsonData.get(), cubePath);
 	REQUIRE(cube2.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(cube2.get()) == fastgltf::Error::None);
 }
 
 TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]") {
 	auto dishPath = sampleModels / "2.0" / "IridescentDishWithOlives" / "glTF";
-	fastgltf::GltfDataBuffer dishJsonData;
-	REQUIRE(dishJsonData.loadFromFile(dishPath / "IridescentDishWithOlives.gltf"));
+	fastgltf::GltfFileStream dishJsonData(dishPath / "IridescentDishWithOlives.gltf");
+	REQUIRE(dishJsonData.isOpen());
 
 	static constexpr auto requiredExtensions = fastgltf::Extensions::KHR_materials_ior |
 		fastgltf::Extensions::KHR_materials_iridescence |
@@ -58,7 +58,7 @@ TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]"
 		fastgltf::Extensions::KHR_materials_volume;
 
 	fastgltf::Parser parser(requiredExtensions);
-	auto dish = parser.loadGltfJson(&dishJsonData, dishPath);
+	auto dish = parser.loadGltfJson(dishJsonData, dishPath);
 	REQUIRE(dish.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(dish.get()) == fastgltf::Error::None);
 
@@ -66,10 +66,10 @@ TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]"
 	auto expected = exporter.writeGltfJson(dish.get());
 	REQUIRE(expected.error() == fastgltf::Error::None);
 
-	fastgltf::GltfDataBuffer exportedDishJsonData;
-	exportedDishJsonData.copyBytes(reinterpret_cast<const uint8_t*>(expected.get().output.data()),
-								   expected.get().output.size());
-	auto exportedDish = parser.loadGltfJson(&exportedDishJsonData, dishPath);
+	auto exportedDishJsonData = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(expected.get().output.data()), expected.get().output.size());
+	REQUIRE(exportedDishJsonData.error() == fastgltf::Error::None);
+	auto exportedDish = parser.loadGltfJson(exportedDishJsonData.get(), dishPath);
 	REQUIRE(exportedDish.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(exportedDish.get()) == fastgltf::Error::None);
 }
@@ -77,17 +77,17 @@ TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]"
 TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
 
-    fastgltf::GltfDataBuffer gltfDataBuffer;
-    gltfDataBuffer.loadFromFile(cubePath / "Cube.gltf");
+	fastgltf::GltfFileStream cubeJson(cubePath / "Cube.gltf");
+	REQUIRE(cubeJson.isOpen());
 
     fastgltf::Parser parser;
     auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-    auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
+    auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
 	// Destroy the directory to make sure that the FileExporter correctly creates directories.
 	auto exportedFolder = path / "export";
-	if (std::filesystem::exists(exportedFolder)) {
+	if (std::filesystem::is_directory(exportedFolder)) {
 		std::error_code ec;
 		std::filesystem::remove_all(exportedFolder, ec);
 		REQUIRE(!ec);
@@ -97,17 +97,20 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     auto error = exporter.writeGltfJson(cube.get(), exportedFolder / "cube.gltf",
                                         fastgltf::ExportOptions::PrettyPrintJson);
     REQUIRE(error == fastgltf::Error::None);
+	REQUIRE(std::filesystem::exists(exportedFolder / "buffer0.bin"));
+	REQUIRE(std::filesystem::exists(exportedFolder / "image0.bin"));
+	REQUIRE(std::filesystem::exists(exportedFolder / "image1.bin"));
 }
 
 TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
 
-    fastgltf::GltfDataBuffer gltfDataBuffer;
-    gltfDataBuffer.loadFromFile(cubePath / "Cube.gltf");
+	fastgltf::GltfFileStream cubeJson(cubePath / "Cube.gltf");
+	REQUIRE(cubeJson.isOpen());
 
     fastgltf::Parser parser;
     auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-    auto cube = parser.loadGltfJson(&gltfDataBuffer, cubePath, options);
+    auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
 	// Destroy the directory to make sure that the FileExporter correctly creates directories.
@@ -122,6 +125,8 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
 	auto exportedPath = exportedFolder / "cube.glb";
     auto error = exporter.writeGltfBinary(cube.get(), exportedPath);
     REQUIRE(error == fastgltf::Error::None);
+	REQUIRE(std::filesystem::exists(exportedFolder / "image0.bin"));
+	REQUIRE(std::filesystem::exists(exportedFolder / "image1.bin"));
 
 	// Make sure the GLB buffer is written
 	std::ifstream glb(exportedPath, std::ios::binary);
@@ -183,9 +188,8 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 			continue;
 
 		// Parse the glTF
-		fastgltf::GltfDataBuffer gltfDataBuffer;
-		gltfDataBuffer.loadFromFile(epath);
-		auto model = parser.loadGltf(&gltfDataBuffer, epath.parent_path());
+		fastgltf::GltfFileStream gltfData(epath);
+		auto model = parser.loadGltf(gltfData, epath.parent_path());
 		if (model.error() == fastgltf::Error::UnsupportedVersion || model.error() == fastgltf::Error::UnknownRequiredExtension)
 			continue; // Skip any glTF 1.0 or 0.x files or glTFs with unsupported extensions.
 
@@ -202,9 +206,10 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		REQUIRE(simdjson::validate_utf8(exportedJson));
 
 		// Parse the re-generated glTF and validate
-		fastgltf::GltfDataBuffer regeneratedJson;
-		regeneratedJson.copyBytes(reinterpret_cast<const uint8_t*>(exportedJson.data()), exportedJson.size());
-		auto regeneratedModel = parser.loadGltf(&regeneratedJson, epath.parent_path());
+		auto regeneratedJson = fastgltf::GltfDataBuffer::FromBytes(
+				reinterpret_cast<const std::byte*>(exportedJson.data()), exportedJson.size());
+		REQUIRE(regeneratedJson.error() == fastgltf::Error::None);
+		auto regeneratedModel = parser.loadGltf(regeneratedJson.get(), epath.parent_path());
 		REQUIRE(regeneratedModel.error() == fastgltf::Error::None);
 
 		REQUIRE(fastgltf::validate(regeneratedModel.get()) == fastgltf::Error::None);
@@ -217,16 +222,15 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 TEST_CASE("Test Unicode exporting", "[write-tests]") {
 #if FASTGLTF_CPP_20
 	auto unicodePath = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
-	fastgltf::GltfDataBuffer jsonData;
-	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf")));
+	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf"));
 #else
 	auto unicodePath = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
-	fastgltf::GltfDataBuffer jsonData;
-	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf")));
+	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf"));
 #endif
+	REQUIRE(jsonData.isOpen());
 
 	fastgltf::Parser parser;
-	auto asset = parser.loadGltfJson(&jsonData, unicodePath);
+	auto asset = parser.loadGltfJson(jsonData, unicodePath);
 	REQUIRE(asset.error() == fastgltf::Error::None);
 
 	fastgltf::Exporter exporter;
@@ -237,9 +241,10 @@ TEST_CASE("Test Unicode exporting", "[write-tests]") {
 	auto& exportedJson = exported.get().output;
 	REQUIRE(simdjson::validate_utf8(exportedJson));
 
-	fastgltf::GltfDataBuffer regeneratedJson;
-	regeneratedJson.copyBytes(reinterpret_cast<const uint8_t*>(exportedJson.data()), exportedJson.size());
-	auto reparsed = parser.loadGltfJson(&regeneratedJson, unicodePath);
+	auto regeneratedJson = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(exportedJson.data()), exportedJson.size());
+	REQUIRE(regeneratedJson.error() == fastgltf::Error::None);
+	auto reparsed = parser.loadGltfJson(regeneratedJson.get(), unicodePath);
 	REQUIRE(reparsed.error() == fastgltf::Error::None);
 
 	REQUIRE(!asset->materials.empty());
@@ -254,16 +259,15 @@ TEST_CASE("Test Unicode exporting", "[write-tests]") {
 TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
 #if FASTGLTF_CPP_20
 	auto unicodePath = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
-	fastgltf::GltfDataBuffer jsonData;
-	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf")));
+	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf"));
 #else
 	auto unicodePath = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
-	fastgltf::GltfDataBuffer jsonData;
-	REQUIRE(jsonData.loadFromFile(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf")));
+	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf"));
 #endif
+	REQUIRE(jsonData.isOpen());
 
 	fastgltf::Parser parser;
-	auto asset = parser.loadGltfJson(&jsonData, unicodePath, fastgltf::Options::LoadExternalImages);
+	auto asset = parser.loadGltfJson(jsonData, unicodePath, fastgltf::Options::LoadExternalImages);
 	REQUIRE(asset.error() == fastgltf::Error::None);
 
 	REQUIRE(asset->images.size() == 1);
