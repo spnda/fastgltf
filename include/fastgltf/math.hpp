@@ -47,7 +47,7 @@ namespace fastgltf::math {
 		std::array<T, N> data;
 
 	public:
-		constexpr explicit vec() noexcept : data() {}
+		constexpr vec() noexcept : data() {}
 
 		constexpr explicit vec(T value) noexcept {
 			data.fill(value);
@@ -108,6 +108,9 @@ namespace fastgltf::math {
 			return data[3];
 		}
 
+		[[nodiscard]] constexpr T* value_ptr() noexcept {
+			return data.data();
+		}
 		[[nodiscard]] constexpr const T* value_ptr() const noexcept {
 			return data.data();
 		}
@@ -269,64 +272,67 @@ namespace fastgltf::math {
 		std::array<T, 4> data;
 
 	public:
-		explicit quat() noexcept : data{0.f, 0.f, 0.f, 1.f} {}
+		constexpr explicit quat() noexcept : data{0.f, 0.f, 0.f, 1.f} {}
 
 		/** Creates a new quaternion from 4 floats in the order X, Y, Z, W */
 		template <typename... Args>
-		explicit quat(Args... args) noexcept : data { std::forward<Args>(args)... } {
+		constexpr explicit quat(Args... args) noexcept : data { std::forward<Args>(args)... } {
 			static_assert(sizeof...(Args) == 4);
 		}
 
-		[[nodiscard]] std::size_t size() const noexcept {
+		[[nodiscard]] constexpr std::size_t size() const noexcept {
 			return data.size();
 		}
-		[[nodiscard]] std::size_t size_bytes() const noexcept {
+		[[nodiscard]] constexpr std::size_t size_bytes() const noexcept {
 			return size() * sizeof(T);
 		}
 
-		[[nodiscard]] decltype(auto) operator[](std::size_t idx) noexcept {
+		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept {
 			return data[idx];
 		}
-		[[nodiscard]] decltype(auto) operator[](std::size_t idx) const noexcept {
+		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
 			return data[idx];
 		}
 
-		[[nodiscard]] decltype(auto) x() noexcept {
+		[[nodiscard]] constexpr decltype(auto) x() noexcept {
 			return data[0];
 		}
-		[[nodiscard]] decltype(auto) y() noexcept {
+		[[nodiscard]] constexpr decltype(auto) y() noexcept {
 			return data[1];
 		}
-		[[nodiscard]] decltype(auto) z() noexcept {
+		[[nodiscard]] constexpr decltype(auto) z() noexcept {
 			return data[2];
 		}
-		[[nodiscard]] decltype(auto) w() noexcept {
+		[[nodiscard]] constexpr decltype(auto) w() noexcept {
 			return data[3];
 		}
-		[[nodiscard]] decltype(auto) x() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) x() const noexcept {
 			return data[0];
 		}
-		[[nodiscard]] decltype(auto) y() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) y() const noexcept {
 			return data[1];
 		}
-		[[nodiscard]] decltype(auto) z() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) z() const noexcept {
 			return data[2];
 		}
-		[[nodiscard]] decltype(auto) w() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) w() const noexcept {
 			return data[3];
 		}
 
-		[[nodiscard]] const T* value_ptr() const noexcept {
+		[[nodiscard]] constexpr T* value_ptr() noexcept {
+			return data.data();
+		}
+		[[nodiscard]] constexpr const T* value_ptr() const noexcept {
 			return data.data();
 		}
 
-		[[nodiscard]] bool operator==(const quat<T>& other) const noexcept {
+		[[nodiscard]] constexpr bool operator==(const quat<T>& other) const noexcept {
 			for (std::size_t i = 0; i < data.size(); ++i)
 				if ((*this)[i] != other[i])
 					return false;
 			return true;
 		}
-		[[nodiscard]] bool operator!=(const quat<T>& other) const noexcept {
+		[[nodiscard]] constexpr bool operator!=(const quat<T>& other) const noexcept {
 			return !(*this == other);
 		}
 	};
