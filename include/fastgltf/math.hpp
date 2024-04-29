@@ -65,6 +65,19 @@ namespace fastgltf::math {
 			return *this;
 		}
 
+		template <std::size_t M>
+		constexpr explicit vec(const vec<T, M>& other) noexcept {
+			static_assert(M >= 2 && M >= N);
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i] = other[i];
+		}
+		template <std::size_t M>
+		constexpr auto operator=(const vec<T, M>& other) noexcept {
+			static_assert(M >= 2 && M >= N);
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i] = other[i];
+		}
+
 		[[nodiscard]] constexpr std::size_t size() const noexcept {
 			return N;
 		}

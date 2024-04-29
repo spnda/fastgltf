@@ -148,8 +148,8 @@ TEST_CASE("Matrix initialization", "[maths]") {
 		fastgltf::math::fmat2x2 mat2(sentinel, sentinel + 1.f);
 		REQUIRE(mat2.col(0).size() == 2);
 		REQUIRE(mat2.col(0)[1] == 2.f);
-		REQUIRE(mat2.col(0) == sentinel);
-		REQUIRE(mat2.col(1) == sentinel + 1.f);
+		REQUIRE(mat2.col(0) == fastgltf::math::fvec2(sentinel));
+		REQUIRE(mat2.col(1) == fastgltf::math::fvec2(sentinel) + 1.f);
 
 		fastgltf::math::fmat4x4 mat4(sentinel, sentinel + 1.f, sentinel + 2.f, sentinel + 3.f);
 		REQUIRE(mat4.col(0) == sentinel);

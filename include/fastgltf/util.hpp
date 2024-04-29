@@ -101,7 +101,7 @@
 #define FASTGLTF_UNLIKELY
 #endif
 
-#if _MSC_VER
+#if (_MSC_VER && !defined(__clang__)) || FASTGLTF_CPP_20 && __has_cpp_attribute(msvc::intrinsic)
 #define FASTGLTF_INTRINSIC [[msvc::intrinsic]]
 #else
 #define FASTGLTF_INTRINSIC
