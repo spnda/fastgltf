@@ -30,6 +30,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <string_view>
@@ -100,6 +101,12 @@
 #define FASTGLTF_UNLIKELY
 #endif
 
+#if _MSC_VER
+#define FASTGLTF_INTRINSIC [[msvc::intrinsic]]
+#else
+#define FASTGLTF_INTRINSIC
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -111,7 +118,7 @@ namespace fastgltf {
 #if FASTGLTF_HAS_CONCEPTS
     requires std::is_enum_v<T>
 #endif
-    [[nodiscard, msvc::intrinsic]] constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
+    [[nodiscard]] FASTGLTF_INTRINSIC constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
 #if !FASTGLTF_HAS_CONCEPTS
         static_assert(std::is_enum_v<T>, "to_underlying only works with enum types.");
 #endif

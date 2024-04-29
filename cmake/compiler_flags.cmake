@@ -9,7 +9,7 @@ macro(fastgltf_compiler_flags TARGET)
                 target_compile_options(${TARGET} PRIVATE /external:W0 /external:anglebrackets)
             endif()
         elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-            target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-O3> -Wall)
+            target_compile_options(${TARGET} PRIVATE $<$<CONFIG:RELEASE>:-O3> -Wall -Wno-unknown-pragmas)
 
             if (MINGW)
                 # Issue with MinGW: https://github.com/simdjson/simdjson/issues/1963
