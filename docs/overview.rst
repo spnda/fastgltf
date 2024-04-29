@@ -9,7 +9,7 @@ It uses SIMD in various areas to decrease the time the application spends parsin
 By taking advantage of modern C++17 (and optionally C++20) it also provides easy and safe access to the properties and data.
 
 The library supports the entirety of glTF 2.0 specification, including many extensions.
-By default, fastgltf will only do the absolute minimum to work with a glTF model.
+By default, **fastgltf** will only do the absolute minimum to work with a glTF model.
 However, it brings many additional features to ease working with the data,
 including accessor tools, the ability to directly write to mapped GPU buffers, and decomposing transform matrices.
 
@@ -81,24 +81,24 @@ glTF libraries.
      - ✔️
 
 ¹ tinygltf does provide the JSON structure for extension data, but leaves the deserialization for you to do.
-² fastgltf allows the user to allocate memory for buffers and images.
+² **fastgltf** allows the user to allocate memory for buffers and images.
 It does not provide any mechanism for controlling all the heap allocations the library performs.
 ³ cgltf supports sparse accessors and matrix data only with some accessor functions, but not all.
 
-You can read more about the accessor utilities from fastgltf :ref:`here <accessor-tools>`.
+You can read more about the accessor utilities from **fastgltf** :ref:`here <accessor-tools>`.
 
-fastgltf follows C++'s concept of "you don't pay for what you don't use" by only doing the absolute minimum by default.
-Without specifying any options, fastgltf will only parse the glTF JSON.
-For buffers and images, fastgltf will by default only either give you a std::vector, when the data is embedded within the glTF, or just plain old URIs.
-While fastgltf only does the minimum by default, it provides a lot of extra features that can be bundled together.
+**fastgltf** follows C++'s concept of "you don't pay for what you don't use" by only doing the absolute minimum by default.
+Without specifying any options, **fastgltf** will only parse the glTF JSON.
+For buffers and images, **fastgltf** will by default only either give you a std::vector, when the data is embedded within the glTF, or just plain old URIs.
+While **fastgltf** only does the minimum by default, it provides a lot of extra features that can be bundled together.
 
 By using modern C++ features, the code that reads data and properties from the glTF becomes simpler and vastly more descriptive, guaranteeing code-correctness.
 A big factor for this improvement is the use of types which enforce certain properties about the data, like e.g. ``std::variant`` or ``std::optional``.
 Compared with tinygltf, where, for example, optional values are simply represented by a boolean or a ``-1`` for indices, this is a big improvement.
 
 The biggest difference, which may not be as relevant to everyone, is the drastic increase in deserialization speed.
-In some cases, fastgltf is at least 2 times quicker than its competitors, while in others it can be as much as 20 times.
-You can read more about fastgltf's performance in the :ref:`performance chapter <performance>`.
+In some cases, **fastgltf** is at least 2 times quicker than its competitors, while in others it can be as much as 20 times.
+You can read more about **fastgltf**'s performance in the :ref:`performance chapter <performance>`.
 
 
 .. _usage:
@@ -109,12 +109,12 @@ Usage
 .. _vcpkg: https://github.com/microsoft/vcpkg
 .. _conan: https://conan.io/
 
-fastgltf is a pure C++17 library and only depends on simdjson.
+**fastgltf** is a pure C++17 library and only depends on simdjson.
 By using the included CMake 3.11 script, simdjson is automatically downloaded while configuring by default.
 The library is tested on GCC 9, GCC 10, Clang 13, and MSVC 14 (Visual Studio 2022) using CI.
-fastgltf is also available from vcpkg_ and conan_.
+**fastgltf** is also available from vcpkg_ and conan_.
 
-The following snippet illustrates how to use fastgltf to load a glTF file.
+The following snippet illustrates how to use **fastgltf** to load a glTF file.
 
 .. code:: c++
 
@@ -172,10 +172,10 @@ various vectors in the asset.
 Examples and real-world usage
 =============================
 
-You can find some examples in the `examples/` directory of this repository on how to use fastgltf in a 3D renderer to load glTF files.
-Additionally, this is a list of some interesting projects using fastgltf:
+You can find some examples in the `examples/` directory of this repository on how to use **fastgltf** in a 3D renderer to load glTF files.
+Additionally, this is a list of some interesting projects using **fastgltf**:
 
-- `Fwog <https://github.com/JuanDiegoMontoya/Fwog>`_: The examples of this modern OpenGL 4.6 abstraction make use of fastgltf.
+- `Fwog <https://github.com/JuanDiegoMontoya/Fwog>`_: The examples of this modern OpenGL 4.6 abstraction make use of **fastgltf**.
 - `wad2gltf <https://github.com/DethRaid/wad2gltf>`_: A WAD to glTF converter
 - `Castor3D <https://github.com/DragonJoker/Castor3D>`_: A multi-OS 3D engine
 - `Raz <https://github.com/Razakhel/RaZ>`_: A modern & multiplatform 3D game engine in C++17
@@ -186,12 +186,12 @@ Additionally, this is a list of some interesting projects using fastgltf:
 Accessor tools
 ==============
 
-fastgltf provides a utility header for working with accessors.
+**fastgltf** provides a utility header for working with accessors.
 The header contains various functions and utilities for reading, copying, and converting accessor data.
 All of these tools also directly support sparse accessors to help add support for these without having to understand how they work.
 These utilities are meant to drastically simplify using glTF accessors and buffers.
 
-You can learn more about this feature of fastgltf in the dedicated chapter: :doc:`tools`.
+You can learn more about this feature of **fastgltf** in the dedicated chapter: :doc:`tools`.
 However, to give a quick overview this is a simple example of how to load the indices of a primitive:
 
 .. code:: c++
@@ -214,16 +214,16 @@ However, to give a quick overview this is a simple example of how to load the in
 Performance
 ===========
 
-In this chapter, I'll show some graphs on how fastgltf compares to the two most used glTF libraries, cgltf and tinygltf.
+In this chapter, I'll show some graphs on how **fastgltf** compares to the two most used glTF libraries, cgltf and tinygltf.
 I've disabled loading of images and buffers to only compare the JSON parsing and deserialization of the glTF data.
 The values and the graphs themselves can be found in `this spreadsheet <https://docs.google.com/spreadsheets/d/1ocdHGoty-rF0N46ZlAlswzcPHVRsqG_tncy8paD3iMY/edit?usp=sharing>`_.
-These numbers were benchmarked using Catch2's benchmark tool on a Ryzen 5800X (with AVX2) with 32GB of RAM using Clang 17,
+These numbers were benchmarked using Catch2's benchmark tool on a Ryzen 5800X (with AVX2) with 32GB of RAM using Clang,
 as Clang showed a significant performance improvement over MSVC in every test.
 
 First, I compared the performance with embedded buffers that are encoded with base64.
 This uses the `2CylinderEngine asset <https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/2CylinderEngine>`_ which contains a 1.7MB embedded buffer.
-fastgltf includes an optimised base64 decoding algorithm that can take advantage of AVX2, SSE4, and ARM Neon.
-With this asset, fastgltf is **24.56 times faster** than tinygltf using RapidJSON and **7.4 times faster** than cgltf.
+**fastgltf** includes an optimised base64 decoding algorithm that can take advantage of AVX2, SSE4, and ARM Neon.
+With this asset, **fastgltf** is **24.56 times faster** than tinygltf using RapidJSON and **7.4 times faster** than cgltf.
 
 .. raw:: html
 
@@ -231,7 +231,7 @@ With this asset, fastgltf is **24.56 times faster** than tinygltf using RapidJSO
 
 `Amazon's Bistro <https://developer.nvidia.com/orca/amazon-lumberyard-bistro>`_ (converted to glTF 2.0 using Blender) is another excellent test subject, as it's a 148k line long JSON.
 This shows the raw deserialization speed of all the parsers.
-In this case fastgltf is **1.4 times faster** than tinygltf and **5 times faster** than cgltf.
+In this case **fastgltf** is **1.4 times faster** than tinygltf and **5 times faster** than cgltf.
 
 .. raw:: html
 

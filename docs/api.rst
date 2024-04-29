@@ -332,6 +332,53 @@ Exporter
    :undoc-members:
 
 
+Math
+====
+
+**fastgltf** includes a small math library with everything necessary for working with glTF assets.
+
+Vector
+------
+
+.. doxygenclass:: fastgltf::math::vec
+   :members:
+   :undoc-members:
+
+.. doxygenfunction:: fastgltf::math::dot
+
+.. doxygenfunction:: fastgltf::math::cross
+
+.. doxygenfunction:: fastgltf::math::length
+
+.. doxygenfunction:: fastgltf::math::normalize
+
+Quaternion
+----------
+
+.. doxygenclass:: fastgltf::math::quat
+   :members:
+   :undoc-members:
+
+.. doxygenfunction:: fastgltf::math::asMatrix
+
+Matrix
+------
+
+.. doxygenclass:: fastgltf::math::mat
+   :members:
+   :undoc-members:
+
+.. doxygenfunction:: fastgltf::math::translate
+
+.. doxygenfunction:: fastgltf::math::scale
+
+.. doxygenfunction:: fastgltf::math::rotate
+
+.. doxygenfunction:: fastgltf::math::transpose
+
+.. doxygenfunction:: fastgltf::math::decomposeTransformMatrix
+
+
 Utility
 =======
 

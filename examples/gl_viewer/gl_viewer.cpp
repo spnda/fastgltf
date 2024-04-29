@@ -940,7 +940,7 @@ int main(int argc, char* argv[]) {
 			fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::fmat4x4(),
 										[&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
 				if (node.meshIndex.has_value()) {
-					drawMesh(&viewer, node.meshIndex.value(), matrix);
+					drawMesh(&viewer, *node.meshIndex, matrix);
 				}
 			});
 		}

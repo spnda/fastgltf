@@ -1,8 +1,18 @@
-******
-Guides
-******
+***********
+Usage Guide
+***********
 
 .. contents:: Table of Contents
+
+glTF overview
+=============
+
+Khronos have released `a PDF <https://www.khronos.org/files/gltf20-reference-guide.pdf>`_ going over all concepts of the glTF 2.0 standard,
+with visual representations.
+This should give a good understanding of how everything works together. It is also available as an image:
+
+.. image:: https://raw.githubusercontent.com/KhronosGroup/glTF/main/specification/2.0/figures/gltfOverview-2.0.0d.png
+   :alt: glTF overview cheatsheet
 
 How to load glTF files for parsing
 ==================================
@@ -43,6 +53,24 @@ AndroidGltfDataBuffer
 This is essentially the same interface as ``fastgltf::GltfDataBuffer``, but additionally supports loading APK assets.
 See :ref:`this section <android-guide>` for more information.
 
+Iterating over the node hierarchy
+=================================
+
+**fastgltf** provides a simple way to iterate over the node hierarchy of a glTF scene.
+The following example illustrates how to simply iterate over this hierarchy using fastgltf,
+which additionally provides the transform matrix for each node.
+
+.. code:: c++
+
+   fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::fmat4x4(),
+                               [&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
+       if (node.meshIndex.has_value()) {
+           drawMesh(viewer, *node.meshIndex, matrix);
+       }
+   });
+
+The ``fmat4x4`` which is passed into the function is an initial transform matrix.
+Normally, this is just an identity matrix. However, this provides the possibility to transform the entire scene.
 
 How to read glTF extras
 =======================
