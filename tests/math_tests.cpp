@@ -127,7 +127,7 @@ TEST_CASE("Matrix initialization", "[maths]") {
 
 	static constexpr auto sentinel = fastgltf::math::fvec4(1, 2, 3, 4);
 	SECTION("Multi-value init with parameter pack") {
-		fastgltf::math::fmat2x2 mat2(sentinel, sentinel + 1.f);
+		fastgltf::math::fmat2x2 mat2(fastgltf::math::fvec2(sentinel), fastgltf::math::fvec2(sentinel) + 1.f);
 		REQUIRE(mat2.col(0).size() == 2);
 		REQUIRE(mat2.col(0)[1] == 2.f);
 		REQUIRE(mat2.col(0) == fastgltf::math::fvec2(sentinel));

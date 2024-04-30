@@ -15,7 +15,7 @@ example_deps_urls = {
     'imgui': "https://github.com/ocornut/imgui/archive/refs/tags/v1.90.4.zip"
 }
 test_deps_urls = {
-    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.5.4.zip",
+    'catch2': "https://github.com/catchorg/Catch2/archive/refs/tags/v3.5.3.zip",
     'corrosion': "https://github.com/corrosion-rs/corrosion/archive/refs/heads/master.zip",
 }
 deps_folder = "deps/"

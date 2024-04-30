@@ -218,7 +218,7 @@ namespace fastgltf::math {
 		}
 
 		template <std::size_t M, std::enable_if_t<M < N, bool> = true>
-		constexpr operator vec<T, M>() const noexcept {
+		constexpr explicit operator vec<T, M>() const noexcept {
 			vec<T, M> ret;
 			for (std::size_t i = 0; i < M; ++i)
 				ret[i] = (*this)[i];
@@ -474,8 +474,8 @@ namespace fastgltf::math {
 		}
 
 		constexpr auto operator*(vec<T, M> other) const noexcept {
-			vec<T, M> ret(T(0));
-			for (std::size_t i = 0; i < M; ++i)
+			vec<T, M> ret = col(0) * other[0];
+			for (std::size_t i = 1; i < columns(); ++i)
 				ret += col(i) * other[i];
 			return ret;
 		}
