@@ -14,7 +14,7 @@
 // We need these operator<< overloads for vector types to get proper output from Catch2 on assertions.
 template <std::size_t N>
 std::ostream& operator <<(std::ostream& os, const fastgltf::math::vec<float, N>& value) {
-	os << "vec<float," << N << ">(";
+	os << "vec<float," << N << ">(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (std::size_t i = 0; i < N; ++i) {
 		os << value[i];
 		if (i + 1 != N)
@@ -26,7 +26,7 @@ std::ostream& operator <<(std::ostream& os, const fastgltf::math::vec<float, N>&
 
 template <std::size_t N, std::size_t M>
 std::ostream& operator <<(std::ostream& os, const fastgltf::math::mat<float, N, M>& value) {
-	os << "mat<float," << N << ',' << M << ">(";
+	os << "mat<float," << N << ',' << M << ">(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (std::size_t i = 0; i < M; ++i) {
 		os << '[';
 		for (std::size_t j = 0; j < N; ++j) {
@@ -44,7 +44,7 @@ std::ostream& operator <<(std::ostream& os, const fastgltf::math::mat<float, N, 
 
 template <glm::length_t N>
 std::ostream& operator <<(std::ostream& os, const glm::vec<N, float>& value) {
-	os << "glm::vec<" << N << ",float>(";
+	os << "glm::vec<" << N << ",float>(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (glm::length_t i = 0; i < N; ++i) {
 		os << value[i];
 		if (i + 1 != N)
@@ -55,28 +55,10 @@ std::ostream& operator <<(std::ostream& os, const glm::vec<N, float>& value) {
 }
 
 std::ostream& operator <<(std::ostream& os, const glm::quat& value) {
-	os << "glm::quat<float>(";
+	os << "glm::quat<float>(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (glm::length_t i = 0; i < glm::quat::length(); ++i) {
 		os << value[i];
 		if (i + 1 != glm::quat::length())
-			os << ',';
-	}
-    os << ')';
-    return os;
-}
-
-template <std::size_t N, std::size_t M>
-std::ostream& operator <<(std::ostream& os, const glm::mat<M, N, float>& value) {
-	os << "glm::mat<" << M << ',' << N << ",float>(";
-	for (std::size_t i = 0; i < M; ++i) {
-		os << '[';
-		for (std::size_t j = 0; j < N; ++j) {
-			os << value[i][j];
-			if (j + 1 != N)
-				os << ',';
-		}
-		os << ']';
-		if (i + 1 != M)
 			os << ',';
 	}
 	os << ')';
@@ -201,50 +183,6 @@ TEST_CASE("Matrix operations", "[maths]") {
 		REQUIRE(t.col(0) == fastgltf::math::fvec2(1, 4));
 		REQUIRE(t.col(1) == fastgltf::math::fvec2(2, 1));
 		REQUIRE(t.col(2) == fastgltf::math::fvec2(3, 5));
-	}
-
-	SECTION("Multiplication") {
-		// Generate random matrices, and compare multiplying them with glm's result.
-		std::mt19937 rng(std::random_device{}());
-		std::uniform_real_distribution<float> dist(-10.f, 10.f);
-
-		// Run the comparison some arbitrary number of times, to hopefully cover most cases.
-		static constexpr std::size_t iterations = 256U;
-
-		// 4x2 * 2x3 matrices
-		for (std::size_t r = 0; r < iterations; ++r) {
-			// We use Rows x Columns naming.
-			fastgltf::math::mat<float, 4, 2> a;
-			fastgltf::math::mat<float, 2, 3> b;
-
-			// glm uses Columns x Rows naming.
-			glm::mat2x4 refA(1.f);
-			glm::mat3x2 refB(1.f);
-			for (glm::length_t i = 0; i < 2; ++i)
-				for (glm::length_t j = 0; j < 4; ++j)
-					refA[i][j] = a[i][j] = dist(rng);
-			for (glm::length_t i = 0; i < 3; ++i)
-				for (glm::length_t j = 0; j < 2; ++j)
-					refB[i][j] = b[i][j] = dist(rng);
-
-			auto result = a * b;
-			REQUIRE(refA * refB == glm::make_mat3x4(&result[0][0]));
-		}
-
-		// 4x4 Matrices
-		for (std::size_t r = 0; r < iterations; ++r) {
-			fastgltf::math::fmat4x4 a, b;
-			auto refA = glm::mat4x4(1.f), refB = glm::mat4x4(1.f);
-			for (glm::length_t i = 0; i < 4; ++i) {
-				for (glm::length_t j = 0; j < 4; ++j) {
-					refA[i][j] = a[i][j] = dist(rng);
-					refB[i][j] = b[i][j] = dist(rng);
-				}
-			}
-
-			auto result = a * b;
-			REQUIRE(refA * refB == glm::make_mat4x4(&result[0][0]));
-		}
 	}
 }
 

@@ -229,8 +229,8 @@ namespace fastgltf::math {
 	/** Computes the dot product of two vectors */
 	template <typename T, std::size_t N>
 	[[nodiscard]] auto dot(const vec<T, N>& a, const vec<T, N>& b) noexcept {
-		T ret(0);
-		for (std::size_t i = 0; i < N; ++i)
+		T ret = a.x() * b.x();
+		for (std::size_t i = 1; i < N; ++i)
 			ret += a[i] * b[i];
 		return ret;
 	}
