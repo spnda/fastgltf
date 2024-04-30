@@ -58,8 +58,20 @@ namespace fastgltf::math {
 		constexpr explicit vec(Args... args) noexcept : data { T(std::forward<Args>(args))... } {}
 
 		constexpr vec(const vec<T, N>& other) noexcept : data(other.data) {}
-		constexpr auto operator=(const vec<T, N>& other) noexcept {
+		constexpr vec<T, N>& operator=(const vec<T, N>& other) noexcept {
 			data = other.data;
+			return *this;
+		}
+
+		template <typename U, std::enable_if_t<!std::is_same_v<T, U>, bool> = true>
+		constexpr explicit vec(const vec<U, N>& other) noexcept {
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i] = static_cast<T>(other[i]);
+		}
+		template <typename U, std::enable_if_t<!std::is_same_v<T, U>, bool> = true>
+		constexpr vec<T, N>& operator=(const vec<U, N>& other) noexcept {
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i] = static_cast<T>(other[i]);
 			return *this;
 		}
 
@@ -69,9 +81,10 @@ namespace fastgltf::math {
 				(*this)[i] = other[i];
 		}
 		template <std::size_t M, std::enable_if_t<M >= N, bool> = true>
-		constexpr auto operator=(const vec<T, M>& other) noexcept {
+		constexpr vec<T, N>& operator=(const vec<T, M>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = other[i];
+			return *this;
 		}
 
 		[[nodiscard]] constexpr std::size_t size() const noexcept {
@@ -215,17 +228,17 @@ namespace fastgltf::math {
 
 	/** Computes the dot product of two vectors */
 	template <typename T, std::size_t N>
-	[[nodiscard]] T dot(const vec<T, N>& a, const vec<T, N>& b) noexcept {
+	[[nodiscard]] auto dot(const vec<T, N>& a, const vec<T, N>& b) noexcept {
 		T ret(0);
 		for (std::size_t i = 0; i < N; ++i)
 			ret += a[i] * b[i];
 		return ret;
 	}
 
-	/** Computes the cross product of two vectors */
-	template <typename T, std::size_t N>
-	[[nodiscard]] vec<T, N> cross(const vec<T, N>& a, const vec<T, N>& b) noexcept {
-		return vec<T, N>(
+	/** Computes the 3D cross product of two vectors */
+	template <typename T>
+	[[nodiscard]] auto cross(const vec<T, 3>& a, const vec<T, 3>& b) noexcept {
+		return vec<T, 3>(
 			a.y() * b.z() - a.z() * b.y(),
 			a.z() * b.x() - a.x() * b.z(),
 			a.x() * b.y() - a.y() * b.x()
@@ -235,12 +248,12 @@ namespace fastgltf::math {
 	/** Computes the euclidean length of this vector */
 	template <typename T, std::size_t N>
 	[[nodiscard]] T length(const vec<T, N>& v) noexcept {
-		return sqrtf(dot(v, v));
+		return sqrt(dot(v, v));
 	}
 
 	/** Normalizes the vector to have a length of 1 */
 	template <typename T, std::size_t N>
-	[[nodiscard]] vec<T, N> normalize(const vec<T, N>& v) noexcept {
+	[[nodiscard]] auto normalize(const vec<T, N>& v) noexcept {
 		return v / length(v);
 	}
 
@@ -383,7 +396,7 @@ namespace fastgltf::math {
 		static_assert(N >= 2 && N <= 4);
 		static_assert(M >= 2 && M <= 4);
 
-		// Every vec<> here is a column, with M being the row count.
+		// Every vec<> here is a column, with M being the column count.
 		std::array<vec<T, N>, M> data;
 
 		template <typename... Args, std::size_t... i>
