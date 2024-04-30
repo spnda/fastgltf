@@ -292,8 +292,6 @@ namespace fastgltf {
 			if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) FASTGLTF_LIKELY {
 				auto transform = std::make_unique<TextureTransform>();
 				transform->rotation = 0.0F;
-				transform->uvOffset = {{ 0.0F, 0.0F }};
-				transform->uvScale = {{ 1.0F, 1.0F }};
 
 				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) FASTGLTF_LIKELY {
 					transform->texCoordIndex = index;
@@ -2329,7 +2327,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
                 }
             }
         } else if (error == NO_SUCH_FIELD) {
-            light.color = std::array<num, 3>{{1.0f, 1.0f, 1.0f}};
+			light.color = math::nvec3(1);
         } else {
             return Error::InvalidGltf;
         }
@@ -4305,7 +4303,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		json += '{';
 
 		json += "\"pbrMetallicRoughness\":{";
-		if (it->pbrData.baseColorFactor != std::array<num, 4>{{1.0f, 1.0f, 1.0f, 1.0f}}) {
+		if (it->pbrData.baseColorFactor != math::nvec4(1)) {
 			json += R"("baseColorFactor":[)";
 			json += std::to_string(it->pbrData.baseColorFactor[0]) + ',' + std::to_string(it->pbrData.baseColorFactor[1]) + ',' +
 				std::to_string(it->pbrData.baseColorFactor[2]) + ',' + std::to_string(it->pbrData.baseColorFactor[3]);
@@ -4354,7 +4352,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			writeTextureInfo(json, &it->emissiveTexture.value());
 		}
 
-		if (it->emissiveFactor != std::array<num, 3>{{.0f, .0f, .0f}}) {
+		if (it->emissiveFactor != math::nvec3(0)) {
 			if (json.back() != ',') json += ',';
 			json += R"("emissiveFactor":[)";
 			json += std::to_string(it->emissiveFactor[0]) + ',' + std::to_string(it->emissiveFactor[1]) + ',' + std::to_string(it->emissiveFactor[2]);
@@ -4478,7 +4476,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		if (it->sheen) {
 			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_sheen":{)";
-			if (it->sheen->sheenColorFactor != std::array<num, 3>{{.0f, .0f, .0f}}) {
+			if (it->sheen->sheenColorFactor != math::nvec3(0)) {
 				json += R"("sheenColorFactor":[)" +
 					std::to_string(it->sheen->sheenColorFactor[0]) + ',' +
 					std::to_string(it->sheen->sheenColorFactor[1]) + ',' +
@@ -4512,7 +4510,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 				json += "\"specularTexture\":";
 				writeTextureInfo(json, &it->specular->specularTexture.value());
 			}
-			if (it->specular->specularColorFactor != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+			if (it->specular->specularColorFactor != math::nvec3(1)) {
 				if (json.back() != '{') json += ',';
 				json += R"("specularColorFactor":[)" +
 						std::to_string(it->specular->specularColorFactor[0]) + ',' +
@@ -4561,7 +4559,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 				if (json.back() != '{') json += ',';
 				json += R"("attenuationDistance":)" + std::to_string(it->volume->attenuationDistance);
 			}
-			if (it->volume->attenuationColor != std::array<num, 3>{{1.0f, 1.0f, 1.0f}}) {
+			if (it->volume->attenuationColor != math::nvec3(1)) {
 				if (json.back() != '{') json += ',';
 				json += R"("attenuationColor":[)" +
 						std::to_string(it->volume->attenuationColor[0]) + ',' +

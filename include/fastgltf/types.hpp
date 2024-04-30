@@ -102,6 +102,12 @@ namespace fastgltf {
 	using num = float;
 #endif
 
+	namespace math {
+		using nvec2 = math::vec<num, 2>;
+		using nvec3 = math::vec<num, 3>;
+		using nvec4 = math::vec<num, 4>;
+	}
+
 #pragma region Enums
     // clang-format off
     enum class PrimitiveType : std::uint8_t {
@@ -1685,15 +1691,15 @@ namespace fastgltf {
          */
         num rotation;
 
-        /**
-         * The offset of the UV coordinate origin as a factor of the texture dimensions.
-         */
-        std::array<num, 2> uvOffset;
+		/**
+		 * The offset of the UV coordinate origin as a factor of the texture dimensions.
+		 */
+		math::nvec2 uvOffset = math::nvec2(0);
 
-        /**
-         * The scale factor applied to the components of the UV coordinates.
-         */
-        std::array<num, 2> uvScale;
+		/**
+		 * The scale factor applied to the components of the UV coordinates.
+		 */
+		math::nvec2 uvScale = math::nvec2(1);
 
         /**
          * Overrides the textureInfo texCoord value if supplied.
@@ -1720,10 +1726,10 @@ namespace fastgltf {
 	};
 
     struct PBRData {
-        /**
-         * The factors for the base color of then material.
-         */
-        std::array<num, 4> baseColorFactor = {{ 1, 1, 1, 1 }};
+		/**
+		 * The factors for the base color of then material.
+		 */
+		math::nvec4 baseColorFactor = math::nvec4(1);
 
         /**
          * The factor for the metalness of the material.
@@ -1751,7 +1757,7 @@ namespace fastgltf {
     struct MaterialSpecular {
         num specularFactor = 1.0f;
         Optional<TextureInfo> specularTexture;
-        std::array<num, 3> specularColorFactor = {{ 1.0f, 1.0f, 1.0f }};
+		math::nvec3 specularColorFactor = math::nvec3(1);
         Optional<TextureInfo> specularColorTexture;
     };
 
@@ -1774,7 +1780,7 @@ namespace fastgltf {
         num thicknessFactor = 0.0f;
         Optional<TextureInfo> thicknessTexture;
         num attenuationDistance = std::numeric_limits<num>::infinity();
-        std::array<num, 3> attenuationColor = {{ 1.0f, 1.0f, 1.0f }};
+		math::nvec3 attenuationColor = math::nvec3(1);
     };
 
     struct MaterialTransmission {
@@ -1791,7 +1797,7 @@ namespace fastgltf {
     };
 
     struct MaterialSheen {
-        std::array<num, 3> sheenColorFactor = {{ 0.0f, 0.0f, 0.0f }};
+		math::nvec3 sheenColorFactor = math::nvec3(0);
         Optional<TextureInfo> sheenColorTexture;
         num sheenRoughnessFactor = 0.0f;
         Optional<TextureInfo> sheenRoughnessTexture;
@@ -1802,9 +1808,9 @@ namespace fastgltf {
      * Specular/Glossiness information from KHR_materials_pbrSpecularGlossiness.
      */
     struct MaterialSpecularGlossiness {
-        std::array<num, 4> diffuseFactor = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+		math::nvec4 diffuseFactor = math::nvec4(1);
         Optional<TextureInfo> diffuseTexture;
-        std::array<num, 3> specularFactor = {{ 1.0f, 1.0f, 1.0f }};
+		math::nvec3 specularFactor = math::nvec3(1);
         num glossinessFactor = 1.0f;
         Optional<TextureInfo> specularGlossinessTexture;
     };
@@ -1830,10 +1836,10 @@ namespace fastgltf {
         Optional<OcclusionTextureInfo> occlusionTexture;
         Optional<TextureInfo> emissiveTexture;
 
-        /**
-         * The factors for the emissive color of the material.
-         */
-        std::array<num, 3> emissiveFactor = {{ 0.f, 0.f, 0.f }};
+		/**
+		 * The factors for the emissive color of the material.
+		 */
+		math::nvec3 emissiveFactor = math::nvec3(0);
 
         /**
          * The values used to determine the transparency of the material.
@@ -2017,7 +2023,7 @@ namespace fastgltf {
     struct Light {
         LightType type;
         /** RGB light color in linear space. */
-        std::array<num, 3> color;
+        math::nvec3 color;
 
         /** Point and spot lights use candela (lm/sr) while directional use lux (lm/m^2) */
         num intensity;

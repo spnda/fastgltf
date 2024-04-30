@@ -188,11 +188,11 @@ enum MaterialUniformFlags : std::uint32_t {
 };
 
 struct MaterialUniforms {
-    glm::fvec4 baseColorFactor;
-    float alphaCutoff;
-	std::uint32_t flags;
+    fastgltf::math::fvec4 baseColorFactor;
+    float alphaCutoff = 0.f;
+	std::uint32_t flags = 0;
 
-	glm::vec2 padding;
+	fastgltf::math::fvec2 padding;
 };
 
 struct Viewer {
@@ -529,7 +529,7 @@ bool loadMaterial(Viewer* viewer, fastgltf::Material& material) {
     MaterialUniforms uniforms = {};
     uniforms.alphaCutoff = material.alphaCutoff;
 
-    uniforms.baseColorFactor = glm::make_vec4(material.pbrData.baseColorFactor.data());
+    uniforms.baseColorFactor = material.pbrData.baseColorFactor;
     if (material.pbrData.baseColorTexture.has_value()) {
         uniforms.flags |= MaterialUniformFlags::HasBaseColorTexture;
     }
@@ -751,7 +751,7 @@ int main(int argc, char* argv[]) {
 
 	// Add a default material
 	auto& defaultMaterial = viewer.materials.emplace_back();
-	defaultMaterial.baseColorFactor = glm::vec4(1.0f);
+	defaultMaterial.baseColorFactor = fastgltf::math::fvec4(1.0f);
 	defaultMaterial.alphaCutoff = 0.0f;
 	defaultMaterial.flags = 0;
 
