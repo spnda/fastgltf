@@ -403,14 +403,22 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 
 fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noexcept {
 	URI decodedUri(uri.path()); // Re-allocate so we can decode potential characters.
-#if FASTGLTF_CPP_20
-	// JSON strings need always be in UTF-8, so we can safely assume that the URI contains UTF-8 characters.
-	// This is technically UB... but I'm not sure how to do it otherwise.
-	std::u8string_view u8path(reinterpret_cast<const char8_t*>(decodedUri.path().data()),
-							  decodedUri.path().size());
-	auto path = directory / fs::path(u8path);
-#else
+	// JSON strings are always in UTF-8, so we can safely always use u8path here.
+	// Since u8path is deprecated with C++20 and newer, u8path is deprecated.
+	// As there is no other proper solution that doesn't do something illegal,
+	// we'll just disable related warnings here.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 	auto path = directory / fs::u8path(decodedUri.path());
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
 #endif
 
 #if defined(__ANDROID__)

@@ -125,14 +125,15 @@ TEST_CASE("Matrix initialization", "[maths]") {
 		REQUIRE(matrix.col(3)[2] == 0.f);
 	}
 
-	static constexpr auto sentinel = fastgltf::math::fvec4(1, 2, 3, 4);
 	SECTION("Multi-value init with parameter pack") {
-		fastgltf::math::fmat2x2 mat2(fastgltf::math::fvec2(sentinel), fastgltf::math::fvec2(sentinel) + 1.f);
+		static constexpr auto sentinel2 = fastgltf::math::fvec2(1, 2);
+		fastgltf::math::fmat2x2 mat2(sentinel2, sentinel2 + 1.f);
 		REQUIRE(mat2.col(0).size() == 2);
 		REQUIRE(mat2.col(0)[1] == 2.f);
-		REQUIRE(mat2.col(0) == fastgltf::math::fvec2(sentinel));
-		REQUIRE(mat2.col(1) == fastgltf::math::fvec2(sentinel) + 1.f);
+		REQUIRE(mat2.col(0) == sentinel2);
+		REQUIRE(mat2.col(1) == sentinel2 + 1.f);
 
+		static constexpr auto sentinel = fastgltf::math::fvec4(1, 2, 3, 4);
 		fastgltf::math::fmat4x4 mat4(sentinel, sentinel + 1.f, sentinel + 2.f, sentinel + 3.f);
 		REQUIRE(mat4.col(0) == sentinel);
 		REQUIRE(mat4.col(1) == sentinel + 1.f);
