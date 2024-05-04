@@ -73,13 +73,64 @@ namespace fastgltf {
     static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
 	static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
 
+	void readUint32LE(std::uint32_t& x, std::byte* bytes) noexcept {
+		x = std::uint32_t(bytes[0])
+				| (std::uint32_t(bytes[1]) << 8)
+				| (std::uint32_t(bytes[2]) << 16)
+				| (std::uint32_t(bytes[3]) << 24);
+	}
+
+	void writeUint32LE(std::uint32_t x, std::byte* buffer) noexcept {
+		buffer[0] = static_cast<std::byte>(x);
+		buffer[1] = static_cast<std::byte>(x >> 8);
+		buffer[2] = static_cast<std::byte>(x >> 16);
+		buffer[3] = static_cast<std::byte>(x >> 24);
+	}
+
+	/** GLBs are always little-endian, meaning we need to read the values accordingly */
+	[[nodiscard, gnu::always_inline]] auto readBinaryHeader(GltfDataGetter& getter) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
+		getter.read(bytes.data(), bytes.size());
+
+		BinaryGltfHeader header = {};
+		readUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
+		readUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
+		readUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
+		return header;
+	}
+
+	[[gnu::always_inline]] auto writeBinaryHeader(const BinaryGltfHeader& header) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
+		writeUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
+		writeUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
+		writeUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
+		return bytes;
+	}
+
     struct BinaryGltfChunk {
         std::uint32_t chunkLength;
         std::uint32_t chunkType;
     };
 	static_assert(std::is_trivially_copyable_v<BinaryGltfChunk>);
 
-    using CRCStringFunction = std::uint32_t(*)(std::string_view str);
+	[[nodiscard, gnu::always_inline]] auto readBinaryChunk(GltfDataGetter& getter) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
+		getter.read(bytes.data(), bytes.size());
+
+		BinaryGltfChunk chunk = {};
+		readUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
+		readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
+		return chunk;
+	}
+
+	[[gnu::always_inline]] auto writeBinaryChunk(const BinaryGltfChunk& chunk) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
+		writeUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
+		writeUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
+		return bytes;
+	}
+
+	using CRCStringFunction = std::uint32_t(*)(std::string_view str);
 
 #if defined(FASTGLTF_IS_X86)
     [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(std::string_view str) noexcept {
@@ -3628,8 +3679,7 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 #pragma region Parser
 fastgltf::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 	// We'll try and read a BinaryGltfHeader from the buffer to see if the magic is correct.
-	BinaryGltfHeader header = {};
-	data.read(&header, sizeof header);
+	auto header = readBinaryHeader(data);
 	data.reset();
 	if (header.magic == binaryGltfHeaderMagic) {
 		return GltfType::GLB;
@@ -3718,8 +3768,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 
 	data.reset();
 
-    BinaryGltfHeader header = {};
-    data.read(&header, sizeof header);
+    auto header = readBinaryHeader(data);
     if (header.magic != binaryGltfHeaderMagic) {
 	    return Error::InvalidGLB;
     }
@@ -3733,8 +3782,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
     // The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
     //  1. JSON chunk
     //  2. BIN chunk (optional)
-    BinaryGltfChunk jsonChunk = {};
-    data.read(&jsonChunk, sizeof jsonChunk);
+    auto jsonChunk = readBinaryChunk(data);
     if (jsonChunk.chunkType != binaryGltfJsonChunkMagic) {
 	    return Error::InvalidGLB;
     }
@@ -3753,8 +3801,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 
     // Is there enough room for another chunk header?
     if (header.length > (data.bytesRead() + sizeof(BinaryGltfChunk))) {
-        BinaryGltfChunk binaryChunk = {};
-		data.read(&binaryChunk, sizeof binaryChunk);
+        auto binaryChunk = readBinaryChunk(data);
 
         if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
 	        return Error::InvalidGLB;
@@ -5222,18 +5269,20 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
         output += size;
     };
 
-    // Write glTF header
-    BinaryGltfHeader header;
-    header.magic = binaryGltfHeaderMagic;
-    header.version = 2;
-    header.length = static_cast<std::uint32_t>(binarySize);
-    write(&header, sizeof header);
+	// Write glTF header
+	BinaryGltfHeader header {};
+	header.magic = binaryGltfHeaderMagic;
+	header.version = 2;
+	header.length = static_cast<std::uint32_t>(binarySize);
+	auto headerBytes = writeBinaryHeader(header);
+	write(headerBytes.data(), headerBytes.size());
 
-    // Write JSON chunk
-    BinaryGltfChunk jsonChunk;
-    jsonChunk.chunkType = binaryGltfJsonChunkMagic;
-    jsonChunk.chunkLength = static_cast<std::uint32_t>(alignUp(json.size(), 4));
-    write(&jsonChunk, sizeof jsonChunk);
+	// Write JSON chunk
+	BinaryGltfChunk jsonChunk {};
+	jsonChunk.chunkType = binaryGltfJsonChunkMagic;
+	jsonChunk.chunkLength = static_cast<std::uint32_t>(alignUp(json.size(), 4));
+	auto chunkBytes = writeBinaryChunk(jsonChunk);
+	write(chunkBytes.data(), chunkBytes.size());
 
     write(json.data(), json.size());
 
@@ -5247,10 +5296,11 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
         const auto& buffer = asset.buffers.front();
 
         // Write BIN chunk
-        BinaryGltfChunk dataChunk;
+        BinaryGltfChunk dataChunk {};
         dataChunk.chunkType = binaryGltfDataChunkMagic;
         dataChunk.chunkLength = static_cast<std::uint32_t>(alignUp(buffer.byteLength, 4));
-        write(&dataChunk, sizeof dataChunk);
+		chunkBytes = writeBinaryChunk(dataChunk);
+		write(chunkBytes.data(), chunkBytes.size());
 
 		std::visit(visitor {
 			[](auto&) {},

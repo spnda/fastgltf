@@ -365,16 +365,31 @@ namespace fastgltf {
 	}
 #endif
 
+	template<typename T, std::enable_if_t<std::is_integral_v<T>, bool> = true>
+#if FASTGLTF_CONSTEXPR_BITCAST
+	constexpr
+#endif
+	T byteswap(T value) noexcept {
+		static_assert(std::has_unique_object_representations_v<T>, "T may not have padding bits");
+		auto bytes = bit_cast<std::array<std::byte, sizeof(T)>>(value);
+		bytes = decltype(bytes)(bytes.rbegin(), bytes.rend());
+		return bit_cast<T>(bytes);
+	}
+
 	/**
 	 * Returns the absolute value of the given integer in its unsigned type.
 	 * This avoids the issue with two complementary signed integers not being able to represent INT_MIN.
 	 */
 	template <typename T>
 	constexpr std::make_unsigned_t<T> uabs(T val) {
-		using unsigned_t = std::make_unsigned_t<T>;
-		return (val < 0)
-			? static_cast<unsigned_t>(-(val + 1)) + 1
-			: static_cast<unsigned_t>(val);
+		if constexpr (std::is_signed_v<T>) {
+			using unsigned_t = std::make_unsigned_t<T>;
+			return (val < 0)
+				   ? static_cast<unsigned_t>(-(val + 1)) + 1
+				   : static_cast<unsigned_t>(val);
+		} else {
+			return val;
+		}
 	}
 
 	template <auto callback>
