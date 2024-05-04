@@ -725,7 +725,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 /**
  * Computes the transform matrix for a given node, and multiplies the given base with that matrix.
  */
-auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
+inline auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
 	return std::visit(visitor {
 		[&](const math::fmat4x4& matrix) {
 			return base * matrix;
