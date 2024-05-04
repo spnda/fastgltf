@@ -4,11 +4,10 @@ Accessor tools
 
 .. contents:: Table of Contents
 
-**fastgltf** provides a utility header for working with accessors. The header contains various functions
-and utilities for reading, copying, and converting accessor data. All of these tools also directly
-support sparse accessors to help add support for these without having to understand how they work.
-This header was written by `forenoonwatch <https://github.com/forenoonwatch>`_ with the help of
-`Eearslya <https://github.com/Eearslya>`_ and me.
+**fastgltf** provides utility functionality for working with accessors, found in the ``fastgltf/tools.hpp`` header.
+The header contains various functions and utilities for reading, copying, and converting accessor data.
+All of these tools also directly support sparse accessors to help add support for these without having to understand how they work.
+This functionality was written by `forenoonwatch <https://github.com/forenoonwatch>`_ with the help of `Eearslya <https://github.com/Eearslya>`_ and me.
 
 ElementTraits
 =============

@@ -14,6 +14,21 @@ This should give a good understanding of how everything works together. It is al
 .. image:: https://raw.githubusercontent.com/KhronosGroup/glTF/main/specification/2.0/figures/gltfOverview-2.0.0d.png
    :alt: glTF overview cheatsheet
 
+Source overview
+===============
+
+To give a quick overview of the source file structure for **fastgltf**, this quick list should help:
+
+* ``fastgltf/core.hpp``: This will be the main file you include, which brings in everything you need.
+  This contains the parser, the exporter, and all other required functionality.
+* ``fastgltf/types.hpp``: This header includes only the POD types and enumerations for glTF data.
+* ``fastgltf/tools.hpp``: Optional header, which provides the accessor tools and node transform utilities.
+* ``fastgltf/base64.hpp``: Contains function definitions for the optimised base64 decoding functions, which use SIMD intrinsics, if you need them elsewhere.
+* ``fastgltf/math.hpp``: The custom math library which contains all functionality necessary for working with glTF assets.
+* ``fastgltf/glm_element_traits.hpp``: This header defines element traits used for the accessor tools for all relevant glm types.
+* ``fastgltf/util.hpp``: Simply a utility header including various macros and functions used in all headers and source files.
+  You will usually not need to include this yourself, unless you use the functionality in your own project elsewhere.
+
 How to load glTF files for parsing
 ==================================
 
@@ -56,7 +71,7 @@ See :ref:`this section <android-guide>` for more information.
 Iterating over the node hierarchy
 =================================
 
-**fastgltf** provides a simple way to iterate over the node hierarchy of a glTF scene.
+**fastgltf** provides a simple way to iterate over the node hierarchy of a glTF scene, provided in the ``fastgltf/tools.hpp`` header.
 The following example illustrates how to simply iterate over this hierarchy using fastgltf,
 which additionally provides the transform matrix for each node.
 
@@ -71,6 +86,13 @@ which additionally provides the transform matrix for each node.
 
 The ``fmat4x4`` which is passed into the function is an initial transform matrix.
 Normally, this is just an identity matrix. However, this provides the possibility to transform the entire scene.
+
+Also, **fastgltf** provides a single function for getting the local transform matrix for each node.
+This may be useful for implementing your own iteration function.
+
+.. code:: c++
+
+   auto mat4 = fastgltf::getTranformMatrix(node);
 
 How to read glTF extras
 =======================
