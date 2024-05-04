@@ -16,7 +16,7 @@ By default, fastgltf will only do the absolute minimum to work with a glTF model
 However, it brings many additional features to ease working with the data,
 including accessor tools, the ability to directly write to mapped GPU buffers, and decomposing transform matrices.
 
-To learn more about fastgltf, its features, performance and API you can read [the docs](https://fastgltf.readthedocs.io/v0.6.x/).
+To learn more about fastgltf, its features, performance and API you can read [the docs](https://fastgltf.readthedocs.io/).
 
 ## Examples and real-world usage
 
