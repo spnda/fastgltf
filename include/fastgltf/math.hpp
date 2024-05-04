@@ -148,34 +148,41 @@ namespace fastgltf::math {
 		}
 
 		constexpr auto operator*(T scalar) const noexcept {
-			vec<T, N> ret(T(0));
-			for (std::size_t i = 0; i < N; ++i)
-				ret[i] = (*this)[i] * scalar;
-			return ret;
+			return vec<T, N>(*this) *= scalar;
 		}
 		constexpr auto operator*=(T scalar) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] *= scalar;
 			return *this;
 		}
+		constexpr auto operator*(const vec<T, N>& other) const noexcept {
+			return vec<T, N>(*this) *= other;
+		}
+		constexpr auto operator*=(const vec<T, N>& other) noexcept {
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i] *= other[i];
+			return *this;
+		}
 
 		constexpr auto operator/(T scalar) const noexcept {
-			vec<T, N> ret(T(0));
-			for (std::size_t i = 0; i < N; ++i)
-				ret[i] = (*this)[i] / scalar;
-			return ret;
+			return vec<T, N>(*this) /= scalar;
 		}
 		constexpr auto operator/=(T scalar) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] /= scalar;
 			return *this;
 		}
+		constexpr auto operator/(const vec<T, N>& other) const noexcept {
+			return vec<T, N>(*this) /= other;
+		}
+		constexpr auto operator/=(const vec<T, N>& other) noexcept {
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i] /= other[i];
+			return *this;
+		}
 
 		constexpr auto operator+(T scalar) const noexcept {
-			vec<T, N> ret(T(0));
-			for (std::size_t i = 0; i < N; ++i)
-				ret[i] = (*this)[i] + scalar;
-			return ret;
+			return vec<T, N>(*this) += scalar;
 		}
 		constexpr auto operator+=(T scalar) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
@@ -183,22 +190,25 @@ namespace fastgltf::math {
 			return *this;
 		}
 		constexpr auto operator+(const vec<T, N>& other) const noexcept {
-			vec<T, N> ret(T(0));
-			for (std::size_t i = 0; i < N; ++i)
-				ret[i] = (*this)[i] + other[i];
-			return ret;
+			return vec<T, N>(*this) += other;
 		}
 		constexpr auto operator+=(const vec<T, N>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] += other[i];
 			return *this;
 		}
+		constexpr auto operator++() noexcept {
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i]++;
+		}
+		constexpr auto operator++(int) noexcept {
+			vec<T, N> ret(*this);
+			++(*this);
+			return ret;
+		}
 
 		constexpr auto operator-(T scalar) const noexcept {
-			vec<T, N> ret(T(0));
-			for (std::size_t i = 0; i < N; ++i)
-				ret[i] = (*this)[i] - scalar;
-			return ret;
+			return vec<T, N>(*this) -= scalar;
 		}
 		constexpr auto operator-=(T scalar) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
@@ -206,15 +216,21 @@ namespace fastgltf::math {
 			return *this;
 		}
 		constexpr auto operator-(const vec<T, N>& other) const noexcept {
-			vec<T, N> ret(T(0));
-			for (std::size_t i = 0; i < N; ++i)
-				ret[i] = (*this)[i] - other[i];
-			return ret;
+			return vec<T, N>(*this) -= other;
 		}
 		constexpr auto operator-=(const vec<T, N>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] -= other[i];
 			return *this;
+		}
+		constexpr auto operator--() noexcept {
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i]--;
+		}
+		constexpr auto operator--(int) noexcept {
+			vec<T, N> ret(*this);
+			--(*this);
+			return ret;
 		}
 
 		template <std::size_t M, std::enable_if_t<M < N, bool> = true>

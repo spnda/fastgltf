@@ -143,6 +143,21 @@ TEST_CASE("Matrix initialization", "[maths]") {
 }
 
 TEST_CASE("Vector operations", "[maths]") {
+	SECTION("Addition") {
+		auto vres = fastgltf::math::u32vec2(3, 4) + fastgltf::math::u32vec2(6, 7);
+		REQUIRE(vres == fastgltf::math::u32vec2(9, 11));
+
+		auto sres = fastgltf::math::u32vec2(3, 4) + std::uint32_t(5);
+		REQUIRE(sres == fastgltf::math::u32vec2(8, 9));
+	}
+	SECTION("Multiplication") {
+		auto sres = fastgltf::math::fvec2(3, 4) * 2;
+		REQUIRE(sres == fastgltf::math::fvec2(6, 8));
+
+		auto vres = fastgltf::math::fvec2(3, 4) * fastgltf::math::fvec2(4, 2);
+		REQUIRE(vres == fastgltf::math::fvec2(12, 8));
+	}
+
 	SECTION("Length") {
 		fastgltf::math::fvec2 v(3, 4);
 		REQUIRE(length(v) == 5);
