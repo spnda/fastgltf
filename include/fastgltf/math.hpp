@@ -181,6 +181,12 @@ namespace fastgltf::math {
 			return *this;
 		}
 
+		constexpr auto operator+() const noexcept {
+			vec<T, N> ret;
+			for (std::size_t i = 0; i < N; ++i)
+				ret[i] = +(*this)[i];
+			return ret;
+		}
 		constexpr auto operator+(T scalar) const noexcept {
 			return vec<T, N>(*this) += scalar;
 		}
@@ -207,6 +213,12 @@ namespace fastgltf::math {
 			return ret;
 		}
 
+		constexpr auto operator-() const noexcept {
+			vec<T, N> ret;
+			for (std::size_t i = 0; i < N; ++i)
+				ret[i] = -(*this)[i];
+			return ret;
+		}
 		constexpr auto operator-(T scalar) const noexcept {
 			return vec<T, N>(*this) -= scalar;
 		}
@@ -242,13 +254,19 @@ namespace fastgltf::math {
 		}
 	};
 
+	/** Reduction sum of a single vector */
+	template <typename T, std::size_t N>
+	[[nodiscard]] auto sum(const vec<T, N>& a) noexcept {
+		T ret = a.x();
+		for (std::size_t i = 1; i < N; ++i)
+			ret += a[i];
+		return ret;
+	}
+
 	/** Computes the dot product of two vectors */
 	template <typename T, std::size_t N>
 	[[nodiscard]] auto dot(const vec<T, N>& a, const vec<T, N>& b) noexcept {
-		T ret = a.x() * b.x();
-		for (std::size_t i = 1; i < N; ++i)
-			ret += a[i] * b[i];
-		return ret;
+		return sum(a * b);
 	}
 
 	/** Computes the 3D cross product of two vectors */
@@ -297,9 +315,15 @@ namespace fastgltf::math {
 	using fvec2 = vec<float, 2>;
 	using fvec3 = vec<float, 3>;
 	using fvec4 = vec<float, 4>;
+	using f32vec2 = vec<float, 2>;
+	using f32vec3 = vec<float, 3>;
+	using f32vec4 = vec<float, 4>;
 	using dvec2 = vec<double, 2>;
 	using dvec3 = vec<double, 3>;
 	using dvec4 = vec<double, 4>;
+	using f64vec2 = vec<double, 2>;
+	using f64vec3 = vec<double, 3>;
+	using f64vec4 = vec<double, 4>;
 
 	/** A quaternion */
 	template <typename T>
