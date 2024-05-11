@@ -26,6 +26,7 @@
 
 #pragma once
 
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -35,6 +36,7 @@
 #include <utility>
 #include <variant>
 #include <vector>
+#endif
 
 // Utils header already includes some headers, which we'll try and avoid including twice.
 #include <fastgltf/util.hpp>
@@ -62,7 +64,9 @@
 #endif
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <memory_resource>
+#endif
 #endif
 
 #if FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
@@ -80,7 +84,9 @@
 #endif
 
 #if FASTGLTF_CPP_20
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <span>
+#endif
 #endif
 
 #ifdef _MSC_VER

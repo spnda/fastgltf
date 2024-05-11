@@ -26,8 +26,10 @@
 
 #pragma once
 
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <cmath>
 #include <tuple>
+#endif
 
 #include <fastgltf/util.hpp>
 

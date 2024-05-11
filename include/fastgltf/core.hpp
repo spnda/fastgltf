@@ -26,9 +26,11 @@
 
 #pragma once
 
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <fstream>
 #include <memory>
 #include <tuple>
+#endif
 
 #include <fastgltf/types.hpp>
 

@@ -26,6 +26,7 @@
 
 #pragma once
 
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -35,6 +36,7 @@
 #include <memory>
 #include <string_view>
 #include <type_traits>
+#endif
 
 // Macros to determine C++ standard version
 #if (!defined(_MSVC_LANG) && __cplusplus >= 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
@@ -55,7 +57,7 @@
 #define FASTGLTF_CPP_23 0
 #endif
 
-#if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
+#if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L && !defined(FASTGLTF_USE_STD_MODULE)
 #define FASTGLTF_HAS_BIT 1
 #include <bit>
 #else
@@ -64,7 +66,9 @@
 
 #if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 202002L
 #define FASTGLTF_HAS_CONCEPTS 1
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <concepts>
+#endif
 #else
 #define FASTGLTF_HAS_CONCEPTS 0
 #endif

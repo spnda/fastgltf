@@ -26,8 +26,10 @@
 
 #pragma once
 
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <cstring>
 #include <iterator>
+#endif
 
 #include <fastgltf/types.hpp>
 

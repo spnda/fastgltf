@@ -26,10 +26,12 @@
 
 #pragma once
 
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#endif
 
 #include <fastgltf/types.hpp>
 
