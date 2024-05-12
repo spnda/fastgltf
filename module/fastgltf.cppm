@@ -21,13 +21,9 @@ extern "C++" {
 
 export namespace fastgltf {
 namespace math {
+// vector.
 using math::vec;
-using math::mat;
-using math::sum;
-using math::dot;
-using math::cross;
-using math::length;
-using math::normalize;
+// vector aliases.
 using math::s8vec2;
 using math::s8vec3;
 using math::s8vec4;
@@ -58,20 +54,35 @@ using math::dvec4;
 using math::f64vec2;
 using math::f64vec3;
 using math::f64vec4;
+// vector functions.
+using math::sum;
+using math::dot;
+using math::cross;
+using math::length;
+using math::normalize;
+
+// quaternion.
 using math::quat;
-using math::asMatrix;
+// quaternion aliases.
 using math::fquat;
 using math::dquat;
-using math::translate;
-using math::scale;
-using math::rotate;
-using math::transpose;
+// quaternion functions.
+using math::asMatrix;
+
+// matrix.
+using math::mat;
+// matrix aliases.
 using math::fmat2x2;
 using math::fmat3x3;
 using math::fmat4x4;
 using math::dmat2x2;
 using math::dmat3x3;
 using math::dmat4x4;
+// matrix functions.
+using math::translate;
+using math::scale;
+using math::rotate;
+using math::transpose;
 using math::decomposeTransformMatrix;
 }
 
