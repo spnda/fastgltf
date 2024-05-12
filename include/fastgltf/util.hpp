@@ -26,11 +26,7 @@
 
 #pragma once
 
-#ifndef FASTGLTF_USE_STD_MODULE
-#define FASTGLTF_USE_STD_MODULE 0
-#endif
-
-#if !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <array>
 #include <cmath>
 #include <cstddef>

@@ -25,10 +25,14 @@
  */
 module;
 
-#include <fastgltf/util.hpp> // This defines FASTGLTF_USE_STD_MODULE if it wasn't already
+#ifndef FASTGLTF_USE_STD_MODULE
+#define FASTGLTF_USE_STD_MODULE 0
+#endif
 
 #if !FASTGLTF_USE_STD_MODULE
 #include <fastgltf/core.hpp>
+#include <fastgltf/base64.hpp>
+#include <fastgltf/tools.hpp>
 #endif
 
 export module fastgltf;
@@ -42,6 +46,8 @@ extern "C++" {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winclude-angled-in-module-purview"
 #include <fastgltf/core.hpp>
+#include <fastgltf/base64.hpp>
+#include <fastgltf/tools.hpp>
 #pragma clang diagnostic pop
 }
 #endif
@@ -113,6 +119,7 @@ using math::transpose;
 using math::decomposeTransformMatrix;
 }
 
+using fastgltf::DataSource;
 namespace sources {
 using sources::Array;
 using sources::BufferView;
@@ -123,12 +130,62 @@ using sources::URI;
 using sources::Vector;
 }
 
-using fastgltf::Accessor;
-using fastgltf::AccessorType;
-using fastgltf::AlphaMode;
+namespace base64 {
+	using fastgltf::base64::getPadding;
+	using fastgltf::base64::getOutputSize;
+
+	using fastgltf::base64::decode_inplace;
+	using fastgltf::base64::decode;
+}
+
+// Custom containers
+using fastgltf::Expected;
+using fastgltf::StaticVector;
+using fastgltf::SmallVector;
+using fastgltf::span;
+using fastgltf::Optional;
+using fastgltf::OptionalFlagValue;
+using fastgltf::OptionalWithFlagValue;
+using fastgltf::URI;
+using fastgltf::URIView;
+
+// Parser/Exporter interface
+using fastgltf::Error;
+using fastgltf::Options;
+using fastgltf::Parser;
+using fastgltf::ExportOptions;
+using fastgltf::Exporter;
+using fastgltf::FileExporter;
+using fastgltf::GltfDataGetter;
+using fastgltf::GltfDataBuffer;
+using fastgltf::GltfFileStream;
+#if FASTGLTF_HAS_MEMORY_MAPPED_FILE
+using fastgltf::MappedGltfFile;
+#endif
 #if defined(__ANDROID__)
 using fastgltf::AndroidGltfDataBuffer;
 #endif
+
+// Callbacks
+using fastgltf::BufferInfo;
+using fastgltf::BufferMapCallback;
+using fastgltf::BufferUnmapCallback;
+using fastgltf::Base64DecodeCallback;
+using fastgltf::ExtrasParseCallback;
+using fastgltf::ExtrasWriteCallback;
+
+using fastgltf::GltfType;
+using fastgltf::determineGltfFileType;
+using fastgltf::validate;
+using fastgltf::getErrorName;
+using fastgltf::getErrorMessage;
+using fastgltf::stringifyExtension;
+using fastgltf::stringifyExtensionBits;
+
+// glTF types
+using fastgltf::Accessor;
+using fastgltf::AccessorType;
+using fastgltf::AlphaMode;
 using fastgltf::Animation;
 using fastgltf::AnimationChannel;
 using fastgltf::AnimationSampler;
@@ -141,20 +198,10 @@ using fastgltf::Camera;
 using fastgltf::Category;
 using fastgltf::ComponentType;
 using fastgltf::CompressedBufferView;
-using fastgltf::DataSource;
-using fastgltf::Error;
-using fastgltf::Expected;
-using fastgltf::ExportOptions;
-using fastgltf::Exporter;
 using fastgltf::Extensions;
 using fastgltf::Filter;
-using fastgltf::GltfDataBuffer;
-using fastgltf::GltfFileStream;
 using fastgltf::Image;
 using fastgltf::Light;
-#if FASTGLTF_HAS_MEMORY_MAPPED_FILE
-using fastgltf::MappedGltfFile;
-#endif
 using fastgltf::Material;
 using fastgltf::MaterialAnisotropy;
 using fastgltf::MaterialSpecular;
@@ -172,26 +219,15 @@ using fastgltf::MimeType;
 using fastgltf::Node;
 using fastgltf::NormalTextureInfo;
 using fastgltf::OcclusionTextureInfo;
-using fastgltf::Optional;
-using fastgltf::OptionalFlagValue;
-using fastgltf::OptionalWithFlagValue;
-using fastgltf::Options;
-using fastgltf::Parser;
 using fastgltf::PrimitiveType;
 using fastgltf::Primitive;
 using fastgltf::Sampler;
 using fastgltf::Scene;
 using fastgltf::Skin;
-using fastgltf::SmallVector;
-using fastgltf::span;
 using fastgltf::SparseAccessor;
-using fastgltf::StaticVector;
 using fastgltf::Texture;
 using fastgltf::TextureInfo;
 using fastgltf::TRS;
-using fastgltf::URI;
-using fastgltf::URIView;
-using fastgltf::visitor;
 using fastgltf::Wrap;
 
 using fastgltf::operator|;
@@ -200,8 +236,25 @@ using fastgltf::operator|=;
 using fastgltf::operator&=;
 using fastgltf::operator~;
 
-using fastgltf::validate;
+// Accessor/component type functions
+using fastgltf::getNumComponents;
+using fastgltf::getElementRowCount;
+using fastgltf::isMatrix;
+using fastgltf::getComponentByteSize;
+using fastgltf::getComponentBitSize;
 using fastgltf::getElementByteSize;
-using fastgltf::getErrorName;
-using fastgltf::getErrorMessage;
+using fastgltf::getGLComponentType;
+
+// Some commonly used utility functions
+using fastgltf::to_underlying;
+using fastgltf::hasBit;
+using fastgltf::visitor;
+
+// Accessor tools
+using fastgltf::getAccessorElement;
+using fastgltf::iterateAccessor;
+using fastgltf::iterateAccessorWithIndex;
+using fastgltf::copyFromAccessor;
+using fastgltf::getTransformMatrix;
+using fastgltf::iterateSceneNodes;
 }
