@@ -5,7 +5,7 @@ add_executable(fastgltf_tests EXCLUDE_FROM_ALL "main.cpp"
     "base64_tests.cpp" "basic_test.cpp" "benchmarks.cpp" "glb_tests.cpp" "gltf_path.hpp" "util_tests.cpp"
     "vector_tests.cpp" "uri_tests.cpp" "extension_tests.cpp" "accessor_tests.cpp" "write_tests.cpp" "math_tests.cpp")
 target_compile_features(fastgltf_tests PRIVATE ${FASTGLTF_COMPILE_TARGET})
-target_link_libraries(fastgltf_tests PRIVATE fastgltf)
+target_link_libraries(fastgltf_tests PRIVATE fastgltf::fastgltf)
 target_link_libraries(fastgltf_tests PRIVATE glm::glm Catch2::Catch2)
 fastgltf_compiler_flags(fastgltf_tests)
 
@@ -54,5 +54,3 @@ if(FASTGLTF_ENABLE_ASSIMP AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/a
     target_link_libraries(fastgltf_tests PRIVATE assimp::assimp)
     target_compile_definitions(fastgltf_tests PRIVATE HAS_ASSIMP=1)
 endif()
-
-fastgltf_add_source_directory(TARGET fastgltf_tests FOLDER ".")
