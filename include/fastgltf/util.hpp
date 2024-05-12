@@ -38,6 +38,10 @@
 #include <type_traits>
 #endif
 
+#ifndef FASTGLTF_EXPORT
+#define FASTGLTF_EXPORT
+#endif
+
 // Macros to determine C++ standard version
 #if (!defined(_MSVC_LANG) && __cplusplus >= 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #define FASTGLTF_CPP_17 1
@@ -319,30 +323,30 @@ namespace fastgltf {
 	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
 	 * std::visit
 	 */
-	template<class... Ts>
+	FASTGLTF_EXPORT template<class... Ts>
 	struct visitor : Ts... {
 		using Ts::operator()...;
 	};
 
-	template<class... Ts> visitor(Ts...) -> visitor<Ts...>;
+	FASTGLTF_EXPORT template<class... Ts> visitor(Ts...) -> visitor<Ts...>;
 
     // For simple ops like &, |, +, - taking a left and right operand.
 #define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \
-    constexpr T1 operator op(const T1& a, const T2& b) noexcept { \
+    FASTGLTF_EXPORT constexpr T1 operator op(const T1& a, const T2& b) noexcept { \
         static_assert(std::is_enum_v<T1> && std::is_enum_v<T2>); \
         return static_cast<T1>(to_underlying(a) op to_underlying(b)); \
     }
 
     // For any ops like |=, &=, +=, -=
 #define FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(T1, T2, op) \
-    constexpr T1& operator op##=(T1& a, const T2& b) noexcept { \
+    FASTGLTF_EXPORT constexpr T1& operator op##=(T1& a, const T2& b) noexcept { \
         static_assert(std::is_enum_v<T1> && std::is_enum_v<T2>); \
         return a = static_cast<T1>(to_underlying(a) op to_underlying(b)), a; \
     }
 
     // For unary +, unary -, and bitwise NOT
 #define FASTGLTF_UNARY_OP_TEMPLATE_MACRO(T, op) \
-    constexpr T operator op(const T& a) noexcept { \
+    FASTGLTF_EXPORT constexpr T operator op(const T& a) noexcept { \
         static_assert(std::is_enum_v<T>); \
         return static_cast<T>(op to_underlying(a)); \
     }
