@@ -27,6 +27,10 @@
 #pragma once
 
 #ifndef FASTGLTF_USE_STD_MODULE
+#define FASTGLTF_USE_STD_MODULE 0
+#endif
+
+#if !FASTGLTF_USE_STD_MODULE
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -59,7 +63,7 @@
 
 #if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
 #define FASTGLTF_HAS_BIT 1
-#ifndef FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <bit>
 #endif
 #else
@@ -68,7 +72,7 @@
 
 #if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 202002L
 #define FASTGLTF_HAS_CONCEPTS 1
-#ifndef FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <concepts>
 #endif
 #else

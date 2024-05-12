@@ -26,7 +26,7 @@
 
 #pragma once
 
-#ifndef FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cmath>
 #include <tuple>
 #endif

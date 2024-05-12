@@ -26,7 +26,7 @@
 
 #pragma once
 
-#ifndef FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -64,7 +64,7 @@
 #endif
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-#ifndef FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <memory_resource>
 #endif
 #endif
@@ -84,7 +84,7 @@
 #endif
 
 #if FASTGLTF_CPP_20
-#ifndef FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <span>
 #endif
 #endif
