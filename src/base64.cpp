@@ -63,6 +63,8 @@ namespace fg = fastgltf;
 
 #if defined(_MSC_VER)
 #define FORCEINLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define FORCEINLINE [[gnu::always_inline]]
 #else
 // On other compilers we need the inline specifier, so that the functions in this compilation unit
 // can be properly inlined without the "function body can be overwritten at link time" error.
@@ -118,8 +120,7 @@ namespace fastgltf::base64 {
 // The AVX and SSE decoding functions are based on http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html.
 // It covers various methods of en-/decoding base64 using SSE and AVX and also shows their
 // performance metrics.
-// TODO: Mark these functions with msvc::forceinline which is available from C++20
-[[gnu::target("avx2"), gnu::always_inline]] FORCEINLINE auto avx2_lookup_pshufb_bitmask(const __m256i input) {
+[[gnu::target("avx2")]] FORCEINLINE auto avx2_lookup_pshufb_bitmask(const __m256i input) {
     const auto higher_nibble = _mm256_and_si256(_mm256_srli_epi32(input, 4), _mm256_set1_epi8(0x0f));
 
     const auto shiftLUT = _mm256_setr_epi8(
@@ -136,7 +137,7 @@ namespace fastgltf::base64 {
     return _mm256_add_epi8(input, shift);
 }
 
-[[gnu::target("avx2"), gnu::always_inline]] FORCEINLINE auto avx2_pack_ints(__m256i input) {
+[[gnu::target("avx2")]] FORCEINLINE auto avx2_pack_ints(__m256i input) {
     const auto merge = _mm256_maddubs_epi16(input, _mm256_set1_epi32(0x01400140));
     return _mm256_madd_epi16(merge, _mm256_set1_epi32(0x00011000));
 }
@@ -203,7 +204,7 @@ namespace fastgltf::base64 {
     return ret;
 }
 
-[[gnu::target("sse4.1"), gnu::always_inline]] FORCEINLINE auto sse4_lookup_pshufb_bitmask(const __m128i input) {
+[[gnu::target("sse4.1")]] FORCEINLINE auto sse4_lookup_pshufb_bitmask(const __m128i input) {
     const auto higher_nibble = _mm_and_si128(_mm_srli_epi32(input, 4), _mm_set1_epi8(0x0f));
 
     const auto shiftLUT = _mm_setr_epi8(
@@ -217,7 +218,7 @@ namespace fastgltf::base64 {
     return _mm_add_epi8(input, shift);
 }
 
-[[gnu::target("sse4.1"), gnu::always_inline]] FORCEINLINE auto sse4_pack_ints(__m128i input) {
+[[gnu::target("sse4.1")]] FORCEINLINE auto sse4_pack_ints(__m128i input) {
     const auto merge = _mm_maddubs_epi16(input, _mm_set1_epi32(0x01400140));
     return _mm_madd_epi16(merge, _mm_set1_epi32(0x00011000));
 }
@@ -278,7 +279,7 @@ namespace fastgltf::base64 {
     return ret;
 }
 #elif defined(FASTGLTF_IS_A64)
-[[gnu::always_inline]] FORCEINLINE int8x16_t neon_lookup_pshufb_bitmask(const uint8x16_t input) {
+FORCEINLINE int8x16_t neon_lookup_pshufb_bitmask(const uint8x16_t input) {
     // clang-format off
     constexpr std::array<int8_t, 16> shiftLUTdata = {
         0,   0,  19,   4, -65, -65, -71, -71,
@@ -297,7 +298,7 @@ namespace fastgltf::base64 {
     return vaddq_s8(input, shift);
 }
 
-[[gnu::always_inline]] FORCEINLINE int16x8_t neon_pack_ints(const int8x16_t input) {
+FORCEINLINE int16x8_t neon_pack_ints(const int8x16_t input) {
     const uint32x4_t mask = vdupq_n_u32(0x01400140);
 
     const int16x8_t tl = vmulq_s16(vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(input))), vmovl_s8(vget_low_s8(mask)));
@@ -386,7 +387,7 @@ static constexpr std::array<std::uint8_t, 128> base64lut = {
 
 namespace fastgltf::base64 {
     template <typename Output>
-	[[gnu::always_inline]] FORCEINLINE void decode_block(std::array<std::uint8_t, 4>& sixBitChars, Output output) {
+	FORCEINLINE void decode_block(std::array<std::uint8_t, 4>& sixBitChars, Output output) {
 		for (std::size_t i = 0; i < 4; i++) {
 			assert(static_cast<std::size_t>(sixBitChars[i]) < base64lut.size());
 			sixBitChars[i] = base64lut[sixBitChars[i]];

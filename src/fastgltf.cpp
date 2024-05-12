@@ -73,14 +73,14 @@ namespace fastgltf {
     static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
 	static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
 
-	void readUint32LE(std::uint32_t& x, std::byte* bytes) noexcept {
+	constexpr void readUint32LE(std::uint32_t& x, std::byte* bytes) noexcept {
 		x = std::uint32_t(bytes[0])
 				| (std::uint32_t(bytes[1]) << 8)
 				| (std::uint32_t(bytes[2]) << 16)
 				| (std::uint32_t(bytes[3]) << 24);
 	}
 
-	void writeUint32LE(std::uint32_t x, std::byte* buffer) noexcept {
+	constexpr void writeUint32LE(std::uint32_t x, std::byte* buffer) noexcept {
 		buffer[0] = static_cast<std::byte>(x);
 		buffer[1] = static_cast<std::byte>(x >> 8);
 		buffer[2] = static_cast<std::byte>(x >> 16);
@@ -88,7 +88,7 @@ namespace fastgltf {
 	}
 
 	/** GLBs are always little-endian, meaning we need to read the values accordingly */
-	[[nodiscard, gnu::always_inline]] auto readBinaryHeader(GltfDataGetter& getter) noexcept {
+	[[nodiscard, gnu::always_inline]] inline auto readBinaryHeader(GltfDataGetter& getter) noexcept {
 		std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
 		getter.read(bytes.data(), bytes.size());
 
@@ -99,7 +99,7 @@ namespace fastgltf {
 		return header;
 	}
 
-	[[gnu::always_inline]] auto writeBinaryHeader(const BinaryGltfHeader& header) noexcept {
+	[[gnu::always_inline]] inline auto writeBinaryHeader(const BinaryGltfHeader& header) noexcept {
 		std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
 		writeUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
 		writeUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
@@ -113,7 +113,7 @@ namespace fastgltf {
     };
 	static_assert(std::is_trivially_copyable_v<BinaryGltfChunk>);
 
-	[[nodiscard, gnu::always_inline]] auto readBinaryChunk(GltfDataGetter& getter) noexcept {
+	[[nodiscard, gnu::always_inline]] inline auto readBinaryChunk(GltfDataGetter& getter) noexcept {
 		std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
 		getter.read(bytes.data(), bytes.size());
 
@@ -123,7 +123,7 @@ namespace fastgltf {
 		return chunk;
 	}
 
-	[[gnu::always_inline]] auto writeBinaryChunk(const BinaryGltfChunk& chunk) noexcept {
+	[[gnu::always_inline]] inline auto writeBinaryChunk(const BinaryGltfChunk& chunk) noexcept {
 		std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
 		writeUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
 		writeUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
@@ -173,7 +173,6 @@ namespace fastgltf {
 
 		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang
 		// than using a std::size_t i = 0.
-		// TODO: is there perhaps just some intrinsic we can use instead of inline asm?
 		auto length = static_cast<std::int64_t>(len);
 		while ((length -= sizeof(std::uint64_t)) >= 0) {
 			std::uint64_t value;

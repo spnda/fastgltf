@@ -40,7 +40,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/quaternion.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"

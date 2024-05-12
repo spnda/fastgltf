@@ -45,6 +45,7 @@
 
 #if (!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #define FASTGLTF_CPP_20 1
+#include <version>
 #else
 #define FASTGLTF_CPP_20 0
 #endif
@@ -238,7 +239,7 @@ namespace fastgltf {
     [[gnu::hot, gnu::const]] std::uint32_t sse_crc32c(std::string_view str) noexcept;
     [[gnu::hot, gnu::const]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
 #elif defined(FASTGLTF_IS_A64) && !defined(_MSC_VER) && !defined(__ANDROID__)
-	// Both MSVC stdlib and Android NDK don't include the arm intrinsics
+	// Both MSVC stdlib and Android NDK don't include the arm intrinsics. TODO: Find a workaround?
 #define FASTGLTF_ENABLE_ARMV8_CRC 1
 	[[gnu::hot, gnu::const]] std::uint32_t armv8_crc32c(std::string_view str) noexcept;
 	[[gnu::hot, gnu::const]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
@@ -365,16 +366,23 @@ namespace fastgltf {
 	}
 #endif
 
+#if FASTGLTF_CPP_20 && defined(__cpp_lib_byteswap) && __cpp_lib_byteswap >= 202110L
+	template<class T>
+	constexpr T byteswap(T n) noexcept {
+		return std::byteswap(n);
+	}
+#else
 	template<typename T, std::enable_if_t<std::is_integral_v<T>, bool> = true>
 #if FASTGLTF_CONSTEXPR_BITCAST
 	constexpr
 #endif
-	T byteswap(T value) noexcept {
+	auto byteswap(T value) noexcept {
 		static_assert(std::has_unique_object_representations_v<T>, "T may not have padding bits");
 		auto bytes = bit_cast<std::array<std::byte, sizeof(T)>>(value);
 		bytes = decltype(bytes)(bytes.rbegin(), bytes.rend());
 		return bit_cast<T>(bytes);
 	}
+#endif
 
 	/**
 	 * Returns the absolute value of the given integer in its unsigned type.
