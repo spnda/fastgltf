@@ -24,14 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/cache@v3
+      - name: Download cached sample models
+        uses: actions/cache@v4
         id: sample-models-cache
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
-
-      - name: Install Python dependencies
-        run: pip3 install Jinja2
 
       - name: Download dependencies
         run: python3 fetch_test_deps.py
@@ -54,14 +52,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/cache@v3
+      - name: Download cached sample models
+        uses: actions/cache@v4
         id: sample-models-cache
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
-
-      - name: Install Python dependencies
-        run: pip3 install Jinja2
 
       - name: Download dependencies
         run: python3 fetch_test_deps.py
@@ -107,14 +103,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/cache@v3
+      - name: Download cached sample models
+        uses: actions/cache@v4
         id: sample-models-cache
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
-
-      - name: Install Python dependencies
-        run: pip3 install Jinja2
 
       - name: Download dependencies
         run: python3 fetch_test_deps.py
@@ -122,10 +116,6 @@ jobs:
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
-
-      # GLFW requires these libs to be present so that configuring succeeds.
-      - name: Install libxandr
-        run: sudo apt-get install -y libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_COMPILE_AS_CPP20=${{ matrix.cpp20 }}
@@ -155,14 +145,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/cache@v3
+      - name: Download cached sample models
+        uses: actions/cache@v4
         id: sample-models-cache
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
-
-      - name: Install Python dependencies
-        run: pip3 install Jinja2
 
       - name: Download dependencies
         run: python3 fetch_test_deps.py
@@ -170,10 +158,6 @@ jobs:
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
-
-      # GLFW requires these libs to be present so that configuring succeeds.
-      - name: Install libxandr
-        run: sudo apt-get install -y libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_ENABLE_DEPRECATED_EXT=ON

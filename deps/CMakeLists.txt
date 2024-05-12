@@ -1,22 +1,5 @@
 set(FASTGLTF_DEPS_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# glfw. We emulate parts of glfw's CMakeLists but don't want to include any examples or tests.
-if(EXISTS "${FASTGLTF_DEPS_DIR}/glfw")
-    message(STATUS "fastgltf: Found glfw")
-    # copied from glfw's CMakeLists. We seriously don't want any examples/tests/docs.
-    option(GLFW_BUILD_EXAMPLES "Build the GLFW example programs" OFF)
-    option(GLFW_BUILD_TESTS "Build the GLFW test programs" OFF)
-    option(GLFW_BUILD_DOCS "Build the GLFW documentation" OFF)
-    option(GLFW_INSTALL "Generate installation target" OFF)
-
-    add_subdirectory("${FASTGLTF_DEPS_DIR}/glfw")
-
-    set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1)
-    set_target_properties(update_mappings PROPERTIES EXCLUDE_FROM_ALL 1)
-
-    add_library(glfw::glfw ALIAS glfw)
-endif()
-
 # glm
 if(EXISTS "${FASTGLTF_DEPS_DIR}/glm")
     message(STATUS "fastgltf: Found glm")
@@ -38,15 +21,8 @@ if(EXISTS "${FASTGLTF_DEPS_DIR}/glm")
     endif()
 endif()
 
-# stb
-if(EXISTS "${FASTGLTF_DEPS_DIR}/stb")
-    message(STATUS "fastgltf: Found stb")
-    add_library(stb INTERFACE)
-    target_include_directories(stb INTERFACE "${FASTGLTF_DEPS_DIR}/stb")
-endif()
-
 # Catch2
-if (EXISTS "${FASTGLTF_DEPS_DIR}/catch2")
+if (FASTGLTF_ENABLE_TESTS AND EXISTS "${FASTGLTF_DEPS_DIR}/catch2")
     message(STATUS "fastgltf: Found catch2")
     # We can set Catch2 config options like this. We want all the C++17 features.
     option(CATCH_CONFIG_CPP17_UNCAUGHT_EXCEPTIONS "" ON)
@@ -65,8 +41,31 @@ if (EXISTS "${FASTGLTF_DEPS_DIR}/catch2")
     add_subdirectory(${FASTGLTF_DEPS_DIR}/catch2)
 endif()
 
+# corrosion
+if (FASTGLTF_ENABLE_GLTF_RS AND EXISTS "${FASTGLTF_DEPS_DIR}/corrosion")
+    message(STATUS "fastgltf: Found corrosion")
+    add_subdirectory(${FASTGLTF_DEPS_DIR}/corrosion)
+endif()
+
+# glfw. We emulate parts of glfw's CMakeLists but don't want to include any examples or tests.
+if(FASTGLTF_ENABLE_EXAMPLES AND EXISTS "${FASTGLTF_DEPS_DIR}/glfw")
+    message(STATUS "fastgltf: Found glfw")
+    # copied from glfw's CMakeLists. We seriously don't want any examples/tests/docs.
+    option(GLFW_BUILD_EXAMPLES "Build the GLFW example programs" OFF)
+    option(GLFW_BUILD_TESTS "Build the GLFW test programs" OFF)
+    option(GLFW_BUILD_DOCS "Build the GLFW documentation" OFF)
+    option(GLFW_INSTALL "Generate installation target" OFF)
+
+    add_subdirectory("${FASTGLTF_DEPS_DIR}/glfw")
+
+    set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL 1)
+    set_target_properties(update_mappings PROPERTIES EXCLUDE_FROM_ALL 1)
+
+    add_library(glfw::glfw ALIAS glfw)
+endif()
+
 # glad
-if (EXISTS "${FASTGLTF_DEPS_DIR}/glad")
+if (FASTGLTF_ENABLE_EXAMPLES AND EXISTS "${FASTGLTF_DEPS_DIR}/glad")
     message(STATUS "fastgltf: Found glad")
     add_subdirectory(${FASTGLTF_DEPS_DIR}/glad/cmake glad_cmake)
 
@@ -74,14 +73,8 @@ if (EXISTS "${FASTGLTF_DEPS_DIR}/glad")
     glad_add_library(fg_glad_gl46 REPRODUCIBLE EXCLUDE_FROM_ALL LOADER API gl:core=4.6)
 endif()
 
-# corrosion
-if (FASTGLTF_ENABLE_GLTF_RS AND EXISTS "${FASTGLTF_DEPS_DIR}/corrosion")
-    message(STATUS "fastgltf: Found corrosion")
-    add_subdirectory(${FASTGLTF_DEPS_DIR}/corrosion)
-endif()
-
 # imgui
-if (EXISTS "${FASTGLTF_DEPS_DIR}/imgui")
+if (FASTGLTF_ENABLE_EXAMPLES AND EXISTS "${FASTGLTF_DEPS_DIR}/imgui")
     message(STATUS "fastgltf: Found imgui")
 
     set(IMGUI_DIRECTORY "${FASTGLTF_DEPS_DIR}/imgui")
@@ -105,4 +98,11 @@ if (EXISTS "${FASTGLTF_DEPS_DIR}/imgui")
     target_sources(imgui PUBLIC "${IMGUI_DIRECTORY}/backends/imgui_impl_opengl3.h" "${IMGUI_DIRECTORY}/backends/imgui_impl_opengl3.cpp")
 
     target_link_libraries(imgui PUBLIC glfw::glfw)
+endif()
+
+# stb
+if(FASTGLTF_ENABLE_EXAMPLES AND EXISTS "${FASTGLTF_DEPS_DIR}/stb")
+    message(STATUS "fastgltf: Found stb")
+    add_library(stb INTERFACE)
+    target_include_directories(stb INTERFACE "${FASTGLTF_DEPS_DIR}/stb")
 endif()
