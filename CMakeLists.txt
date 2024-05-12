@@ -108,7 +108,7 @@ target_compile_definitions(fastgltf PUBLIC "FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL=
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_64BIT_FLOAT=$<BOOL:${FASTGLTF_USE_64BIT_FLOAT}>")
 
 fastgltf_check_modules_support()
-if (FASTGLTF_SUPPORTS_MODULES)
+if (FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
     message(STATUS "fastgltf: Found compiler support for CXX modules")
 
     if (FASTGLTF_USE_STD_MODULE AND CMAKE_VERSION LESS "3.30")
@@ -121,8 +121,8 @@ if (FASTGLTF_SUPPORTS_MODULES)
     target_compile_features(fastgltf_module PUBLIC cxx_std_20)
     target_sources(fastgltf_module PUBLIC
         FILE_SET CXX_MODULES
-        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/module
-        FILES ${CMAKE_CURRENT_SOURCE_DIR}/module/fastgltf.cppm
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
+        FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/fastgltf.ixx
     )
     target_link_libraries(fastgltf_module PRIVATE fastgltf::fastgltf)
     target_compile_definitions(fastgltf_module PUBLIC "FASTGLTF_USE_STD_MODULE=$<BOOL:${FASTGLTF_USE_STD_MODULE}>")
