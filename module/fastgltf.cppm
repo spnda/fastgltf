@@ -125,6 +125,7 @@ using fastgltf::GltfDataBuffer;
 using fastgltf::GltfFileStream;
 using fastgltf::Image;
 using fastgltf::Light;
+using fastgltf::MappedGltfFile;
 using fastgltf::Material;
 using fastgltf::MaterialAnisotropy;
 using fastgltf::MaterialSpecular;
