@@ -18,7 +18,6 @@ option(FASTGLTF_ENABLE_DEPRECATED_EXT "Enables support for deprecated extensions
 option(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL "Disables the memory allocation algorithm based on polymorphic resources" OFF)
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
 option(FASTGLTF_COMPILE_AS_CPP20 "Have the library compile as C++20" OFF)
-option(FASTGLTF_INSTALL "Install fastgltf" OFF) # For CI.
 
 if (FASTGLTF_COMPILE_AS_CPP20)
     set(FASTGLTF_COMPILE_TARGET cxx_std_20)
@@ -107,28 +106,26 @@ if (ANDROID)
     target_link_libraries(fastgltf PRIVATE android)
 endif()
 
-if (FASTGLTF_INSTALL)
-    install(
-        FILES "include/fastgltf/base64.hpp" "include/fastgltf/glm_element_traits.hpp" "include/fastgltf/core.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp"
-        DESTINATION include/fastgltf
-    )
+install(
+    FILES "include/fastgltf/base64.hpp" "include/fastgltf/glm_element_traits.hpp" "include/fastgltf/core.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp"
+    DESTINATION include/fastgltf
+)
 
-    install(
-        TARGETS fastgltf
-        EXPORT fastgltf-targets
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION bin
-        INCLUDES DESTINATION include
-    )
+install(
+    TARGETS fastgltf
+    EXPORT fastgltf-targets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
 
-    install(
-        EXPORT fastgltf-targets
-        FILE fastgltfConfig.cmake
-        NAMESPACE fastgltf::
-        DESTINATION lib/cmake/fastgltf
-    )
-endif()
+install(
+    EXPORT fastgltf-targets
+    FILE fastgltfConfig.cmake
+    NAMESPACE fastgltf::
+    DESTINATION lib/cmake/fastgltf
+)
 
 if (FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
     # This is required so that Catch2 compiles with C++17, enabling various features we use in tests.
