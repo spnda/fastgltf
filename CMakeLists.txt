@@ -124,7 +124,7 @@ if (FASTGLTF_SUPPORTS_MODULES)
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/module
         FILES ${CMAKE_CURRENT_SOURCE_DIR}/module/fastgltf.cppm
     )
-    target_link_libraries(fastgltf_module PUBLIC fastgltf::fastgltf)
+    target_link_libraries(fastgltf_module PRIVATE fastgltf::fastgltf)
     target_compile_definitions(fastgltf_module PUBLIC "FASTGLTF_USE_STD_MODULE=$<BOOL:${FASTGLTF_USE_STD_MODULE}>")
 endif()
 
