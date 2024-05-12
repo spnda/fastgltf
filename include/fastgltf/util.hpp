@@ -57,9 +57,11 @@
 #define FASTGLTF_CPP_23 0
 #endif
 
-#if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L && !defined(FASTGLTF_USE_STD_MODULE)
+#if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
 #define FASTGLTF_HAS_BIT 1
+#ifndef FASTGLTF_USE_STD_MODULE
 #include <bit>
+#endif
 #else
 #define FASTGLTF_HAS_BIT 0
 #endif
