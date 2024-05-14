@@ -25,9 +25,6 @@
  */
 module;
 
-// std.ixx does/can not export macros.
-#include <cassert>
-
 export module fastgltf;
 
 #ifndef FASTGLTF_USE_STD_MODULE
@@ -51,6 +48,11 @@ extern "C++" {
 #elif defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 5244) // Including header in the purview of module 'fastgltf' appears erroneous.
+#endif
+
+//  When using the define we use import std instead of normal includes, which does not include any macros.
+#if FASTGLTF_USE_STD_MODULE
+#include <cassert>
 #endif
 
 #include <fastgltf/core.hpp>

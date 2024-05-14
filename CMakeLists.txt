@@ -118,7 +118,11 @@ if (FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
     add_library(fastgltf_module)
     add_library(fastgltf::module ALIAS fastgltf_module)
 
-    target_compile_features(fastgltf_module PUBLIC cxx_std_20)
+    if (FASTGLTF_USE_STD_MODULE)
+        target_compile_features(fastgltf_module PRIVATE cxx_std_23 INTERFACE cxx_std_20)
+    else()
+        target_compile_features(fastgltf_module PUBLIC cxx_std_20)
+    endif()
     target_sources(fastgltf_module PUBLIC
         FILE_SET CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
