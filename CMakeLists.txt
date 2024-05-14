@@ -111,8 +111,10 @@ fastgltf_check_modules_support()
 if (FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
     message(STATUS "fastgltf: Found compiler support for CXX modules")
 
-    if (FASTGLTF_USE_STD_MODULE AND CMAKE_VERSION LESS "3.30")
-        message(WARNING "fastgltf: Using the std module is only supported with CMake 3.30 or newer. This might cause compilation errors.")
+    # 3.29.20240416 is what the CMake blog used for talking about import std, so this should roughly be the first
+    # version to support the feature.
+    if (FASTGLTF_USE_STD_MODULE AND CMAKE_VERSION VERSION_LESS "3.29.20240416")
+        message(AUTHOR_WARNING "fastgltf: Using the std module is only natively supported with CMake 3.30 or newer. This might cause compilation errors.")
     endif()
 
     add_library(fastgltf_module)

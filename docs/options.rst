@@ -44,13 +44,15 @@ All types will then be normal ``std`` containers and use standard heap allocatio
 -----------------------------
 
 This ``BOOL`` option controls the C++ standard the library is compiled as. When ``NO`` fastgltf is always compiled as C++17.
-When ``YES`` fastgltf is compiled as C++20, including the tests.
+When ``YES`` fastgltf is compiled as C++20, including the tests. This might allow the compiler to perform certain optimisations,
+since fastgltf then uses some specialized stdlib functions instead.
 
 ``FASTGLTF_USE_STD_MODULE``
 ---------------------------
 
 This ``BOOL`` option makes the fastgltf C++ module import the std module, which is available since C++23.
-This can have further compiler time benefits, but is only supported with CMake 3.30 or newer.
+This can have further compiler time benefits, but is only experimentally supported with CMake 3.30 or newer, and only with some toolchains.
+Therefore, this option should be used with caution and issues are likely.
 
 
 ``FASTGLTF_ENABLE_TESTS``
