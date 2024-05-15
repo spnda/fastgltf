@@ -70,7 +70,6 @@ namespace std {
 
 namespace fastgltf {
     struct BinaryGltfChunk;
-    FASTGLTF_EXPORT class GltfDataGetter;
 
     enum class Error : std::uint64_t {
 		None = 0,
@@ -582,33 +581,10 @@ namespace fastgltf {
 	FASTGLTF_EXPORT using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
 	FASTGLTF_EXPORT using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
 
-    /**
-     * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
-     * paths to buffers or with a base64 embedded buffers, or they can be in a so called GLB
-     * container format which has two or more chunks of binary data, where one represents buffers
-     * and the other contains the JSON string.
-     */
-    FASTGLTF_EXPORT enum class GltfType : std::uint8_t {
-        glTF,
-        GLB,
-        Invalid,
-    };
-
-	/**
-	 * This function starts reading into the buffer and tries to determine what type of glTF container it is.
-	 * This should be used to know whether to call Parser::loadGltfJson or Parser::loadGltfBinary.
-	 *
-	 * @note Usually, you'll want to just use Parser::loadGltf, which will call this itself.
-	 *
-	 * @return The type of the glTF file, either glTF, GLB, or Invalid if it was not determinable. If this function
-	 * returns Invalid it is highly likely that the buffer does not actually represent a valid glTF file.
-	 */
-    FASTGLTF_EXPORT GltfType determineGltfFileType(GltfDataGetter& data);
-
 	/**
 	 * This interface defines how the parser can read the bytes making up a glTF or GLB file.
 	 */
-	class GltfDataGetter {
+	FASTGLTF_EXPORT class GltfDataGetter {
 	public:
 		virtual ~GltfDataGetter() noexcept = default;
 
@@ -711,7 +687,7 @@ namespace fastgltf {
 	 * You should check for FASTGLTF_HAS_MEMORY_MAPPED_FILE before using this class.
 	 */
 	FASTGLTF_EXPORT class MappedGltfFile : public GltfDataGetter {
-		void* mappedFile;
+		void* mappedFile = nullptr;
 #if defined(_WIN32)
 		// Windows requires us to keep the file handle alive. Win32 HANDLE is a void*.
 		void* fileHandle = nullptr;
@@ -804,6 +780,29 @@ namespace fastgltf {
 		}
 	};
 	#endif
+
+	/**
+	 * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
+	 * paths to buffers or with a base64 embedded buffers, or they can be in a so called GLB
+	 * container format which has two or more chunks of binary data, where one represents buffers
+	 * and the other contains the JSON string.
+	 */
+	FASTGLTF_EXPORT enum class GltfType : std::uint8_t {
+		glTF,
+		GLB,
+		Invalid,
+	};
+
+	/**
+	 * This function starts reading into the buffer and tries to determine what type of glTF container it is.
+	 * This should be used to know whether to call Parser::loadGltfJson or Parser::loadGltfBinary.
+	 *
+	 * @note Usually, you'll want to just use Parser::loadGltf, which will call this itself.
+	 *
+	 * @return The type of the glTF file, either glTF, GLB, or Invalid if it was not determinable. If this function
+	 * returns Invalid it is highly likely that the buffer does not actually represent a valid glTF file.
+	 */
+	FASTGLTF_EXPORT GltfType determineGltfFileType(GltfDataGetter& data);
 
 	/**
 	 * This function further validates all the input more strictly that is parsed from the glTF.

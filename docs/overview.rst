@@ -7,6 +7,7 @@ Overview
 **fastgltf** is a speed and usability focused glTF 2.0 library written in modern C++17 with minimal dependencies.
 It uses SIMD in various areas to decrease the time the application spends parsing and loading glTF data.
 By taking advantage of modern C++17 (and optionally C++20) it also provides easy and safe access to the properties and data.
+It is also available as a C++20 `named module <https://en.cppreference.com/w/cpp/language/modules>`_.
 
 The library supports the entirety of glTF 2.0 specification, including many extensions.
 By default, **fastgltf** will only do the absolute minimum to work with a glTF model.
@@ -217,7 +218,7 @@ Performance
 In this chapter, I'll show some graphs on how **fastgltf** compares to the two most used glTF libraries, cgltf and tinygltf.
 I've disabled loading of images and buffers to only compare the JSON parsing and deserialization of the glTF data.
 The values and the graphs themselves can be found in `this spreadsheet <https://docs.google.com/spreadsheets/d/1ocdHGoty-rF0N46ZlAlswzcPHVRsqG_tncy8paD3iMY/edit?usp=sharing>`_.
-These numbers were benchmarked using Catch2's benchmark tool on a Ryzen 5800X (with AVX2) with 32GB of RAM using Clang,
+The following numbers were benchmarked using Catch2's benchmark tool on an Apple M3 Pro and a Ryzen 5800X using Clang,
 as Clang showed a significant performance improvement over MSVC in every test.
 
 First, I compared the performance with embedded buffers that are encoded with base64.

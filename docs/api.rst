@@ -8,7 +8,7 @@ glTF enumerations
 =================
 
 AccessorType
--------------
+------------
 
 .. doxygenenum:: fastgltf::AccessorType
 
@@ -43,27 +43,27 @@ PrimitiveType
 .. doxygenenum:: fastgltf::PrimitiveType
 
 Filter
--------------
+------
 
 .. doxygenenum:: fastgltf::Filter
 
 Wrap
--------------
+----
 
 .. doxygenenum:: fastgltf::Wrap
 
 BufferTarget
--------------
+------------
 
 .. doxygenenum:: fastgltf::BufferTarget
 
 MimeType
--------------
+--------
 
 .. doxygenenum:: fastgltf::MimeType
 
 AnimationInterpolation
--------------
+----------------------
 
 .. doxygenenum:: fastgltf::AnimationInterpolation
 
@@ -73,22 +73,22 @@ AnimationPath
 .. doxygenenum:: fastgltf::AnimationPath
 
 AlphaMode
--------------
+---------
 
 .. doxygenenum:: fastgltf::AlphaMode
 
 MeshoptCompressionMode
--------------
+----------------------
 
 .. doxygenenum:: fastgltf::MeshoptCompressionMode
 
 MeshoptCompressionFilter
--------------
+------------------------
 
 .. doxygenenum:: fastgltf::MeshoptCompressionFilter
 
 LightType
--------------
+---------
 
 .. doxygenenum:: fastgltf::LightType
 
