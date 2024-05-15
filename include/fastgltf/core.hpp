@@ -52,9 +52,9 @@ namespace simdjson::dom {
 } // namespace simdjson::dom
 
 namespace fastgltf {
-	enum class Error : std::uint64_t;
+	FASTGLTF_EXPORT enum class Error : std::uint64_t;
 
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	class Expected;
 } // namespace fastgltf
 
@@ -70,9 +70,9 @@ namespace std {
 
 namespace fastgltf {
     struct BinaryGltfChunk;
-    class GltfDataGetter;
+    FASTGLTF_EXPORT class GltfDataGetter;
 
-    FASTGLTF_EXPORT enum class Error : std::uint64_t {
+    enum class Error : std::uint64_t {
 		None = 0,
 		InvalidPath = 1, ///< The glTF directory passed to load*GLTF is invalid.
 		MissingExtensions = 2, ///< One or more extensions are required by the glTF but not enabled in the Parser.
@@ -487,7 +487,7 @@ namespace fastgltf {
 	 * If error() is not fastgltf::Error::None,
 	 * calling get(), operator->(), and operator*() is undefined behaviour.
 	 */
-	FASTGLTF_EXPORT template <typename T>
+	template <typename T>
 	class Expected {
 		static_assert(std::is_default_constructible_v<T>);
 		static_assert(!std::is_same_v<Error, T>);
@@ -608,7 +608,7 @@ namespace fastgltf {
 	/**
 	 * This interface defines how the parser can read the bytes making up a glTF or GLB file.
 	 */
-	FASTGLTF_EXPORT class GltfDataGetter {
+	class GltfDataGetter {
 	public:
 		virtual ~GltfDataGetter() noexcept = default;
 
@@ -831,7 +831,7 @@ namespace fastgltf {
      *
      * @note This class is not thread-safe.
      */
-    FASTGLTF_EXPORT class Parser {
+    class Parser {
         // The simdjson parser object. We want to share it between runs, so it does not need to
         // reallocate over and over again. We're hiding it here to not leak the simdjson header.
         std::unique_ptr<simdjson::dom::parser> jsonParser;

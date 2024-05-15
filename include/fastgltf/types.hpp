@@ -1264,7 +1264,7 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Structs
-	class URI;
+	FASTGLTF_EXPORT class URI;
 
 	/**
 	 * Custom URI class for fastgltf's needs. glTF 2.0 only allows two types of URIs:
@@ -1335,7 +1335,7 @@ namespace fastgltf {
 	 * This class, unlike fastgltf::URIView, holds a std::string which contains the URI. It
 	 * also decodes any percent-encoded characters.
 	 */
-	FASTGLTF_EXPORT class URI {
+	class URI {
 		std::string uri;
 		URIView view;
 
@@ -2044,7 +2044,7 @@ namespace fastgltf {
     };
 
 	class ChunkMemoryResource;
-	class Parser;
+	FASTGLTF_EXPORT class Parser;
 
 	FASTGLTF_EXPORT class Asset {
 		friend class Parser;

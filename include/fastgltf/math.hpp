@@ -39,7 +39,7 @@
 namespace fastgltf::math {
 	FASTGLTF_EXPORT inline constexpr double pi = 3.141592653589793116;
 
-	template <typename T, std::size_t N, std::size_t M>
+	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
 	class mat;
 
 	FASTGLTF_EXPORT template <typename T, std::size_t N>
@@ -433,7 +433,7 @@ namespace fastgltf::math {
 	 * @param N Number of rows, or the length of a single column.
 	 * @param M Number of columns, or the length of a single row.
 	 */
-	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
+	template <typename T, std::size_t N, std::size_t M>
 	class mat {
 		static_assert(N >= 2 && N <= 4);
 		static_assert(M >= 2 && M <= 4);
