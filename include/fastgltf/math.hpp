@@ -26,8 +26,10 @@
 
 #pragma once
 
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cmath>
 #include <tuple>
+#endif
 
 #include <fastgltf/util.hpp>
 
@@ -35,12 +37,12 @@
  * The fastgltf::math namespace contains all math functions and types which are needed for working with glTF assets.
  */
 namespace fastgltf::math {
-	inline constexpr double pi = 3.141592653589793116;
+	FASTGLTF_EXPORT inline constexpr double pi = 3.141592653589793116;
 
-	template <typename T, std::size_t N, std::size_t M>
+	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
 	class mat;
 
-	template <typename T, std::size_t N>
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
 	class vec {
 		static_assert(N >= 2 && N <= 4);
 
@@ -255,7 +257,7 @@ namespace fastgltf::math {
 	};
 
 	/** Reduction sum of a single vector */
-	template <typename T, std::size_t N>
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
 	[[nodiscard]] auto sum(const vec<T, N>& a) noexcept {
 		T ret = a.x();
 		for (std::size_t i = 1; i < N; ++i)
@@ -264,13 +266,13 @@ namespace fastgltf::math {
 	}
 
 	/** Computes the dot product of two vectors */
-	template <typename T, std::size_t N>
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
 	[[nodiscard]] auto dot(const vec<T, N>& a, const vec<T, N>& b) noexcept {
 		return sum(a * b);
 	}
 
 	/** Computes the 3D cross product of two vectors */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto cross(const vec<T, 3>& a, const vec<T, 3>& b) noexcept {
 		return vec<T, 3>(
 			a.y() * b.z() - a.z() * b.y(),
@@ -280,53 +282,53 @@ namespace fastgltf::math {
 	}
 
 	/** Computes the euclidean length of this vector */
-	template <typename T, std::size_t N>
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
 	[[nodiscard]] T length(const vec<T, N>& v) noexcept {
 		return sqrt(dot(v, v));
 	}
 
 	/** Normalizes the vector to have a length of 1 */
-	template <typename T, std::size_t N>
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
 	[[nodiscard]] auto normalize(const vec<T, N>& v) noexcept {
 		return v / length(v);
 	}
 
-	using s8vec2 = vec<std::int8_t, 2>;
-	using s8vec3 = vec<std::int8_t, 3>;
-	using s8vec4 = vec<std::int8_t, 4>;
-	using u8vec2 = vec<std::uint8_t, 2>;
-	using u8vec3 = vec<std::uint8_t, 3>;
-	using u8vec4 = vec<std::uint8_t, 4>;
+	FASTGLTF_EXPORT using s8vec2 = vec<std::int8_t, 2>;
+	FASTGLTF_EXPORT using s8vec3 = vec<std::int8_t, 3>;
+	FASTGLTF_EXPORT using s8vec4 = vec<std::int8_t, 4>;
+	FASTGLTF_EXPORT using u8vec2 = vec<std::uint8_t, 2>;
+	FASTGLTF_EXPORT using u8vec3 = vec<std::uint8_t, 3>;
+	FASTGLTF_EXPORT using u8vec4 = vec<std::uint8_t, 4>;
 
-	using s16vec2 = vec<std::int16_t, 2>;
-	using s16vec3 = vec<std::int16_t, 3>;
-	using s16vec4 = vec<std::int16_t, 4>;
-	using u16vec2 = vec<std::uint16_t, 2>;
-	using u16vec3 = vec<std::uint16_t, 3>;
-	using u16vec4 = vec<std::uint16_t, 4>;
+	FASTGLTF_EXPORT using s16vec2 = vec<std::int16_t, 2>;
+	FASTGLTF_EXPORT using s16vec3 = vec<std::int16_t, 3>;
+	FASTGLTF_EXPORT using s16vec4 = vec<std::int16_t, 4>;
+	FASTGLTF_EXPORT using u16vec2 = vec<std::uint16_t, 2>;
+	FASTGLTF_EXPORT using u16vec3 = vec<std::uint16_t, 3>;
+	FASTGLTF_EXPORT using u16vec4 = vec<std::uint16_t, 4>;
 
-	using s32vec2 = vec<std::int32_t, 2>;
-	using s32vec3 = vec<std::int32_t, 3>;
-	using s32vec4 = vec<std::int32_t, 4>;
-	using u32vec2 = vec<std::uint32_t, 2>;
-	using u32vec3 = vec<std::uint32_t, 3>;
-	using u32vec4 = vec<std::uint32_t, 4>;
+	FASTGLTF_EXPORT using s32vec2 = vec<std::int32_t, 2>;
+	FASTGLTF_EXPORT using s32vec3 = vec<std::int32_t, 3>;
+	FASTGLTF_EXPORT using s32vec4 = vec<std::int32_t, 4>;
+	FASTGLTF_EXPORT using u32vec2 = vec<std::uint32_t, 2>;
+	FASTGLTF_EXPORT using u32vec3 = vec<std::uint32_t, 3>;
+	FASTGLTF_EXPORT using u32vec4 = vec<std::uint32_t, 4>;
 
-	using fvec2 = vec<float, 2>;
-	using fvec3 = vec<float, 3>;
-	using fvec4 = vec<float, 4>;
-	using f32vec2 = vec<float, 2>;
-	using f32vec3 = vec<float, 3>;
-	using f32vec4 = vec<float, 4>;
-	using dvec2 = vec<double, 2>;
-	using dvec3 = vec<double, 3>;
-	using dvec4 = vec<double, 4>;
-	using f64vec2 = vec<double, 2>;
-	using f64vec3 = vec<double, 3>;
-	using f64vec4 = vec<double, 4>;
+	FASTGLTF_EXPORT using fvec2 = vec<float, 2>;
+	FASTGLTF_EXPORT using fvec3 = vec<float, 3>;
+	FASTGLTF_EXPORT using fvec4 = vec<float, 4>;
+	FASTGLTF_EXPORT using f32vec2 = vec<float, 2>;
+	FASTGLTF_EXPORT using f32vec3 = vec<float, 3>;
+	FASTGLTF_EXPORT using f32vec4 = vec<float, 4>;
+	FASTGLTF_EXPORT using dvec2 = vec<double, 2>;
+	FASTGLTF_EXPORT using dvec3 = vec<double, 3>;
+	FASTGLTF_EXPORT using dvec4 = vec<double, 4>;
+	FASTGLTF_EXPORT using f64vec2 = vec<double, 2>;
+	FASTGLTF_EXPORT using f64vec3 = vec<double, 3>;
+	FASTGLTF_EXPORT using f64vec4 = vec<double, 4>;
 
 	/** A quaternion */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	class quat {
 		static_assert(std::is_floating_point_v<T>);
 
@@ -397,7 +399,7 @@ namespace fastgltf::math {
 	};
 
 	/**  Converts the given quaternion into a 3x3 rotation matrix */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto asMatrix(const quat<T>& rot) noexcept {
 		vec<T, 4> c1(
 			T(1) - T(2) * (rot.y() * rot.y() + rot.z() * rot.z()),
@@ -422,8 +424,8 @@ namespace fastgltf::math {
 		return mat<T, 4, 4>(c1, c2, c3, c4);
 	}
 
-	using fquat = quat<float>;
-	using dquat = quat<double>;
+	FASTGLTF_EXPORT using fquat = quat<float>;
+	FASTGLTF_EXPORT using dquat = quat<double>;
 
 	/**
 	 * A matrix stored in column major order.
@@ -531,7 +533,7 @@ namespace fastgltf::math {
 	};
 
 	/** Translates a given transform matrix by the world space translation vector */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto translate(const mat<T, 4, 4>& m, const vec<T, 3>& translation) noexcept {
 		mat<T, 4, 4> ret = m;
 		ret.col(3) = m.col(0) * translation.x() + m.col(1) * translation.y() + m.col(2) * translation.z() + m.col(3);
@@ -539,7 +541,7 @@ namespace fastgltf::math {
 	}
 
 	/** Scales a given matrix by the three dimensional scale vector. */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto scale(const mat<T, 4, 4>& m, const vec<T, 3>& scale) noexcept {
 		mat<T, 4, 4> ret;
 		ret.col(0) = m.col(0) * scale.x();
@@ -550,12 +552,12 @@ namespace fastgltf::math {
 	}
 
 	/** Rotates the given matrix using the given quaternion */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto rotate(const mat<T, 4, 4>& m, const quat<T>& rot) noexcept {
 		return m * asMatrix(rot);
 	}
 
-	template <typename T, std::size_t N, std::size_t M>
+	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
 	[[nodiscard]] auto transpose(const mat<T, N, M>& m) noexcept {
 		mat<T, M, N> ret;
 		for (std::size_t i = 0; i < N; ++i)
@@ -564,12 +566,12 @@ namespace fastgltf::math {
 		return ret;
 	}
 
-	using fmat2x2 = mat<float, 2, 2>;
-	using fmat3x3 = mat<float, 3, 3>;
-	using fmat4x4 = mat<float, 4, 4>;
-	using dmat2x2 = mat<double, 2, 2>;
-	using dmat3x3 = mat<double, 3, 3>;
-	using dmat4x4 = mat<double, 4, 4>;
+	FASTGLTF_EXPORT using fmat2x2 = mat<float, 2, 2>;
+	FASTGLTF_EXPORT using fmat3x3 = mat<float, 3, 3>;
+	FASTGLTF_EXPORT using fmat4x4 = mat<float, 4, 4>;
+	FASTGLTF_EXPORT using dmat2x2 = mat<double, 2, 2>;
+	FASTGLTF_EXPORT using dmat3x3 = mat<double, 3, 3>;
+	FASTGLTF_EXPORT using dmat4x4 = mat<double, 4, 4>;
 
 	/**
 	 * Decomposes a transform matrix into the translation, rotation, and scale components. This
@@ -577,7 +579,7 @@ namespace fastgltf::math {
 	 * to calculate the quaternion from the rotation matrix, which might occasionally loose some
 	 * precision, though we try to use doubles here.
 	 */
-	inline void decomposeTransformMatrix(fmat4x4 matrix, fvec3& scale, fquat& rotation, fvec3& translation) {
+	FASTGLTF_EXPORT inline void decomposeTransformMatrix(fmat4x4 matrix, fvec3& scale, fquat& rotation, fvec3& translation) {
 		// Extract the translation. We zero the translation out, as we reuse the matrix as
 		// the rotation matrix at the end.
 		translation = matrix.col(3);

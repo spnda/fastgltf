@@ -26,8 +26,10 @@
 
 #pragma once
 
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cstring>
 #include <iterator>
+#endif
 
 #include <fastgltf/types.hpp>
 
@@ -76,7 +78,7 @@ struct ComponentTypeConverter<double> {
 	static constexpr auto type = ComponentType::Double;
 };
 
-template <typename ElementType, AccessorType EnumAccessorType, typename ComponentType = ElementType>
+FASTGLTF_EXPORT template <typename ElementType, AccessorType EnumAccessorType, typename ComponentType = ElementType>
 struct ElementTraitsBase {
 	using element_type = ElementType;
 	using component_type = ComponentType;
@@ -84,7 +86,7 @@ struct ElementTraitsBase {
 	static constexpr auto enum_component_type = ComponentTypeConverter<ComponentType>::type;
 };
 
-template <typename>
+FASTGLTF_EXPORT template <typename>
 struct ElementTraits;
 
 template<> struct ElementTraits<std::int8_t> : ElementTraitsBase<std::int8_t, AccessorType::Scalar> {};
@@ -322,7 +324,7 @@ inline bool findSparseIndex(ComponentType componentType, const std::byte* bytes,
 
 } // namespace internal
 
-struct DefaultBufferDataAdapter {
+FASTGLTF_EXPORT struct DefaultBufferDataAdapter {
 	auto operator()(const Asset& asset, std::size_t bufferViewIdx) const {
 		auto& bufferView = asset.bufferViews[bufferViewIdx];
 
@@ -486,7 +488,7 @@ public:
 	}
 };
 
-template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
+FASTGLTF_EXPORT template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
@@ -535,7 +537,7 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
             accessor.componentType, &bytes[index * stride], accessor.normalized);
 }
 
-template<typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
+FASTGLTF_EXPORT template<typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
@@ -543,7 +545,7 @@ IterableAccessor<ElementType, BufferDataAdapter> iterateAccessor(const Asset& as
 	return IterableAccessor<ElementType, BufferDataAdapter>(asset, accessor, adapter);
 }
 
-template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
+FASTGLTF_EXPORT template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
@@ -630,7 +632,7 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 	}
 }
 
-template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
+FASTGLTF_EXPORT template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
@@ -642,7 +644,7 @@ void iterateAccessorWithIndex(const Asset& asset, const Accessor& accessor, Func
 	}, adapter);
 }
 
-template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
+FASTGLTF_EXPORT template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
 		 typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
@@ -725,7 +727,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 /**
  * Computes the transform matrix for a given node, and multiplies the given base with that matrix.
  */
-inline auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
+FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
 	return std::visit(visitor {
 		[&](const math::fmat4x4& matrix) {
 			return base * matrix;
@@ -743,7 +745,7 @@ inline auto getTransformMatrix(const Node& node, const math::fmat4x4& base = mat
  * Iterates over every node within a scene recursively, computing the world space transform of each node,
  * and calling the callback function with that node and the transform.
  */
-template <typename Callback>
+FASTGLTF_EXPORT template <typename Callback>
 void iterateSceneNodes(fastgltf::Asset& asset, std::size_t sceneIndex, math::fmat4x4 initial, Callback callback) {
 	auto& scene = asset.scenes[sceneIndex];
 

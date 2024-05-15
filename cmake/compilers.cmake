@@ -36,3 +36,12 @@ macro(fastgltf_enable_debug_inlining TARGET)
         endif()
     endif()
 endmacro()
+
+function(fastgltf_check_modules_support)
+    # Clang 16 and newer support modules, as well as Visual Studio 17.1 (1931) and newer.
+    if ((CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "16.0.0") OR (MSVC AND MSVC_VERSION GREATER_EQUAL 1931) OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14.1.0"))
+        set(FASTGLTF_SUPPORTS_MODULES true PARENT_SCOPE)
+    else()
+        set(FASTGLTF_SUPPORTS_MODULES false PARENT_SCOPE)
+    endif()
+endfunction()

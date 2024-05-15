@@ -26,9 +26,11 @@
 
 #pragma once
 
+#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <fstream>
 #include <memory>
 #include <tuple>
+#endif
 
 #include <fastgltf/types.hpp>
 
@@ -50,9 +52,9 @@ namespace simdjson::dom {
 } // namespace simdjson::dom
 
 namespace fastgltf {
-	enum class Error : std::uint64_t;
+	FASTGLTF_EXPORT enum class Error : std::uint64_t;
 
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	class Expected;
 } // namespace fastgltf
 
@@ -68,7 +70,7 @@ namespace std {
 
 namespace fastgltf {
     struct BinaryGltfChunk;
-    class GltfDataGetter;
+    FASTGLTF_EXPORT class GltfDataGetter;
 
     enum class Error : std::uint64_t {
 		None = 0,
@@ -92,7 +94,7 @@ namespace fastgltf {
 		FileBufferAllocationFailed = 14, ///< The constructor of GltfDataBuffer failed to allocate a sufficiently large buffer.
     };
 
-	inline std::string_view getErrorName(Error error) {
+	FASTGLTF_EXPORT constexpr std::string_view getErrorName(Error error) {
 		switch (error) {
 			case Error::None: return "None";
 			case Error::InvalidPath: return "InvalidPath";
@@ -113,7 +115,7 @@ namespace fastgltf {
 		}
 	}
 
-	inline std::string_view getErrorMessage(Error error) {
+	FASTGLTF_EXPORT constexpr std::string_view getErrorMessage(Error error) {
 		switch (error) {
 			case Error::None: return "";
 			case Error::InvalidPath: return "The glTF directory passed to load*GLTF is invalid";
@@ -135,7 +137,7 @@ namespace fastgltf {
 	}
 
 	// clang-format off
-    enum class Extensions : std::uint64_t {
+    FASTGLTF_EXPORT enum class Extensions : std::uint64_t {
         None = 0,
 
         // See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_texture_transform/README.md
@@ -218,13 +220,13 @@ namespace fastgltf {
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Extensions, Extensions, &)
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Extensions, ~)
 
-	constexpr Extensions operator-(const Extensions& a, const std::underlying_type_t<Extensions>& b) noexcept {
+	FASTGLTF_EXPORT constexpr Extensions operator-(const Extensions& a, const std::underlying_type_t<Extensions>& b) noexcept {
 		static_assert(std::is_enum_v<Extensions>);
 		return static_cast<Extensions>(to_underlying(a) - b);
 	}
 
     // clang-format off
-    enum class Options : std::uint64_t {
+    FASTGLTF_EXPORT enum class Options : std::uint64_t {
         None                            = 0,
         /**
          * This allows 5130 as an accessor component type. 5130 is the OpenGL constant GL_DOUBLE,
@@ -277,7 +279,7 @@ namespace fastgltf {
 		GenerateMeshIndices             = 1 << 8,
     };
 
-    enum class ExportOptions : std::uint64_t {
+    FASTGLTF_EXPORT enum class ExportOptions : std::uint64_t {
         None                            = 0,
 
         /**
@@ -378,6 +380,7 @@ namespace fastgltf {
 	 * @note If \p extensions has more than one bit set (multiple extensions), this
 	 * will return the name of the first set bit.
 	 */
+	FASTGLTF_EXPORT
 #if FASTGLTF_CPP_20
 	constexpr
 #else
@@ -396,7 +399,7 @@ namespace fastgltf {
 	/**
 	 * Returns a list of extension names based on the given extension flags.
 	 */
-	inline auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
+	FASTGLTF_EXPORT inline auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
 		decltype(Asset::extensionsRequired) stringified;
 		for (std::uint8_t i = 0; i < std::numeric_limits<std::underlying_type_t<Extensions>>::digits; ++i) {
 			// The 1 has to be cast to the underlying type as uint8_t(1) << 9 will overflow and be effectively the same as uint8_t(1).
@@ -568,16 +571,16 @@ namespace fastgltf {
 		}
 	};
 
-    struct BufferInfo {
+    FASTGLTF_EXPORT struct BufferInfo {
         void* mappedMemory;
         CustomBufferId customId;
     };
 
-    using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
-    using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
-    using Base64DecodeCallback = void(std::string_view base64, std::uint8_t* dataOutput, std::size_t padding, std::size_t dataOutputSize, void* userPointer);
-	using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
-	using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
+    FASTGLTF_EXPORT using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
+    FASTGLTF_EXPORT using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
+    FASTGLTF_EXPORT using Base64DecodeCallback = void(std::string_view base64, std::uint8_t* dataOutput, std::size_t padding, std::size_t dataOutputSize, void* userPointer);
+	FASTGLTF_EXPORT using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
+	FASTGLTF_EXPORT using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
 
     /**
      * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
@@ -585,7 +588,7 @@ namespace fastgltf {
      * container format which has two or more chunks of binary data, where one represents buffers
      * and the other contains the JSON string.
      */
-    enum class GltfType : std::uint8_t {
+    FASTGLTF_EXPORT enum class GltfType : std::uint8_t {
         glTF,
         GLB,
         Invalid,
@@ -600,7 +603,7 @@ namespace fastgltf {
 	 * @return The type of the glTF file, either glTF, GLB, or Invalid if it was not determinable. If this function
 	 * returns Invalid it is highly likely that the buffer does not actually represent a valid glTF file.
 	 */
-    GltfType determineGltfFileType(GltfDataGetter& data);
+    FASTGLTF_EXPORT GltfType determineGltfFileType(GltfDataGetter& data);
 
 	/**
 	 * This interface defines how the parser can read the bytes making up a glTF or GLB file.
@@ -633,7 +636,7 @@ namespace fastgltf {
 		[[nodiscard]] virtual std::size_t totalSize() = 0;
 	};
 
-	class GltfDataBuffer : public GltfDataGetter {
+	FASTGLTF_EXPORT class GltfDataBuffer : public GltfDataGetter {
 	protected:
 		std::unique_ptr<std::byte[]> buffer;
 
@@ -707,7 +710,7 @@ namespace fastgltf {
 	 * Memory-maps a file. This uses mmap on macOS and Linux, and MapViewOfFile on Windows, and is not available elsewhere.
 	 * You should check for FASTGLTF_HAS_MEMORY_MAPPED_FILE before using this class.
 	 */
-	class MappedGltfFile : public GltfDataGetter {
+	FASTGLTF_EXPORT class MappedGltfFile : public GltfDataGetter {
 		void* mappedFile;
 #if defined(_WIN32)
 		// Windows requires us to keep the file handle alive. Win32 HANDLE is a void*.
@@ -755,7 +758,7 @@ namespace fastgltf {
 	};
 #endif
 
-	class GltfFileStream : public GltfDataGetter {
+	FASTGLTF_EXPORT class GltfFileStream : public GltfDataGetter {
 		std::ifstream fileStream;
 		std::vector<std::ifstream::char_type> buf;
 
@@ -779,9 +782,9 @@ namespace fastgltf {
 	};
 
     #if defined(__ANDROID__)
-	void setAndroidAssetManager(AAssetManager* assetManager) noexcept;
+	FASTGLTF_EXPORT void setAndroidAssetManager(AAssetManager* assetManager) noexcept;
 
-    class AndroidGltfDataBuffer : public GltfDataBuffer {
+    FASTGLTF_EXPORT class AndroidGltfDataBuffer : public GltfDataBuffer {
 		explicit AndroidGltfDataBuffer(const std::filesystem::path& path, std::uint64_t byteOffset) noexcept;
 
     public:
@@ -807,7 +810,7 @@ namespace fastgltf {
 	 * Realistically, this should not be necessary in Release applications, but could be helpful
 	 * when debugging an asset related issue.
 	*/
-	[[nodiscard]] Error validate(const Asset& asset);
+	FASTGLTF_EXPORT [[nodiscard]] Error validate(const Asset& asset);
 
     /**
      * Some internals the parser passes on to each glTF instance.
@@ -950,7 +953,7 @@ namespace fastgltf {
      */
     std::string escapeString(std::string_view string);
 
-    template <typename T>
+    FASTGLTF_EXPORT template <typename T>
     struct ExportResult {
         T output;
 
@@ -965,7 +968,7 @@ namespace fastgltf {
      * into memory structures, which can then be used to manually write them to disk.
      * If you want to let fastgltf handle the file writing too, use fastgltf::FileExporter.
      */
-    class Exporter {
+    FASTGLTF_EXPORT class Exporter {
     protected:
         Error errorCode = Error::None;
         ExportOptions options = ExportOptions::None;
@@ -1037,7 +1040,7 @@ namespace fastgltf {
 	 * This exporter builds upon Exporter by writing all files automatically to the
 	 * given paths.
 	 */
-	class FileExporter : public Exporter {
+	FASTGLTF_EXPORT class FileExporter : public Exporter {
         using Exporter::writeGltfJson;
         using Exporter::writeGltfBinary;
 

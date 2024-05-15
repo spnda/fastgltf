@@ -18,6 +18,7 @@ option(FASTGLTF_ENABLE_DEPRECATED_EXT "Enables support for deprecated extensions
 option(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL "Disables the memory allocation algorithm based on polymorphic resources" OFF)
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
 option(FASTGLTF_COMPILE_AS_CPP20 "Have the library compile as C++20" OFF)
+option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
 
 if (FASTGLTF_COMPILE_AS_CPP20)
     set(FASTGLTF_COMPILE_TARGET cxx_std_20)
@@ -26,7 +27,7 @@ else()
 endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 
 # Create the library target
 add_library(fastgltf
@@ -41,6 +42,10 @@ target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIS
 
 set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
 set_target_properties(fastgltf PROPERTIES VERSION ${PROJECT_VERSION})
+
+if (ANDROID)
+    target_link_libraries(fastgltf PRIVATE android)
+endif()
 
 # If the target already exists due to the parent script already including it as a dependency, just directly link it.
 if (TARGET simdjson::simdjson)
@@ -102,8 +107,31 @@ target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_DEPRECATED_EXT=$<BOO
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL=$<BOOL:${FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_64BIT_FLOAT=$<BOOL:${FASTGLTF_USE_64BIT_FLOAT}>")
 
-if (ANDROID)
-    target_link_libraries(fastgltf PRIVATE android)
+fastgltf_check_modules_support()
+if (FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+    message(STATUS "fastgltf: Found compiler support for CXX modules")
+
+    # 3.29.20240416 is what the CMake blog used for talking about import std, so this should roughly be the first
+    # version to support the feature.
+    if (FASTGLTF_USE_STD_MODULE AND CMAKE_VERSION VERSION_LESS "3.29.20240416")
+        message(AUTHOR_WARNING "fastgltf: Using the std module is only natively supported with CMake 3.30 or newer. This might cause compilation errors.")
+    endif()
+
+    add_library(fastgltf_module)
+    add_library(fastgltf::module ALIAS fastgltf_module)
+
+    if (FASTGLTF_USE_STD_MODULE)
+        target_compile_features(fastgltf_module PRIVATE cxx_std_23 INTERFACE cxx_std_20)
+    else()
+        target_compile_features(fastgltf_module PUBLIC cxx_std_20)
+    endif()
+    target_sources(fastgltf_module PUBLIC
+        FILE_SET CXX_MODULES
+        BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
+        FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/fastgltf.ixx
+    )
+    target_link_libraries(fastgltf_module PRIVATE fastgltf::fastgltf)
+    target_compile_definitions(fastgltf_module PUBLIC "FASTGLTF_USE_STD_MODULE=$<BOOL:${FASTGLTF_USE_STD_MODULE}>")
 endif()
 
 install(
