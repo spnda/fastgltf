@@ -40,7 +40,6 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
-#include <fastgltf/glm_element_traits.hpp>
 
 // It's simpler here to just declare the functions as part of the fastgltf::math namespace.
 namespace fastgltf::math {
