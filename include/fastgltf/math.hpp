@@ -67,22 +67,22 @@ namespace fastgltf::math {
 	class vec {
 		static_assert(N >= 2 && N <= 4);
 
-		std::array<T, N> data;
+		std::array<T, N> _data;
 
 	public:
-		constexpr vec() noexcept : data() {}
+		constexpr vec() noexcept : _data() {}
 
 		explicit vec(T value) noexcept {
-			data.fill(value);
+			_data.fill(value);
 		}
 
 		/** Creates a new vector with N components from N values in the order X, Y, Z, W */
 		template <typename... Args, std::enable_if_t<sizeof...(Args) == N, bool> = true>
-		constexpr explicit vec(Args... args) noexcept : data { T(std::forward<Args>(args))... } {}
+		constexpr explicit vec(Args... args) noexcept : _data { T(std::forward<Args>(args))... } {}
 
-		constexpr vec(const vec<T, N>& other) noexcept : data(other.data) {}
+		constexpr vec(const vec<T, N>& other) noexcept : _data(other._data) {}
 		constexpr vec<T, N>& operator=(const vec<T, N>& other) noexcept {
-			data = other.data;
+			_data = other._data;
 			return *this;
 		}
 
@@ -112,11 +112,11 @@ namespace fastgltf::math {
 
 		constexpr vec(std::initializer_list<T> list) noexcept {
 			for (auto it = std::begin(list); it != std::end(list); ++it)
-				data[std::distance(std::begin(list), it)] = *it;
+				(*this)[std::distance(std::begin(list), it)] = *it;
 		}
 		constexpr vec<T, N>& operator=(std::initializer_list<T> list) noexcept {
 			for (auto it = std::begin(list); it != std::end(list); ++it)
-				data[std::distance(std::begin(list), it)] = *it;
+				(*this)[std::distance(std::begin(list), it)] = *it;
 			return *this;
 		}
 
@@ -128,46 +128,46 @@ namespace fastgltf::math {
 		}
 
 		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept {
-			return data[idx];
+			return _data[idx];
 		}
 		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
-			return data[idx];
+			return _data[idx];
 		}
 
 		[[nodiscard]] constexpr decltype(auto) x() noexcept {
-			return data[0];
+			return (*this)[0];
 		}
 		[[nodiscard]] constexpr decltype(auto) y() noexcept {
-			return data[1];
+			return (*this)[1];
 		}
 		[[nodiscard]] constexpr decltype(auto) z() noexcept {
 			static_assert(N >= 3);
-			return data[2];
+			return (*this)[2];
 		}
 		[[nodiscard]] constexpr decltype(auto) w() noexcept {
 			static_assert(N >= 4);
-			return data[3];
+			return (*this)[3];
 		}
 		[[nodiscard]] constexpr decltype(auto) x() const noexcept {
-			return data[0];
+			return (*this)[0];
 		}
 		[[nodiscard]] constexpr decltype(auto) y() const noexcept {
-			return data[1];
+			return (*this)[1];
 		}
 		[[nodiscard]] constexpr decltype(auto) z() const noexcept {
 			static_assert(N >= 3);
-			return data[2];
+			return (*this)[2];
 		}
 		[[nodiscard]] constexpr decltype(auto) w() const noexcept {
 			static_assert(N >= 4);
-			return data[3];
+			return (*this)[3];
 		}
 
-		[[nodiscard]] constexpr auto value_ptr() noexcept {
-			return data.data();
+		[[nodiscard]] constexpr auto data() noexcept {
+			return _data.data();
 		}
-		[[nodiscard]] constexpr auto value_ptr() const noexcept {
-			return data.data();
+		[[nodiscard]] constexpr auto data() const noexcept {
+			return _data.data();
 		}
 
 		[[nodiscard]] constexpr bool operator==(const vec<T, N>& other) const noexcept {
@@ -391,63 +391,63 @@ namespace fastgltf::math {
 	class quat {
 		static_assert(std::is_floating_point_v<T>);
 
-		std::array<T, 4> data;
+		std::array<T, 4> _data;
 
 	public:
-		constexpr explicit quat() noexcept : data{0.f, 0.f, 0.f, 1.f} {}
+		constexpr explicit quat() noexcept : _data {0.f, 0.f, 0.f, 1.f} {}
 
 		/** Creates a new quaternion from 4 floats in the order X, Y, Z, W */
 		template <typename... Args, std::enable_if_t<sizeof...(Args) == 4, bool> = true>
-		constexpr explicit quat(Args... args) noexcept : data { std::forward<Args>(args)... } {}
+		constexpr explicit quat(Args... args) noexcept : _data { std::forward<Args>(args)... } {}
 
 		[[nodiscard]] constexpr std::size_t size() const noexcept {
-			return data.size();
+			return _data.size();
 		}
 		[[nodiscard]] constexpr std::size_t size_bytes() const noexcept {
 			return size() * sizeof(T);
 		}
 
 		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept {
-			return data[idx];
+			return _data[idx];
 		}
 		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
-			return data[idx];
+			return _data[idx];
 		}
 
 		[[nodiscard]] constexpr decltype(auto) x() noexcept {
-			return data[0];
+			return (*this)[0];
 		}
 		[[nodiscard]] constexpr decltype(auto) y() noexcept {
-			return data[1];
+			return (*this)[1];
 		}
 		[[nodiscard]] constexpr decltype(auto) z() noexcept {
-			return data[2];
+			return (*this)[2];
 		}
 		[[nodiscard]] constexpr decltype(auto) w() noexcept {
-			return data[3];
+			return (*this)[3];
 		}
 		[[nodiscard]] constexpr decltype(auto) x() const noexcept {
-			return data[0];
+			return (*this)[0];
 		}
 		[[nodiscard]] constexpr decltype(auto) y() const noexcept {
-			return data[1];
+			return (*this)[1];
 		}
 		[[nodiscard]] constexpr decltype(auto) z() const noexcept {
-			return data[2];
+			return (*this)[2];
 		}
 		[[nodiscard]] constexpr decltype(auto) w() const noexcept {
-			return data[3];
+			return (*this)[3];
 		}
 
 		[[nodiscard]] constexpr auto value_ptr() noexcept {
-			return data.data();
+			return _data.data();
 		}
 		[[nodiscard]] constexpr auto value_ptr() const noexcept {
-			return data.data();
+			return _data.data();
 		}
 
 		[[nodiscard]] constexpr bool operator==(const quat<T>& other) const noexcept {
-			for (std::size_t i = 0; i < data.size(); ++i)
+			for (std::size_t i = 0; i < size(); ++i)
 				if ((*this)[i] != other[i])
 					return false;
 			return true;
@@ -498,23 +498,23 @@ namespace fastgltf::math {
 		static_assert(M >= 2 && M <= 4);
 
 		// Every vec<> here is a column, with M being the column count.
-		std::array<vec<T, N>, M> data;
+		std::array<vec<T, N>, M> _data;
 
 		template <typename... Args, std::size_t... i>
 		constexpr void copy_values(const std::tuple<Args...>& tuple, std::integer_sequence<std::size_t, i...>) noexcept {
-			(..., (data[i / M][i % N] = std::get<i>(std::move(tuple))));
+			(..., (_data[i / M][i % N] = std::get<i>(std::move(tuple))));
 		}
 
 	public:
 		/** Initialises a identity matrix with a specified value. */
-		constexpr explicit mat(T value = T(1)) noexcept : data() {
+		constexpr explicit mat(T value = T(1)) noexcept {
 			for (std::size_t i = 0U; i < fastgltf::min(N, M); ++i)
-				data[i][i] = value;
+				_data[i][i] = value;
 		}
 
 		/** Creates a matrix from M vectors */
 		template <typename... Args, std::enable_if_t<sizeof...(Args) == M, bool> = true>
-		constexpr explicit mat(Args... args) noexcept : data { std::forward<Args>(args)... } {}
+		constexpr explicit mat(Args... args) noexcept : _data { std::forward<Args>(args)... } {}
 
 		/** Creates a matrix from N * M floats */
 		template <typename... Args, std::enable_if_t<sizeof...(Args) == M * N, bool> = true>
@@ -551,10 +551,10 @@ namespace fastgltf::math {
 		}
 
 		[[nodiscard]] constexpr decltype(auto) col(std::size_t idx) noexcept {
-			return data[idx];
+			return _data[idx];
 		}
 		[[nodiscard]] constexpr decltype(auto) col(std::size_t idx) const noexcept {
-			return data[idx];
+			return _data[idx];
 		}
 
 		/** Returns the row vector at the given index. Note that this is always a copy. */
@@ -570,11 +570,11 @@ namespace fastgltf::math {
 		}
 
 	public:
-		[[nodiscard]] constexpr auto value_ptr() noexcept {
-			return data[0].value_ptr();
+		[[nodiscard]] constexpr auto data() noexcept {
+			return _data[0].data();
 		}
-		[[nodiscard]] constexpr auto value_ptr() const noexcept {
-			return data[0].value_ptr();
+		[[nodiscard]] constexpr auto data() const noexcept {
+			return _data[0].data();
 		}
 
 		[[nodiscard]] constexpr bool operator==(const mat<T, N, M>& other) const noexcept {

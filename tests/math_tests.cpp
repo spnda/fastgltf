@@ -235,9 +235,9 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[maths]") {
 		// Get the TRS components from the first node and use them as the test data for decomposing.
 		const auto* pDefaultTRS = std::get_if<fastgltf::TRS>(&assetWithMatrix->nodes.front().transform);
 		REQUIRE(pDefaultTRS != nullptr);
-		auto translation = glm::make_vec3(pDefaultTRS->translation.value_ptr());
+		auto translation = glm::make_vec3(pDefaultTRS->translation.data());
 		auto rotation = glm::make_quat(pDefaultTRS->rotation.value_ptr());
-		auto scale = glm::make_vec3(pDefaultTRS->scale.value_ptr());
+		auto scale = glm::make_vec3(pDefaultTRS->scale.data());
 		auto rotationMatrix = glm::toMat4(rotation);
 		auto transform = glm::translate(glm::mat4(1.0f), translation) * rotationMatrix * glm::scale(glm::mat4(1.0f), scale);
 
@@ -248,9 +248,9 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[maths]") {
 
 		// Check if the decomposed components equal the original components.
 		const auto* pDecomposedTRS = std::get_if<fastgltf::TRS>(&assetDecomposed->nodes.back().transform);
-		REQUIRE(glm::make_vec3(pDecomposedTRS->translation.value_ptr()) == translation);
+		REQUIRE(glm::make_vec3(pDecomposedTRS->translation.data()) == translation);
 		REQUIRE(glm::make_quat(pDecomposedTRS->rotation.value_ptr()) == rotation);
-		REQUIRE(glm::make_vec3(pDecomposedTRS->scale.value_ptr()) == scale);
+		REQUIRE(glm::make_vec3(pDecomposedTRS->scale.data()) == scale);
 	}
 
 	SECTION("Test decomposition against glm decomposition") {
@@ -276,8 +276,8 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[maths]") {
 		// in an error margin greater than the normal epsilon value. I will investigate this in the
 		// future, but I suspect using double in the decompose functions should help mitigate most
 		// of it.
-		REQUIRE(glm::make_vec3(translation.value_ptr()) == glmTranslation);
+		REQUIRE(glm::make_vec3(translation.data()) == glmTranslation);
 		REQUIRE(glm::all(glm::epsilonEqual(glm::make_quat(rotation.value_ptr()), glmRotation, glm::epsilon<float>() * 10)));
-		REQUIRE(glm::all(glm::epsilonEqual(glm::make_vec3(scale.value_ptr()), glmScale, glm::epsilon<float>())));
+		REQUIRE(glm::all(glm::epsilonEqual(glm::make_vec3(scale.data()), glmScale, glm::epsilon<float>())));
 	}
 }

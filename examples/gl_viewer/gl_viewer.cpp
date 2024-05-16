@@ -258,7 +258,7 @@ struct Viewer {
 
 void updateCameraMatrix(Viewer* viewer) {
     auto viewProjection = viewer->projectionMatrix * viewer->viewMatrix;
-    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, viewProjection.value_ptr());
+    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, viewProjection.data());
 }
 
 void windowSizeCallback(GLFWwindow* window, int width, int height) {
