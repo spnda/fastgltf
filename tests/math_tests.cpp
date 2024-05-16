@@ -187,7 +187,7 @@ TEST_CASE("Vector operations", "[maths]") {
 
 TEST_CASE("Matrix operations", "[maths]") {
 	SECTION("Transposing") {
-		fastgltf::math::mat<float, 3, 2> m(
+		fastgltf::math::fmat<3, 2> m(
 			fastgltf::math::fvec3(1, 2, 3),
 			fastgltf::math::fvec3(4, 1, 5)
 		);
@@ -199,6 +199,14 @@ TEST_CASE("Matrix operations", "[maths]") {
 		REQUIRE(t.col(0) == fastgltf::math::fvec2(1, 4));
 		REQUIRE(t.col(1) == fastgltf::math::fvec2(2, 1));
 		REQUIRE(t.col(2) == fastgltf::math::fvec2(3, 5));
+	}
+
+	SECTION("Determinant", "[maths]") {
+		fastgltf::math::fmat3x3 m(
+			fastgltf::math::fvec3(7, 0, -3),
+			fastgltf::math::fvec3(2, 3, 4),
+			fastgltf::math::fvec3(1, -1, -2));
+		REQUIRE(determinant(m) == 1);
 	}
 }
 

@@ -34,13 +34,6 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 
-// All headers not in the root directory require this
-#define GLM_ENABLE_EXPERIMENTAL 1
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -48,6 +41,38 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
+
+// It's simpler here to just declare the functions as part of the fastgltf::math namespace.
+namespace fastgltf::math {
+	/** Creates a right-handed view matrix */
+	[[nodiscard]] auto lookAtRH(const fvec3& eye, const fvec3& center, const fvec3& up) noexcept {
+		auto dir = normalize(center - eye);
+		auto lft = normalize(cross(dir, up));
+		auto rup = cross(lft, dir);
+
+		mat<float, 4, 4> ret(1.f);
+		ret.col(0) = { lft.x(), rup.x(), -dir.x(), 0.f };
+		ret.col(1) = { lft.y(), rup.y(), -dir.y(), 0.f };
+		ret.col(2) = { lft.z(), rup.z(), -dir.z(), 0.f };
+		ret.col(3) = { -dot(lft, eye), -dot(rup, eye), dot(dir, eye), 1.f };
+		return ret;
+	}
+
+	/**
+	 * Creates a right-handed perspective matrix, with the near and far clips at -1 and +1, respectively.
+	 * @param fov The FOV in radians
+	 */
+	[[nodiscard]] auto perspectiveRH(float fov, float ratio, float zNear, float zFar) noexcept {
+		mat<float, 4, 4> ret(0.f);
+		auto tanHalfFov = std::tanf(fov / 2.f);
+		ret.col(0).x() = 1.f / (ratio * tanHalfFov);
+		ret.col(1).y() = 1.f / tanHalfFov;
+		ret.col(2).z() = -(zFar + zNear) / (zFar - zNear);
+		ret.col(2).w() = -1.f;
+		ret.col(3).z() = -(2.f * zFar * zNear) / (zFar - zNear);
+		return ret;
+	}
+} // namespace fastgltf::math
 
 constexpr std::string_view vertexShaderSource = R"(
     #version 460 core
@@ -155,8 +180,8 @@ struct IndirectDrawCommand {
 };
 
 struct Vertex {
-	glm::vec3 position;
-	glm::vec2 uv;
+	fastgltf::math::fvec3 position;
+	fastgltf::math::fvec2 uv;
 };
 
 struct Primitive {
@@ -200,7 +225,7 @@ struct Viewer {
     std::vector<GLuint> bufferAllocations;
     std::vector<Mesh> meshes;
     std::vector<Texture> textures;
-	std::vector<glm::mat4> cameras;
+	std::vector<fastgltf::math::fmat4x4> cameras;
 
     std::vector<MaterialUniforms> materials;
     std::vector<GLuint> materialBuffers;
@@ -209,20 +234,20 @@ struct Viewer {
 	GLint uvScaleUniform = GL_NONE;
 	GLint uvRotationUniform = GL_NONE;
 
-	glm::ivec2 windowDimensions = glm::ivec2(0);
-    glm::mat4 viewMatrix = glm::mat4(1.0f);
-    glm::mat4 projectionMatrix = glm::mat4(1.0f);
+	fastgltf::math::ivec2 windowDimensions = fastgltf::math::ivec2(0);
+    fastgltf::math::fmat4x4 viewMatrix = fastgltf::math::fmat4x4(1.0f);
+    fastgltf::math::fmat4x4 projectionMatrix = fastgltf::math::fmat4x4(1.0f);
     GLint viewProjectionMatrixUniform = GL_NONE;
     GLint modelMatrixUniform = GL_NONE;
 
     float lastFrame = 0.0f;
     float deltaTime = 0.0f;
-    glm::vec3 accelerationVector = glm::vec3(0.0f);
-    glm::vec3 velocity = glm::vec3(0.0f);
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
+    fastgltf::math::fvec3 accelerationVector = fastgltf::math::fvec3(0.0f);
+    fastgltf::math::fvec3 velocity = fastgltf::math::fvec3(0.0f);
+    fastgltf::math::fvec3 position = fastgltf::math::fvec3(0.0f, 0.0f, 0.0f);
 
-    glm::dvec2 lastCursorPosition = glm::dvec2(0.0f);
-    glm::vec3 direction = glm::vec3(0.0f, 0.0f, -1.0f);
+    fastgltf::math::dvec2 lastCursorPosition = fastgltf::math::dvec2(0.0f);
+    fastgltf::math::fvec3 direction = fastgltf::math::fvec3(0.0f, 0.0f, -1.0f);
     float yaw = -90.0f;
     float pitch = 0.0f;
     bool firstMouse = true;
@@ -233,8 +258,8 @@ struct Viewer {
 };
 
 void updateCameraMatrix(Viewer* viewer) {
-    glm::mat4 viewProjection = viewer->projectionMatrix * viewer->viewMatrix;
-    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, glm::value_ptr(viewProjection));
+    auto viewProjection = viewer->projectionMatrix * viewer->viewMatrix;
+    glUniformMatrix4fv(viewer->viewProjectionMatrixUniform, 1, GL_FALSE, viewProjection.value_ptr());
 }
 
 void windowSizeCallback(GLFWwindow* window, int width, int height) {
@@ -261,25 +286,25 @@ void cursorCallback(GLFWwindow* window, double xpos, double ypos) {
         viewer->firstMouse = false;
     }
 
-    auto offset = glm::vec2(xpos - viewer->lastCursorPosition.x, viewer->lastCursorPosition.y - ypos);
+    auto offset = fastgltf::math::fvec2(xpos - viewer->lastCursorPosition.x(), viewer->lastCursorPosition.y() - ypos);
     viewer->lastCursorPosition = { xpos, ypos };
     offset *= 0.1f;
 
-    viewer->yaw   += offset.x;
-    viewer->pitch += offset.y;
-    viewer->pitch = glm::clamp(viewer->pitch, -89.0f, 89.0f);
+    viewer->yaw   += offset.x();
+    viewer->pitch += offset.y();
+    viewer->pitch = fastgltf::math::clamp(viewer->pitch, -89.0f, 89.0f);
 
     auto& direction = viewer->direction;
-    direction.x = cos(glm::radians(viewer->yaw)) * cos(glm::radians(viewer->pitch));
-    direction.y = sin(glm::radians(viewer->pitch));
-    direction.z = sin(glm::radians(viewer->yaw)) * cos(glm::radians(viewer->pitch));
-    direction = glm::normalize(direction);
+    direction.x() = cos(fastgltf::math::radians(viewer->yaw)) * cos(fastgltf::math::radians(viewer->pitch));
+    direction.y() = sin(fastgltf::math::radians(viewer->pitch));
+    direction.z() = sin(fastgltf::math::radians(viewer->yaw)) * cos(fastgltf::math::radians(viewer->pitch));
+    direction = fastgltf::math::normalize(direction);
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     void* ptr = glfwGetWindowUserPointer(window);
     auto* viewer = static_cast<Viewer*>(ptr);
-    static constexpr auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    static constexpr auto cameraUp = fastgltf::math::fvec3(0.0f, 1.0f, 0.0f);
 
     auto& acceleration = viewer->accelerationVector;
     switch (key) {
@@ -290,10 +315,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             acceleration -= viewer->direction;
             break;
         case GLFW_KEY_D:
-            acceleration += glm::normalize(glm::cross(viewer->direction, cameraUp));
+            acceleration += fastgltf::math::normalize(fastgltf::math::cross(viewer->direction, cameraUp));
             break;
         case GLFW_KEY_A:
-            acceleration -= glm::normalize(glm::cross(viewer->direction, cameraUp));
+            acceleration -= fastgltf::math::normalize(fastgltf::math::cross(viewer->direction, cameraUp));
             break;
         default:
             break;
@@ -399,9 +424,9 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 			glCreateBuffers(1, &primitive.vertexBuffer);
 			glNamedBufferData(primitive.vertexBuffer, positionAccessor.count * sizeof(Vertex), nullptr, GL_STATIC_DRAW);
 			auto* vertices = static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
-			fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, positionAccessor, [&](glm::vec3 pos, std::size_t idx) {
-				vertices[idx].position = pos;
-				vertices[idx].uv = glm::vec2();
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset, positionAccessor, [&](fastgltf::math::fvec3 pos, std::size_t idx) {
+				vertices[idx].position = fastgltf::math::fvec3(pos.x(), pos.y(), pos.z());
+				vertices[idx].uv = fastgltf::math::fvec2();
 			});
 			glUnmapNamedBuffer(primitive.vertexBuffer);
 
@@ -423,8 +448,8 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
                 continue;
 
 			auto* vertices = static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
-			fastgltf::iterateAccessorWithIndex<glm::vec2>(asset, texCoordAccessor, [&](glm::vec2 uv, std::size_t idx) {
-				vertices[idx].uv = uv;
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(asset, texCoordAccessor, [&](fastgltf::math::fvec2 uv, std::size_t idx) {
+				vertices[idx].uv = fastgltf::math::fvec2(uv.x(), uv.y());
 			});
 			glUnmapNamedBuffer(primitive.vertexBuffer);
 
@@ -542,7 +567,7 @@ bool loadCamera(Viewer* viewer, fastgltf::Camera& camera) {
 	// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#projection-matrices
 	std::visit(fastgltf::visitor {
 		[&](fastgltf::Camera::Perspective& perspective) {
-			glm::mat4x4 mat(0.0f);
+			fastgltf::math::fmat4x4 mat(0.0f);
 
 			assert(viewer->windowDimensions[0] != 0 && viewer->windowDimensions[1] != 0);
 			auto aspectRatio = perspective.aspectRatio.value_or(
@@ -563,7 +588,7 @@ bool loadCamera(Viewer* viewer, fastgltf::Camera& camera) {
 			viewer->cameras.emplace_back(mat);
 		},
 		[&](fastgltf::Camera::Orthographic& orthographic) {
-			glm::mat4x4 mat(1.0f);
+			fastgltf::math::fmat4x4 mat(1.0f);
 			mat[0][0] = 1.f / orthographic.xmag;
 			mat[1][1] = 1.f / orthographic.ymag;
 			mat[2][2] = 2.f / (orthographic.znear - orthographic.zfar);
@@ -812,11 +837,11 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Set the initial direction (incl. pitch and yaw) and position of the camera.
-	viewer.position = glm::vec3(2.f, 2.f, 2.f);
+	viewer.position = fastgltf::math::fvec3(2.f, 2.f, 2.f);
 	viewer.direction = -viewer.position;
 	{
-		auto len = std::sqrt(std::pow(viewer.direction.x, 2) + std::pow(viewer.direction.z, 2));
-		viewer.pitch = glm::degrees(std::tan(viewer.direction.y / len));
+		auto len = std::sqrtf(std::powf(viewer.direction.x(), 2) + std::powf(viewer.direction.z(), 2));
+		viewer.pitch = fastgltf::math::degrees(std::tanf(viewer.direction.y() / len));
 		viewer.yaw = -135.f;
 	}
 
@@ -827,7 +852,7 @@ int main(int argc, char* argv[]) {
         viewer.lastFrame = currentFrame;
 
         // Reset the acceleration
-        viewer.accelerationVector = glm::vec3(0.0f);
+        viewer.accelerationVector = fastgltf::math::fvec3(0.0f);
 
         // Updates the acceleration vector and direction vectors.
         glfwPollEvents();
@@ -912,26 +937,25 @@ int main(int argc, char* argv[]) {
 				fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::fmat4x4(),
 											[&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
 					if (node.cameraIndex.has_value() && &node == cameraNodes[*viewer.cameraIndex]) {
-						viewer.viewMatrix = glm::make_mat4x4(&matrix[0][0]);
+						viewer.viewMatrix = matrix;
 					}
 				});
 
-				viewer.viewMatrix = glm::affineInverse(viewer.viewMatrix);
+				viewer.viewMatrix = fastgltf::math::affineInverse(viewer.viewMatrix);
 				viewer.projectionMatrix = viewer.cameras[viewer.cameraIndex.value()];
 			} else {
 				// Factor the deltaTime into the amount of acceleration
 				viewer.velocity += (viewer.accelerationVector * 50.0f) * viewer.deltaTime;
 				// Lerp the velocity to 0, adding deceleration.
-				viewer.velocity = viewer.velocity + (2.0f * viewer.deltaTime) * (glm::vec3(0.0f) - viewer.velocity);
+				viewer.velocity = viewer.velocity + (-viewer.velocity) * (2.0f * viewer.deltaTime);
 				// Add the velocity into the position
 				viewer.position += viewer.velocity * viewer.deltaTime;
-				viewer.viewMatrix = glm::lookAt(viewer.position, viewer.position + viewer.direction,
-												glm::vec3(0.0f, 1.0f, 0.0f));
+				viewer.viewMatrix = fastgltf::math::lookAtRH(viewer.position, viewer.position + viewer.direction,
+												fastgltf::math::fvec3(0.0f, 1.0f, 0.0f));
 
 				auto aspectRatio = static_cast<float>(viewer.windowDimensions[0]) / static_cast<float>(viewer.windowDimensions[1]);
-				viewer.projectionMatrix = glm::perspective(glm::radians(75.0f),
-														   aspectRatio,
-															0.01f, 1000.0f);
+				viewer.projectionMatrix = fastgltf::math::perspectiveRH(
+					fastgltf::math::radians(75.0f), aspectRatio, 0.01f, 1000.0f);
 			}
 
 			updateCameraMatrix(&viewer);

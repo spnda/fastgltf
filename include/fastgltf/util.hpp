@@ -125,7 +125,7 @@
 #endif
 
 namespace fastgltf {
-    template<typename T>
+    FASTGLTF_EXPORT template<typename T>
 #if FASTGLTF_HAS_CONCEPTS
     requires std::is_enum_v<T>
 #endif
@@ -136,7 +136,7 @@ namespace fastgltf {
         return static_cast<std::underlying_type_t<T>>(t);
     }
 
-    template <typename T, typename U>
+    FASTGLTF_EXPORT template <typename T, typename U>
 #if FASTGLTF_HAS_CONCEPTS
     requires ((std::is_enum_v<T> && std::integral<std::underlying_type_t<T>>) || std::integral<T>) && requires (T t, U u) {
         { t & u } -> std::same_as<U>;
@@ -160,7 +160,7 @@ namespace fastgltf {
         return base - (base % alignment);
     }
 
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 #if FASTGLTF_HAS_CONCEPTS
 	requires requires (T t) {
 		{ t > t } -> std::same_as<bool>;
@@ -170,7 +170,7 @@ namespace fastgltf {
 		return (a > b) ? a : b;
 	}
 
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 #if FASTGLTF_HAS_CONCEPTS
 	requires requires (T t) {
 		{ t < t } -> std::same_as<bool>;

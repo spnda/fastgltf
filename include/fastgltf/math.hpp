@@ -28,6 +28,8 @@
 
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cmath>
+#include <functional>
+#include <initializer_list>
 #include <tuple>
 #endif
 
@@ -37,7 +39,26 @@
  * The fastgltf::math namespace contains all math functions and types which are needed for working with glTF assets.
  */
 namespace fastgltf::math {
-	FASTGLTF_EXPORT inline constexpr double pi = 3.141592653589793116;
+	FASTGLTF_EXPORT inline constexpr long double pi = 3.141592653589793116;
+
+	/** Value clamp using std::less */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] decltype(auto) clamp(const T& v, const T& min, const T& max) noexcept {
+		std::less comp {};
+		return comp(v, min) ? min : (comp(max, v) ? max : v);
+	}
+
+	/** Degree to radians conversion */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto radians(const T& degrees) noexcept {
+		return T(degrees * pi / 180.0);
+	}
+
+	/** Radians to degrees conversion */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto degrees(const T& radians) noexcept {
+		return T(radians * 180.0 / pi);
+	}
 
 	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
 	class mat;
@@ -51,7 +72,7 @@ namespace fastgltf::math {
 	public:
 		constexpr vec() noexcept : data() {}
 
-		constexpr explicit vec(T value) noexcept {
+		explicit vec(T value) noexcept {
 			data.fill(value);
 		}
 
@@ -86,6 +107,16 @@ namespace fastgltf::math {
 		constexpr vec<T, N>& operator=(const vec<T, M>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = other[i];
+			return *this;
+		}
+
+		constexpr vec(std::initializer_list<T> list) noexcept {
+			for (auto it = std::begin(list); it != std::end(list); ++it)
+				data[std::distance(std::begin(list), it)] = *it;
+		}
+		constexpr vec<T, N>& operator=(std::initializer_list<T> list) noexcept {
+			for (auto it = std::begin(list); it != std::end(list); ++it)
+				data[std::distance(std::begin(list), it)] = *it;
 			return *this;
 		}
 
@@ -132,10 +163,10 @@ namespace fastgltf::math {
 			return data[3];
 		}
 
-		[[nodiscard]] constexpr T* value_ptr() noexcept {
+		[[nodiscard]] constexpr auto value_ptr() noexcept {
 			return data.data();
 		}
-		[[nodiscard]] constexpr const T* value_ptr() const noexcept {
+		[[nodiscard]] constexpr auto value_ptr() const noexcept {
 			return data.data();
 		}
 
@@ -293,39 +324,67 @@ namespace fastgltf::math {
 		return v / length(v);
 	}
 
-	FASTGLTF_EXPORT using s8vec2 = vec<std::int8_t, 2>;
-	FASTGLTF_EXPORT using s8vec3 = vec<std::int8_t, 3>;
-	FASTGLTF_EXPORT using s8vec4 = vec<std::int8_t, 4>;
-	FASTGLTF_EXPORT using u8vec2 = vec<std::uint8_t, 2>;
-	FASTGLTF_EXPORT using u8vec3 = vec<std::uint8_t, 3>;
-	FASTGLTF_EXPORT using u8vec4 = vec<std::uint8_t, 4>;
+	/** Component-wise vector clamp */
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
+	[[nodiscard]] auto clamp(const vec<T, N>& v, const T& min, const T& max) noexcept {
+		vec<T, N> ret = v;
+		for (std::size_t i = 0; i < N; ++i)
+			ret[i] = clamp(ret[i], min, max);
+		return ret;
+	}
 
-	FASTGLTF_EXPORT using s16vec2 = vec<std::int16_t, 2>;
-	FASTGLTF_EXPORT using s16vec3 = vec<std::int16_t, 3>;
-	FASTGLTF_EXPORT using s16vec4 = vec<std::int16_t, 4>;
-	FASTGLTF_EXPORT using u16vec2 = vec<std::uint16_t, 2>;
-	FASTGLTF_EXPORT using u16vec3 = vec<std::uint16_t, 3>;
-	FASTGLTF_EXPORT using u16vec4 = vec<std::uint16_t, 4>;
+	FASTGLTF_EXPORT template <std::size_t N> using s8vec = vec<std::int8_t, N>;
+	FASTGLTF_EXPORT using s8vec2 = s8vec<2>;
+	FASTGLTF_EXPORT using s8vec3 = s8vec<3>;
+	FASTGLTF_EXPORT using s8vec4 = s8vec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using u8vec = vec<std::uint8_t, N>;
+	FASTGLTF_EXPORT using u8vec2 = u8vec<2>;
+	FASTGLTF_EXPORT using u8vec3 = u8vec<3>;
+	FASTGLTF_EXPORT using u8vec4 = u8vec<4>;
 
-	FASTGLTF_EXPORT using s32vec2 = vec<std::int32_t, 2>;
-	FASTGLTF_EXPORT using s32vec3 = vec<std::int32_t, 3>;
-	FASTGLTF_EXPORT using s32vec4 = vec<std::int32_t, 4>;
-	FASTGLTF_EXPORT using u32vec2 = vec<std::uint32_t, 2>;
-	FASTGLTF_EXPORT using u32vec3 = vec<std::uint32_t, 3>;
-	FASTGLTF_EXPORT using u32vec4 = vec<std::uint32_t, 4>;
+	FASTGLTF_EXPORT template <std::size_t N> using s16vec = vec<std::int16_t, N>;
+	FASTGLTF_EXPORT using s16vec2 = s16vec<2>;
+	FASTGLTF_EXPORT using s16vec3 = s16vec<3>;
+	FASTGLTF_EXPORT using s16vec4 = s16vec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using u16vec = vec<std::uint16_t, N>;
+	FASTGLTF_EXPORT using u16vec2 = u16vec<2>;
+	FASTGLTF_EXPORT using u16vec3 = u16vec<3>;
+	FASTGLTF_EXPORT using u16vec4 = u16vec<4>;
 
-	FASTGLTF_EXPORT using fvec2 = vec<float, 2>;
-	FASTGLTF_EXPORT using fvec3 = vec<float, 3>;
-	FASTGLTF_EXPORT using fvec4 = vec<float, 4>;
-	FASTGLTF_EXPORT using f32vec2 = vec<float, 2>;
-	FASTGLTF_EXPORT using f32vec3 = vec<float, 3>;
-	FASTGLTF_EXPORT using f32vec4 = vec<float, 4>;
-	FASTGLTF_EXPORT using dvec2 = vec<double, 2>;
-	FASTGLTF_EXPORT using dvec3 = vec<double, 3>;
-	FASTGLTF_EXPORT using dvec4 = vec<double, 4>;
-	FASTGLTF_EXPORT using f64vec2 = vec<double, 2>;
-	FASTGLTF_EXPORT using f64vec3 = vec<double, 3>;
-	FASTGLTF_EXPORT using f64vec4 = vec<double, 4>;
+	FASTGLTF_EXPORT template <std::size_t N> using s32vec = vec<std::int32_t, N>;
+	FASTGLTF_EXPORT using s32vec2 = s32vec<2>;
+	FASTGLTF_EXPORT using s32vec3 = s32vec<3>;
+	FASTGLTF_EXPORT using s32vec4 = s32vec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using u32vec = vec<std::uint32_t, N>;
+	FASTGLTF_EXPORT using u32vec2 = u32vec<2>;
+	FASTGLTF_EXPORT using u32vec3 = u32vec<3>;
+	FASTGLTF_EXPORT using u32vec4 = u32vec<4>;
+
+	FASTGLTF_EXPORT template <std::size_t N> using ivec = vec<int, N>;
+	FASTGLTF_EXPORT using ivec2 = ivec<2>;
+	FASTGLTF_EXPORT using ivec3 = ivec<3>;
+	FASTGLTF_EXPORT using ivec4 = ivec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using uvec = vec<unsigned int, N>;
+	FASTGLTF_EXPORT using uvec2 = uvec<2>;
+	FASTGLTF_EXPORT using uvec3 = uvec<3>;
+	FASTGLTF_EXPORT using uvec4 = uvec<4>;
+
+	FASTGLTF_EXPORT template <std::size_t N> using fvec = vec<float, N>;
+	FASTGLTF_EXPORT using fvec2 = fvec<2>;
+	FASTGLTF_EXPORT using fvec3 = fvec<3>;
+	FASTGLTF_EXPORT using fvec4 = fvec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using f32vec = vec<float, N>;
+	FASTGLTF_EXPORT using f32vec2 = f32vec<2>;
+	FASTGLTF_EXPORT using f32vec3 = f32vec<3>;
+	FASTGLTF_EXPORT using f32vec4 = f32vec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using dvec = vec<double, N>;
+	FASTGLTF_EXPORT using dvec2 = dvec<2>;
+	FASTGLTF_EXPORT using dvec3 = dvec<3>;
+	FASTGLTF_EXPORT using dvec4 = dvec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using f64vec = vec<double, N>;
+	FASTGLTF_EXPORT using f64vec2 = f64vec<2>;
+	FASTGLTF_EXPORT using f64vec3 = f64vec<3>;
+	FASTGLTF_EXPORT using f64vec4 = f64vec<4>;
 
 	/** A quaternion */
 	FASTGLTF_EXPORT template <typename T>
@@ -380,10 +439,10 @@ namespace fastgltf::math {
 			return data[3];
 		}
 
-		[[nodiscard]] constexpr T* value_ptr() noexcept {
+		[[nodiscard]] constexpr auto value_ptr() noexcept {
 			return data.data();
 		}
-		[[nodiscard]] constexpr const T* value_ptr() const noexcept {
+		[[nodiscard]] constexpr auto value_ptr() const noexcept {
 			return data.data();
 		}
 
@@ -442,7 +501,7 @@ namespace fastgltf::math {
 		std::array<vec<T, N>, M> data;
 
 		template <typename... Args, std::size_t... i>
-		constexpr void copy_floats(const std::tuple<Args...>& tuple, std::integer_sequence<std::size_t, i...>) noexcept {
+		constexpr void copy_values(const std::tuple<Args...>& tuple, std::integer_sequence<std::size_t, i...>) noexcept {
 			(..., (data[i / M][i % N] = std::get<i>(std::move(tuple))));
 		}
 
@@ -461,7 +520,13 @@ namespace fastgltf::math {
 		template <typename... Args, std::enable_if_t<sizeof...(Args) == M * N, bool> = true>
 		constexpr explicit mat(Args... args) noexcept {
 			const auto tuple = std::forward_as_tuple(args...);
-			copy_floats(tuple, std::make_integer_sequence<std::size_t, sizeof...(Args)>());
+			copy_values(tuple, std::make_integer_sequence<std::size_t, sizeof...(Args)>());
+		}
+
+		template <std::size_t Q, std::size_t P, std::enable_if_t<N < Q && M < P, bool> = true>
+		constexpr explicit mat(const mat<T, Q, P>& other) noexcept {
+			for (std::size_t i = 0; i < columns(); ++i)
+				(*this).col(i) = vec<T, N>(other.col(i));
 		}
 
 		[[nodiscard]] constexpr std::size_t columns() const noexcept {
@@ -505,6 +570,13 @@ namespace fastgltf::math {
 		}
 
 	public:
+		[[nodiscard]] constexpr auto value_ptr() noexcept {
+			return data[0].value_ptr();
+		}
+		[[nodiscard]] constexpr auto value_ptr() const noexcept {
+			return data[0].value_ptr();
+		}
+
 		[[nodiscard]] constexpr bool operator==(const mat<T, N, M>& other) const noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				if (col(i) != other.col(i))
@@ -515,10 +587,30 @@ namespace fastgltf::math {
 			return !(*this == other);
 		}
 
+		constexpr auto operator-() const noexcept {
+			mat<T, N, M> ret;
+			for (std::size_t i = 0; i < columns(); ++i)
+				ret.col(i) = -(*this).col(i);
+			return ret;
+		}
+
+		constexpr auto operator*(T scalar) const noexcept {
+			mat<T, N, M> ret;
+			for (std::size_t i = 0; i < columns(); ++i)
+				ret[i] = col(i) * scalar;
+			return ret;
+		}
 		constexpr auto operator*(vec<T, M> other) const noexcept {
 			vec<T, M> ret = col(0) * other[0];
 			for (std::size_t i = 1; i < columns(); ++i)
 				ret += col(i) * other[i];
+			return ret;
+		}
+
+		constexpr auto operator/(T scalar) const noexcept {
+			mat<T, N, M> ret;
+			for (std::size_t i = 0; i < columns(); ++i)
+				ret[i] = col(i) / scalar;
 			return ret;
 		}
 
@@ -531,6 +623,64 @@ namespace fastgltf::math {
 			return ret;
 		}
 	};
+
+	/** Transposes the given matrix */
+	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
+	[[nodiscard]] auto transpose(const mat<T, N, M>& m) noexcept {
+		mat<T, M, N> ret;
+		for (std::size_t i = 0; i < N; ++i)
+			for (std::size_t j = 0; j < M; ++j)
+				ret[i][j] = m[j][i];
+		return ret;
+	}
+
+	/** Computes the determinant of the 2x2 matrix */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto determinant(const mat<T, 2, 2>& m) noexcept {
+		return m.col(0).x() * m.col(1).y() - m.col(0).y() * m.col(1).x();
+	}
+
+	/** Computes the determinant of the 3x3 matrix */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto determinant(const mat<T, 3, 3>& m) noexcept {
+		// https://www.mathcentre.ac.uk/resources/uploaded/sigma-matrices9-2009-1.pdf
+		// This uses the last row of the matrix, and their minors to ease computation.
+		auto lrow = m.row(2);
+		// Computes the minors for every element of the last row
+		auto cofactors = vec<T, 3>(
+			+determinant(mat<T, 2, 2>(vec<T, 2>(m.col(1)), vec<T, 2>(m.col(2)))),
+			-determinant(mat<T, 2, 2>(vec<T, 2>(m.col(0)), vec<T, 2>(m.col(2)))),
+			+determinant(mat<T, 2, 2>(vec<T, 2>(m.col(0)), vec<T, 2>(m.col(1)))));
+		return dot(lrow, cofactors);
+	}
+
+	/** Computes the inverse of the 2x2 matrix */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto inverse(const mat<T, 2, 2>& m) noexcept {
+		return mat<T, 2, 2>(m.col(1).y(), -m.col(0).y(), -m.col(1).x(), m.col(0).x()) / determinant(m);
+	}
+
+	/** Computes the inverse of the 3x3 matrix */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto inverse(const mat<T, 3, 3>& m) noexcept {
+		auto inv = mat<T, 3, 3>(
+			m.col(1)[1] * m.col(2)[2] - m.col(2)[1] * m.col(1)[2], m.col(2)[1] * m.col(0)[2] - m.col(0)[1] * m.col(2)[2], m.col(0)[1] * m.col(1)[2] - m.col(1)[1] * m.col(0)[2],
+			m.col(2)[0] * m.col(1)[2] - m.col(1)[0] * m.col(2)[2], m.col(0)[0] * m.col(2)[2] - m.col(2)[0] * m.col(0)[2], m.col(1)[0] * m.col(0)[2] - m.col(0)[0] * m.col(1)[2],
+			m.col(1)[0] * m.col(2)[1] - m.col(2)[0] * m.col(1)[1], m.col(2)[0] * m.col(0)[1] - m.col(0)[0] * m.col(2)[1], m.col(0)[0] * m.col(1)[1] - m.col(1)[0] * m.col(0)[1]);
+		return inv / determinant(m);
+	}
+
+	/** Computes the affine inverse of a 4x4 matrix */
+	template <typename T>
+	[[nodiscard]] auto affineInverse(const mat<T, 4, 4>& m) noexcept {
+		const auto inv = inverse(mat<T, 3, 3>(m));
+		const auto l = -inv * vec<T, 3>(m.col(3));
+		return mat<T, 4, 4>(
+			vec<T, 4>(inv.col(0).x(), inv.col(0).y(), inv.col(0).z(), 0.f),
+			vec<T, 4>(inv.col(1).x(), inv.col(1).y(), inv.col(1).z(), 0.f),
+			vec<T, 4>(inv.col(2).x(), inv.col(2).y(), inv.col(2).z(), 0.f),
+			vec<T, 4>(l.x(), l.y(), l.z(), 1.f));
+	}
 
 	/** Translates a given transform matrix by the world space translation vector */
 	FASTGLTF_EXPORT template <typename T>
@@ -557,21 +707,14 @@ namespace fastgltf::math {
 		return m * asMatrix(rot);
 	}
 
-	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
-	[[nodiscard]] auto transpose(const mat<T, N, M>& m) noexcept {
-		mat<T, M, N> ret;
-		for (std::size_t i = 0; i < N; ++i)
-			for (std::size_t j = 0; j < M; ++j)
-				ret[i][j] = m[j][i];
-		return ret;
-	}
-
-	FASTGLTF_EXPORT using fmat2x2 = mat<float, 2, 2>;
-	FASTGLTF_EXPORT using fmat3x3 = mat<float, 3, 3>;
-	FASTGLTF_EXPORT using fmat4x4 = mat<float, 4, 4>;
-	FASTGLTF_EXPORT using dmat2x2 = mat<double, 2, 2>;
-	FASTGLTF_EXPORT using dmat3x3 = mat<double, 3, 3>;
-	FASTGLTF_EXPORT using dmat4x4 = mat<double, 4, 4>;
+	FASTGLTF_EXPORT template <std::size_t N, std::size_t M> using fmat = mat<float, N, M>;
+	FASTGLTF_EXPORT using fmat2x2 = fmat<2, 2>;
+	FASTGLTF_EXPORT using fmat3x3 = fmat<3, 3>;
+	FASTGLTF_EXPORT using fmat4x4 = fmat<4, 4>;
+	FASTGLTF_EXPORT template <std::size_t N, std::size_t M> using dmat = mat<double, N, M>;
+	FASTGLTF_EXPORT using dmat2x2 = dmat<2, 2>;
+	FASTGLTF_EXPORT using dmat3x3 = dmat<3, 3>;
+	FASTGLTF_EXPORT using dmat4x4 = dmat<4, 4>;
 
 	/**
 	 * Decomposes a transform matrix into the translation, rotation, and scale components. This
