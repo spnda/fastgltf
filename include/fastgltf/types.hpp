@@ -918,13 +918,13 @@ namespace fastgltf {
 
         [[nodiscard]] T& at(std::size_t idx) {
             if (idx >= size()) {
-                fastgltf::raise<std::out_of_range>("Index is out of range for SmallVector");
+                raise<std::out_of_range>("Index is out of range for SmallVector");
             }
             return begin()[idx];
         }
         [[nodiscard]] const T& at(std::size_t idx) const {
             if (idx >= size()) {
-                fastgltf::raise<std::out_of_range>("Index is out of range for SmallVector");
+                raise<std::out_of_range>("Index is out of range for SmallVector");
             }
             return begin()[idx];
         }
@@ -1133,28 +1133,28 @@ namespace fastgltf {
 
 		[[nodiscard]] T& value()& {
 			if (!has_value()) {
-                fastgltf::raise<std::bad_optional_access>();
+                raise<std::bad_optional_access>();
 			}
 			return _value;
 		}
 
 		[[nodiscard]] const T& value() const& {
 			if (!has_value()) {
-				fastgltf::raise<std::bad_optional_access>();
+				raise<std::bad_optional_access>();
 			}
 			return _value;
 		}
 
 		[[nodiscard]] T&& value()&& {
 			if (!has_value()) {
-				fastgltf::raise<std::bad_optional_access>();
+				raise<std::bad_optional_access>();
 			}
 			return std::move(_value);
 		}
 
 		[[nodiscard]] const T&& value() const&& {
 			if (!has_value()) {
-				fastgltf::raise<std::bad_optional_access>();
+				raise<std::bad_optional_access>();
 			}
 			return std::move(_value);
 		}
@@ -1417,6 +1417,13 @@ namespace fastgltf {
         [[nodiscard]] constexpr reference operator[](size_type idx) const {
             return data()[idx];
         }
+
+		[[nodiscard]] constexpr reference at(size_type idx) const {
+			if (idx >= size()) {
+                raise<std::out_of_range>("Index is out of range for span");
+			}
+			return data()[idx];
+		}
 
         [[nodiscard]] constexpr pointer data() const noexcept {
             return _ptr;

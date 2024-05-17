@@ -474,14 +474,26 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
             return false;
         draw.count = static_cast<std::uint32_t>(indexAccessor.count);
 
-		// Create the index buffer and copy 32-bit indices into it.
+		// Create the index buffer and copy the indices into it.
 		glCreateBuffers(1, &primitive.indexBuffer);
-		glNamedBufferData(primitive.indexBuffer, static_cast<GLsizeiptr>(indexAccessor.count * sizeof(std::uint32_t)), nullptr, GL_STATIC_DRAW);
-		auto* indices = static_cast<std::uint32_t*>(glMapNamedBuffer(primitive.indexBuffer, GL_WRITE_ONLY));
-		fastgltf::copyFromAccessor<std::uint32_t>(asset, indexAccessor, indices);
-		glUnmapNamedBuffer(primitive.indexBuffer);
+		if (indexAccessor.componentType == fastgltf::ComponentType::UnsignedByte || indexAccessor.componentType == fastgltf::ComponentType::UnsignedShort) {
+        	primitive.indexType = GL_UNSIGNED_SHORT;
+			glNamedBufferData(primitive.indexBuffer,
+							  static_cast<GLsizeiptr>(indexAccessor.count * sizeof(std::uint16_t)), nullptr,
+							  GL_STATIC_DRAW);
+			auto* indices = static_cast<std::uint16_t*>(glMapNamedBuffer(primitive.indexBuffer, GL_WRITE_ONLY));
+			fastgltf::copyFromAccessor<std::uint16_t>(asset, indexAccessor, indices);
+			glUnmapNamedBuffer(primitive.indexBuffer);
+		} else {
+        	primitive.indexType = GL_UNSIGNED_INT;
+			glNamedBufferData(primitive.indexBuffer,
+							  static_cast<GLsizeiptr>(indexAccessor.count * sizeof(std::uint32_t)), nullptr,
+							  GL_STATIC_DRAW);
+			auto* indices = static_cast<std::uint32_t*>(glMapNamedBuffer(primitive.indexBuffer, GL_WRITE_ONLY));
+			fastgltf::copyFromAccessor<std::uint32_t>(asset, indexAccessor, indices);
+			glUnmapNamedBuffer(primitive.indexBuffer);
+		}
 
-        primitive.indexType = GL_UNSIGNED_INT;
         glVertexArrayElementBuffer(vao, primitive.indexBuffer);
     }
 

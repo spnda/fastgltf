@@ -154,7 +154,7 @@ std::size_t fg::GltfFileStream::totalSize() {
 
 #if defined(FASTGLTF_HAS_MEMORY_MAPPED_FILE)
 #if defined(_WIN32)
-fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept : mappedFile(nullptr) {
+fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 	// Create file with FILE_FLAG_SEQUENTIAL_SCAN flag, to match the Parser behaviour.
 	auto* file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
 							 OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
