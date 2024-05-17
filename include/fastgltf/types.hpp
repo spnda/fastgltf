@@ -132,16 +132,18 @@ namespace fastgltf {
      * We encode these values with the number of components in their top 8 bits for fast
      * access & storage. Therefore, use the fastgltf::getNumComponents and fastgltf::getElementByteSize
      * functions to extract data from this enum.
+     *
+     * 0aaaaabbb, where a is the component num, and b is the type index.
      */
-    FASTGLTF_EXPORT enum class AccessorType : std::uint16_t {
+    FASTGLTF_EXPORT enum class AccessorType : std::uint8_t {
         Invalid = 0,
-        Scalar  = ( 1 << 8) | 1,
-        Vec2    = ( 2 << 8) | 2,
-        Vec3    = ( 3 << 8) | 3,
-        Vec4    = ( 4 << 8) | 4,
-        Mat2    = ( 4 << 8) | 5,
-        Mat3    = ( 9 << 8) | 6,
-        Mat4    = (16 << 8) | 7,
+        Scalar  = ( 1 << 3) | 1,
+        Vec2    = ( 2 << 3) | 2,
+        Vec3    = ( 3 << 3) | 3,
+        Vec4    = ( 4 << 3) | 4,
+        Mat2    = ( 4 << 3) | 5,
+        Mat3    = ( 9 << 3) | 6,
+        Mat4    = (16 << 3) | 7,
     };
 
     /**
@@ -154,6 +156,8 @@ namespace fastgltf {
      *
      * To get the byte or bit size of a component, use the fastgltf::getComponentByteSize or fastgltf::getComponentBitSize,
      * respectively. To get the OpenGL constant for the component type, use fastgltf::getGLComponentType.
+     *
+     * aaabbbbbbbbbbbbb, where a is the byte size, and b the OpenGL type enumeration.
      */
     FASTGLTF_EXPORT enum class ComponentType : std::uint16_t {
         Invalid         = 0,
@@ -306,8 +310,8 @@ namespace fastgltf {
      * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
      */
     FASTGLTF_EXPORT constexpr auto getNumComponents(AccessorType type) noexcept {
-    	static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint16_t>);
-        return static_cast<std::size_t>(to_underlying(type) >> 8U);
+    	static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
+        return static_cast<std::size_t>(to_underlying(type) >> 3U);
     }
 
     /**
@@ -441,9 +445,10 @@ namespace fastgltf {
 	};
 
 	constexpr std::string_view getAccessorTypeName(AccessorType type) noexcept {
+    	static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
 		if (type == AccessorType::Invalid)
 			return "";
-		auto idx = to_underlying(type) & 0xFF;
+		auto idx = to_underlying(type) & 0x7;
 		return accessorTypeNames[idx - 1];
 	}
 
