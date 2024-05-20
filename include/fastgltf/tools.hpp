@@ -493,7 +493,7 @@ FASTGLTF_EXPORT template <typename ElementType, typename BufferDataAdapter = Def
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
-auto getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index,
+ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index,
 		const BufferDataAdapter& adapter = {}) {
 	using Traits = ElementTraits<ElementType>;
 	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid Accessor Type");
@@ -525,9 +525,9 @@ auto getAccessorElement(const Asset& asset, const Accessor& accessor, size_t ind
 	// property or extensions MAY override zeros with actual values.
 	if (!accessor.bufferViewIndex) {
 		if constexpr (std::is_aggregate_v<ElementType>) {
-			return {};
-		} else {
 			return ElementType{};
+		} else {
+			return ElementType();
 		}
 	}
 
@@ -689,9 +689,9 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 				auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
 
 				if constexpr (std::is_aggregate_v<ElementType>) {
-					*pDest = {};
+					*pDest = ElementType {};
 				} else {
-					*pDest = ElementType{};
+					*pDest = ElementType();
 				}
 			}
 		}
