@@ -503,9 +503,9 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 	// property or extensions MAY override zeros with actual values.
 	if (!accessor.bufferViewIndex) {
 		if constexpr (std::is_aggregate_v<ElementType>) {
-			return {};
-		} else {
 			return ElementType{};
+		} else {
+			return ElementType();
 		}
 	}
 
@@ -678,9 +678,9 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 				auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
 
 				if constexpr (std::is_aggregate_v<ElementType>) {
-					*pDest = {};
+					*pDest = ElementType {};
 				} else {
-					*pDest = ElementType{};
+					*pDest = ElementType();
 				}
 			}
 		}
