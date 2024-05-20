@@ -456,6 +456,7 @@ public:
 	using iterator = AccessorIterator<ElementType, BufferDataAdapter>;
 
 	explicit IterableAccessor(const Asset& asset, const Accessor& accessor, const BufferDataAdapter& adapter) : asset(asset), accessor(accessor) {
+		assert(accessor.type == ElementTraits<ElementType>::type && "The destination type needs to have the same AccessorType as the accessor.");
 		componentType = accessor.componentType;
 
 		const auto& view = asset.bufferViews[*accessor.bufferViewIndex];
@@ -492,13 +493,15 @@ FASTGLTF_EXPORT template <typename ElementType, typename BufferDataAdapter = Def
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
-ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index,
+auto getAccessorElement(const Asset& asset, const Accessor& accessor, size_t index,
 		const BufferDataAdapter& adapter = {}) {
 	using Traits = ElementTraits<ElementType>;
 	static_assert(Traits::type != AccessorType::Invalid, "Accessor traits must provide a valid Accessor Type");
 	static_assert(std::is_default_constructible_v<ElementType>, "Element type must be default constructible");
 	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
 	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
+
+	assert(accessor.type == Traits::type && "The destination type needs to have the same AccessorType as the accessor.");
 
 	if (accessor.sparse) {
 		auto indicesBytes = adapter(asset, accessor.sparse->indicesBufferView).subspan(accessor.sparse->indicesByteOffset);
@@ -558,9 +561,7 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
 	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
 
-	if (accessor.type != Traits::type) {
-		return;
-	}
+	assert(accessor.type == Traits::type && "The destination type needs to have the same AccessorType as the accessor.");
 
 	if (accessor.sparse && accessor.sparse->count > 0) {
 		auto indicesBytes = adapter(asset, accessor.sparse->indicesBufferView).subspan(accessor.sparse->indicesByteOffset);
@@ -658,9 +659,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 	static_assert(std::is_constructible_v<ElementType>, "Element type must be constructible");
 	static_assert(std::is_move_assignable_v<ElementType>, "Element type must be move-assignable");
 
-	if (accessor.type != Traits::type) {
-		return;
-	}
+	assert(accessor.type == Traits::type && "The destination type needs to have the same AccessorType as the accessor.");
 
 	auto* dstBytes = static_cast<std::byte*>(dest);
 

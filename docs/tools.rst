@@ -9,6 +9,17 @@ The header contains various functions and utilities for reading, copying, and co
 All of these tools also directly support sparse accessors to help add support for these without having to understand how they work.
 This functionality was written by `forenoonwatch <https://github.com/forenoonwatch>`_ with the help of `Eearslya <https://github.com/Eearslya>`_ and me.
 
+.. warning::
+
+   By default, these functions will only be able to load from buffers where the source is either a ``sources::ByteView``, a ``sources::Array``, or a ``sources::Vector``.
+   For other data sources, you'll need to provide a functor similar to the already provided ``DefaultBufferDataAdapter`` to the last parameter of each function.
+   For more detailed documentation about this see :ref:`this section <bufferdataadapter>`.
+
+.. warning::
+
+   When an accessor contains, for example, Vec3 data, the functions will assert when you try to specify a type which is not a vector of 3.
+   That means that the type you specify in the template for ``T`` needs to have ``AccessorType::Vec3`` specified for its ``ElementTraits``.
+
 ElementTraits
 =============
 
@@ -32,12 +43,6 @@ For example, ``glm::vec3`` would be a vector of 3 floats, which would be defined
 
    **fastgltf** also includes its own vector and matrix types, which can be used instead.
    These also have a ``ElementTraits`` specialization included in the standard header.
-
-.. warning::
-
-   By default, these functions will only be able to load from buffers where the source is either a ``sources::ByteView``, a ``sources::Array``, or a ``sources::Vector``.
-   For other data sources, you'll need to provide a functor similar to the already provided ``DefaultBufferDataAdapter`` to the last parameter of each function.
-   For more detailed documentation about this see :ref:`this section <bufferdataadapter>`.
 
 getAccessorElement
 ==================
