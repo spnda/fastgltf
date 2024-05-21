@@ -173,8 +173,8 @@ namespace fastgltf {
         UnsignedInt     = (3 << 13) | 5125,
         Float           = (3 << 13) | 5126,
         /**
-         * Doubles are not officially allowed by the glTF spec, but can be enabled by passing
-         * Options::AllowDouble if you require it.
+         * Doubles are only allowed through the KHR_accessor_float64 extension, but can also
+         * be enabled by specifying the AllowDouble option.
          */
         Double          = (7 << 13) | 5130,
     };

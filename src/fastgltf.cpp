@@ -1549,7 +1549,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
             return Error::InvalidGltf;
         }
 		accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
-        if (accessor.componentType == ComponentType::Double && !hasBit(options, Options::AllowDouble)) {
+        if (accessor.componentType == ComponentType::Double && (!hasBit(options, Options::AllowDouble) || !hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
             return Error::InvalidGltf;
         }
 

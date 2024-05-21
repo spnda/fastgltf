@@ -209,6 +209,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_variants
 		KHR_materials_variants = 1 << 24,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_accessor_float64
+		KHR_accessor_float64 = 1 << 25,
     };
     // clang-format on
 
@@ -230,6 +233,8 @@ namespace fastgltf {
         /**
          * This allows 5130 as an accessor component type. 5130 is the OpenGL constant GL_DOUBLE,
          * which is by default not listed as an allowed component type in the glTF spec.
+         * The KHR_accessor_float64 extension offers the same functionality, so if your assets
+         * require double precision floats, using that extension instead is encouraged.
          *
          * The glTF normally only allows these component types:
          * https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#accessor-data-types
@@ -309,6 +314,7 @@ namespace fastgltf {
         constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
         constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
         constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
+		constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
         constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
 		constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
         constexpr std::string_view KHR_materials_clearcoat = "KHR_materials_clearcoat";
@@ -339,14 +345,15 @@ namespace fastgltf {
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 23;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 24;
 #else
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 22;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 23;
 #endif
 	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
+		{ extensions::KHR_accessor_float64,                     Extensions::KHR_accessor_float64 },
 		{ extensions::KHR_lights_punctual,                      Extensions::KHR_lights_punctual },
 		{ extensions::KHR_materials_anisotropy,                 Extensions::KHR_materials_anisotropy },
 		{ extensions::KHR_materials_clearcoat,                  Extensions::KHR_materials_clearcoat },
