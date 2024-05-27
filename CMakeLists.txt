@@ -133,7 +133,7 @@ if (FASTGLTF_ENABLE_CPP_MODULES AND FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION 
     )
     target_link_libraries(fastgltf_module PRIVATE fastgltf::fastgltf)
     target_compile_definitions(fastgltf_module PUBLIC "FASTGLTF_USE_STD_MODULE=$<BOOL:${FASTGLTF_USE_STD_MODULE}>")
-else(FASTGLTF_ENABLE_CPP_MODULES)
+elseif(FASTGLTF_ENABLE_CPP_MODULES)
     message(WARNING "FASTGLTF_ENABLE_CPP_MODULES is ON but compiler does not support them")
 endif()
 
