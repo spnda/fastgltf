@@ -47,6 +47,13 @@ This ``BOOL`` option controls the C++ standard the library is compiled as. When 
 When ``YES`` fastgltf is compiled as C++20, including the tests. This might allow the compiler to perform certain optimisations,
 since fastgltf then uses some specialized stdlib functions instead.
 
+``FASTGLTF_ENABLE_CPP_MODULES``
+-------------------------------
+
+When this setting is ``YES`` the ``fastgltf::module`` target will be exposed, as long as the CMake script detects a compiler which supports modules.
+Note that this is currently not supported by all compilers and generators.
+See `the CMake docs <https://cmake.org/cmake/help/latest/manual/cmake-cxxmodules.7.html>`_ for more details.
+
 ``FASTGLTF_USE_STD_MODULE``
 ---------------------------
 
