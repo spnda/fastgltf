@@ -110,6 +110,18 @@ namespace fastgltf::math {
 			return *this;
 		}
 
+		template <std::size_t M, std::enable_if_t<M < N, bool> = true>
+		constexpr explicit vec(const vec<T, M>& other) noexcept : vec(T(0)) {
+			for (std::size_t i = 0; i < M; ++i)
+				(*this)[i] = other[i];
+		}
+		template <std::size_t M, std::enable_if_t<M < N, bool> = true>
+		constexpr vec<T, N>& operator=(const vec<T, M>& other) noexcept {
+			for (std::size_t i = 0; i < N; ++i)
+				(*this)[i] = i < M ? other[i] : T(0);
+			return *this;
+		}
+
 		constexpr vec(std::initializer_list<T> list) noexcept {
 			for (auto it = std::begin(list); it != std::end(list); ++it)
 				(*this)[std::distance(std::begin(list), it)] = *it;
@@ -523,9 +535,17 @@ namespace fastgltf::math {
 			copy_values(tuple, std::make_integer_sequence<std::size_t, sizeof...(Args)>());
 		}
 
+		/** Truncates the matrix to a smaller one, discarding the additional rows and/or colums  */
 		template <std::size_t Q, std::size_t P, std::enable_if_t<N < Q && M < P, bool> = true>
 		constexpr explicit mat(const mat<T, Q, P>& other) noexcept {
 			for (std::size_t i = 0; i < columns(); ++i)
+				(*this).col(i) = vec<T, N>(other.col(i));
+		}
+
+		/** Creates a larger matrix from a smaller one, while initializing the new components to identity  */
+		template <std::size_t Q, std::size_t P, std::enable_if_t<Q < N && P < M, bool> = true>
+		constexpr explicit mat(const mat<T, Q, P>& other) noexcept : mat(T(1)) {
+			for (std::size_t i = 0; i < other.columns(); ++i)
 				(*this).col(i) = vec<T, N>(other.col(i));
 		}
 

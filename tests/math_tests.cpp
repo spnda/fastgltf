@@ -140,6 +140,19 @@ TEST_CASE("Matrix initialization", "[maths]") {
 		REQUIRE(mat4.col(2) == sentinel + 2.f);
 		REQUIRE(mat4.col(3) == sentinel + 3.f);
 	}
+
+	SECTION("Conversion") {
+		const fastgltf::math::fmat2x2 mat2(2.f, 3.f, 4.f, 5.f);
+		fastgltf::math::fmat3x3 mat3(mat2);
+		REQUIRE(mat3.col(0) == fastgltf::math::fvec3(2.f, 3.f, 0.f));
+		REQUIRE(mat3.col(1) == fastgltf::math::fvec3(4.f, 5.f, 0.f));
+		REQUIRE(mat3.col(2) == fastgltf::math::fvec3(0.f, 0.f, 1.f));
+		REQUIRE(mat3.row(2) == fastgltf::math::fvec3(0.f, 0.f, 1.f));
+
+		fastgltf::math::fmat2x2 loop(mat3);
+		REQUIRE(loop.col(0) == fastgltf::math::fvec2(2.f, 3.f));
+		REQUIRE(loop.col(1) == fastgltf::math::fvec2(4.f, 5.f));
+	}
 }
 
 TEST_CASE("Vector operations", "[maths]") {
