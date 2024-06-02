@@ -1169,6 +1169,44 @@ namespace fastgltf {
 			return has_value() ? std::move(**this) : static_cast<T>(std::forward<U>(default_value));
 		}
 
+		template <typename F>
+		[[nodiscard]] OptionalWithFlagValue<T> and_then(F&& func)& {
+			if (!has_value())
+				return std::nullopt;
+			return func(value());
+		}
+
+		template <typename F>
+		[[nodiscard]] OptionalWithFlagValue<T> and_then(F&& func)&& {
+			if (!has_value())
+				return std::nullopt;
+			return func(std::move(value()));
+		}
+
+		template <typename F>
+		[[nodiscard]] OptionalWithFlagValue<T> transform(F&& func)& {
+			if (!has_value())
+				return std::nullopt;
+			return OptionalWithFlagValue<T>(func(value()));
+		}
+
+		template <typename F>
+		[[nodiscard]] OptionalWithFlagValue<T> transform(F&& func)&& {
+			if (!has_value())
+				return std::nullopt;
+			return OptionalWithFlagValue<T>(func(std::move(value())));
+		}
+
+		template <typename F>
+		[[nodiscard]] T or_else(F&& func) const& {
+			return *this ? *this : std::forward<F>(func)();
+		}
+
+		template <typename F>
+		[[nodiscard]] T or_else(F&& func)&& {
+			return *this ? std::move(*this) : std::forward<F>(func)();
+		}
+
 		void swap(OptionalWithFlagValue<T>& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
 		                                                    std::is_nothrow_swappable_v<T>) {
 			static_assert(std::is_move_constructible_v<T>);
