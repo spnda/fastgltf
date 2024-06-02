@@ -71,7 +71,7 @@
 #define FASTGLTF_HAS_BIT 0
 #endif
 
-#if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 202002L
+#if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 201907L
 #define FASTGLTF_HAS_CONCEPTS 1
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <concepts>

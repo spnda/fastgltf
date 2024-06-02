@@ -550,7 +550,7 @@ IterableAccessor<ElementType, BufferDataAdapter> iterateAccessor(const Asset& as
 
 FASTGLTF_EXPORT template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
-requires Element<ElementType>
+requires Element<ElementType> && std::is_invocable_v<Functor, ElementType>
 #endif
 void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& func,
 		const BufferDataAdapter& adapter = {}) {
@@ -590,9 +590,11 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 
 		for (std::size_t i = 0; i < accessor.count; ++i) {
 			if (i == nextSparseIndex) {
-				func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
+				auto element = internal::getAccessorElementAt<ElementType>(accessor.componentType,
 						&valuesBytes[valueStride * sparseIndexCount],
-						accessor.normalized));
+						accessor.normalized);
+
+				std::invoke(func, element);
 
 				++sparseIndexCount;
 
@@ -601,11 +603,13 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 							accessor.sparse->indexComponentType, &indicesBytes[indexStride * sparseIndexCount]);
 				}
 			} else if (accessor.bufferViewIndex) {
-				func(internal::getAccessorElementAt<ElementType>(accessor.componentType,
+				auto element = internal::getAccessorElementAt<ElementType>(accessor.componentType,
 						&srcBytes[srcStride * i],
-						accessor.normalized));
+						accessor.normalized);
+
+				std::invoke(func, element);
 			} else {
-				func(ElementType{});
+				std::invoke(func, ElementType {});
 			}
 		}
 
@@ -617,31 +621,31 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 	// property or extensions MAY override zeros with actual values.
 	if (!accessor.bufferViewIndex) {
 		for (std::size_t i = 0; i < accessor.count; ++i) {
-			func(ElementType{});
+			std::invoke(func, ElementType {});
 		}
-	}
-	else {
+	} else {
 		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
         auto stride = view.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
 
 		auto bytes = adapter(asset, *accessor.bufferViewIndex).subspan(accessor.byteOffset);
 
 		for (std::size_t i = 0; i < accessor.count; ++i) {
-			func(internal::getAccessorElementAt<ElementType>(
-                    accessor.componentType, &bytes[i * stride], accessor.normalized));
+			auto element = internal::getAccessorElementAt<ElementType>(
+				accessor.componentType, &bytes[i * stride], accessor.normalized);
+			std::invoke(func, element);
 		}
 	}
 }
 
 FASTGLTF_EXPORT template <typename ElementType, typename Functor, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
-requires Element<ElementType>
+requires Element<ElementType> && std::is_invocable_v<Functor, ElementType, std::size_t>
 #endif
 void iterateAccessorWithIndex(const Asset& asset, const Accessor& accessor, Functor&& func,
                      const BufferDataAdapter& adapter = {}) {
 	std::size_t idx = 0;
 	iterateAccessor<ElementType>(asset, accessor, [&](auto&& elementType) {
-	    func(std::forward<ElementType>(elementType), idx++);
+		std::invoke(func, std::forward<ElementType>(elementType), idx++);
 	}, adapter);
 }
 
@@ -745,6 +749,9 @@ FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fma
  * and calling the callback function with that node and the transform.
  */
 FASTGLTF_EXPORT template <typename Callback>
+#if FASTGLTF_HAS_CONCEPTS
+requires std::is_invocable_v<Callback, fastgltf::Node&, const fastgltf::math::fmat4x4&>
+#endif
 void iterateSceneNodes(fastgltf::Asset& asset, std::size_t sceneIndex, math::fmat4x4 initial, Callback callback) {
 	auto& scene = asset.scenes[sceneIndex];
 
@@ -753,7 +760,7 @@ void iterateSceneNodes(fastgltf::Asset& asset, std::size_t sceneIndex, math::fma
 		auto& node = asset.nodes[nodeIndex];
 		nodeMatrix = getTransformMatrix(node, nodeMatrix);
 
-		callback(node, nodeMatrix);
+		std::invoke(callback, node, std::as_const(nodeMatrix));
 
 		for (auto& child : node.children) {
 			self(child, nodeMatrix, self);
