@@ -127,6 +127,9 @@ template<> struct ElementTraits<math::dvec2> : ElementTraitsBase<math::dvec2, Ac
 template<> struct ElementTraits<math::dvec3> : ElementTraitsBase<math::dvec3, AccessorType::Vec3, double> {};
 template<> struct ElementTraits<math::dvec4> : ElementTraitsBase<math::dvec4, AccessorType::Vec4, double> {};
 
+template<> struct ElementTraits<math::fquat> : ElementTraitsBase<math::fquat, AccessorType::Vec4, float> {};
+template<> struct ElementTraits<math::dquat> : ElementTraitsBase<math::dquat, AccessorType::Vec4, double> {};
+
 template<> struct ElementTraits<math::fmat2x2> : ElementTraitsBase<math::fmat2x2, AccessorType::Mat2, float> {};
 template<> struct ElementTraits<math::fmat3x3> : ElementTraitsBase<math::fmat3x3, AccessorType::Mat3, float> {};
 template<> struct ElementTraits<math::fmat4x4> : ElementTraitsBase<math::fmat4x4, AccessorType::Mat4, float> {};

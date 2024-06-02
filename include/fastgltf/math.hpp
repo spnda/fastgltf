@@ -48,6 +48,12 @@ namespace fastgltf::math {
 		return comp(v, min) ? min : (comp(max, v) ? max : v);
 	}
 
+	/** Linear interpolation of two values based on t */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto lerp(T a, T b, T t) noexcept {
+		return a + t * (b - a);
+	}
+
 	/** Degree to radians conversion */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto radians(const T& degrees) noexcept {
@@ -345,6 +351,15 @@ namespace fastgltf::math {
 		return ret;
 	}
 
+	/** Component-wise vector lerp */
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
+	[[nodiscard]] auto lerp(const vec<T, N>& a, const vec<T, N>& b, const T& t) noexcept {
+		vec<T, N> ret;
+		for (std::size_t i = 0; i < N; ++i)
+			ret[i] = lerp(a[i], b[i], t);
+		return ret;
+	}
+
 	FASTGLTF_EXPORT template <std::size_t N> using s8vec = vec<std::int8_t, N>;
 	FASTGLTF_EXPORT using s8vec2 = s8vec<2>;
 	FASTGLTF_EXPORT using s8vec3 = s8vec<3>;
@@ -467,32 +482,111 @@ namespace fastgltf::math {
 		[[nodiscard]] constexpr bool operator!=(const quat<T>& other) const noexcept {
 			return !(*this == other);
 		}
+
+		constexpr auto operator*(T scalar) const noexcept {
+			return quat<T>(*this) *= scalar;
+		}
+		constexpr auto operator*=(T scalar) noexcept {
+			for (std::size_t i = 0; i < 4; ++i)
+				(*this)[i] *= scalar;
+			return *this;
+		}
+
+		constexpr auto operator/(T scalar) const noexcept {
+			return quat<T>(*this) *= scalar;
+		}
+		constexpr auto operator/=(T scalar) noexcept {
+			for (std::size_t i = 0; i < 4; ++i)
+				(*this)[i] /= scalar;
+			return *this;
+		}
+
+		constexpr auto operator+() const noexcept {
+			quat<T> ret(*this);
+			for (std::size_t i = 0; i < 4; ++i)
+				ret[i] = +ret[i];
+			return ret;
+		}
+		constexpr auto operator+(const quat<T>& other) const noexcept {
+			return quat<T>(*this) += other;
+		}
+		constexpr auto operator+=(const quat<T>& other) noexcept {
+			for (std::size_t i = 0; i < 4; ++i)
+				(*this)[i] += other[i];
+			return *this;
+		}
+
+		constexpr auto operator-() const noexcept {
+			quat<T> ret(*this);
+			for (std::size_t i = 0; i < 4; ++i)
+				ret[i] = -ret[i];
+			return ret;
+		}
+		constexpr auto operator-(const quat<T>& other) const noexcept {
+			return quat<T>(*this) -= other;
+		}
+		constexpr auto operator-=(const quat<T>& other) noexcept {
+			for (std::size_t i = 0; i < 4; ++i)
+				(*this)[i] -= other[i];
+			return *this;
+		}
 	};
+
+	/** Computes the dot product of two quaternions */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto dot(const quat<T>& a, const quat<T>& b) noexcept {
+		T ret(0);
+		for (std::size_t i = 0; i < 4; ++i)
+			ret += a[i] * b[i];
+		return ret;
+	}
+
+	/** Normalizes the quaternion to have a length of 1 */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto normalize(const quat<T>& q) noexcept {
+		return q / sqrt(dot(q, q));
+	}
+
+	/** Spherical interpolation of two quaternions */
+	FASTGLTF_EXPORT template <typename T>
+	[[nodiscard]] auto slerp(quat<T> a, quat<T> b, T interpolation) noexcept {
+		auto d = dot(a, b);
+
+		if (d < T(0)) {
+			a = -a;
+			b = -b;
+		}
+
+		if (d > T(0.9995)) // Simple linear interpolation when both quats are close to each other
+			return normalize(a + (b - a) * interpolation);
+
+		auto theta0 = std::acos(d);
+		auto sinTheta0 = std::sin(theta0);
+		auto theta = interpolation * theta0;
+		auto sinTheta = std::sin(theta);
+
+		return a * (cos(theta) - d * sinTheta / sinTheta0) + b * (sinTheta / sinTheta0);
+	}
 
 	/**  Converts the given quaternion into a 3x3 rotation matrix */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto asMatrix(const quat<T>& rot) noexcept {
-		vec<T, 4> c1(
+		vec<T, 3> c1(
 			T(1) - T(2) * (rot.y() * rot.y() + rot.z() * rot.z()),
 			T(2) * (rot.x() * rot.y() + rot.w() * rot.z()),
-			T(2) * (rot.x() * rot.z() - rot.w() * rot.y()),
-			0.f
+			T(2) * (rot.x() * rot.z() - rot.w() * rot.y())
 		);
-		vec<T, 4> c2(
+		vec<T, 3> c2(
 			T(2) * (rot.x() * rot.y() - rot.w() * rot.z()),
 			T(1) - T(2) * (rot.x() * rot.x() + rot.z() * rot.z()),
-			T(2) * (rot.y() * rot.z() + rot.w() * rot.x()),
-			0.f
+			T(2) * (rot.y() * rot.z() + rot.w() * rot.x())
 		);
-		vec<T, 4> c3(
+		vec<T, 3> c3(
 			T(2) * (rot.x() * rot.z() + rot.w() * rot.y()),
 			T(2) * (rot.y() * rot.z() - rot.w() * rot.x()),
-			T(1) - T(2) * (rot.x() * rot.x() + rot.y() * rot.y()),
-			0.f
+			T(1) - T(2) * (rot.x() * rot.x() + rot.y() * rot.y())
 		);
-		// TODO: Return a mat<T, 3, 3> from here and implement the conversion elsewhere.
-		vec<T, 4> c4(0.f, 0.f, 0.f, 1.f);
-		return mat<T, 4, 4>(c1, c2, c3, c4);
+		return mat<T, 3, 3>(c1, c2, c3);
 	}
 
 	FASTGLTF_EXPORT using fquat = quat<float>;
