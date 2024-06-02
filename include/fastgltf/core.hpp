@@ -538,13 +538,13 @@ namespace fastgltf {
 		}
 
 		template <std::size_t I>
-		auto& get() noexcept {
+		[[nodiscard]] auto& get() noexcept {
 			if constexpr (I == 0) return err;
 			else if constexpr (I == 1) return value;
 		}
 
 		template <std::size_t I>
-		const auto& get() const noexcept {
+		[[nodiscard]] const auto& get() const noexcept {
 			if constexpr (I == 0) return err;
 			else if constexpr (I == 1) return value;
 		}
@@ -553,7 +553,7 @@ namespace fastgltf {
 		 * Returns the address of the value of T.
 		 * When error() returns anything but Error::None, the returned value is undefined.
 		 */
-		T* operator->() noexcept {
+		[[nodiscard]] T* operator->() noexcept {
 			assert(err == Error::None);
 			return std::addressof(value);
 		}
@@ -562,17 +562,17 @@ namespace fastgltf {
 		 * Returns the address of the const value of T.
 		 * When error() returns anything but Error::None, the returned value is undefined.
 		 */
-		const T* operator->() const noexcept {
+		[[nodiscard]] const T* operator->() const noexcept {
 			assert(err == Error::None);
 			return std::addressof(value);
 		}
 
-		T&& operator*() && noexcept {
+		[[nodiscard]] T&& operator*() && noexcept {
 			assert(err == Error::None);
 			return std::move(value);
 		}
 
-		operator bool() const noexcept {
+		[[nodiscard]] operator bool() const noexcept {
 			return err == Error::None;
 		}
 	};
