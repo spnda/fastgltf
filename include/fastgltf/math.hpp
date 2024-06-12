@@ -818,7 +818,7 @@ namespace fastgltf::math {
 	/** Rotates the given matrix using the given quaternion */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto rotate(const mat<T, 4, 4>& m, const quat<T>& rot) noexcept {
-		return m * asMatrix(rot);
+		return m * mat<T, 4, 4>(asMatrix(rot));
 	}
 
 	FASTGLTF_EXPORT template <std::size_t N, std::size_t M> using fmat = mat<float, N, M>;
