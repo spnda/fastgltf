@@ -29,9 +29,11 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags.cmake)
 
 # Create the library target
+set(FASTGLTF_HEADERS "include/fastgltf/base64.hpp" "include/fastgltf/core.hpp"
+        "include/fastgltf/dxmath_element_traits.hpp" "include/fastgltf/glm_element_traits.hpp"
+        "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp")
 add_library(fastgltf
-    "src/fastgltf.cpp" "src/base64.cpp"
-    "include/fastgltf/base64.hpp" "include/fastgltf/glm_element_traits.hpp" "include/fastgltf/core.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp")
+    "src/fastgltf.cpp" "src/base64.cpp" "src/io.cpp" ${FASTGLTF_HEADERS})
 add_library(fastgltf::fastgltf ALIAS fastgltf)
 
 fastgltf_compiler_flags(fastgltf)
@@ -107,7 +109,7 @@ if (ANDROID)
 endif()
 
 install(
-    FILES "include/fastgltf/base64.hpp" "include/fastgltf/glm_element_traits.hpp" "include/fastgltf/core.hpp" "include/fastgltf/tools.hpp" "include/fastgltf/types.hpp" "include/fastgltf/util.hpp"
+    FILES ${FASTGLTF_HEADERS}
     DESTINATION include/fastgltf
 )
 
