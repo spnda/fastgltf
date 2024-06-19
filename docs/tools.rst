@@ -27,17 +27,18 @@ All related functions are templated and take ``T`` as an argument, which allows 
 while converting the data correctly, if necessary.
 This type has to have a ``ElementTraits`` specialization, which provides information about the vector properties and data properties.
 Using this information, **fastgltf** can convert the accessor data into your preferred format.
-For example, ``glm::vec3`` would be a vector of 3 floats, which would be defined like this:
+For example, if you had a custom vector type like ``MyVec3``, you'd just need to specialize the template for it like this:
 
 .. code:: c++
 
    template <>
-   struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, float> {};
+   struct fastgltf::ElementTraits<MyVec3> : fastgltf::ElementTraitsBase<MyVec3, AccessorType::Vec3, float> {};
 
 .. note::
 
-   Note that, for glm types, there is a header with all pre-defined types shipped with **fastgltf**: ``fastgltf/glm_element_traits.hpp``.
-   This header includes the ElementTraits definition for all relevant glm types.
+   **fastgltf** includes these definitions for types from other math libraries. Currently, **fastgltf** supports
+   DirectXMath with ``fastgltf/dxmath_element_traits.hpp`` and glm with  ``fastgltf/glm_element_traits.hpp``.
+   Simply including these headers will allow the tools to convert to your preferred types directly.
 
 .. note::
 
