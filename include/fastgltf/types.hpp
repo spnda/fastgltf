@@ -1520,13 +1520,13 @@ namespace fastgltf {
         };
 
         FASTGLTF_EXPORT struct Array {
-            StaticVector<std::uint8_t> bytes;
+            StaticVector<std::byte> bytes;
             MimeType mimeType = MimeType::None;
         };
 
 		/** @note This type is not used by the fastgltf parser and is only used for exporting. Use sources::Array instead when importing intead. */
 		FASTGLTF_EXPORT struct Vector {
-			std::vector<std::uint8_t> bytes;
+			std::vector<std::byte> bytes;
 			MimeType mimeType = MimeType::None;
 		};
 

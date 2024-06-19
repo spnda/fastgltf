@@ -456,7 +456,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 		}
 	}
 
-	StaticVector<std::uint8_t> data(static_cast<std::size_t>(length));
+	StaticVector<std::byte> data(static_cast<std::size_t>(length));
 	file.read(reinterpret_cast<char*>(data.data()), length);
 	sources::Array arraySource {
 		std::move(data),

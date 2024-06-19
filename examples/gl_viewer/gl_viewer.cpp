@@ -529,7 +529,7 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
         },
         [&](fastgltf::sources::Array& vector) {
             int width, height, nrChannels;
-            unsigned char *data = stbi_load_from_memory(vector.bytes.data(), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
+            unsigned char *data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(vector.bytes.data()), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
             glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
             glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
@@ -545,7 +545,8 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
                 [](auto& arg) {},
                 [&](fastgltf::sources::Array& vector) {
                     int width, height, nrChannels;
-                    unsigned char* data = stbi_load_from_memory(vector.bytes.data() + bufferView.byteOffset, static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
+					unsigned char* data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(vector.bytes.data() + bufferView.byteOffset),
+					                                            static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
                     glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
                     glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
                     stbi_image_free(data);
