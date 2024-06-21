@@ -4233,7 +4233,7 @@ void fg::Exporter::writeAnimations(const Asset& asset, std::string& json)
 		}
 		json += "],";
 
-		json += R"("name":")" + it->name + ",";
+		json += R"("name":")" + it->name + "\",";
 
 		json += R"("samplers":[)";
 		for (auto si = it->samplers.begin(); si != it->samplers.end(); ++si) {
