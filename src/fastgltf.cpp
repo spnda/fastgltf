@@ -807,12 +807,14 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 	for (const auto& field : object) {
 		const auto key = field.key;
 
-		std::uint64_t attributeIndex;
-		if (field.value.get_uint64().get(attributeIndex) != SUCCESS) FASTGLTF_UNLIKELY {
+		std::uint64_t accessorIndex;
+		if (field.value.get_uint64().get(accessorIndex) != SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
-		attributes.emplace_back(
-			std::make_pair(FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key), static_cast<std::size_t>(attributeIndex)));
+		attributes.emplace_back(Attribute {
+			.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key),
+			.accessorIndex = static_cast<std::size_t>(accessorIndex),
+		});
 	}
 	return Error::None;
 }
@@ -820,7 +822,7 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 // TODO: Is there some nicer way of declaring a templated version parseAttributes?
 //       Currently, this exists because resourceAllocator is a optional field of Parser, which we can't unconditionally
 //       pass as a parameter to a function, so parseAttributes needs to be a member function of Parser.
-template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, FASTGLTF_STD_PMR_NS::vector<attribute_type>&);
+template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, FASTGLTF_STD_PMR_NS::vector<Attribute>&);
 template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, decltype(fastgltf::Primitive::attributes)&);
 
 namespace fastgltf {
@@ -886,7 +888,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			if (positionAttribute == primitive.attributes.end()) {
 				return Error::InvalidGltf;
 			}
-			auto positionCount = asset.accessors[positionAttribute->second].count;
+			auto positionCount = asset.accessors[positionAttribute->accessorIndex].count;
 
 			auto primitiveCount = [&]() -> std::size_t {
 				switch (primitive.type) {
@@ -4754,7 +4756,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                 {
                     json += R"("attributes":{)";
                     for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
-                        json += '"' + std::string(ita->first) + "\":" + std::to_string(ita->second);
+                        json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
                         if (uabs(std::distance(itp->attributes.begin(), ita)) + 1 <itp->attributes.size())
                             json += ',';
                     }
@@ -4929,7 +4931,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			if (!it->instancingAttributes.empty()) {
 				json += R"("EXT_mesh_gpu_instancing":{"attributes":{)";
 				for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
-					json += '"' + std::string(ait->first) + "\":" + std::to_string(ait->second);
+					json += '"' + std::string(ait->name) + "\":" + std::to_string(ait->accessorIndex);
 					if (uabs(std::distance(it->instancingAttributes.begin(), ait)) + 1 <
 						it->instancingAttributes.size())
 						json += ',';

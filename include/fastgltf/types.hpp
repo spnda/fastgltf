@@ -1632,7 +1632,10 @@ namespace fastgltf {
 		math::fvec3 scale = math::fvec3(1.f);
 	};
 
-	FASTGLTF_EXPORT using attribute_type = std::pair<FASTGLTF_STD_PMR_NS::string, std::size_t>;
+	FASTGLTF_EXPORT struct Attribute {
+		FASTGLTF_STD_PMR_NS::string name;
+		std::size_t accessorIndex;
+	};
 
     FASTGLTF_EXPORT struct Node {
         Optional<std::size_t> meshIndex;
@@ -1657,13 +1660,13 @@ namespace fastgltf {
         /**
          * Only ever non-empty when EXT_mesh_gpu_instancing is enabled and used by the asset.
          */
-        FASTGLTF_STD_PMR_NS::vector<attribute_type> instancingAttributes;
+        FASTGLTF_STD_PMR_NS::vector<Attribute> instancingAttributes;
 
         FASTGLTF_STD_PMR_NS::string name;
 
         [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
-                if (it->first == attributeName)
+                if (it->name == attributeName)
                     return it;
             }
             return instancingAttributes.end();
@@ -1671,7 +1674,7 @@ namespace fastgltf {
 
         [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) const noexcept {
             for (auto it = instancingAttributes.cbegin(); it != instancingAttributes.cend(); ++it) {
-                if (it->first == attributeName)
+                if (it->name == attributeName)
                     return it;
             }
             return instancingAttributes.cend();
@@ -1681,10 +1684,10 @@ namespace fastgltf {
     FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
-		FASTGLTF_FG_PMR_NS::SmallVector<attribute_type, 4> attributes;
+		FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4> attributes;
         PrimitiveType type = PrimitiveType::Triangles;
 
-        FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::SmallVector<attribute_type, 4>> targets;
+        FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4>> targets;
 
         Optional<std::size_t> indicesAccessor;
         Optional<std::size_t> materialIndex;
@@ -1697,16 +1700,16 @@ namespace fastgltf {
 		std::vector<Optional<std::size_t>> mappings;
 
 		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
-			for (auto it = attributes.begin(); it != attributes.end(); ++it) {
-				if (it->first == name)
+			for (auto* it = attributes.begin(); it != attributes.end(); ++it) {
+				if (it->name == name)
 					return it;
 			}
 			return attributes.end();
 		}
 
 		[[nodiscard]] auto findAttribute(std::string_view name) const noexcept {
-			for (auto it = attributes.cbegin(); it != attributes.cend(); ++it) {
-				if (it->first == name)
+			for (const auto* it = attributes.cbegin(); it != attributes.cend(); ++it) {
+				if (it->name == name)
 					return it;
 			}
 			return attributes.cend();
@@ -1714,8 +1717,8 @@ namespace fastgltf {
 
 		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) noexcept {
 			auto& targetAttributes = targets[targetIndex];
-			for (auto it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
-				if (it->first == name)
+			for (auto* it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
+				if (it->name == name)
 					return it;
 			}
 			return targetAttributes.end();
@@ -1723,8 +1726,8 @@ namespace fastgltf {
 
 		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) const noexcept {
 			const auto& targetAttributes = targets[targetIndex];
-			for (auto it = targetAttributes.cbegin(); it != targetAttributes.cend(); ++it) {
-				if (it->first == name)
+			for (const auto* it = targetAttributes.cbegin(); it != targetAttributes.cend(); ++it) {
+				if (it->name == name)
 					return it;
 			}
 			return targetAttributes.cend();

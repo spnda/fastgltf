@@ -415,7 +415,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 
         {
             // Position
-            auto& positionAccessor = asset.accessors[positionIt->second];
+            auto& positionAccessor = asset.accessors[positionIt->accessorIndex];
             if (!positionAccessor.bufferViewIndex.has_value())
                 continue;
 
@@ -442,7 +442,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
 		auto texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
         if (const auto* texcoord = it->findAttribute(texcoordAttribute); texcoord != it->attributes.end()) {
             // Tex coord
-			auto& texCoordAccessor = asset.accessors[texcoord->second];
+			auto& texCoordAccessor = asset.accessors[texcoord->accessorIndex];
             if (!texCoordAccessor.bufferViewIndex.has_value())
                 continue;
 
