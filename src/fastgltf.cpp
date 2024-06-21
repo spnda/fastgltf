@@ -4192,6 +4192,79 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 	json += ']';
 }
 
+void fg::Exporter::writeAnimations(const Asset& asset, std::string& json)
+{
+	if (asset.animations.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += R"("animations":[)";
+	for (auto it = asset.animations.begin(); it != asset.animations.end(); ++it) {
+		json += '{';
+
+		json += R"("channels":[)";
+		for (auto ci = it->channels.begin(); ci != it->channels.end(); ++ci) {
+			json += "{";
+			json += R"("sampler":)" + std::to_string(ci->samplerIndex) + ",";
+			json += R"("target":{)";
+			if (ci->nodeIndex.has_value()) {
+				json += R"("node":)" + std::to_string(ci->nodeIndex.value()) + ",";
+			}
+			json += R"("path":")";
+			switch (ci->path) {
+			case fg::AnimationPath::Translation:
+				json += "translation";
+				break;
+			case fg::AnimationPath::Rotation:
+				json += "rotation";
+				break;
+			case fg::AnimationPath::Scale:
+				json += "scale";
+				break;
+			case fg::AnimationPath::Weights:
+				json += "weights";
+				break;
+			}
+			json += "\"}}";
+
+			if (uabs(std::distance(it->channels.begin(), ci)) + 1 < it->channels.size())
+				json += ',';
+		}
+		json += "],";
+
+		json += R"("name":")" + it->name + ",";
+
+		json += R"("samplers":[)";
+		for (auto si = it->samplers.begin(); si != it->samplers.end(); ++si) {
+			json += "{";
+			json += R"("input":)" + std::to_string(si->inputAccessor) + ",";
+			json += R"("interpolation":")";
+			switch (si->interpolation) {
+			case fastgltf::AnimationInterpolation::Linear:
+				json += "LINEAR";
+				break;
+			case fastgltf::AnimationInterpolation::Step:
+				json += "STEP";
+				break;
+			case fastgltf::AnimationInterpolation::CubicSpline:
+				json += "CUBICSPLINE";
+				break;
+			}
+			json += "\",";
+			json += R"("output":)" + std::to_string(si->outputAccessor);
+			json += "}";
+
+			if (uabs(std::distance(it->samplers.begin(), si)) + 1 < it->samplers.size())
+				json += ',';
+		}
+		json += "]}";
+		if (uabs(std::distance(asset.animations.begin(), it)) + 1 < asset.animations.size())
+			json += ',';
+	}
+	json += ']';
+}
+
 void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 	if (asset.buffers.empty())
 		return;
@@ -5349,6 +5422,7 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
 	}
 
     writeAccessors(asset, outputString);
+    writeAnimations(asset, outputString);
     writeBuffers(asset, outputString);
     writeBufferViews(asset, outputString);
     writeCameras(asset, outputString);
