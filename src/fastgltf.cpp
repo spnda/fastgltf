@@ -812,8 +812,8 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 			return Error::InvalidGltf;
 		}
 		attributes.emplace_back(Attribute {
-			.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key),
-			.accessorIndex = static_cast<std::size_t>(accessorIndex),
+			FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key),
+			static_cast<std::size_t>(accessorIndex),
 		});
 	}
 	return Error::None;
