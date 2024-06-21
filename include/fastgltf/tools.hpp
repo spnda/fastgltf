@@ -33,6 +33,21 @@
 
 #include <fastgltf/types.hpp>
 
+#if __has_include(<stdfloat>)
+#include <stdfloat>
+
+#if defined(__STDCPP_FLOAT32_T__) && __STDCPP_FLOAT32_T__
+#define FASTGLTF_HAS_FLOAT32 1
+#endif
+
+#if defined(__STDCPP_FLOAT64_T__) && __STDCPP_FLOAT64_T__
+#define FASTGLTF_HAS_FLOAT64 1
+#endif
+#else
+#define FASTGLTF_HAS_FLOAT32 0
+#define FASTGLTF_HAS_FLOAT64 0
+#endif
+
 namespace fastgltf {
 
 template <typename>
@@ -78,6 +93,20 @@ struct ComponentTypeConverter<double> {
 	static constexpr auto type = ComponentType::Double;
 };
 
+#if FASTGLTF_HAS_FLOAT32
+template <>
+struct ComponentTypeConverter<std::float32_t> {
+	static constexpr auto type = ComponentType::Float;
+};
+#endif
+
+#if FASTGLTF_HAS_FLOAT64
+template <>
+struct ComponentTypeConverter<std::float64_t> {
+	static constexpr auto type = ComponentType::Double;
+};
+#endif
+
 FASTGLTF_EXPORT template <typename ElementType, AccessorType EnumAccessorType, typename ComponentType = ElementType>
 struct ElementTraitsBase {
 	using element_type = ElementType;
@@ -98,6 +127,14 @@ template<> struct ElementTraits<std::uint32_t> : ElementTraitsBase<std::uint32_t
 
 template<> struct ElementTraits<float> : ElementTraitsBase<float, AccessorType::Scalar> {};
 template<> struct ElementTraits<double> : ElementTraitsBase<double, AccessorType::Scalar> {};
+
+#if FASTGLTF_HAS_FLOAT32
+template<> struct ElementTraits<std::float32_t> : ElementTraitsBase<std::float32_t, AccessorType::Scalar> {};
+#endif
+
+#if FASTGLTF_HAS_FLOAT64
+template<> struct ElementTraits<std::float64_t> : ElementTraitsBase<std::float64_t, AccessorType::Scalar> {};
+#endif
 
 template<> struct ElementTraits<math::s8vec2> : ElementTraitsBase<math::s8vec2, AccessorType::Vec2, std::int8_t> {};
 template<> struct ElementTraits<math::s8vec3> : ElementTraitsBase<math::s8vec3, AccessorType::Vec3, std::int8_t> {};
@@ -164,6 +201,23 @@ constexpr T deserializeComponent(const std::byte* bytes, std::size_t index) {
     return ret;
 }
 
+#if FASTGLTF_HAS_FLOAT32
+template<>
+#if FASTGLTF_CONSTEXPR_BITCAST
+constexpr
+#endif
+inline std::float32_t deserializeComponent<std::float32_t>(const std::byte* bytes, std::size_t index) {
+	return bit_cast<std::float32_t>(deserializeComponent<std::uint32_t>(bytes, index));
+}
+
+template<>
+#if FASTGLTF_CONSTEXPR_BITCAST
+constexpr
+#endif
+inline float deserializeComponent<float>(const std::byte* bytes, std::size_t index) {
+	return static_cast<float>(deserializeComponent<std::float32_t>(bytes, index));
+}
+#else
 template<>
 #if FASTGLTF_CONSTEXPR_BITCAST
 constexpr
@@ -176,7 +230,25 @@ inline float deserializeComponent<float>(const std::byte* bytes, std::size_t ind
                   "Float deserialization is only supported on IEE754 platforms");
     return bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
 }
+#endif
 
+#if FASTGLTF_HAS_FLOAT64
+template<>
+#if FASTGLTF_CONSTEXPR_BITCAST
+constexpr
+#endif
+inline std::float64_t deserializeComponent<std::float64_t>(const std::byte* bytes, std::size_t index) {
+	return bit_cast<std::float64_t>(deserializeComponent<std::uint64_t>(bytes, index));
+}
+
+template<>
+#if FASTGLTF_CONSTEXPR_BITCAST
+constexpr
+#endif
+inline double deserializeComponent<double>(const std::byte* bytes, std::size_t index) {
+	return static_cast<double>(deserializeComponent<std::float64_t>(bytes, index));
+}
+#else
 template<>
 #if FASTGLTF_CONSTEXPR_BITCAST
 constexpr
@@ -189,6 +261,7 @@ inline double deserializeComponent<double>(const std::byte* bytes, std::size_t i
                   "Float deserialization is only supported on IEE754 platforms");
     return bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
 }
+#endif
 
 template <typename DestType, typename SourceType>
 constexpr DestType convertComponent(const SourceType& source, bool normalized) {
