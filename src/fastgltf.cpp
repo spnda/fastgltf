@@ -5491,7 +5491,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 	// TODO: Add ExportOption enumeration for disabling this?
     const bool withEmbeddedBuffer = !asset.buffers.empty()
 			// We only support writing Vectors and ByteViews as embedded buffers
-			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
+			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data) || std::holds_alternative<sources::Vector>(asset.buffers.front().data))
 			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
 
     std::size_t binarySize = 0;
