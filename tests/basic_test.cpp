@@ -218,7 +218,7 @@ TEST_CASE("Loading glTF animation", "[gltf-loader]") {
     REQUIRE(animation.name == "animation_AnimatedCube");
 
     REQUIRE(!animation.channels.empty());
-    REQUIRE(animation.channels.front().nodeIndex == 0);
+    REQUIRE(animation.channels.front().nodeIndex == 0U);
     REQUIRE(animation.channels.front().samplerIndex == 0);
     REQUIRE(animation.channels.front().path == fastgltf::AnimationPath::Rotation);
 
@@ -251,7 +251,7 @@ TEST_CASE("Loading glTF skins", "[gltf-loader]") {
 
     auto& node = asset->nodes.front();
     REQUIRE(node.skinIndex.has_value());
-    REQUIRE(node.skinIndex == 0);
+    REQUIRE(node.skinIndex == 0U);
 }
 
 TEST_CASE("Loading glTF cameras", "[gltf-loader]") {

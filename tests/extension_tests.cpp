@@ -44,7 +44,7 @@ TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
 
         auto& texture = asset->textures[1];
         REQUIRE(!texture.imageIndex.has_value());
-        REQUIRE(texture.samplerIndex == 0);
+        REQUIRE(texture.samplerIndex == 0U);
 		REQUIRE(texture.basisuImageIndex.has_value());
 		REQUIRE(texture.basisuImageIndex.value() == 1);
 
@@ -425,9 +425,9 @@ TEST_CASE("Extension KHR_materials_variant", "[gltf-loader]") {
 
 	auto& primitive = asset->meshes[1].primitives[0];
 	REQUIRE(primitive.mappings.size() == 5);
-	REQUIRE(primitive.mappings[0] == 2);
-	REQUIRE(primitive.mappings[1] == 3);
-	REQUIRE(primitive.mappings[2] == 4);
-	REQUIRE(primitive.mappings[3] == 5);
-	REQUIRE(primitive.mappings[4] == 6);
+	REQUIRE(primitive.mappings[0] == 2U);
+	REQUIRE(primitive.mappings[1] == 3U);
+	REQUIRE(primitive.mappings[2] == 4U);
+	REQUIRE(primitive.mappings[3] == 5U);
+	REQUIRE(primitive.mappings[4] == 6U);
 }

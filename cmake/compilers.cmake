@@ -21,7 +21,7 @@ macro(fastgltf_compiler_flags TARGET)
 
             if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
                 # For the conversion of ARM Neon vectors (say int16x8_t to int8x16_t)
-                target_compile_options(${TARGET} PRIVATE -flax-vector-conversions)
+                target_compile_options(${TARGET} PRIVATE -flax-vector-conversions -fpermissive)
             endif()
         endif()
     endif()
