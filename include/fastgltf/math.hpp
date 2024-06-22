@@ -671,17 +671,17 @@ namespace fastgltf::math {
 		}
 
 		/** Returns the column vector at the given index. */
-		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) operator[](std::size_t idx) noexcept {
 			return col(idx);
 		}
-		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
 			return col(idx);
 		}
 
-		[[nodiscard]] constexpr decltype(auto) col(std::size_t idx) noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) col(std::size_t idx) noexcept {
 			return _data[idx];
 		}
-		[[nodiscard]] constexpr decltype(auto) col(std::size_t idx) const noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) col(std::size_t idx) const noexcept {
 			return _data[idx];
 		}
 

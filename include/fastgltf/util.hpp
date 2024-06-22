@@ -118,6 +118,16 @@
 #define FASTGLTF_INTRINSIC
 #endif
 
+#if defined(_MSC_VER)
+#define FASTGLTF_FORCEINLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define FASTGLTF_FORCEINLINE [[gnu::always_inline]] inline
+#else
+// On other compilers we need the inline specifier, so that the functions in this compilation unit
+// can be properly inlined without the "function body can be overwritten at link time" error.
+#define FASTGLTF_FORCEINLINE inline
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
