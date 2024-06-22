@@ -4233,32 +4233,39 @@ void fg::Exporter::writeAnimations(const Asset& asset, std::string& json)
 		}
 		json += "],";
 
-		json += R"("name":")" + it->name + "\",";
-
 		json += R"("samplers":[)";
 		for (auto si = it->samplers.begin(); si != it->samplers.end(); ++si) {
-			json += "{";
-			json += R"("input":)" + std::to_string(si->inputAccessor) + ",";
-			json += R"("interpolation":")";
-			switch (si->interpolation) {
-			case fastgltf::AnimationInterpolation::Linear:
-				json += "LINEAR";
-				break;
-			case fastgltf::AnimationInterpolation::Step:
-				json += "STEP";
-				break;
-			case fastgltf::AnimationInterpolation::CubicSpline:
-				json += "CUBICSPLINE";
-				break;
+			json += '{';
+			json += R"("input":)" + std::to_string(si->inputAccessor) + ',';
+
+			if (si->interpolation != fg::AnimationInterpolation::Linear) {
+				json += R"("interpolation":")";
+				if (si->interpolation == fg::AnimationInterpolation::Step) {
+					json += "STEP\",";
+				} else {
+					json += "CUBICSPLINE\",";
+				}
 			}
-			json += "\",";
+
 			json += R"("output":)" + std::to_string(si->outputAccessor);
-			json += "}";
+			json += '}';
 
 			if (uabs(std::distance(it->samplers.begin(), si)) + 1 < it->samplers.size())
 				json += ',';
 		}
-		json += "]}";
+		json += ']';
+
+		if (extrasWriteCallback != nullptr) {
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.buffers.begin(), it)), fastgltf::Category::Buffers, userPointer);
+			if (extras.has_value()) {
+				json += std::string(",\"extras\":") + *extras;
+			}
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+
+		json += '}';
 		if (uabs(std::distance(asset.animations.begin(), it)) + 1 < asset.animations.size())
 			json += ',';
 	}
