@@ -5,20 +5,19 @@
 #include <fastgltf/tools.hpp>
 #include "gltf_path.hpp"
 
-static const std::byte* getBufferData(const fastgltf::Buffer& buffer) {
-	const std::byte* result = nullptr;
-
-	std::visit(fastgltf::visitor {
-		[](auto&) {},
+static auto getBufferData(const fastgltf::Buffer& buffer) {
+	return std::visit(fastgltf::visitor {
+		[](auto&) -> const std::byte* {
+			assert(false);
+			return nullptr;
+		},
 		[&](const fastgltf::sources::Array& vec) {
-			result = reinterpret_cast<const std::byte*>(vec.bytes.data());
+			return reinterpret_cast<const std::byte*>(vec.bytes.data());
 		},
 		[&](const fastgltf::sources::ByteView& bv) {
-			result = bv.bytes.data();
+			return bv.bytes.data();
 		},
 	}, buffer.data);
-	
-	return result;
 }
 
 TEST_CASE("Test data type conversion", "[gltf-tools]") {
@@ -67,6 +66,12 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
     REQUIRE(umat2[0] == fastgltf::math::fvec2(1, 2));
     REQUIRE(umat2[1] == fastgltf::math::fvec2(3, 4));
 
+	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat2); ++i) {
+		auto val = fastgltf::internal::getAccessorComponentAt<std::uint16_t>(
+			fastgltf::ComponentType::UnsignedShort, fastgltf::AccessorType::Mat2, reinterpret_cast<const std::byte*>(unpaddedMat2.data()), i, false);
+		REQUIRE(std::uint16_t(i + 1) == val);
+	}
+
     // This will simulate a padded 2x2 matrix with the correct 4-byte padding per column
     std::array<std::uint8_t, 8> paddedMat2 {{
         1, 2, 0, 0,
@@ -78,6 +83,12 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
             reinterpret_cast<const std::byte*>(paddedMat2.data()));
     REQUIRE(mat2[0] == fastgltf::math::fvec2(1, 2));
     REQUIRE(mat2[1] == fastgltf::math::fvec2(3, 4));
+
+	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat2); ++i) {
+		auto val = fastgltf::internal::getAccessorComponentAt<std::uint8_t>(
+			fastgltf::ComponentType::UnsignedByte, fastgltf::AccessorType::Mat2, reinterpret_cast<const std::byte*>(paddedMat2.data()), i, false);
+		REQUIRE(std::uint8_t(i + 1) == val);
+	}
 
     std::array<std::uint8_t, 12> paddedMat3 {{
         1, 2, 3, 0,
@@ -92,6 +103,12 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
     REQUIRE(mat3[1] == fastgltf::math::fvec3(4, 5, 6));
     REQUIRE(mat3[2] == fastgltf::math::fvec3(7, 8, 9));
 
+	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat3); ++i) {
+		auto val = fastgltf::internal::getAccessorComponentAt<std::uint8_t>(
+			fastgltf::ComponentType::UnsignedByte, fastgltf::AccessorType::Mat3, reinterpret_cast<const std::byte*>(paddedMat3.data()), i, false);
+		REQUIRE(std::uint8_t(i + 1) == val);
+	}
+
     // This now uses 16-bit shorts for the component types.
     std::array<std::uint16_t, 12> padded2BMat3 {{
         1, 2, 3, 0,
@@ -105,6 +122,12 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
     REQUIRE(mat3_2[0] == fastgltf::math::fvec3(1, 2, 3));
     REQUIRE(mat3_2[1] == fastgltf::math::fvec3(4, 5, 6));
     REQUIRE(mat3_2[2] == fastgltf::math::fvec3(7, 8, 9));
+
+	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat3); ++i) {
+		auto val = fastgltf::internal::getAccessorComponentAt<std::uint16_t>(
+			fastgltf::ComponentType::UnsignedShort, fastgltf::AccessorType::Mat3, reinterpret_cast<const std::byte*>(padded2BMat3.data()), i, false);
+		REQUIRE(std::uint16_t(i + 1) == val);
+	}
 }
 
 TEST_CASE("Test accessor", "[gltf-tools]") {
@@ -180,6 +203,18 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 				dstCopy[std::distance(accessor.begin(), it)] = *it;
 			}
 			REQUIRE(std::memcmp(dstCopy.get(), checkData, secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
+		}
+
+		SECTION("copyComponentsFromAccessor<float>") {
+			auto componentCount = fastgltf::getNumComponents(secondAccessor.type);
+			auto dstCopy = std::make_unique<float[]>(secondAccessor.count * componentCount);
+			fastgltf::copyComponentsFromAccessor<float>(asset.get(), secondAccessor, dstCopy.get());
+			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset.get(), secondAccessor, [&](auto&& p1, std::size_t idx) {
+				auto p2 = fastgltf::math::fvec3(dstCopy.get()[idx * componentCount + 0],
+				                                dstCopy.get()[idx * componentCount + 1],
+				                                dstCopy.get()[idx * componentCount + 2]);
+				REQUIRE(p1 == p2);
+			});
 		}
 	}
 }
