@@ -4256,7 +4256,7 @@ void fg::Exporter::writeAnimations(const Asset& asset, std::string& json)
 		json += ']';
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.animations.begin(), it)), fastgltf::Category::Buffers, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.animations.begin(), it)), fastgltf::Category::Animations, userPointer);
 			if (extras.has_value()) {
 				json += std::string(",\"extras\":") + *extras;
 			}
