@@ -86,6 +86,13 @@ namespace fastgltf::math {
 		template <typename... Args, std::enable_if_t<sizeof...(Args) == N, bool> = true>
 		constexpr explicit vec(Args... args) noexcept : _data { T(std::forward<Args>(args))... } {}
 
+		static constexpr auto fromPointer(T* ptr) noexcept {
+			vec<T, N> ret;
+			for (std::size_t i = 0; i < N; ++i)
+				ret[i] = ptr[i];
+			return ret;
+		}
+
 		constexpr vec(const vec<T, N>& other) noexcept : _data(other._data) {}
 		constexpr vec<T, N>& operator=(const vec<T, N>& other) noexcept {
 			_data = other._data;
@@ -427,6 +434,13 @@ namespace fastgltf::math {
 		template <typename... Args, std::enable_if_t<sizeof...(Args) == 4, bool> = true>
 		constexpr explicit quat(Args... args) noexcept : _data { std::forward<Args>(args)... } {}
 
+		static constexpr auto fromPointer(T* ptr) noexcept {
+			quat<T> ret;
+			for (std::size_t i = 0; i < ret.size(); ++i)
+				ret[i] = ptr[i];
+			return ret;
+		}
+
 		[[nodiscard]] constexpr std::size_t size() const noexcept {
 			return _data.size();
 		}
@@ -730,10 +744,11 @@ namespace fastgltf::math {
 
 		template <std::size_t P, std::size_t Q, std::enable_if_t<M == P, bool> = true>
 		constexpr auto operator*(const mat<T, P, Q>& other) const noexcept {
-			mat<T, N, Q> ret;
+			mat<T, N, Q> ret(0.f);
 			for (std::size_t i = 0; i < other.columns(); ++i)
 				for (std::size_t j = 0; j < rows(); ++j)
-					ret.col(i)[j] = dot(row(j), other.col(i));
+					for (std::size_t k = 0; k < columns(); ++k)
+						ret.col(i)[j] += col(k)[j] * other.col(i)[k];
 			return ret;
 		}
 	};
