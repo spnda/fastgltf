@@ -39,6 +39,7 @@ For example, if you had a custom vector type like ``MyVec3``, you'd just need to
    **fastgltf** includes these definitions for types from other math libraries. Currently, **fastgltf** supports
    DirectXMath with ``fastgltf/dxmath_element_traits.hpp`` and glm with  ``fastgltf/glm_element_traits.hpp``.
    Simply including these headers will allow the tools to convert to your preferred types directly.
+   These headers could also be used as a reference on how to add support for other types.
 
 .. note::
 

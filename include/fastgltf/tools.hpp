@@ -726,7 +726,7 @@ void iterateAccessorWithIndex(const Asset& asset, const Accessor& accessor, Func
 }
 
 FASTGLTF_EXPORT template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
-		 typename BufferDataAdapter = DefaultBufferDataAdapter>
+    typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
@@ -780,13 +780,12 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 	}
 
 	auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-	auto srcStride = view.byteStride ? *view.byteStride
-			: getElementByteSize(accessor.type, accessor.componentType);
+	auto srcStride = view.byteStride.value_or(elemSize);
 
 	auto srcBytes = adapter(asset, *accessor.bufferViewIndex).subspan(accessor.byteOffset);
 
     // If the data is normalized or the component/accessor type is different, we have to convert each element and can't memcpy.
-	if (std::is_trivially_copyable_v<ElementType> && !accessor.normalized && accessor.componentType == Traits::enum_component_type) {
+	if (std::is_trivially_copyable_v<ElementType> && !accessor.normalized && accessor.componentType == Traits::enum_component_type && !isMatrix(accessor.type)) {
 		if (srcStride == elemSize && srcStride == TargetStride) {
 			std::memcpy(dest, srcBytes.data(), elemSize * accessor.count);
 		} else {
@@ -812,10 +811,7 @@ FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fma
 			return base * matrix;
 		},
 		[&](const TRS& trs) {
-			return base
-				* translate(math::fmat4x4(), trs.translation)
-				* math::fmat4x4(asMatrix(trs.rotation))
-				* scale(math::fmat4x4(), trs.scale);
+			return scale(rotate(translate(base, trs.translation), trs.rotation), trs.scale);
 		}
 	}, node.transform);
 }
