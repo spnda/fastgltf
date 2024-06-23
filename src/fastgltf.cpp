@@ -4194,11 +4194,11 @@ void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
         if (it->meshoptCompression != nullptr) {
             json += R"(,"extensions":{"EXT_meshopt_compression":{)";
             const auto& meshopt = *it->meshoptCompression;
-            json += "\"buffer\":" + std::to_string(meshopt.bufferIndex) + ',';
+            json += "\"buffer\":" + std::to_string(meshopt.bufferIndex);
             if (meshopt.byteOffset != 0) {
                 json += ",\"byteOffset\":" + std::to_string(meshopt.byteOffset);
             }
-            json += "\"byteLength\":" + std::to_string(meshopt.byteLength);
+            json += ",\"byteLength\":" + std::to_string(meshopt.byteLength);
             json += ",\"byteStride\":" + std::to_string(meshopt.byteStride);
             json += ",\"count\":" + std::to_string(meshopt.count);
 
