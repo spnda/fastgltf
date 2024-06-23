@@ -1008,13 +1008,68 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			    && !std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor.min))
 				return Error::InvalidGltf;
 		}
+
+		if (accessor.sparse) {
+			const auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
+			if (indicesView.byteStride || indicesView.target)
+				return Error::InvalidGltf;
+
+			const auto& valueView = asset.bufferViews[accessor.sparse->valuesBufferView];
+			if (valueView.byteStride || valueView.target)
+				return Error::InvalidGltf;
+		}
 	}
 
 	for (const auto& animation : asset.animations) {
 		if (animation.channels.empty())
 			return Error::InvalidGltf;
+		for (const auto& channel1 : animation.channels) {
+			for (const auto& channel2 : animation.channels) {
+				if (&channel1 == &channel2)
+					continue;
+				if (channel1.nodeIndex == channel2.nodeIndex && channel1.path == channel2.path)
+					return Error::InvalidGltf;
+			}
+		}
+
 		if (animation.samplers.empty())
 			return Error::InvalidGltf;
+		for (const auto& channel : animation.channels) {
+			const auto& sampler = animation.samplers[channel.samplerIndex];
+
+			const auto& inputAccessor = asset.accessors[sampler.inputAccessor];
+			// The accessor MUST be of scalar type with floating-point components
+			if (inputAccessor.type != AccessorType::Scalar)
+				return Error::InvalidGltf;
+			if (inputAccessor.componentType != ComponentType::Float && inputAccessor.componentType != ComponentType::Double)
+				return Error::InvalidGltf;
+			if (inputAccessor.bufferViewIndex && asset.bufferViews[*inputAccessor.bufferViewIndex].meshoptCompression)
+				continue;
+
+			if (inputAccessor.count == 0)
+				continue;
+
+			if (channel.path == AnimationPath::Weights)
+				continue; // TODO: For weights, the input count needs to be multiplied by the morph target count.
+
+			const auto& outputAccessor = asset.accessors[sampler.outputAccessor];
+			if (outputAccessor.bufferViewIndex && asset.bufferViews[*outputAccessor.bufferViewIndex].meshoptCompression)
+				continue;
+
+			switch (sampler.interpolation) {
+				case AnimationInterpolation::Linear:
+				case AnimationInterpolation::Step:
+					if (inputAccessor.count != outputAccessor.count)
+						return Error::InvalidGltf;
+					break;
+				case AnimationInterpolation::CubicSpline:
+					if (inputAccessor.count < 2)
+						return Error::InvalidGltf;
+					if (inputAccessor.count * 3 != outputAccessor.count)
+						return Error::InvalidGltf;
+					break;
+			}
+		}
 	}
 
 	for (const auto& buffer : asset.buffers) {
