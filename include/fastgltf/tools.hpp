@@ -33,7 +33,7 @@
 
 #include <fastgltf/types.hpp>
 
-#if __has_include(<stdfloat>)
+#if FASTGLTF_CPP_23 && __has_include(<stdfloat>)
 #include <stdfloat>
 
 #if defined(__STDCPP_FLOAT32_T__) && __STDCPP_FLOAT32_T__
