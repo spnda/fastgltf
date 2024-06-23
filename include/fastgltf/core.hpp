@@ -990,6 +990,7 @@ namespace fastgltf {
         std::vector<std::optional<std::filesystem::path>> imagePaths;
 
         void writeAccessors(const Asset& asset, std::string& json);
+        void writeAnimations(const Asset& asset, std::string& json);
         void writeBuffers(const Asset& asset, std::string& json);
         void writeBufferViews(const Asset& asset, std::string& json);
         void writeCameras(const Asset& asset, std::string& json);

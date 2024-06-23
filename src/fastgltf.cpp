@@ -4095,6 +4095,86 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 	json += ']';
 }
 
+void fg::Exporter::writeAnimations(const Asset& asset, std::string& json)
+{
+	if (asset.animations.empty())
+		return;
+	if (json.back() == ']' || json.back() == '}')
+		json += ',';
+
+	json += R"("animations":[)";
+	for (auto it = asset.animations.begin(); it != asset.animations.end(); ++it) {
+		json += '{';
+
+		json += R"("channels":[)";
+		for (auto ci = it->channels.begin(); ci != it->channels.end(); ++ci) {
+			json += "{";
+			json += R"("sampler":)" + std::to_string(ci->samplerIndex) + ",";
+			json += R"("target":{)";
+			if (ci->nodeIndex.has_value()) {
+				json += R"("node":)" + std::to_string(ci->nodeIndex.value()) + ",";
+			}
+			json += R"("path":")";
+			switch (ci->path) {
+			case fg::AnimationPath::Translation:
+				json += "translation";
+				break;
+			case fg::AnimationPath::Rotation:
+				json += "rotation";
+				break;
+			case fg::AnimationPath::Scale:
+				json += "scale";
+				break;
+			case fg::AnimationPath::Weights:
+				json += "weights";
+				break;
+			}
+			json += "\"}}";
+
+			if (uabs(std::distance(it->channels.begin(), ci)) + 1 < it->channels.size())
+				json += ',';
+		}
+		json += "],";
+
+		json += R"("samplers":[)";
+		for (auto si = it->samplers.begin(); si != it->samplers.end(); ++si) {
+			json += '{';
+			json += R"("input":)" + std::to_string(si->inputAccessor) + ',';
+
+			if (si->interpolation != fg::AnimationInterpolation::Linear) {
+				json += R"("interpolation":")";
+				if (si->interpolation == fg::AnimationInterpolation::Step) {
+					json += "STEP\",";
+				} else {
+					json += "CUBICSPLINE\",";
+				}
+			}
+
+			json += R"("output":)" + std::to_string(si->outputAccessor);
+			json += '}';
+
+			if (uabs(std::distance(it->samplers.begin(), si)) + 1 < it->samplers.size())
+				json += ',';
+		}
+		json += ']';
+
+		if (extrasWriteCallback != nullptr) {
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.animations.begin(), it)), fastgltf::Category::Animations, userPointer);
+			if (extras.has_value()) {
+				json += std::string(",\"extras\":") + *extras;
+			}
+		}
+
+		if (!it->name.empty())
+			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+
+		json += '}';
+		if (uabs(std::distance(asset.animations.begin(), it)) + 1 < asset.animations.size())
+			json += ',';
+	}
+	json += ']';
+}
+
 void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 	if (asset.buffers.empty())
 		return;
@@ -5254,6 +5334,7 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
 	}
 
     writeAccessors(asset, outputString);
+    writeAnimations(asset, outputString);
     writeBuffers(asset, outputString);
     writeBufferViews(asset, outputString);
     writeCameras(asset, outputString);
@@ -5322,7 +5403,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 	// TODO: Add ExportOption enumeration for disabling this?
     const bool withEmbeddedBuffer = !asset.buffers.empty()
 			// We only support writing Vectors and ByteViews as embedded buffers
-			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data))
+			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data) || std::holds_alternative<sources::Vector>(asset.buffers.front().data))
 			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
 
     std::size_t binarySize = 0;
