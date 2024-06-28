@@ -2176,9 +2176,6 @@ namespace fastgltf {
 
 		Asset& operator=(const Asset& other) = delete;
 		Asset& operator=(Asset&& other) noexcept {
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-			memoryResource = std::move(other.memoryResource);
-#endif
 			assetInfo = std::move(other.assetInfo);
 			extensionsUsed = std::move(other.extensionsUsed);
 			extensionsRequired = std::move(other.extensionsRequired);
@@ -2199,6 +2196,10 @@ namespace fastgltf {
 			textures = std::move(other.textures);
 			materialVariants = std::move(other.materialVariants);
 			availableCategories = other.availableCategories;
+#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
+			// This needs to be last to not destroy the old memoryResource for the current data.
+			memoryResource = std::move(other.memoryResource);
+#endif
 			return *this;
 		}
     };
