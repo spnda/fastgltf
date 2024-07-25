@@ -2107,10 +2107,14 @@ namespace fastgltf {
     };
 
 	class ChunkMemoryResource;
-	FASTGLTF_EXPORT class Parser;
+	namespace internal {
+		struct parser_interface;
+		class simdjson_parser;
+	}
 
 	FASTGLTF_EXPORT class Asset {
-		friend class Parser;
+		friend struct fastgltf::internal::parser_interface;
+		friend class fastgltf::internal::simdjson_parser;
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 		// This has to be first in this struct so that it gets destroyed last, leaving all allocations

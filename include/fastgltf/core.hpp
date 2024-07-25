@@ -46,9 +46,7 @@ struct AAssetManager;
 #endif
 
 namespace simdjson::dom {
-    class array;
     class object;
-    class parser;
 } // namespace simdjson::dom
 
 namespace fastgltf {
@@ -831,6 +829,10 @@ namespace fastgltf {
         Extensions extensions = Extensions::None;
     };
 
+	namespace internal {
+		struct parser_interface;
+	}
+
     /**
      * A parser for one or more glTF files. It uses a SIMD based JSON parser to maximize efficiency
      * and performance at runtime.
@@ -838,49 +840,11 @@ namespace fastgltf {
      * @note This class is not thread-safe.
      */
     class Parser {
-        // The simdjson parser object. We want to share it between runs, so it does not need to
-        // reallocate over and over again. We're hiding it here to not leak the simdjson header.
-        std::unique_ptr<simdjson::dom::parser> jsonParser;
+		std::unique_ptr<internal::parser_interface> parser_impl;
 
-		ParserInternalConfig config = {};
-		DataSource glbBuffer;
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-		std::shared_ptr<ChunkMemoryResource> resourceAllocator;
-#endif
-		std::filesystem::path directory;
-		Options options = Options::None;
-
-		static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
-		static void fillCategories(Category& inputCategories) noexcept;
-
-		template <typename T>
-		Error parseAttributes(simdjson::dom::object& object, T& attributes);
-
-		[[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> Expected<DataSource>;
-		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
 #if defined(__ANDROID__)
 		[[nodiscard]] auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> Expected<DataSource>;
 #endif
-
-		Error generateMeshIndices(Asset& asset) const;
-
-		Error parseAccessors(simdjson::dom::array& array, Asset& asset);
-		Error parseAnimations(simdjson::dom::array& array, Asset& asset);
-		Error parseBuffers(simdjson::dom::array& array, Asset& asset);
-		Error parseBufferViews(simdjson::dom::array& array, Asset& asset);
-		Error parseCameras(simdjson::dom::array& array, Asset& asset);
-		Error parseExtensions(simdjson::dom::object& extensionsObject, Asset& asset);
-		Error parseImages(simdjson::dom::array& array, Asset& asset);
-		Error parseLights(simdjson::dom::array& array, Asset& asset);
-		Error parseMaterialExtensions(simdjson::dom::object& object, Material& material);
-		Error parseMaterials(simdjson::dom::array& array, Asset& asset);
-		Error parseMeshes(simdjson::dom::array& array, Asset& asset);
-		Error parseNodes(simdjson::dom::array& array, Asset& asset);
-		Error parseSamplers(simdjson::dom::array& array, Asset& asset);
-		Error parseScenes(simdjson::dom::array& array, Asset& asset);
-		Error parseSkins(simdjson::dom::array& array, Asset& asset);
-		Error parseTextures(simdjson::dom::array& array, Asset& asset);
-		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
     public:
         explicit Parser(Extensions extensionsToLoad = Extensions::None) noexcept;
@@ -898,21 +862,27 @@ namespace fastgltf {
          *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
          */
-        [[nodiscard]] Expected<Asset> loadGltf(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+        [[nodiscard]] Expected<Asset> loadGltf(
+				GltfDataGetter& data, std::filesystem::path directory,
+				Options options = Options::None, Category categories = Category::All);
 
         /**
          * Loads a glTF file from pre-loaded bytes representing a JSON file.
          *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
          */
-        [[nodiscard]] Expected<Asset> loadGltfJson(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+        [[nodiscard]] Expected<Asset> loadGltfJson(
+				GltfDataGetter& data, std::filesystem::path directory,
+				Options options = Options::None, Category categories = Category::All);
 
 		/**
 		 * Loads a glTF file embedded within a GLB container, which may contain the first buffer of the glTF asset.
 		 *
          * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
 		 */
-		[[nodiscard]] Expected<Asset> loadGltfBinary(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+		[[nodiscard]] Expected<Asset> loadGltfBinary(
+				GltfDataGetter& data, std::filesystem::path directory,
+				Options options = Options::None, Category categories = Category::All);
 
         /**
          * This function can be used to set callbacks so that you can control memory allocation for
