@@ -1,7 +1,7 @@
 set(FASTGLTF_DEPS_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # glm
-if(EXISTS "${FASTGLTF_DEPS_DIR}/glm")
+if((FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES) AND EXISTS "${FASTGLTF_DEPS_DIR}/glm")
     message(STATUS "fastgltf: Found glm")
 
     # glm breaks because it apparently can't properly detect constexpr/C++ version and

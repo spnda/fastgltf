@@ -6,7 +6,7 @@ if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" VERSION_GREATER_EQUAL "3.24"
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-project(fastgltf VERSION 0.7.1 LANGUAGES C CXX)
+project(fastgltf VERSION 0.8.0 LANGUAGES C CXX)
 
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
@@ -61,7 +61,7 @@ else()
         target_link_libraries(fastgltf PUBLIC simdjson::simdjson)
     else()
         # Download and configure simdjson
-        set(SIMDJSON_TARGET_VERSION "3.9.4")
+        set(SIMDJSON_TARGET_VERSION "3.9.5")
         set(SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
         file(MAKE_DIRECTORY ${SIMDJSON_DL_DIR})
 
