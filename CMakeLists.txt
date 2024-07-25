@@ -61,7 +61,7 @@ else()
         target_link_libraries(fastgltf PUBLIC simdjson::simdjson)
     else()
         # Download and configure simdjson
-        set(SIMDJSON_TARGET_VERSION "3.9.5")
+        set(SIMDJSON_TARGET_VERSION "3.9.4")
         set(SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
         file(MAKE_DIRECTORY ${SIMDJSON_DL_DIR})
 
