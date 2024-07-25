@@ -6,6 +6,53 @@ Changelog
 
 To view the full changelogs for each release please see the `GitHub releases <https://github.com/spnda/fastgltf/releases>`_.
 
+0.8.0
+=====
+
+- Add: GltfFileStream and rewritten GltfDataBuffer (`#49 <https://github.com/spnda/fastgltf/pull/49>`_)
+    - The interface now uses factory constructors, and allows for custom methods for providing the glTF. See documentation for more details.
+    - There is also a ``GltfFileStream`` class which wraps a ``std::ifstream`` which can potentially increase memory loading speeds.
+    - This allows support for memory mapped files on platforms which provide this functionality using ``MappedGltfFile``.
+- Add: Integrated math library (@spnda)
+    - All colors and the node transform properties now use vectors/matrices from the built-in library. This library only covers basic maths, and just about everything one needs to work with glTF. There will be additions in the near future for adding more functionality. I've tried not to include too much bloat, but the header might still be a little template-heavy.
+    - This change does not require any changes to old code, since the types are essentially just wrappers around ``std::array``. And code such as ``glm::make_vec3(pTranslation->data())`` will continue to work as expected.
+- Add: Support C++20 modules (@stripe2933, @spnda, `#61 <https://github.com/spnda/fastgltf/pull/61>`_)
+    - Initial revision of a fastgltf.ixx [named module](https://en.cppreference.com/w/cpp/language/modules), which is accessible through CMake with the ``fastgltf::module`` target. This feature is still somewhat experimental, so please report any issues you find.
+- Add: Load external files from an APK (`#15 <https://github.com/spnda/fastgltf/pull/15>`_)
+    - The interface for letting fastgltf interact with Android assets has fully changed. See documentation for more details.
+- Add: Documentation on how to use specific features
+    - The 'Guides' subsection now includes short documentation about various features which might not be directly obvious how to use. This also covers the recent changes to ``GltfDataBuffer`` and the Android interface.
+- Add: Support for ``KHR_accessor_float64``
+- Add: Support for std::float{32,64}_t with accessor tools
+- Add: Predefined element traits for DirectXMath types
+- Change: Only pass buffer view index to data adapter in tools
+    - The ``BufferDataAdapter`` interface now takes a buffer view index instead of the ``Buffer`` reference. Older custom functors will need upgrading.
+- Change: Reduce ComponentType to 16 bits & AccessorType to 8 bits.
+- Change: Use ``std::invoke`` in the tools header to be compatible with more function wrappers.
+- Change: Make Buffer data ``std::byte`` instead of ``std::uint8_t``
+- Fix: The ``EXT_meshopt_compression`` wasn't parsed correctly.
+    - The test suite around extensions has been expanded to cover more edge cases, and bugs have been fixed accordingly.
+- Various fixes and improvements to the Exporter interface
+    - Fix #51: Normalize resource paths & always use forward slashes
+    - Fix #55: Cache positionCount & use correct buffer size
+    - Fix #54: Use correct field name for primitive topology
+    - Fix #53: Let FileExporter create target directories
+    - Fix #52: Use const references to GLB buffer sources
+    - Fix: Typo in wrapT field name (`#56 <https://github.com/spnda/fastgltf/pull/56>`_)
+    - Fix: Bad chunk padding for GLB export (`#57 <https://github.com/spnda/fastgltf/pull/57>`_)
+    - Add: Animation support to Exporter (`#64 <https://github.com/spnda/fastgltf/pull/64>`_)
+- Fix: Guard usages of throw (`#50 <https://github.com/spnda/fastgltf/pull/50>`_)
+- Fix: Accessor's component type is forced (`#59 <https://github.com/spnda/fastgltf/pull/59>`_)
+- Fix: Validate UTF-8 for exported JSON strings
+- Fix: Always use exceptionless ``std::filesystem`` API
+- Fix: Always write/read GLB data in little-endian
+- Fix *many* different compiler and clang-tidy warnings
+
+0.7.2
+=====
+
+*This release only contains backported fixes from the v0.8 release.*
+
 0.7.1
 =====
 - Add: Support for **glTF extras**
