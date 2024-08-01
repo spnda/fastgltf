@@ -422,69 +422,6 @@ namespace fastgltf {
 		return stringified;
 	}
 
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-	class ChunkMemoryResource : public std::pmr::memory_resource {
-		/**
-		 * The default size of the individual blocks we allocate.
-		 */
-		constexpr static std::size_t blockSize = 2048;
-
-		struct Block {
-			std::unique_ptr<std::byte[]> data;
-			std::size_t size;
-
-			std::byte* dataPointer;
-		};
-		SmallVector<Block, 4> blocks;
-		std::size_t blockIdx = 0;
-
-	public:
-		explicit ChunkMemoryResource() {
-			allocateNewBlock();
-		}
-
-		void allocateNewBlock() {
-			auto& block = blocks.emplace_back();
-			block.data = std::unique_ptr<std::byte[]>(new std::byte[blockSize]);
-			block.dataPointer = block.data.get();
-			block.size = blockSize;
-		}
-
-		[[nodiscard]] void* do_allocate(std::size_t bytes, std::size_t alignment) override {
-			auto& block = blocks[blockIdx];
-			auto availableSize = static_cast<std::size_t>(block.dataPointer - block.data.get());
-			if ((availableSize + bytes) > block.size) {
-				// The block can't fit the new allocation. We'll just create a new block and use that.
-				allocateNewBlock();
-				++blockIdx;
-				return do_allocate(bytes, alignment);
-			}
-
-			void* alloc = block.dataPointer;
-			std::size_t space = availableSize;
-			if (std::align(alignment, availableSize, alloc, space) == nullptr) {
-				// Not enough space after alignment
-				allocateNewBlock();
-				++blockIdx;
-				return do_allocate(bytes, alignment);
-			}
-
-			// Get the number of bytes used for padding, and calculate the new offset using that
-			block.dataPointer = block.dataPointer + (availableSize - space) + bytes;
-			return alloc;
-		}
-
-		void do_deallocate([[maybe_unused]] void* p, [[maybe_unused]] std::size_t bytes, [[maybe_unused]] std::size_t alignment) override {
-			// We currently do nothing, as we don't keep track of what portions of the blocks are still used.
-			// Therefore, we keep all blocks alive until the destruction of this resource (parser).
-		}
-
-		[[nodiscard]] bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override {
-			return this == std::addressof(other);
-		}
-	};
-#endif
-
 	/**
 	 * A type that stores an error together with an expected value.
 	 * To use this type, first call error() to inspect if any errors have occurred.
@@ -816,30 +753,17 @@ namespace fastgltf {
 	*/
 	FASTGLTF_EXPORT [[nodiscard]] Error validate(const Asset& asset);
 
-    /**
-     * Some internals the parser passes on to each glTF instance.
-     */
-    struct ParserInternalConfig {
-        BufferMapCallback* mapCallback = nullptr;
-        BufferUnmapCallback* unmapCallback = nullptr;
-        Base64DecodeCallback* decodeCallback = nullptr;
-		ExtrasParseCallback* extrasCallback = nullptr;
-
-        void* userPointer = nullptr;
-        Extensions extensions = Extensions::None;
-    };
-
 	namespace internal {
 		struct parser_interface;
 	}
 
-    /**
-     * A parser for one or more glTF files. It uses a SIMD based JSON parser to maximize efficiency
-     * and performance at runtime.
-     *
-     * @note This class is not thread-safe.
-     */
-    class Parser {
+	/**
+	 * A parser for one or more glTF files. It uses a SIMD based JSON parser to maximize efficiency
+	 * and performance at runtime.
+	 *
+	 * @note This class is not thread-safe.
+	 */
+	class Parser {
 		std::unique_ptr<internal::parser_interface> parser_impl;
 
 #if defined(__ANDROID__)

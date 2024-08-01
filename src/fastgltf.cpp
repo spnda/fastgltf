@@ -531,7 +531,7 @@ namespace fastgltf::internal {
 		simdjson::dom::parser jsonParser;
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-		std::shared_ptr<ChunkMemoryResource> resourceAllocator;
+		std::shared_ptr<std::pmr::monotonic_buffer_resource> resourceAllocator;
 #endif
 
 		template <typename T>
@@ -568,6 +568,12 @@ namespace fastgltf::internal {
 	};
 
 	class yyjson_parser : public parser_interface {
+		yyjson_alc* allocator = nullptr;
+
+#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
+		std::shared_ptr<std::pmr::monotonic_buffer_resource> resourceAllocator;
+#endif
+
 		Expected<Asset> parse(std::unique_ptr<yyjson_doc>&& doc, Category categories);
 
 		Error parseAccessorBounds(yyjson_val* array, decltype(Accessor::max)& bounds);
@@ -585,10 +591,10 @@ namespace fastgltf::internal {
 		Error parseMaterialPBR(yyjson_val* object, PBRData& pbr);
 		Error parseTextureInfo(yyjson_val* object, TextureInfo* info, TextureInfoType type = TextureInfoType::Standard);
 		Error parseMaterials(yyjson_val* array, Asset& asset);
+		template <typename T>
+		Error parsePrimitiveAttributes(yyjson_val* object, T& attributes);
 		Error parsePrimitives(yyjson_val* array, Mesh& asset);
 		Error parseMeshes(yyjson_val* array, Asset& asset);
-		template <typename T>
-		Error parseNodeAttributes(yyjson_val* object, T& attributes);
 		Error parseNodes(yyjson_val* array, Asset& asset);
 		Error parseSamplers(yyjson_val* array, Asset& asset);
 		Error parseScenes(yyjson_val* array, Asset& asset);
@@ -597,6 +603,7 @@ namespace fastgltf::internal {
 
 	public:
 		explicit yyjson_parser(Extensions supported_extensions) noexcept;
+		~yyjson_parser();
 
 		[[nodiscard]] Expected<Asset> loadGltfJson(
 				GltfDataGetter& data, std::filesystem::path directory,
@@ -1166,7 +1173,7 @@ template <typename T> fg::Error fgi::simdjson_parser::parseAttributes(simdjson::
 
 	// We iterate through the JSON object and write each key/pair value into the
 	// attribute map. The keys are only validated in the validate() method.
-	attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
+	attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::decay_t<decltype(attributes)>, resourceAllocator.get(), 0);
 	attributes.reserve(object.size());
 	for (const auto& field : object) {
 		const auto key = field.key;
@@ -1197,7 +1204,7 @@ fg::Expected<fg::Asset> fgi::simdjson_parser::parse(simdjson::dom::object root, 
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 	// Create a new chunk memory resource for each asset we parse.
-	asset.memoryResource = resourceAllocator = std::make_shared<ChunkMemoryResource>();
+	asset.memoryResource = resourceAllocator = std::make_shared<std::pmr::monotonic_buffer_resource>();
 #endif
 
 	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
@@ -3666,43 +3673,54 @@ fg::Expected<fg::Asset> fgi::simdjson_parser::loadGltfBinary(GltfDataGetter& dat
 #pragma endregion
 
 #pragma region yyjson parser
-fgi::yyjson_parser::yyjson_parser(Extensions supported_extensions) noexcept : parser_interface(supported_extensions) {}
+fgi::yyjson_parser::yyjson_parser(Extensions supported_extensions) noexcept : parser_interface(supported_extensions) {
+	allocator = yyjson_alc_dyn_new();
+}
 
-fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& doc, fastgltf::Category categories) {
+fgi::yyjson_parser::~yyjson_parser() {
+	yyjson_alc_dyn_free(allocator);
+}
+
+fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& doc, Category categories) {
 	fillCategories(categories);
 
 	Asset asset {};
 
+#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
+	// Create a new chunk memory resource for each asset we parse.
+	asset.memoryResource = resourceAllocator = std::make_shared<std::pmr::monotonic_buffer_resource>();
+#endif
+
 	auto* root = yyjson_doc_get_root(doc.get());
-	if (!root || !yyjson_is_obj(root)) FASTGLTF_UNLIKELY {
+	if (!yyjson_is_obj(root)) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
 
 	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
 		auto* assetObject = yyjson_obj_get(root, "asset");
-		if (!assetObject && !yyjson_is_obj(assetObject)) FASTGLTF_UNLIKELY {
+		if (!yyjson_is_obj(assetObject)) FASTGLTF_UNLIKELY {
 			return Error::InvalidOrMissingAssetField;
 		}
 
 		AssetInfo info {};
-		auto* versionString = yyjson_get_str(yyjson_obj_get(assetObject, "version"));
-		if (!versionString) FASTGLTF_UNLIKELY {
+		auto* versionValue = yyjson_obj_get(assetObject, "version");
+		if (!yyjson_is_str(versionValue)) FASTGLTF_UNLIKELY {
 			return Error::InvalidOrMissingAssetField;
 		}
-		std::string_view version(versionString, std::strlen(versionString));
+		std::string_view version(unsafe_yyjson_get_str(versionValue), unsafe_yyjson_get_len(versionValue));
 		const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
 		if (major != 2) FASTGLTF_UNLIKELY
 			return Error::UnsupportedVersion;
 		info.gltfVersion = std::string(version);
 
-		auto* copyright = yyjson_get_str(yyjson_obj_get(assetObject, "copyright"));
-		if (copyright) FASTGLTF_UNLIKELY {
-			info.copyright = std::string(copyright);
+		auto* copyright = yyjson_obj_get(assetObject, "copyright");
+		if (yyjson_is_str(copyright)) FASTGLTF_UNLIKELY {
+			info.copyright = std::string(unsafe_yyjson_get_str(copyright), unsafe_yyjson_get_len(copyright));
 		}
 
-		auto* generator = yyjson_get_str(yyjson_obj_get(assetObject, "generator"));
-		if (generator) FASTGLTF_UNLIKELY {
-			info.generator = std::string(generator);
+		auto* generator = yyjson_obj_get(assetObject, "generator");
+		if (yyjson_is_str(generator)) FASTGLTF_UNLIKELY {
+			info.generator = std::string(unsafe_yyjson_get_str(generator), unsafe_yyjson_get_len(generator));
 		}
 
 		asset.assetInfo = std::move(info);
@@ -3712,7 +3730,7 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& 
 	std::size_t idx, max;
 	yyjson_val *key, *val;
 	yyjson_obj_foreach(root, idx, max, key, val) {
-		std::string_view keyStr(yyjson_get_str(key));
+		std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 		auto hashedKey = crcStringFunction(keyStr);
 
 #define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>: \
@@ -3727,6 +3745,7 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& 
 				if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY
 					return Error::InvalidGltf;
 
+				asset.extensionsUsed = decltype(asset.extensionsUsed)(resourceAllocator.get());
 				asset.extensionsUsed.reserve(unsafe_yyjson_get_len(val));
 
 				std::size_t aidx, amax;
@@ -3735,7 +3754,7 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& 
 					if (!yyjson_is_str(aval)) FASTGLTF_UNLIKELY
 						return Error::InvalidGltf;
 
-					asset.extensionsUsed.emplace_back(unsafe_yyjson_get_str(aval));
+					asset.extensionsUsed.emplace_back(unsafe_yyjson_get_str(aval), unsafe_yyjson_get_len(aval));
 				}
 				break;
 			}
@@ -3743,6 +3762,7 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& 
 				if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY
 					return Error::InvalidGltf;
 
+				asset.extensionsRequired = decltype(asset.extensionsRequired)(resourceAllocator.get());
 				asset.extensionsRequired.reserve(unsafe_yyjson_get_len(val));
 
 				std::size_t aidx, amax;
@@ -3751,7 +3771,7 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& 
 					if (!yyjson_is_str(aval)) FASTGLTF_UNLIKELY
 						return Error::InvalidGltf;
 
-					asset.extensionsRequired.emplace_back(unsafe_yyjson_get_str(aval));
+					asset.extensionsRequired.emplace_back(unsafe_yyjson_get_str(aval), unsafe_yyjson_get_len(aval));
 				}
 				break;
 			}
@@ -3808,7 +3828,7 @@ fg::Error fgi::yyjson_parser::parseAccessorBounds(yyjson_val* array, decltype(Ac
 	std::size_t idx, max;
 	yyjson_val* val;
 	yyjson_arr_foreach(array, idx, max, val) {
-		if (!yyjson_is_num(val)) FASTGLTF_UNLIKELY
+		if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY
 			return Error::InvalidGltf;
 
 		vec.emplace_back(unsafe_yyjson_get_num(val));
@@ -3819,7 +3839,7 @@ fg::Error fgi::yyjson_parser::parseAccessorBounds(yyjson_val* array, decltype(Ac
 	return Error::None;
 }
 
-fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, fastgltf::Asset& asset) {
+fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, Asset& asset) {
 	if (!unsafe_yyjson_is_arr(accessors)) FASTGLTF_UNLIKELY
 		return Error::InvalidGltf;
 
@@ -3836,7 +3856,7 @@ fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, fastgltf::As
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(aval, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -3856,7 +3876,8 @@ fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, fastgltf::As
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					accessor.type = getAccessorType(unsafe_yyjson_get_str(val));
+					accessor.type = getAccessorType(
+							std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)));
 					break;
 				}
 				case force_consteval<crc32c("count")>: {
@@ -3910,7 +3931,7 @@ fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, fastgltf::As
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					accessor.name = std::string(unsafe_yyjson_get_str(val));
+					accessor.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -3930,6 +3951,7 @@ fg::Error fgi::yyjson_parser::parseAnimationChannels(yyjson_val* channels, Anima
 	if (!unsafe_yyjson_is_arr(channels)) FASTGLTF_UNLIKELY
 		return Error::InvalidGltf;
 
+	animation.channels = decltype(animation.channels)(resourceAllocator.get());
 	animation.channels.reserve(unsafe_yyjson_get_len(channels));
 
 	std::size_t arr_idx, arr_max;
@@ -3943,7 +3965,7 @@ fg::Error fgi::yyjson_parser::parseAnimationChannels(yyjson_val* channels, Anima
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -3971,7 +3993,7 @@ fg::Error fgi::yyjson_parser::parseAnimationChannels(yyjson_val* channels, Anima
 						return Error::InvalidGltf;
 					}
 
-					std::string_view path(unsafe_yyjson_get_str(pathVal));
+					std::string_view path(unsafe_yyjson_get_str(pathVal), unsafe_yyjson_get_len(pathVal));
 					auto pathHash = crcStringFunction(path);
 					switch (pathHash) {
 						case force_consteval<crc32c("translation")>: {
@@ -4007,6 +4029,7 @@ fg::Error fgi::yyjson_parser::parseAnimationSamplers(yyjson_val* samplers, Anima
 	if (!unsafe_yyjson_is_arr(samplers)) FASTGLTF_UNLIKELY
 		return Error::InvalidGltf;
 
+	animation.samplers = decltype(animation.samplers)(resourceAllocator.get());
 	animation.samplers.reserve(unsafe_yyjson_get_len(samplers));
 
 	std::size_t arr_idx, arr_max;
@@ -4020,7 +4043,7 @@ fg::Error fgi::yyjson_parser::parseAnimationSamplers(yyjson_val* samplers, Anima
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4036,7 +4059,7 @@ fg::Error fgi::yyjson_parser::parseAnimationSamplers(yyjson_val* samplers, Anima
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY
 						return Error::InvalidGltf;
 
-					std::string_view interpolation(unsafe_yyjson_get_str(val));
+					std::string_view interpolation(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val));
 					auto interpolationHash = crcStringFunction(interpolation);
 					switch (interpolationHash) {
 						case force_consteval<crc32c("LINEAR")>: {
@@ -4090,7 +4113,7 @@ fg::Error fgi::yyjson_parser::parseAnimations(yyjson_val* animations, Asset& ass
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4108,7 +4131,7 @@ fg::Error fgi::yyjson_parser::parseAnimations(yyjson_val* animations, Asset& ass
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					animation.name = std::string(unsafe_yyjson_get_str(val));
+					animation.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -4149,7 +4172,7 @@ fg::Error fgi::yyjson_parser::parseBuffers(yyjson_val* buffers, Asset& asset) {
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4158,7 +4181,7 @@ fg::Error fgi::yyjson_parser::parseBuffers(yyjson_val* buffers, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
-					URIView view(unsafe_yyjson_get_str(val));
+					URIView view(std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)));
 					if (!view.valid()) FASTGLTF_UNLIKELY {
 						return Error::InvalidURI;
 					}
@@ -4196,7 +4219,7 @@ fg::Error fgi::yyjson_parser::parseBuffers(yyjson_val* buffers, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					buffer.name = std::string(unsafe_yyjson_get_str(val));
+					buffer.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -4234,7 +4257,7 @@ fg::Error fgi::yyjson_parser::parseBufferViews(yyjson_val* bufferViews, Asset& a
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4277,7 +4300,7 @@ fg::Error fgi::yyjson_parser::parseBufferViews(yyjson_val* bufferViews, Asset& a
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					bufferView.name = std::string(unsafe_yyjson_get_str(val));
+					bufferView.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -4307,7 +4330,7 @@ fg::Error fgi::yyjson_parser::parseCameras(yyjson_val* cameras, Asset& asset) {
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4396,7 +4419,7 @@ fg::Error fgi::yyjson_parser::parseCameras(yyjson_val* cameras, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
-					std::string_view type(unsafe_yyjson_get_str(val));
+					std::string_view type(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val));
 					if (type == "orthographic") {
 						value = Camera::Orthographic();
 						if (std::holds_alternative<std::monostate>(value)) {
@@ -4419,7 +4442,7 @@ fg::Error fgi::yyjson_parser::parseCameras(yyjson_val* cameras, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					camera.name = std::string(unsafe_yyjson_get_str(val));
+					camera.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -4441,18 +4464,19 @@ fg::Error fgi::yyjson_parser::parseCameras(yyjson_val* cameras, Asset& asset) {
 
 fg::Error fgi::yyjson_parser::parseExtensions(yyjson_val* extensions_array, Asset& asset) {
 	std::size_t idx, max;
-	yyjson_val *ext_key, *ext_val;
-	yyjson_obj_foreach(extensions_array, idx, max, ext_key, ext_val) {
-		if (!unsafe_yyjson_is_obj(ext_val)) FASTGLTF_UNLIKELY {
+	yyjson_val *key, *val;
+	yyjson_obj_foreach(extensions_array, idx, max, key, val) {
+		if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
-		switch (crcStringFunction(unsafe_yyjson_get_str(ext_key))) {
+		std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
+		switch (crcStringFunction(keyStr)) {
 			case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
 				if (!hasBit(extensions, Extensions::KHR_lights_punctual))
 					break;
 
-				auto* lightsArray = yyjson_obj_get(ext_val, "lights");
+				auto* lightsArray = yyjson_obj_get(val, "lights");
 				if (lightsArray != nullptr)
 					if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
 						return lightsError;
@@ -4484,7 +4508,7 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4497,7 +4521,7 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
-					URI uri(std::string_view(yyjson_get_str(val)));
+					URI uri(std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)));
 					if (!uri.valid()) FASTGLTF_UNLIKELY {
 						return Error::InvalidURI;
 					}
@@ -4509,7 +4533,7 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
-					mimeType = getMimeType(unsafe_yyjson_get_str(val));
+					mimeType = getMimeType(std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)));
 					break;
 				}
 				case force_consteval<crc32c("bufferView")>: {
@@ -4523,7 +4547,7 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					image.name = std::string(unsafe_yyjson_get_str(val));
+					image.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -4593,7 +4617,7 @@ fg::Error fgi::yyjson_parser::parseLights(yyjson_val* lights, Asset& asset) {
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4628,7 +4652,7 @@ fg::Error fgi::yyjson_parser::parseLights(yyjson_val* lights, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
-					switch (crcStringFunction(unsafe_yyjson_get_str(val))) {
+					switch (crcStringFunction(std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)))) {
 						case force_consteval<crc32c("directional")>: {
 							light.type = LightType::Directional;
 							break;
@@ -4685,7 +4709,7 @@ fg::Error fgi::yyjson_parser::parseLights(yyjson_val* lights, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					light.name = std::string(unsafe_yyjson_get_str(val));
+					light.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -4713,14 +4737,14 @@ fg::Error fgi::yyjson_parser::parseMaterialExtensions(yyjson_val* extensions, Ma
 	return Error::None;
 }
 
-fg::Error fgi::yyjson_parser::parseMaterialPBR(yyjson_val* object, fastgltf::PBRData& pbr) {
+fg::Error fgi::yyjson_parser::parseMaterialPBR(yyjson_val* object, PBRData& pbr) {
 	if (!unsafe_yyjson_is_obj(object)) FASTGLTF_UNLIKELY
 		return Error::InvalidGltf;
 
 	std::size_t idx, max;
 	yyjson_val *key, *val;
 	yyjson_obj_foreach(object, idx, max, key, val) {
-		std::string_view keyStr(yyjson_get_str(key));
+		std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 		auto hashedKey = crcStringFunction(keyStr);
 
 		switch (hashedKey) {
@@ -4792,15 +4816,15 @@ fg::Error fgi::yyjson_parser::parseMaterialPBR(yyjson_val* object, fastgltf::PBR
 	return Error::None;
 }
 
-fg::Error fgi::yyjson_parser::parseTextureInfo(yyjson_val* object, fastgltf::TextureInfo* info,
-											   fastgltf::TextureInfoType type) {
+fg::Error fgi::yyjson_parser::parseTextureInfo(yyjson_val* object, TextureInfo* info,
+											   TextureInfoType type) {
 	if (!unsafe_yyjson_is_obj(object)) FASTGLTF_UNLIKELY
 		return Error::InvalidGltf;
 
 	std::size_t idx, max;
 	yyjson_val *key, *val;
 	yyjson_obj_foreach(object, idx, max, key, val) {
-		std::string_view keyStr(yyjson_get_str(key));
+		std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 
 		switch (crcStringFunction(keyStr)) {
 			case force_consteval<crc32c("index")>: {
@@ -4862,7 +4886,7 @@ fg::Error fgi::yyjson_parser::parseMaterials(yyjson_val* materials, Asset& asset
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -4930,7 +4954,7 @@ fg::Error fgi::yyjson_parser::parseMaterials(yyjson_val* materials, Asset& asset
 						return Error::InvalidGltf;
 					}
 
-					switch (crcStringFunction(unsafe_yyjson_get_str(val))) {
+					switch (crcStringFunction(std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)))) {
 						case force_consteval<crc32c("OPAQUE")>: {
 							material.alphaMode = AlphaMode::Opaque;
 							break;
@@ -4979,7 +5003,7 @@ fg::Error fgi::yyjson_parser::parseMaterials(yyjson_val* materials, Asset& asset
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					material.name = std::string(unsafe_yyjson_get_str(val));
+					material.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -4990,11 +5014,37 @@ fg::Error fgi::yyjson_parser::parseMaterials(yyjson_val* materials, Asset& asset
 	return Error::None;
 }
 
+template <typename T> fg::Error fgi::yyjson_parser::parsePrimitiveAttributes(yyjson_val* object, T& attributes) {
+	if (!unsafe_yyjson_is_obj(object)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	// We iterate through the JSON object and write each key/pair value into the
+	// attribute map. The keys are only validated in the validate() method.
+	attributes = std::decay_t<decltype(attributes)>(resourceAllocator.get());
+	attributes.reserve(unsafe_yyjson_get_len(object));
+
+	std::size_t idx, max;
+	yyjson_val *key, *val;
+	yyjson_obj_foreach(object, idx, max, key, val) {
+		if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		attributes.emplace_back(Attribute {
+			std::pmr::string(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key), resourceAllocator.get()),
+			//FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), unsafe_yyjson_get_str(key)),
+			static_cast<std::size_t>(unsafe_yyjson_get_uint(val)),
+		});
+	}
+	return Error::None;
+}
+
 fg::Error fgi::yyjson_parser::parsePrimitives(yyjson_val* primitives, Mesh& mesh) {
 	if (!unsafe_yyjson_is_arr(primitives)) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
 
+	mesh.primitives = decltype(mesh.primitives)(resourceAllocator.get());
 	mesh.primitives.reserve(unsafe_yyjson_get_len(primitives));
 
 	std::size_t arr_idx, arr_max;
@@ -5008,13 +5058,11 @@ fg::Error fgi::yyjson_parser::parsePrimitives(yyjson_val* primitives, Mesh& mesh
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			switch (crcStringFunction(unsafe_yyjson_get_str(key))) {
-				case force_consteval<crc32c("attributes")>: {
-					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
-						return Error::InvalidGltf;
-					}
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 
-					if (auto attributeError = parseNodeAttributes(val, primitive.attributes); attributeError != Error::None) FASTGLTF_UNLIKELY
+			switch (crcStringFunction(keyStr)) {
+				case force_consteval<crc32c("attributes")>: {
+					if (auto attributeError = parsePrimitiveAttributes(val, primitive.attributes); attributeError != Error::None) FASTGLTF_UNLIKELY
 						return attributeError;
 					break;
 				}
@@ -5047,19 +5095,18 @@ fg::Error fgi::yyjson_parser::parsePrimitives(yyjson_val* primitives, Mesh& mesh
 						return Error::InvalidGltf;
 					}
 
+					primitive.targets = decltype(primitive.targets)(resourceAllocator.get());
 					primitive.targets.reserve(unsafe_yyjson_get_len(val));
 
 					std::size_t target_idx, target_max;
 					yyjson_val* target_val;
 					yyjson_arr_foreach(val, target_idx, target_max, target_val) {
-						if (!unsafe_yyjson_is_obj(target_val)) FASTGLTF_UNLIKELY
-							return Error::InvalidGltf;
-
-						if (auto attributeError = parseNodeAttributes(target_val, primitive.targets.emplace_back()); attributeError != Error::None) FASTGLTF_UNLIKELY
+						if (auto attributeError = parsePrimitiveAttributes(target_val, primitive.targets.emplace_back()); attributeError != Error::None) FASTGLTF_UNLIKELY
 							return attributeError;
 					}
 					break;
 				}
+				default: break;
 			}
 		}
 	}
@@ -5095,6 +5142,7 @@ fg::Error fgi::yyjson_parser::parseMeshes(yyjson_val* meshes, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
+					mesh.weights = decltype(mesh.weights)(resourceAllocator.get());
 					mesh.weights.reserve(yyjson_arr_size(arr_val));
 
 					std::size_t i, m;
@@ -5113,7 +5161,7 @@ fg::Error fgi::yyjson_parser::parseMeshes(yyjson_val* meshes, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					mesh.name = std::string(unsafe_yyjson_get_str(val));
+					mesh.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -5121,32 +5169,6 @@ fg::Error fgi::yyjson_parser::parseMeshes(yyjson_val* meshes, Asset& asset) {
 		}
 	}
 
-	return Error::None;
-}
-
-template <typename T> fg::Error fgi::yyjson_parser::parseNodeAttributes(yyjson_val* object, T& attributes) {
-	if (!unsafe_yyjson_is_obj(object)) FASTGLTF_UNLIKELY
-		return Error::InvalidGltf;
-
-	// We iterate through the JSON object and write each key/pair value into the
-	// attribute map. The keys are only validated in the validate() method.
-	attributes = std::decay_t<decltype(attributes)>(0);
-	// attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
-	attributes.reserve(unsafe_yyjson_get_len(object));
-
-	std::size_t idx, max;
-	yyjson_val *key, *val;
-	yyjson_obj_foreach(object, idx, max, key, val) {
-		if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
-			return Error::InvalidGltf;
-		}
-
-		attributes.emplace_back(Attribute {
-				std::pmr::string(unsafe_yyjson_get_str(key)),
-				//FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), unsafe_yyjson_get_str(key)),
-				static_cast<std::size_t>(unsafe_yyjson_get_uint(val)),
-		});
-	}
 	return Error::None;
 }
 
@@ -5167,7 +5189,7 @@ fg::Error fgi::yyjson_parser::parseNodes(yyjson_val* nodes, Asset& asset) {
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -5200,6 +5222,7 @@ fg::Error fgi::yyjson_parser::parseNodes(yyjson_val* nodes, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
+					node.children = decltype(node.children)(resourceAllocator.get());
 					node.children.reserve(yyjson_arr_size(val));
 
 					std::size_t i, m;
@@ -5218,6 +5241,7 @@ fg::Error fgi::yyjson_parser::parseNodes(yyjson_val* nodes, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
+					node.weights = decltype(node.weights)(resourceAllocator.get());
 					node.weights.reserve(yyjson_arr_size(val));
 
 					std::size_t i, m;
@@ -5348,7 +5372,7 @@ fg::Error fgi::yyjson_parser::parseNodes(yyjson_val* nodes, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					node.name = std::string(unsafe_yyjson_get_str(val));
+					node.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -5376,7 +5400,7 @@ fg::Error fgi::yyjson_parser::parseSamplers(yyjson_val* samplers, Asset& asset) 
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -5412,7 +5436,7 @@ fg::Error fgi::yyjson_parser::parseSamplers(yyjson_val* samplers, Asset& asset) 
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					sampler.name = std::string(unsafe_yyjson_get_str(val));
+					sampler.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -5440,7 +5464,7 @@ fg::Error fgi::yyjson_parser::parseScenes(yyjson_val* scenes, Asset& asset) {
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -5449,6 +5473,7 @@ fg::Error fgi::yyjson_parser::parseScenes(yyjson_val* scenes, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
+					scene.nodeIndices = decltype(scene.nodeIndices)(resourceAllocator.get());
 					scene.nodeIndices.reserve(yyjson_arr_size(val));
 
 					std::size_t i, m;
@@ -5466,7 +5491,7 @@ fg::Error fgi::yyjson_parser::parseScenes(yyjson_val* scenes, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					scene.name = std::string(unsafe_yyjson_get_str(val));
+					scene.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -5497,7 +5522,7 @@ fg::Error fgi::yyjson_parser::parseSkins(yyjson_val* skins, Asset& asset) {
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -5520,6 +5545,7 @@ fg::Error fgi::yyjson_parser::parseSkins(yyjson_val* skins, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
+					skin.joints = decltype(skin.joints)(resourceAllocator.get());
 					skin.joints.reserve(yyjson_arr_size(val));
 
 					std::size_t i, m;
@@ -5538,7 +5564,7 @@ fg::Error fgi::yyjson_parser::parseSkins(yyjson_val* skins, Asset& asset) {
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					skin.name = std::string(unsafe_yyjson_get_str(val));
+					skin.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -5566,7 +5592,7 @@ fg::Error fgi::yyjson_parser::parseTextures(yyjson_val* textures, Asset& asset) 
 		std::size_t idx, max;
 		yyjson_val *key, *val;
 		yyjson_obj_foreach(arr_val, idx, max, key, val) {
-			std::string_view keyStr(yyjson_get_str(key));
+			std::string_view keyStr(unsafe_yyjson_get_str(key), unsafe_yyjson_get_len(key));
 			auto hashedKey = crcStringFunction(keyStr);
 
 			switch (hashedKey) {
@@ -5588,7 +5614,7 @@ fg::Error fgi::yyjson_parser::parseTextures(yyjson_val* textures, Asset& asset) 
 					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					texture.name = std::string(unsafe_yyjson_get_str(val));
+					texture.name = std::pmr::string(unsafe_yyjson_get_str(val), resourceAllocator.get());
 					break;
 				}
 				default: break;
@@ -5600,8 +5626,8 @@ fg::Error fgi::yyjson_parser::parseTextures(yyjson_val* textures, Asset& asset) 
 }
 
 fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfJson(
-		fastgltf::GltfDataGetter& data, std::filesystem::path _directory,
-		fastgltf::Options _options, fastgltf::Category categories) {
+		GltfDataGetter& data, std::filesystem::path _directory,
+		Options _options, Category categories) {
 
 	options = _options;
 	directory = std::move(_directory);
@@ -5610,9 +5636,9 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfJson(
 	auto jsonSpan = data.read(data.totalSize(), 0);
 
 	yyjson_read_err err;
-	yyjson_read_flag flg = 0;
+	constexpr yyjson_read_flag flg = 0;
 	auto doc = std::unique_ptr<yyjson_doc>(
-			yyjson_read_opts((char*)jsonSpan.data(), jsonSpan.size(), flg, nullptr, &err));
+			yyjson_read_opts((char*)jsonSpan.data(), jsonSpan.size(), flg, allocator, &err));
 
 	if (!doc) {
 		printf("read error: %s, code: %u at byte position: %lu\n",
@@ -5624,8 +5650,8 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfJson(
 }
 
 fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfBinary(
-		fastgltf::GltfDataGetter& data, std::filesystem::path _directory,
-		fastgltf::Options _options, fastgltf::Category categories) {
+		GltfDataGetter& data, std::filesystem::path _directory,
+		Options _options, Category categories) {
 
 	options = _options;
 	directory = std::move(_directory);
@@ -5660,11 +5686,14 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfBinary(
 	// says the padding can be initialised to anything, apparently. Therefore, this should work.
 	auto jsonSpan = data.read(jsonChunk.chunkLength, 0);
 
-	yyjson_read_flag flg = 0;
+	yyjson_read_err err;
+	constexpr yyjson_read_flag flg = 0;
 	auto doc = std::unique_ptr<yyjson_doc>(
-			yyjson_read_opts((char*)jsonSpan.data(), jsonSpan.size(), flg, nullptr, nullptr));
+			yyjson_read_opts((char*)jsonSpan.data(), jsonSpan.size(), flg, allocator, &err));
 
 	if (!doc) {
+		printf("read error: %s, code: %u at byte position: %lu\n",
+			   err.msg, err.code, err.pos);
 		return Error::InvalidJson;
 	}
 
@@ -5705,7 +5734,7 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfBinary(
 #pragma endregion
 
 #pragma region validation
-fg::Error fg::validate(const fastgltf::Asset& asset) {
+fg::Error fg::validate(const Asset& asset) {
 	auto isExtensionUsed = [&used = asset.extensionsUsed](std::string_view extension) {
 		for (const auto& extensionUsed : used) {
 			if (extension == extensionUsed) {
@@ -6198,7 +6227,7 @@ fastgltf::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 
 fg::Parser::Parser(Extensions extensionsToLoad) noexcept {
 	std::call_once(crcInitialisation, initialiseCrc);
-	parser_impl = std::make_unique<internal::simdjson_parser>(extensionsToLoad);
+	parser_impl = std::make_unique<internal::yyjson_parser>(extensionsToLoad);
 }
 
 fg::Parser::Parser(Parser&& other) noexcept : parser_impl(std::move(other.parser_impl)) {}

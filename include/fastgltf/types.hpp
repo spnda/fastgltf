@@ -2106,20 +2106,21 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::string name;
     };
 
-	class ChunkMemoryResource;
 	namespace internal {
 		struct parser_interface;
 		class simdjson_parser;
+		class yyjson_parser;
 	}
 
 	FASTGLTF_EXPORT class Asset {
-		friend struct fastgltf::internal::parser_interface;
-		friend class fastgltf::internal::simdjson_parser;
+		friend struct internal::parser_interface;
+		friend class internal::simdjson_parser;
+		friend class internal::yyjson_parser;
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 		// This has to be first in this struct so that it gets destroyed last, leaving all allocations
 		// alive until the end.
-		std::shared_ptr<ChunkMemoryResource> memoryResource;
+		std::shared_ptr<std::pmr::monotonic_buffer_resource> memoryResource;
 #endif
 
 	public:
