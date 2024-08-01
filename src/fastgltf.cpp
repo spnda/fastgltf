@@ -1420,7 +1420,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 	// Create a new chunk memory resource for each asset we parse.
-	asset.memoryResource = resourceAllocator = std::make_shared<ChunkMemoryResource>();
+	asset.memoryResource = resourceAllocator = std::make_shared<std::pmr::monotonic_buffer_resource>();
 #endif
 
 	if (!hasBit(options, Options::DontRequireValidAssetMember)) {

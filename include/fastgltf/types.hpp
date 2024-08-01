@@ -2115,7 +2115,7 @@ namespace fastgltf {
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 		// This has to be first in this struct so that it gets destroyed last, leaving all allocations
 		// alive until the end.
-		std::shared_ptr<ChunkMemoryResource> memoryResource;
+		std::shared_ptr<std::pmr::monotonic_buffer_resource> memoryResource;
 #endif
 
 	public:
