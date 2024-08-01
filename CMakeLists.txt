@@ -101,6 +101,9 @@ else()
     endif()
 endif()
 
+fastgltf_add_source_directory(TARGET fastgltf FOLDER ${CMAKE_CURRENT_LIST_DIR}/deps/yyjson)
+target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/deps/yyjson> $<INSTALL_INTERFACE:include>)
+
 if (SIMDJSON_TARGET_VERSION)
     target_compile_definitions(fastgltf PRIVATE SIMDJSON_TARGET_VERSION="${SIMDJSON_TARGET_VERSION}")
 endif()

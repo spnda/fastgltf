@@ -551,6 +551,8 @@ TEST_CASE("Test extras callback", "[gltf-loader]") {
 	}
 
 	SECTION("Re-export asset") {
+		REQUIRE(asset.error() == fastgltf::Error::None);
+
 		auto extrasWriteCallback = [](std::size_t objectIndex, fastgltf::Category category,
 									  void *userPointer) -> std::optional<std::string> {
 			if (category != fastgltf::Category::Nodes)

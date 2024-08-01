@@ -283,6 +283,7 @@ TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
 	exporter.setImagePath("./textures1/textures2/../");
 #endif
 	auto exported = exporter.writeGltfJson(asset.get());
+	REQUIRE(exported.error() == fastgltf::Error::None);
 
 	// Parse the JSON and inspect the image URI.
 	simdjson::ondemand::parser jsonParser;

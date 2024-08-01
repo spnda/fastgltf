@@ -47,6 +47,18 @@
 static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, "Outdated version of simdjson. Reconfigure project to update.");
 #endif
 
+#include <yyjson.h>
+
+namespace std {
+	/** Specialization for std::default_delete to easily use yyjson docs in smart pointers */
+	template <>
+	struct default_delete<yyjson_doc> {
+		void operator()(yyjson_doc* doc) {
+			yyjson_doc_free(doc);
+		}
+	};
+}
+
 #include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
 
@@ -230,7 +242,7 @@ namespace fastgltf {
 #endif
 	}
 
-	void fill_categories(Category& categories) noexcept {
+	void fillCategories(Category& categories) noexcept {
 		if (categories == Category::All)
 			return;
 
@@ -259,7 +271,7 @@ namespace fastgltf {
 			categories |= Category::Buffers;
 	}
 
-	MimeType get_mime_type(std::string_view mime) noexcept {
+	MimeType getMimeType(std::string_view mime) noexcept {
 		const auto hash = crcStringFunction(mime);
 		switch (hash) {
 			case force_consteval<crc32c(mimeTypeJpeg)>: {
@@ -484,19 +496,21 @@ namespace fastgltf::internal {
 		void* userPointer = nullptr;
 		Extensions extensions = Extensions::None;
 
+		DataSource glbBuffer;
 		std::filesystem::path directory;
 		Options options = Options::None;
 
 		explicit parser_interface(Extensions supported_extensions) noexcept;
 		virtual ~parser_interface() = default;
 
-		[[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> Expected<DataSource>;
-		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
+		[[nodiscard]] auto decodeDataUri(const URIView& uri) const noexcept -> Expected<DataSource>;
+		[[nodiscard]] auto loadFileFromUri(const URIView& uri) const noexcept -> Expected<DataSource>;
 #if defined(__ANDROID__)
 		[[nodiscard]] auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> Expected<DataSource>;
 #endif
 
 		Error generateMeshIndices(Asset& asset) const;
+		Error postProcessAsset(Asset& asset) const;
 
 		[[nodiscard]] Expected<Asset> loadGltf(
 				GltfDataGetter& data, std::filesystem::path directory,
@@ -516,7 +530,6 @@ namespace fastgltf::internal {
 		// reallocate over and over again. We're hiding it here to not leak the simdjson header.
 		simdjson::dom::parser jsonParser;
 
-		DataSource glbBuffer;
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 		std::shared_ptr<ChunkMemoryResource> resourceAllocator;
 #endif
@@ -543,16 +556,57 @@ namespace fastgltf::internal {
 		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
 	public:
-		explicit simdjson_parser(Extensions supported_extensions);
+		explicit simdjson_parser(Extensions supported_extensions) noexcept;
 
 		[[nodiscard]] Expected<Asset> loadGltfJson(
-				GltfDataGetter& buffer, std::filesystem::path directory,
+				GltfDataGetter& data, std::filesystem::path directory,
 				Options options, Category categories) override;
 
 		[[nodiscard]] Expected<Asset> loadGltfBinary(
-				GltfDataGetter& buffer, std::filesystem::path directory,
+				GltfDataGetter& data, std::filesystem::path directory,
 				Options options, Category categories) override;
 	};
+
+	class yyjson_parser : public parser_interface {
+		Expected<Asset> parse(std::unique_ptr<yyjson_doc>&& doc, Category categories);
+
+		Error parseAccessorBounds(yyjson_val* array, decltype(Accessor::max)& bounds);
+		Error parseAccessors(yyjson_val* accessors, Asset& asset);
+		Error parseAnimationChannels(yyjson_val* array, Animation& animation);
+		Error parseAnimationSamplers(yyjson_val* array, Animation& animation);
+		Error parseAnimations(yyjson_val* array, Asset& asset);
+		Error parseBuffers(yyjson_val* array, Asset& asset);
+		Error parseBufferViews(yyjson_val* array, Asset& asset);
+		Error parseCameras(yyjson_val* array, Asset& asset);
+		Error parseExtensions(yyjson_val* extensionsObject, Asset& asset);
+		Error parseImages(yyjson_val* array, Asset& asset);
+		Error parseLights(yyjson_val* array, Asset& asset);
+		Error parseMaterialExtensions(yyjson_val* object, Material& material);
+		Error parseMaterialPBR(yyjson_val* object, PBRData& pbr);
+		Error parseTextureInfo(yyjson_val* object, TextureInfo* info, TextureInfoType type = TextureInfoType::Standard);
+		Error parseMaterials(yyjson_val* array, Asset& asset);
+		Error parsePrimitives(yyjson_val* array, Mesh& asset);
+		Error parseMeshes(yyjson_val* array, Asset& asset);
+		template <typename T>
+		Error parseNodeAttributes(yyjson_val* object, T& attributes);
+		Error parseNodes(yyjson_val* array, Asset& asset);
+		Error parseSamplers(yyjson_val* array, Asset& asset);
+		Error parseScenes(yyjson_val* array, Asset& asset);
+		Error parseSkins(yyjson_val* array, Asset& asset);
+		Error parseTextures(yyjson_val* array, Asset& asset);
+
+	public:
+		explicit yyjson_parser(Extensions supported_extensions) noexcept;
+
+		[[nodiscard]] Expected<Asset> loadGltfJson(
+				GltfDataGetter& data, std::filesystem::path directory,
+				Options options, Category categories) override;
+
+		[[nodiscard]] Expected<Asset> loadGltfBinary(
+				GltfDataGetter& data, std::filesystem::path directory,
+				Options options, Category categories) override;
+	};
+}
 
 #pragma region URI
 fg::URIView::URIView() noexcept = default;
@@ -831,7 +885,7 @@ fgi::parser_interface::parser_interface(fastgltf::Extensions supported_extension
 	extensions = supported_extensions;
 }
 
-fg::Expected<fg::DataSource> fgi::parser_interface::decodeDataUri(URIView& uri) const noexcept {
+fg::Expected<fg::DataSource> fgi::parser_interface::decodeDataUri(const URIView& uri) const noexcept {
 	auto path = uri.path();
 	auto mimeEnd = path.find(';');
 	auto mime = path.substr(0, mimeEnd);
@@ -861,7 +915,7 @@ fg::Expected<fg::DataSource> fgi::parser_interface::decodeDataUri(URIView& uri) 
 
 			sources::CustomBuffer source = {};
 			source.id = info.customId;
-			source.mimeType = get_mime_type(mime);
+			source.mimeType = getMimeType(mime);
 			return { source };
 		}
 	}
@@ -877,13 +931,13 @@ fg::Expected<fg::DataSource> fgi::parser_interface::decodeDataUri(URIView& uri) 
 
 	sources::Array source {
 		std::move(uriData),
-		get_mime_type(mime),
+		getMimeType(mime),
 	};
 	return { std::move(source) };
 }
 
 // TODO: Move this function back into io.cpp
-fg::Expected<fg::DataSource> fgi::parser_interface::loadFileFromUri(URIView& uri) const noexcept {
+fg::Expected<fg::DataSource> fgi::parser_interface::loadFileFromUri(const URIView& uri) const noexcept {
 	URI decodedUri(uri.path()); // Re-allocate so we can decode potential characters.
 	// JSON strings are always in UTF-8, so we can safely always use u8path here.
 	// Since u8path is deprecated with C++20 and newer, u8path is deprecated.
@@ -999,7 +1053,7 @@ namespace fastgltf::internal {
 	}
 }
 
-fg::Error fgi::parser_interface::generateMeshIndices(fastgltf::Asset& asset) const {
+fg::Error fgi::parser_interface::generateMeshIndices(Asset& asset) const {
 	for (auto& mesh : asset.meshes) {
 		for (auto& primitive : mesh.primitives) {
 			if (primitive.indicesAccessor.has_value())
@@ -1066,6 +1120,27 @@ fg::Error fgi::parser_interface::generateMeshIndices(fastgltf::Asset& asset) con
 	return Error::None;
 }
 
+fg::Error fgi::parser_interface::postProcessAsset(fastgltf::Asset& asset) const {
+	if (hasBit(options, Options::GenerateMeshIndices)) {
+		if (auto error = generateMeshIndices(asset); error != Error::None) {
+			return error;
+		}
+	}
+
+	// Resize primitive mappings to match the global variant count
+	if (hasBit(extensions, Extensions::KHR_materials_variants) && !asset.materialVariants.empty()) {
+		const auto variantCount = asset.materialVariants.size();
+		for (auto& mesh : asset.meshes) {
+			for (auto& primitive : mesh.primitives) {
+				if (primitive.mappings.empty() || primitive.mappings.size() == variantCount)
+					continue;
+				primitive.mappings.resize(variantCount);
+			}
+		}
+	}
+	return Error::None;
+}
+
 fg::Expected<fg::Asset> fgi::parser_interface::loadGltf(
 		fastgltf::GltfDataGetter &data, std::filesystem::path _directory,
 		fastgltf::Options _options, fastgltf::Category categories) {
@@ -1084,7 +1159,7 @@ fg::Expected<fg::Asset> fgi::parser_interface::loadGltf(
 #pragma endregion
 
 #pragma region simdjson parser
-fgi::simdjson_parser::simdjson_parser(fastgltf::Extensions supported_extensions) : parser_interface(supported_extensions) {}
+fgi::simdjson_parser::simdjson_parser(fastgltf::Extensions supported_extensions) noexcept : parser_interface(supported_extensions) {}
 
 template <typename T> fg::Error fgi::simdjson_parser::parseAttributes(simdjson::dom::object& object, T& attributes) {
 	using namespace simdjson;
@@ -1116,7 +1191,7 @@ template fg::Error fgi::simdjson_parser::parseAttributes(simdjson::dom::object&,
 
 fg::Expected<fg::Asset> fgi::simdjson_parser::parse(simdjson::dom::object root, Category categories) {
 	using namespace simdjson;
-	fill_categories(categories);
+	fillCategories(categories);
 
 	Asset asset {};
 
@@ -1221,10 +1296,10 @@ fg::Expected<fg::Asset> fgi::simdjson_parser::parse(simdjson::dom::object root, 
 			return Error::InvalidGltf;
 		}
 
-#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>:       \
-				if (hasBit(categories, Category::name))   \
-					error = parse##name(array, asset);                     \
-				readCategories |= Category::name;         \
+#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>: \
+				if (hasBit(categories, Category::name))                             \
+					error = parse##name(array, asset);                              \
+				readCategories |= Category::name;                                   \
 				break;
 
 		Error error = Error::None;
@@ -1270,24 +1345,7 @@ fg::Expected<fg::Asset> fgi::simdjson_parser::parse(simdjson::dom::object root, 
 
 	asset.availableCategories = readCategories;
 
-	if (hasBit(options, Options::GenerateMeshIndices)) {
-		if (auto error = generateMeshIndices(asset); error != Error::None) {
-			return error;
-		}
-	}
-
-	// Resize primitive mappings to match the global variant count
-	if (hasBit(extensions, Extensions::KHR_materials_variants) && !asset.materialVariants.empty()) {
-		const auto variantCount = asset.materialVariants.size();
-		for (auto& mesh : asset.meshes) {
-			for (auto& primitive : mesh.primitives) {
-				if (primitive.mappings.empty() || primitive.mappings.size() == variantCount)
-					continue;
-				primitive.mappings.resize(variantCount);
-			}
-		}
-	}
-
+	postProcessAsset(asset);
 	return std::move(asset);
 }
 
@@ -1634,6 +1692,19 @@ fg::Error fgi::simdjson_parser::parseAnimations(simdjson::dom::array& animations
 fg::Error fgi::simdjson_parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) {
 	using namespace simdjson;
 
+	// The spec for EXT_meshopt_compression allows so-called 'fallback buffers' which only exist to
+	// act as a valid fallback for compressed buffer views, but actually do not contain any data.
+	// In these cases, there is either simply no URI, or a fallback boolean is added to the extensions'
+	// extension field.
+	// In these cases, fastgltf could just leave the std::monostate in the DataSource.
+	// However, to make the actual use of these buffers clear, we'll use an empty fallback type.
+	bool meshoptCompressionRequired = false;
+	for (const auto& extension : asset.extensionsRequired) {
+		if (extension == extensions::EXT_meshopt_compression) {
+			meshoptCompressionRequired = true;
+		}
+	}
+
 	asset.buffers.reserve(buffers.size());
 	std::size_t bufferIndex = 0;
 	for (auto bufferValue : buffers) {
@@ -1649,19 +1720,6 @@ fg::Error fgi::simdjson_parser::parseBuffers(simdjson::dom::array& buffers, Asse
 			return Error::InvalidGltf;
 		}
 		buffer.byteLength = static_cast<std::size_t>(byteLength);
-
-		// The spec for EXT_meshopt_compression allows so-called 'fallback buffers' which only exist to
-		// act as a valid fallback for compressed buffer views, but actually do not contain any data.
-		// In these cases, there is either simply no URI, or a fallback boolean is added to the extensions'
-		// extension field.
-		// In these cases, fastgltf could just leave the std::monostate in the DataSource.
-		// However, to make the actual use of these buffers clear, we'll use an empty fallback type.
-		bool meshoptCompressionRequired = false;
-		for (const auto& extension : asset.extensionsRequired) {
-			if (extension == extensions::EXT_meshopt_compression) {
-				meshoptCompressionRequired = true;
-			}
-		}
 
 		// When parsing GLB, there's a buffer object that will point to the BUF chunk in the
 		// file. Otherwise, data must be specified in the "uri" field.
@@ -1904,7 +1962,7 @@ fg::Error fgi::simdjson_parser::parseCameras(simdjson::dom::array& cameras, Asse
 				return Error::InvalidGltf;
 			}
 
-			Camera::Perspective perspective = {};
+			Camera::Perspective perspective {};
 			double value;
 			if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) FASTGLTF_LIKELY {
 				perspective.aspectRatio = static_cast<num>(value);
@@ -1937,7 +1995,7 @@ fg::Error fgi::simdjson_parser::parseCameras(simdjson::dom::array& cameras, Asse
 				return Error::InvalidGltf;
 			}
 
-			Camera::Orthographic orthographic = {};
+			Camera::Orthographic orthographic {};
 			double value;
 			if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
 				orthographic.xmag = static_cast<num>(value);
@@ -1964,7 +2022,7 @@ fg::Error fgi::simdjson_parser::parseCameras(simdjson::dom::array& cameras, Asse
 			}
 
 			camera.camera = orthographic;
-		} else {
+		} else FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
@@ -2059,20 +2117,20 @@ fg::Error fgi::simdjson_parser::parseImages(simdjson::dom::array& images, Asset&
 			}
 
 			URIView uriView(uriString);
-			if (!uriView.valid()) {
+			if (!uriView.valid()) FASTGLTF_UNLIKELY {
 				return Error::InvalidURI;
 			}
 
 			if (uriView.isDataUri()) {
 				auto [error, source] = decodeDataUri(uriView);
-				if (error != Error::None) {
+				if (error != Error::None) FASTGLTF_UNLIKELY {
 					return error;
 				}
 
 				image.data = std::move(source);
 			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
 				auto [error, source] = loadFileFromUri(uriView);
-				if (error != Error::None) {
+				if (error != Error::None) FASTGLTF_UNLIKELY {
 					return error;
 				}
 
@@ -2091,7 +2149,7 @@ fg::Error fgi::simdjson_parser::parseImages(simdjson::dom::array& images, Asset&
 
 					// This is kinda cursed
 					if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>()) {
-						arg.mimeType = get_mime_type(mimeType);
+						arg.mimeType = getMimeType(mimeType);
 					}
 				}, image.data);
 			}
@@ -2107,11 +2165,11 @@ fg::Error fgi::simdjson_parser::parseImages(simdjson::dom::array& images, Asset&
 
 			image.data = sources::BufferView {
 				static_cast<std::size_t>(bufferViewIndex),
-				get_mime_type(mimeType),
+				getMimeType(mimeType),
 			};
 		}
 
-		if (std::holds_alternative<std::monostate>(image.data)) {
+		if (std::holds_alternative<std::monostate>(image.data)) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
@@ -2180,7 +2238,7 @@ fg::Error fgi::simdjson_parser::parseLights(simdjson::dom::array& lights, Asset&
 			if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
 				light.innerConeAngle = static_cast<num>(innerConeAngle);
 			} else if (error == NO_SUCH_FIELD) {
-				light.innerConeAngle = 0.0f;
+				light.innerConeAngle = static_cast<num>(0.);
 			} else {
 				return Error::InvalidGltf;
 			}
@@ -2208,17 +2266,13 @@ fg::Error fgi::simdjson_parser::parseLights(simdjson::dom::array& lights, Asset&
 					return Error::InvalidGltf;
 				}
 			}
-		} else if (error == NO_SUCH_FIELD) {
-			light.color = math::nvec3(1);
-		} else {
+		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
 		double intensity;
 		if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) FASTGLTF_LIKELY {
 			light.intensity = static_cast<num>(intensity);
-		} else {
-			light.intensity = 0.0f;
 		}
 
 		double range;
@@ -3608,6 +3662,2045 @@ fg::Expected<fg::Asset> fgi::simdjson_parser::loadGltfBinary(GltfDataGetter& dat
 	}
 
 	return parse(root, categories);
+}
+#pragma endregion
+
+#pragma region yyjson parser
+fgi::yyjson_parser::yyjson_parser(Extensions supported_extensions) noexcept : parser_interface(supported_extensions) {}
+
+fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& doc, fastgltf::Category categories) {
+	fillCategories(categories);
+
+	Asset asset {};
+
+	auto* root = yyjson_doc_get_root(doc.get());
+	if (!root || !yyjson_is_obj(root)) FASTGLTF_UNLIKELY {
+		return Error::InvalidGltf;
+	}
+
+	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
+		auto* assetObject = yyjson_obj_get(root, "asset");
+		if (!assetObject && !yyjson_is_obj(assetObject)) FASTGLTF_UNLIKELY {
+			return Error::InvalidOrMissingAssetField;
+		}
+
+		AssetInfo info {};
+		auto* versionString = yyjson_get_str(yyjson_obj_get(assetObject, "version"));
+		if (!versionString) FASTGLTF_UNLIKELY {
+			return Error::InvalidOrMissingAssetField;
+		}
+		std::string_view version(versionString, std::strlen(versionString));
+		const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
+		if (major != 2) FASTGLTF_UNLIKELY
+			return Error::UnsupportedVersion;
+		info.gltfVersion = std::string(version);
+
+		auto* copyright = yyjson_get_str(yyjson_obj_get(assetObject, "copyright"));
+		if (copyright) FASTGLTF_UNLIKELY {
+			info.copyright = std::string(copyright);
+		}
+
+		auto* generator = yyjson_get_str(yyjson_obj_get(assetObject, "generator"));
+		if (generator) FASTGLTF_UNLIKELY {
+			info.generator = std::string(generator);
+		}
+
+		asset.assetInfo = std::move(info);
+	}
+
+	auto readCategories = Category::None;
+	std::size_t idx, max;
+	yyjson_val *key, *val;
+	yyjson_obj_foreach(root, idx, max, key, val) {
+		std::string_view keyStr(yyjson_get_str(key));
+		auto hashedKey = crcStringFunction(keyStr);
+
+#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>: \
+				if (hasBit(categories, Category::name))                             \
+					error = parse##name(val, asset);                                \
+				readCategories |= Category::name;                                   \
+				break;
+
+		Error error = Error::None;
+		switch (hashedKey) {
+			case force_consteval<crc32c("extensionsUsed")>: {
+				if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+
+				asset.extensionsUsed.reserve(unsafe_yyjson_get_len(val));
+
+				std::size_t aidx, amax;
+				yyjson_val *aval;
+				yyjson_arr_foreach(val, aidx, amax, aval) {
+					if (!yyjson_is_str(aval)) FASTGLTF_UNLIKELY
+						return Error::InvalidGltf;
+
+					asset.extensionsUsed.emplace_back(unsafe_yyjson_get_str(aval));
+				}
+				break;
+			}
+			case force_consteval<crc32c("extensionsRequired")>: {
+				if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+
+				asset.extensionsRequired.reserve(unsafe_yyjson_get_len(val));
+
+				std::size_t aidx, amax;
+				yyjson_val *aval;
+				yyjson_arr_foreach(val, aidx, amax, aval) {
+					if (!yyjson_is_str(aval)) FASTGLTF_UNLIKELY
+						return Error::InvalidGltf;
+
+					asset.extensionsRequired.emplace_back(unsafe_yyjson_get_str(aval));
+				}
+				break;
+			}
+			KEY_SWITCH_CASE(Accessors, accessors)
+			KEY_SWITCH_CASE(Animations, animations)
+			KEY_SWITCH_CASE(Buffers, buffers)
+			KEY_SWITCH_CASE(BufferViews, bufferViews)
+			KEY_SWITCH_CASE(Cameras, cameras)
+			KEY_SWITCH_CASE(Images, images)
+			KEY_SWITCH_CASE(Materials, materials)
+			KEY_SWITCH_CASE(Meshes, meshes)
+			KEY_SWITCH_CASE(Nodes, nodes)
+			KEY_SWITCH_CASE(Samplers, samplers)
+			KEY_SWITCH_CASE(Scenes, scenes)
+			KEY_SWITCH_CASE(Skins, skins)
+			KEY_SWITCH_CASE(Textures, textures)
+			case force_consteval<crc32c("scene")>: {
+				if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY
+					return Error::None;
+				asset.defaultScene = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+				break;
+			}
+			case force_consteval<crc32c("extensions")>: {
+				if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				if (auto extensionsError = parseExtensions(val, asset); extensionsError != Error::None)
+					return extensionsError;
+				break;
+			}
+			default:
+				break;
+		}
+
+		if (error != Error::None)
+			return error;
+
+#undef KEY_SWITCH_CASE
+	}
+
+	postProcessAsset(asset);
+	return std::move(asset);
+}
+
+fg::Error fgi::yyjson_parser::parseAccessorBounds(yyjson_val* array, decltype(Accessor::max)& bounds) {
+	if (!unsafe_yyjson_is_arr(array)) FASTGLTF_UNLIKELY {
+		return Error::InvalidGltf;
+	}
+
+	std::pmr::vector<double> vec;
+	vec.reserve(unsafe_yyjson_get_len(array));
+
+	std::size_t idx, max;
+	yyjson_val* val;
+	yyjson_arr_foreach(array, idx, max, val) {
+		if (!yyjson_is_num(val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		vec.emplace_back(unsafe_yyjson_get_num(val));
+	}
+
+	bounds = std::move(vec);
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, fastgltf::Asset& asset) {
+	if (!unsafe_yyjson_is_arr(accessors)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.accessors.reserve(unsafe_yyjson_get_len(accessors));
+
+	std::size_t aidx, amax;
+	yyjson_val *aval;
+	yyjson_arr_foreach(accessors, aidx, amax, aval) {
+		if (!unsafe_yyjson_is_obj(aval)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& accessor = asset.accessors.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(aval, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("componentType")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					accessor.componentType = getComponentType(
+							static_cast<std::underlying_type_t<ComponentType>>(unsafe_yyjson_get_uint(val)));
+
+					if (accessor.componentType == ComponentType::Double && (!hasBit(options, Options::AllowDouble) || !hasBit(extensions, Extensions::KHR_accessor_float64))) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					break;
+				}
+				case force_consteval<crc32c("type")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					accessor.type = getAccessorType(unsafe_yyjson_get_str(val));
+					break;
+				}
+				case force_consteval<crc32c("count")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					accessor.count = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("bufferView")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					accessor.bufferViewIndex = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("byteOffset")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					accessor.byteOffset = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("normalized")>: {
+					if (!unsafe_yyjson_is_bool(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					accessor.normalized = unsafe_yyjson_get_bool(val);
+					break;
+				}
+				case force_consteval<crc32c("max")>: {
+					if (auto boundsError = parseAccessorBounds(val, accessor.max); boundsError != Error::None) FASTGLTF_UNLIKELY {
+						return boundsError;
+					}
+					break;
+				}
+				case force_consteval<crc32c("min")>: {
+					if (auto boundsError = parseAccessorBounds(val, accessor.min); boundsError != Error::None) FASTGLTF_UNLIKELY {
+						return boundsError;
+					}
+					break;
+				}
+				case force_consteval<crc32c("sparse")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					accessor.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+
+			// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
+			if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || accessor.componentType == ComponentType::Float)) {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseAnimationChannels(yyjson_val* channels, Animation& animation) {
+	if (!unsafe_yyjson_is_arr(channels)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	animation.channels.reserve(unsafe_yyjson_get_len(channels));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(channels, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& channel = animation.channels.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("sampler")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY
+						return Error::InvalidGltf;
+
+					channel.samplerIndex = static_cast<std::size_t>(
+							unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("target")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY
+						return Error::InvalidGltf;
+
+					// TODO: Unordered field lookups for target object?
+					auto* nodeVal = yyjson_obj_get(val, "node");
+					if (yyjson_is_uint(nodeVal)) {
+						channel.nodeIndex = static_cast<std::size_t>(
+								unsafe_yyjson_get_uint(nodeVal));
+					}
+
+					auto* pathVal = yyjson_obj_get(val, "path");
+					if (!yyjson_is_str(pathVal)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					std::string_view path(unsafe_yyjson_get_str(pathVal));
+					auto pathHash = crcStringFunction(path);
+					switch (pathHash) {
+						case force_consteval<crc32c("translation")>: {
+							channel.path = AnimationPath::Translation;
+							break;
+						}
+						case force_consteval<crc32c("rotation")>: {
+							channel.path = AnimationPath::Rotation;
+							break;
+						}
+						case force_consteval<crc32c("scale")>: {
+							channel.path = AnimationPath::Scale;
+							break;
+						}
+						case force_consteval<crc32c("weights")>: {
+							channel.path = AnimationPath::Weights;
+							break;
+						}
+						default: {
+							return Error::InvalidGltf;
+						}
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseAnimationSamplers(yyjson_val* samplers, Animation& animation) {
+	if (!unsafe_yyjson_is_arr(samplers)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	animation.samplers.reserve(unsafe_yyjson_get_len(samplers));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(samplers, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& sampler = animation.samplers.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("input")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY
+						return Error::InvalidGltf;
+
+					sampler.inputAccessor = static_cast<std::size_t>(
+							unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("interpolation")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY
+						return Error::InvalidGltf;
+
+					std::string_view interpolation(unsafe_yyjson_get_str(val));
+					auto interpolationHash = crcStringFunction(interpolation);
+					switch (interpolationHash) {
+						case force_consteval<crc32c("LINEAR")>: {
+							sampler.interpolation = AnimationInterpolation::Linear;
+							break;
+						}
+						case force_consteval<crc32c("STEP")>: {
+							sampler.interpolation = AnimationInterpolation::Step;
+							break;
+						}
+						case force_consteval<crc32c("CUBICSPLINE")>: {
+							sampler.interpolation = AnimationInterpolation::CubicSpline;
+							break;
+						}
+						default: {
+							return Error::InvalidGltf;
+						}
+					}
+					break;
+				}
+				case force_consteval<crc32c("output")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY
+						return Error::InvalidGltf;
+
+					sampler.outputAccessor = static_cast<std::size_t>(
+							unsafe_yyjson_get_uint(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseAnimations(yyjson_val* animations, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(animations)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.animations.reserve(unsafe_yyjson_get_len(animations));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(animations, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& animation = asset.animations.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("channels")>: {
+					if (auto channelError = parseAnimationChannels(val, animation); channelError != Error::None) FASTGLTF_UNLIKELY
+						return channelError;
+					break;
+				}
+				case force_consteval<crc32c("samplers")>: {
+					if (auto samplerError = parseAnimationSamplers(val, animation); samplerError != Error::None) FASTGLTF_UNLIKELY
+						return samplerError;
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					animation.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseBuffers(yyjson_val* buffers, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(buffers)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.buffers.reserve(unsafe_yyjson_get_len(buffers));
+
+	// The spec for EXT_meshopt_compression allows so-called 'fallback buffers' which only exist to
+	// act as a valid fallback for compressed buffer views, but actually do not contain any data.
+	// In these cases, there is either simply no URI, or a fallback boolean is added to the extensions'
+	// extension field.
+	// In these cases, fastgltf could just leave the std::monostate in the DataSource.
+	// However, to make the actual use of these buffers clear, we'll use an empty fallback type.
+	bool meshoptCompressionRequired = false;
+	for (const auto& extension : asset.extensionsRequired) {
+		if (extension == extensions::EXT_meshopt_compression) {
+			meshoptCompressionRequired = true;
+		}
+	}
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(buffers, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& buffer = asset.buffers.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("uri")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					URIView view(unsafe_yyjson_get_str(val));
+					if (!view.valid()) FASTGLTF_UNLIKELY {
+						return Error::InvalidURI;
+					}
+
+					if (view.isDataUri()) {
+						auto [error, source] = decodeDataUri(view);
+						if (error != Error::None) {
+							return error;
+						}
+
+						buffer.data = std::move(source);
+					} else if (view.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
+						auto [error, source] = loadFileFromUri(view);
+						if (error != Error::None) {
+							return error;
+						}
+
+						buffer.data = std::move(source);
+					} else {
+						sources::URI filePath;
+						filePath.fileByteOffset = 0;
+						filePath.uri = view;
+						buffer.data = std::move(filePath);
+					}
+					break;
+				}
+				case force_consteval<crc32c("byteLength")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					buffer.byteLength = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					buffer.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+
+		if (std::holds_alternative<std::monostate>(buffer.data)) {
+			if (arr_idx == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
+				buffer.data = std::move(glbBuffer);
+			} else if (meshoptCompressionRequired) {
+				buffer.data = sources::Fallback();
+			} else {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseBufferViews(yyjson_val* bufferViews, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(bufferViews)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.bufferViews.reserve(unsafe_yyjson_get_len(bufferViews));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(bufferViews, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& bufferView = asset.bufferViews.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("buffer")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					bufferView.bufferIndex = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("byteOffset")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					bufferView.byteOffset = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("byteLength")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					bufferView.byteLength = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("byteStride")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					bufferView.byteStride = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("target")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					bufferView.target = static_cast<BufferTarget>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					bufferView.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseCameras(yyjson_val* cameras, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(cameras)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.cameras.reserve(unsafe_yyjson_get_len(cameras));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(cameras, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& camera = asset.cameras.emplace_back();
+
+		std::variant<std::monostate, Camera::Perspective, Camera::Orthographic> value;
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("orthographic")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (std::holds_alternative<Camera::Perspective>(value)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					Camera::Orthographic orthographic {};
+
+					auto* xmagValue = yyjson_obj_get(val, "xmag");
+					if (!yyjson_is_num(xmagValue)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					orthographic.xmag = static_cast<num>(unsafe_yyjson_get_num(xmagValue));
+
+					auto* ymagValue = yyjson_obj_get(val, "ymag");
+					if (!yyjson_is_num(ymagValue)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					orthographic.ymag = static_cast<num>(unsafe_yyjson_get_num(ymagValue));
+
+					auto* zfarValue = yyjson_obj_get(val, "zfar");
+					if (!yyjson_is_num(zfarValue)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					orthographic.zfar = static_cast<num>(unsafe_yyjson_get_num(zfarValue));
+
+					auto* znearValue = yyjson_obj_get(val, "znear");
+					if (!yyjson_is_num(znearValue)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					orthographic.znear = static_cast<num>(unsafe_yyjson_get_num(znearValue));
+
+					value = orthographic;
+					break;
+				}
+				case force_consteval<crc32c("perspective")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (std::holds_alternative<Camera::Orthographic>(value)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					Camera::Perspective perspective {};
+
+					auto* aspectRatioValue = yyjson_obj_get(val, "aspectRatio");
+					if (aspectRatioValue != nullptr) {
+						if (!unsafe_yyjson_is_num(aspectRatioValue)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						perspective.aspectRatio = static_cast<num>(unsafe_yyjson_get_num(aspectRatioValue));
+					}
+
+					auto* yfovValue = yyjson_obj_get(val, "yfov");
+					if (!yyjson_is_num(yfovValue)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					perspective.yfov = static_cast<num>(unsafe_yyjson_get_num(yfovValue));
+
+					auto* zfarValue = yyjson_obj_get(val, "zfar");
+					if (zfarValue != nullptr) {
+						if (!unsafe_yyjson_is_num(zfarValue)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						perspective.zfar = static_cast<num>(unsafe_yyjson_get_num(zfarValue));
+					}
+
+					auto* znearValue = yyjson_obj_get(val, "znear");
+					if (!yyjson_is_num(znearValue)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					perspective.znear = static_cast<num>(unsafe_yyjson_get_num(znearValue));
+
+					value = perspective;
+					break;
+				}
+				case force_consteval<crc32c("type")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					std::string_view type(unsafe_yyjson_get_str(val));
+					if (type == "orthographic") {
+						value = Camera::Orthographic();
+						if (std::holds_alternative<std::monostate>(value)) {
+							value = Camera::Orthographic();
+						} else if (std::holds_alternative<Camera::Perspective>(value)) {
+							return Error::InvalidGltf;
+						}
+					} else if (type == "perspective") {
+						if (std::holds_alternative<std::monostate>(value)) {
+							value = Camera::Perspective();
+						} else if (std::holds_alternative<Camera::Orthographic>(value)) {
+							return Error::InvalidGltf;
+						}
+					} else FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					camera.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+
+		if (std::holds_alternative<std::monostate>(value)) {
+			return Error::InvalidGltf;
+		} else {
+			std::visit([&camera](auto&& value) {
+				if constexpr (!std::is_same_v<std::decay_t<decltype(value)>, std::monostate>)
+					camera.camera = value;
+			}, value);
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseExtensions(yyjson_val* extensions_array, Asset& asset) {
+	std::size_t idx, max;
+	yyjson_val *ext_key, *ext_val;
+	yyjson_obj_foreach(extensions_array, idx, max, ext_key, ext_val) {
+		if (!unsafe_yyjson_is_obj(ext_val)) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		switch (crcStringFunction(unsafe_yyjson_get_str(ext_key))) {
+			case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
+				if (!hasBit(extensions, Extensions::KHR_lights_punctual))
+					break;
+
+				auto* lightsArray = yyjson_obj_get(ext_val, "lights");
+				if (lightsArray != nullptr)
+					if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
+						return lightsError;
+				break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(images)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.images.reserve(unsafe_yyjson_get_len(images));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(images, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& image = asset.images.emplace_back();
+
+		std::variant<std::monostate, URI, std::size_t> dataSource;
+		MimeType mimeType = MimeType::None;
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("uri")>: {
+					if (std::holds_alternative<std::size_t>(dataSource)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					URI uri(std::string_view(yyjson_get_str(val)));
+					if (!uri.valid()) FASTGLTF_UNLIKELY {
+						return Error::InvalidURI;
+					}
+					dataSource = std::move(uri);
+					break;
+				}
+				case force_consteval<crc32c("mimeType")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					mimeType = getMimeType(unsafe_yyjson_get_str(val));
+					break;
+				}
+				case force_consteval<crc32c("bufferView")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					dataSource = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					image.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+
+		if (auto* uri = std::get_if<URI>(&dataSource); uri) {
+			if (uri->isDataUri()) {
+				auto [error, source] = decodeDataUri(*uri);
+				if (error != Error::None) FASTGLTF_UNLIKELY {
+					return error;
+				}
+
+				image.data = std::move(source);
+			} else if (uri->isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
+				auto [error, source] = loadFileFromUri(*uri);
+				if (error != Error::None) FASTGLTF_UNLIKELY {
+					return error;
+				}
+
+				image.data = std::move(source);
+			} else {
+				sources::URI filePath;
+				filePath.fileByteOffset = 0;
+				filePath.uri = std::move(*uri);
+				image.data = std::move(filePath);
+			}
+		} else if (auto* viewIndex = std::get_if<std::size_t>(&dataSource); viewIndex) {
+			sources::BufferView bufferView {
+				.bufferViewIndex = *viewIndex,
+			};
+			image.data = bufferView;
+		} else {
+			return Error::InvalidGltf;
+		}
+
+		// Only override if a mime type has been explicitly set.
+		if (mimeType != MimeType::None) {
+			std::visit([&](auto& arg) {
+				using T = std::decay_t<decltype(arg)>;
+
+				// This is kinda cursed
+				if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>()) {
+					arg.mimeType = mimeType;
+				}
+			}, image.data);
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseLights(yyjson_val* lights, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(lights)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.lights.reserve(unsafe_yyjson_get_len(lights));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(lights, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& light = asset.lights.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("color")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (unsafe_yyjson_get_len(val) != light.color.size()) {
+						return Error::InvalidGltf;
+					}
+
+					std::size_t i, m;
+					yyjson_val* color_val;
+					yyjson_arr_foreach(val, i, m, color_val) {
+						if (!unsafe_yyjson_is_num(color_val) || m != 3) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						light.color[i] = static_cast<num>(unsafe_yyjson_get_num(color_val));
+					}
+					break;
+				}
+				case force_consteval<crc32c("intensity")>: {
+					if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					light.intensity = static_cast<num>(unsafe_yyjson_get_num(val));
+					break;
+				}
+				case force_consteval<crc32c("type")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					switch (crcStringFunction(unsafe_yyjson_get_str(val))) {
+						case force_consteval<crc32c("directional")>: {
+							light.type = LightType::Directional;
+							break;
+						}
+						case force_consteval<crc32c("spot")>: {
+							light.type = LightType::Spot;
+							break;
+						}
+						case force_consteval<crc32c("point")>: {
+							light.type = LightType::Point;
+							break;
+						}
+						default: {
+							return Error::InvalidGltf;
+						}
+					}
+					break;
+				}
+				case force_consteval<crc32c("range")>: {
+					if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					light.range = static_cast<num>(unsafe_yyjson_get_num(val));
+					break;
+				}
+				case force_consteval<crc32c("spot")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					auto* innerConeAngle = yyjson_obj_get(val, "innerConeAngle");
+					if (innerConeAngle != nullptr) {
+						if (!yyjson_is_num(innerConeAngle)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						light.innerConeAngle = static_cast<num>(unsafe_yyjson_get_num(innerConeAngle));
+					} else {
+						light.outerConeAngle = static_cast<num>(0.);
+					}
+
+					auto* outerConeAngle = yyjson_obj_get(val, "outerConeAngle");
+					if (outerConeAngle != nullptr) {
+						if (!yyjson_is_num(outerConeAngle)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						light.outerConeAngle = static_cast<num>(unsafe_yyjson_get_num(outerConeAngle));
+					} else {
+						light.outerConeAngle = static_cast<num>(math::pi / 4.);
+					}
+
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					light.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+
+		if (light.range.has_value() && light.type == LightType::Directional) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		if ((light.innerConeAngle.has_value() || light.outerConeAngle.has_value()) && light.type != LightType::Spot) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseMaterialExtensions(yyjson_val* extensions, Material& asset) {
+	std::size_t idx, max;
+	yyjson_val *key, *val;
+	yyjson_obj_foreach(extensions, idx, max, key, val) {
+
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseMaterialPBR(yyjson_val* object, fastgltf::PBRData& pbr) {
+	if (!unsafe_yyjson_is_obj(object)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	std::size_t idx, max;
+	yyjson_val *key, *val;
+	yyjson_obj_foreach(object, idx, max, key, val) {
+		std::string_view keyStr(yyjson_get_str(key));
+		auto hashedKey = crcStringFunction(keyStr);
+
+		switch (hashedKey) {
+			case force_consteval<crc32c("baseColorFactor")>: {
+				if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				if (unsafe_yyjson_get_len(val) != pbr.baseColorFactor.size()) {
+					return Error::InvalidGltf;
+				}
+
+				std::size_t i, m;
+				yyjson_val* color_val;
+				yyjson_arr_foreach(val, i, m, color_val) {
+					if (!unsafe_yyjson_is_num(color_val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					pbr.baseColorFactor[i] = static_cast<num>(
+							unsafe_yyjson_get_num(color_val));
+				}
+				break;
+			}
+			case force_consteval<crc32c("baseColorTexture")>: {
+				if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo baseColorTexture {};
+				if (auto textureError = parseTextureInfo(val, &baseColorTexture); textureError != Error::None)
+					return textureError;
+				pbr.baseColorTexture = std::move(baseColorTexture);
+				break;
+			}
+			case force_consteval<crc32c("metallicFactor")>: {
+				if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				pbr.metallicFactor = static_cast<num>(
+						unsafe_yyjson_get_num(val));
+				break;
+			}
+			case force_consteval<crc32c("roughnessFactor")>: {
+				if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				pbr.roughnessFactor = static_cast<num>(
+						unsafe_yyjson_get_num(val));
+				break;
+			}
+			case force_consteval<crc32c("metallicRoughnessTexture")>: {
+				if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo metallicRoughnessTexture {};
+				if (auto pbrError = parseTextureInfo(val, &metallicRoughnessTexture); pbrError != Error::None)
+					return pbrError;
+				pbr.metallicRoughnessTexture = std::move(metallicRoughnessTexture);
+				break;
+			}
+			default: break;
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseTextureInfo(yyjson_val* object, fastgltf::TextureInfo* info,
+											   fastgltf::TextureInfoType type) {
+	if (!unsafe_yyjson_is_obj(object)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	std::size_t idx, max;
+	yyjson_val *key, *val;
+	yyjson_obj_foreach(object, idx, max, key, val) {
+		std::string_view keyStr(yyjson_get_str(key));
+
+		switch (crcStringFunction(keyStr)) {
+			case force_consteval<crc32c("index")>: {
+				if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+
+				info->textureIndex = static_cast<std::size_t>(
+						unsafe_yyjson_get_uint(val));
+				break;
+			}
+			case force_consteval<crc32c("texCoord")>: {
+				if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+
+				info->texCoordIndex = static_cast<std::size_t>(
+						unsafe_yyjson_get_uint(val));
+				break;
+			}
+			case force_consteval<crc32c("scale")>: {
+				if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+				if (type != TextureInfoType::NormalTexture) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+
+				reinterpret_cast<NormalTextureInfo*>(info)->scale =
+						static_cast<num>(unsafe_yyjson_get_num(val));
+				break;
+			}
+			case force_consteval<crc32c("strength")>: {
+				if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+				if (type != TextureInfoType::OcclusionTexture) FASTGLTF_UNLIKELY
+					return Error::InvalidGltf;
+
+				reinterpret_cast<OcclusionTextureInfo*>(info)->strength =
+						static_cast<num>(unsafe_yyjson_get_num(val));
+				break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseMaterials(yyjson_val* materials, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(materials)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.materials.reserve(unsafe_yyjson_get_len(materials));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(materials, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& material = asset.materials.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("pbrMetallicRoughness")>: {
+					if (auto pbrError = parseMaterialPBR(val, material.pbrData); pbrError != Error::None)
+						return pbrError;
+					break;
+				}
+				case force_consteval<crc32c("normalTexture")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					NormalTextureInfo normalTexture {};
+					if (auto textureError = parseTextureInfo(val, &normalTexture, TextureInfoType::NormalTexture); textureError != Error::None)
+						return textureError;
+					material.normalTexture = std::move(normalTexture);
+					break;
+				}
+				case force_consteval<crc32c("occlusionTexture")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					OcclusionTextureInfo occlusionTexture {};
+					if (auto textureError = parseTextureInfo(val, &occlusionTexture, TextureInfoType::OcclusionTexture); textureError != Error::None)
+						return textureError;
+					material.occlusionTexture = std::move(occlusionTexture);
+					break;
+				}
+				case force_consteval<crc32c("emissiveTexture")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					TextureInfo emissiveTexture {};
+					if (auto textureError = parseTextureInfo(val, &emissiveTexture); textureError != Error::None)
+						return textureError;
+					material.emissiveTexture = std::move(emissiveTexture);
+					break;
+				}
+				case force_consteval<crc32c("emissiveFactor")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (unsafe_yyjson_get_len(val) != material.emissiveFactor.size()) {
+						return Error::InvalidGltf;
+					}
+
+					std::size_t i, m;
+					yyjson_val* color_val;
+					yyjson_arr_foreach(val, i, m, color_val) {
+						if (!unsafe_yyjson_is_num(color_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						material.emissiveFactor[i] = static_cast<num>(
+								unsafe_yyjson_get_num(color_val));
+					}
+					break;
+				}
+				case force_consteval<crc32c("alphaMode")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					switch (crcStringFunction(unsafe_yyjson_get_str(val))) {
+						case force_consteval<crc32c("OPAQUE")>: {
+							material.alphaMode = AlphaMode::Opaque;
+							break;
+						}
+						case force_consteval<crc32c("MASK")>: {
+							material.alphaMode = AlphaMode::Mask;
+							break;
+						}
+						case force_consteval<crc32c("BLEND")>: {
+							material.alphaMode = AlphaMode::Blend;
+							break;
+						}
+						default: {
+							return Error::InvalidGltf;
+						}
+					}
+					break;
+				}
+				case force_consteval<crc32c("alphaCutoff")>: {
+					if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					material.alphaCutoff = static_cast<num>(
+							unsafe_yyjson_get_num(val));
+					break;
+				}
+				case force_consteval<crc32c("doubleSided")>: {
+					if (!unsafe_yyjson_is_bool(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					material.doubleSided = unsafe_yyjson_get_bool(val);
+					break;
+				}
+				case force_consteval<crc32c("extensions")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (auto extensionsError = parseMaterialExtensions(val, material); extensionsError != Error::None) FASTGLTF_UNLIKELY
+						return extensionsError;
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					material.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parsePrimitives(yyjson_val* primitives, Mesh& mesh) {
+	if (!unsafe_yyjson_is_arr(primitives)) FASTGLTF_UNLIKELY {
+		return Error::InvalidGltf;
+	}
+
+	mesh.primitives.reserve(unsafe_yyjson_get_len(primitives));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(primitives, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& primitive = mesh.primitives.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			switch (crcStringFunction(unsafe_yyjson_get_str(key))) {
+				case force_consteval<crc32c("attributes")>: {
+					if (!unsafe_yyjson_is_obj(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (auto attributeError = parseNodeAttributes(val, primitive.attributes); attributeError != Error::None) FASTGLTF_UNLIKELY
+						return attributeError;
+					break;
+				}
+				case force_consteval<crc32c("mode")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					primitive.type = static_cast<PrimitiveType>(
+							unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("indices")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					primitive.indicesAccessor = static_cast<std::size_t>(
+							unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("material")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					primitive.materialIndex = static_cast<std::size_t>(
+							unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("targets")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					primitive.targets.reserve(unsafe_yyjson_get_len(val));
+
+					std::size_t target_idx, target_max;
+					yyjson_val* target_val;
+					yyjson_arr_foreach(val, target_idx, target_max, target_val) {
+						if (!unsafe_yyjson_is_obj(target_val)) FASTGLTF_UNLIKELY
+							return Error::InvalidGltf;
+
+						if (auto attributeError = parseNodeAttributes(target_val, primitive.targets.emplace_back()); attributeError != Error::None) FASTGLTF_UNLIKELY
+							return attributeError;
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseMeshes(yyjson_val* meshes, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(meshes)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.meshes.reserve(unsafe_yyjson_get_len(meshes));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(meshes, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& mesh = asset.meshes.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			switch (crcStringFunction(yyjson_get_str(key))) {
+				case force_consteval<crc32c("primitives")>: {
+					if (auto primitiveError = parsePrimitives(val, mesh); primitiveError != Error::None) FASTGLTF_UNLIKELY
+						return primitiveError;
+					break;
+				}
+				case force_consteval<crc32c("weights")>: {
+					if (!unsafe_yyjson_is_arr(arr_val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					mesh.weights.reserve(yyjson_arr_size(arr_val));
+
+					std::size_t i, m;
+					yyjson_val* weight_val;
+					yyjson_arr_foreach(arr_val, i, m, weight_val) {
+						if (!unsafe_yyjson_is_num(weight_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						mesh.weights.emplace_back(static_cast<num>(
+								unsafe_yyjson_get_num(weight_val)));
+					}
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					mesh.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+template <typename T> fg::Error fgi::yyjson_parser::parseNodeAttributes(yyjson_val* object, T& attributes) {
+	if (!unsafe_yyjson_is_obj(object)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	// We iterate through the JSON object and write each key/pair value into the
+	// attribute map. The keys are only validated in the validate() method.
+	attributes = std::decay_t<decltype(attributes)>(0);
+	// attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
+	attributes.reserve(unsafe_yyjson_get_len(object));
+
+	std::size_t idx, max;
+	yyjson_val *key, *val;
+	yyjson_obj_foreach(object, idx, max, key, val) {
+		if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		attributes.emplace_back(Attribute {
+				std::pmr::string(unsafe_yyjson_get_str(key)),
+				//FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), unsafe_yyjson_get_str(key)),
+				static_cast<std::size_t>(unsafe_yyjson_get_uint(val)),
+		});
+	}
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseNodes(yyjson_val* nodes, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(nodes)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.nodes.reserve(unsafe_yyjson_get_len(nodes));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(nodes, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& node = asset.nodes.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("mesh")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					node.meshIndex = static_cast<std::size_t>(yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("skin")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					node.skinIndex = static_cast<std::size_t>(yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("camera")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					node.cameraIndex = static_cast<std::size_t>(yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("children")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					node.children.reserve(yyjson_arr_size(val));
+
+					std::size_t i, m;
+					yyjson_val* idx_val;
+					yyjson_arr_foreach(val, i, m, idx_val) {
+						if (!unsafe_yyjson_is_uint(idx_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						node.children.emplace_back(unsafe_yyjson_get_uint(idx_val));
+					}
+					break;
+				}
+				case force_consteval<crc32c("weights")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					node.weights.reserve(yyjson_arr_size(val));
+
+					std::size_t i, m;
+					yyjson_val* weight_val;
+					yyjson_arr_foreach(val, i, m, weight_val) {
+						if (!unsafe_yyjson_is_num(weight_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						node.weights.emplace_back(static_cast<num>(
+								unsafe_yyjson_get_num(weight_val)));
+					}
+					break;
+				}
+				case force_consteval<crc32c("matrix")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					math::fmat4x4 transformMatrix;
+
+					if (unsafe_yyjson_get_len(val) != transformMatrix.size()) {
+						return Error::InvalidGltf;
+					}
+
+					std::size_t i, m;
+					yyjson_val* matrix_val;
+					yyjson_arr_foreach(val, i, m, matrix_val) {
+						if (!unsafe_yyjson_is_num(matrix_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						transformMatrix[i >> 2][i & 3] = static_cast<float>(
+								unsafe_yyjson_get_num(matrix_val));
+					}
+
+					if (hasBit(options, Options::DecomposeNodeMatrices)) {
+						TRS trs = {};
+						math::decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
+						node.transform = trs;
+					} else {
+						node.transform = transformMatrix;
+					}
+					break;
+				}
+				case force_consteval<crc32c("translation")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (std::holds_alternative<math::fmat4x4>(node.transform)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					auto& translation = std::get_if<TRS>(&node.transform)->translation;
+
+					if (unsafe_yyjson_get_len(val) != translation.size()) {
+						return Error::InvalidGltf;
+					}
+
+					std::size_t i, m;
+					yyjson_val* matrix_val;
+					yyjson_arr_foreach(val, i, m, matrix_val) {
+						if (!unsafe_yyjson_is_num(matrix_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						translation[i] = static_cast<float>(
+								unsafe_yyjson_get_num(matrix_val));
+					}
+					break;
+				}
+				case force_consteval<crc32c("rotation")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (std::holds_alternative<math::fmat4x4>(node.transform)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					auto& rotation = std::get_if<TRS>(&node.transform)->rotation;
+
+					if (unsafe_yyjson_get_len(val) != rotation.size()) {
+						return Error::InvalidGltf;
+					}
+
+					std::size_t i, m;
+					yyjson_val* matrix_val;
+					yyjson_arr_foreach(val, i, m, matrix_val) {
+						if (!unsafe_yyjson_is_num(matrix_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						rotation[i] = static_cast<float>(
+								unsafe_yyjson_get_num(matrix_val));
+					}
+					break;
+				}
+				case force_consteval<crc32c("scale")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					if (std::holds_alternative<math::fmat4x4>(node.transform)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					auto& scale = std::get_if<TRS>(&node.transform)->scale;
+
+					if (unsafe_yyjson_get_len(val) != scale.size()) {
+						return Error::InvalidGltf;
+					}
+
+					std::size_t i, m;
+					yyjson_val* matrix_val;
+					yyjson_arr_foreach(val, i, m, matrix_val) {
+						if (!unsafe_yyjson_is_num(matrix_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						scale[i] = static_cast<float>(
+								unsafe_yyjson_get_num(matrix_val));
+					}
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					node.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseSamplers(yyjson_val* samplers, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(samplers)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.samplers.reserve(unsafe_yyjson_get_len(samplers));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(samplers, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& sampler = asset.samplers.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("magFilter")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					sampler.magFilter = static_cast<Filter>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("minFilter")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					sampler.minFilter = static_cast<Filter>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("wrapS")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					sampler.wrapS = static_cast<Wrap>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("wrapT")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					sampler.wrapT = static_cast<Wrap>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					sampler.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseScenes(yyjson_val* scenes, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(scenes)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.scenes.reserve(unsafe_yyjson_get_len(scenes));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(scenes, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& scene = asset.scenes.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("nodes")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					scene.nodeIndices.reserve(yyjson_arr_size(val));
+
+					std::size_t i, m;
+					yyjson_val* idx_val;
+					yyjson_arr_foreach(val, i, m, idx_val) {
+						if (!unsafe_yyjson_is_uint(idx_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						scene.nodeIndices.emplace_back(unsafe_yyjson_get_uint(idx_val));
+					}
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					scene.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+
+		if (scene.nodeIndices.size() < 1)
+			return Error::InvalidGltf;
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseSkins(yyjson_val* skins, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(skins)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.skins.reserve(unsafe_yyjson_get_len(skins));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(skins, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& skin = asset.skins.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("inverseBindMatrices")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					skin.inverseBindMatrices = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("skeleton")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					skin.skeleton = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("joints")>: {
+					if (!unsafe_yyjson_is_arr(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					skin.joints.reserve(yyjson_arr_size(val));
+
+					std::size_t i, m;
+					yyjson_val* joints_val;
+					yyjson_arr_foreach(val, i, m, joints_val) {
+						if (!unsafe_yyjson_is_uint(joints_val)) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+
+						skin.joints.emplace_back(
+								static_cast<std::size_t>(unsafe_yyjson_get_uint(joints_val)));
+					}
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					skin.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fgi::yyjson_parser::parseTextures(yyjson_val* textures, Asset& asset) {
+	if (!unsafe_yyjson_is_arr(textures)) FASTGLTF_UNLIKELY
+		return Error::InvalidGltf;
+
+	asset.textures.reserve(unsafe_yyjson_get_len(textures));
+
+	std::size_t arr_idx, arr_max;
+	yyjson_val* arr_val;
+	yyjson_arr_foreach(textures, arr_idx, arr_max, arr_val) {
+		if (!yyjson_is_obj(arr_val)) FASTGLTF_UNLIKELY
+			return Error::InvalidGltf;
+
+		auto& texture = asset.textures.emplace_back();
+
+		std::size_t idx, max;
+		yyjson_val *key, *val;
+		yyjson_obj_foreach(arr_val, idx, max, key, val) {
+			std::string_view keyStr(yyjson_get_str(key));
+			auto hashedKey = crcStringFunction(keyStr);
+
+			switch (hashedKey) {
+				case force_consteval<crc32c("source")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					texture.imageIndex = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("sampler")>: {
+					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					texture.samplerIndex = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+					break;
+				}
+				case force_consteval<crc32c("name")>: {
+					if (!unsafe_yyjson_is_str(val)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					texture.name = std::string(unsafe_yyjson_get_str(val));
+					break;
+				}
+				default: break;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfJson(
+		fastgltf::GltfDataGetter& data, std::filesystem::path _directory,
+		fastgltf::Options _options, fastgltf::Category categories) {
+
+	options = _options;
+	directory = std::move(_directory);
+
+	data.reset();
+	auto jsonSpan = data.read(data.totalSize(), 0);
+
+	yyjson_read_err err;
+	yyjson_read_flag flg = 0;
+	auto doc = std::unique_ptr<yyjson_doc>(
+			yyjson_read_opts((char*)jsonSpan.data(), jsonSpan.size(), flg, nullptr, &err));
+
+	if (!doc) {
+		printf("read error: %s, code: %u at byte position: %lu\n",
+			   err.msg, err.code, err.pos);
+		return Error::InvalidJson;
+	}
+
+	return parse(std::move(doc), categories);
+}
+
+fg::Expected<fg::Asset> fgi::yyjson_parser::loadGltfBinary(
+		fastgltf::GltfDataGetter& data, std::filesystem::path _directory,
+		fastgltf::Options _options, fastgltf::Category categories) {
+
+	options = _options;
+	directory = std::move(_directory);
+
+	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
+	if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
+		return Error::InvalidPath;
+	}
+
+	data.reset();
+
+	auto header = readBinaryHeader(data);
+	if (header.magic != binaryGltfHeaderMagic) {
+		return Error::InvalidGLB;
+	}
+	if (header.version != 2) {
+		return Error::UnsupportedVersion;
+	}
+	if (header.length > data.totalSize()) {
+		return Error::InvalidGLB;
+	}
+
+	// The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
+	//  1. JSON chunk
+	//  2. BIN chunk (optional)
+	auto jsonChunk = readBinaryChunk(data);
+	if (jsonChunk.chunkType != binaryGltfJsonChunkMagic) {
+		return Error::InvalidGLB;
+	}
+
+	// Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
+	// says the padding can be initialised to anything, apparently. Therefore, this should work.
+	auto jsonSpan = data.read(jsonChunk.chunkLength, 0);
+
+	yyjson_read_flag flg = 0;
+	auto doc = std::unique_ptr<yyjson_doc>(
+			yyjson_read_opts((char*)jsonSpan.data(), jsonSpan.size(), flg, nullptr, nullptr));
+
+	if (!doc) {
+		return Error::InvalidJson;
+	}
+
+	// Is there enough room for another chunk header?
+	if (header.length > (data.bytesRead() + sizeof(BinaryGltfChunk))) {
+		auto binaryChunk = readBinaryChunk(data);
+
+		if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
+			return Error::InvalidGLB;
+		}
+
+		// TODO: Somehow allow skipping the binary part in the future?
+		if (binaryChunk.chunkLength != 0) {
+			if (mapCallback != nullptr) {
+				auto info = mapCallback(binaryChunk.chunkLength, userPointer);
+				if (info.mappedMemory != nullptr) {
+					data.read(info.mappedMemory, binaryChunk.chunkLength);
+					if (unmapCallback != nullptr) {
+						unmapCallback(&info, userPointer);
+					}
+					glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
+				}
+			} else {
+				StaticVector<std::byte> binaryData(binaryChunk.chunkLength);
+				data.read(binaryData.data(), binaryChunk.chunkLength);
+
+				sources::Array vectorData {
+					std::move(binaryData),
+					MimeType::GltfBuffer,
+				};
+				glbBuffer = std::move(vectorData);
+			}
+		}
+	}
+
+	return parse(std::move(doc), categories);
 }
 #pragma endregion
 

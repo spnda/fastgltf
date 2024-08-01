@@ -76,6 +76,7 @@ TEST_CASE("Extension EXT_meshopt_compression", "[gltf-loader]") {
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
+	REQUIRE(asset->bufferViews.size() >= 8);
 	for (auto i = 0; i < 8; ++i) {
 		REQUIRE(bool(asset->bufferViews[i].meshoptCompression));
 	}

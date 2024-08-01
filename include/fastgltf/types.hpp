@@ -2092,10 +2092,10 @@ namespace fastgltf {
     FASTGLTF_EXPORT struct Light {
         LightType type;
         /** RGB light color in linear space. */
-        math::nvec3 color;
+        math::nvec3 color = math::nvec3(1.);
 
         /** Point and spot lights use candela (lm/sr) while directional use lux (lm/m^2) */
-        num intensity;
+        num intensity = num(0.);
         /** Range for point and spot lights. If not present, range is infinite. */
         Optional<num> range;
 
