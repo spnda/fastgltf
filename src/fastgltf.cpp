@@ -187,11 +187,12 @@ namespace fastgltf {
 		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang
 		// than using a std::size_t i = 0.
 		auto length = static_cast<std::int64_t>(len);
-		while ((length -= sizeof(std::uint64_t)) >= 0) {
+		while (length >= sizeof(std::uint64_t)) {
 			std::uint64_t value;
 			std::memcpy(&value, d, sizeof value);
 			crc = __crc32cd(crc, value);
 			d += sizeof value;
+			length -= sizeof(std::uint64_t);
 		}
 
 		if (length & sizeof(std::uint32_t)) {
@@ -576,7 +577,7 @@ namespace fastgltf::internal {
 
 		Expected<Asset> parse(std::unique_ptr<yyjson_doc>&& doc, Category categories);
 
-		Error parseAccessorBounds(yyjson_val* array, decltype(Accessor::max)& bounds);
+		Error parseAccessorBounds(yyjson_val* array, AccessorBounds::BoundsVector& bounds);
 		Error parseAccessors(yyjson_val* accessors, Asset& asset);
 		Error parseAnimationChannels(yyjson_val* array, Animation& animation);
 		Error parseAnimationSamplers(yyjson_val* array, Animation& animation);
@@ -603,7 +604,7 @@ namespace fastgltf::internal {
 
 	public:
 		explicit yyjson_parser(Extensions supported_extensions) noexcept;
-		~yyjson_parser();
+		~yyjson_parser() override;
 
 		[[nodiscard]] Expected<Asset> loadGltfJson(
 				GltfDataGetter& data, std::filesystem::path directory,
@@ -854,7 +855,7 @@ void fg::URI::decodePercents(std::string& x) noexcept {
 			continue;
 
 		// Read the next two chars and store them
-		std::array<char, 3> chars = {x[i + 1], x[i + 2]};
+		std::array<char, 2> chars = {x[i + 1], x[i + 2]};
 		x[i] = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
 		x.erase(i + 1, 2);
 	}
@@ -888,7 +889,7 @@ bool fg::URI::isDataUri() const noexcept {
 #pragma endregion
 
 #pragma region generic parser interface
-fgi::parser_interface::parser_interface(fastgltf::Extensions supported_extensions) noexcept {
+fgi::parser_interface::parser_interface(Extensions supported_extensions) noexcept {
 	extensions = supported_extensions;
 }
 
@@ -911,9 +912,9 @@ fg::Expected<fg::DataSource> fgi::parser_interface::decodeDataUri(const URIView&
 		auto info = mapCallback(size, userPointer);
 		if (info.mappedMemory != nullptr) {
 			if (decodeCallback != nullptr) {
-				decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding, size, userPointer);
+				decodeCallback(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding, size, userPointer);
 			} else {
-				base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding);
+				base64::decode_inplace(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding);
 			}
 
 			if (unmapCallback != nullptr) {
@@ -929,7 +930,7 @@ fg::Expected<fg::DataSource> fgi::parser_interface::decodeDataUri(const URIView&
 
 	// Decode the base64 data into a traditional vector
 	auto padding = base64::getPadding(encodedData);
-	fg::StaticVector<std::byte> uriData(base64::getOutputSize(encodedData.size(), padding));
+	StaticVector<std::byte> uriData(base64::getOutputSize(encodedData.size(), padding));
 	if (decodeCallback != nullptr) {
 		decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(uriData.data()), padding, uriData.size(), userPointer);
 	} else {
@@ -990,7 +991,7 @@ fg::Expected<fg::DataSource> fgi::parser_interface::loadFileFromUri(const URIVie
 		auto info = mapCallback(static_cast<std::uint64_t>(length), userPointer);
 		if (info.mappedMemory != nullptr) {
 			const sources::CustomBuffer customBufferSource = { info.customId };
-			file.read(reinterpret_cast<char*>(info.mappedMemory), length);
+			file.read(static_cast<char*>(info.mappedMemory), length);
 			if (unmapCallback != nullptr) {
 				unmapCallback(&info, userPointer);
 			}
@@ -1149,15 +1150,15 @@ fg::Error fgi::parser_interface::postProcessAsset(fastgltf::Asset& asset) const 
 }
 
 fg::Expected<fg::Asset> fgi::parser_interface::loadGltf(
-		fastgltf::GltfDataGetter &data, std::filesystem::path _directory,
-		fastgltf::Options _options, fastgltf::Category categories) {
-	auto type = fastgltf::determineGltfFileType(data);
+		GltfDataGetter &data, std::filesystem::path _directory,
+		Options _options, Category categories) {
+	auto type = determineGltfFileType(data);
 
-	if (type == fastgltf::GltfType::glTF) {
+	if (type == GltfType::glTF) {
 		return loadGltfJson(data, std::move(_directory), _options, categories);
 	}
 
-	if (type == fastgltf::GltfType::GLB) {
+	if (type == GltfType::GLB) {
 		return loadGltfBinary(data, std::move(_directory), _options, categories);
 	}
 
@@ -1166,7 +1167,7 @@ fg::Expected<fg::Asset> fgi::parser_interface::loadGltf(
 #pragma endregion
 
 #pragma region simdjson parser
-fgi::simdjson_parser::simdjson_parser(fastgltf::Extensions supported_extensions) noexcept : parser_interface(supported_extensions) {}
+fgi::simdjson_parser::simdjson_parser(Extensions supported_extensions) noexcept : parser_interface(supported_extensions) {}
 
 template <typename T> fg::Error fgi::simdjson_parser::parseAttributes(simdjson::dom::object& object, T& attributes) {
 	using namespace simdjson;
@@ -1183,8 +1184,8 @@ template <typename T> fg::Error fgi::simdjson_parser::parseAttributes(simdjson::
 			return Error::InvalidGltf;
 		}
 		attributes.emplace_back(Attribute {
-				FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key),
-				static_cast<std::size_t>(accessorIndex),
+			FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key),
+			static_cast<std::size_t>(accessorIndex),
 		});
 	}
 	return Error::None;
@@ -1404,20 +1405,11 @@ fg::Error fgi::simdjson_parser::parseAccessors(simdjson::dom::array& accessors, 
 		}
 
 		// Type of min and max should always be the same.
-		auto parseMinMax = [&](std::string_view key, decltype(Accessor::max)& ref) -> fastgltf::Error {
+		auto parseMinMax = [&](std::string_view key, AccessorBounds::BoundsVector& ref) -> fastgltf::Error {
 			dom::array elements;
-			if (accessorObject[key].get_array().get(elements) == SUCCESS) FASTGLTF_LIKELY {
-				decltype(Accessor::max) variant;
-
-				using double_vec = std::variant_alternative_t<1, decltype(Accessor::max)>;
-				using int64_vec = std::variant_alternative_t<2, decltype(Accessor::max)>;
-
+			if (auto boundsError = accessorObject[key].get_array().get(elements); boundsError == SUCCESS) FASTGLTF_LIKELY {
 				auto num = getNumComponents(accessor.type);
-				if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
-					variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(double_vec, resourceAllocator.get(), num);
-				} else {
-					variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(int64_vec, resourceAllocator.get(), num);
-				}
+				ref = FASTGLTF_CONSTRUCT_PMR_RESOURCE(AccessorBounds::BoundsVector, resourceAllocator.get(), num);
 
 				std::size_t idx = 0;
 				for (auto element : elements) {
@@ -1429,13 +1421,7 @@ fg::Error fgi::simdjson_parser::parseAccessors(simdjson::dom::array& accessors, 
 								return Error::InvalidGltf;
 							}
 
-							if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-								(*doubles)[idx++] = value;
-							} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-								(*ints)[idx++] = static_cast<std::int64_t>(value);
-							} else {
-								return Error::InvalidGltf;
-							}
+							ref[idx++] = value;
 							break;
 						}
 						case dom::element_type::INT64: {
@@ -1444,13 +1430,7 @@ fg::Error fgi::simdjson_parser::parseAccessors(simdjson::dom::array& accessors, 
 								return Error::InvalidGltf;
 							}
 
-							if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-								(*doubles)[idx++] = static_cast<double>(value);
-							} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-								(*ints)[idx++] = value;
-							} else {
-								return Error::InvalidGltf;
-							}
+							ref[idx++] = static_cast<double>(value);
 							break;
 						}
 						case dom::element_type::UINT64: {
@@ -1462,28 +1442,35 @@ fg::Error fgi::simdjson_parser::parseAccessors(simdjson::dom::array& accessors, 
 								return Error::InvalidGltf;
 							}
 
-							if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-								(*doubles)[idx++] = static_cast<double>(value);
-							} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-								(*ints)[idx++] = static_cast<std::int64_t>(value);
-							} else {
-								return Error::InvalidGltf;
-							}
+							ref[idx++] = static_cast<double>(value);
 							break;
 						}
 						default: return Error::InvalidGltf;
 					}
 				}
-				ref = std::move(variant);
+			} else if (boundsError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			} else {
+				return Error::MissingField;
 			}
 			return Error::None;
 		};
 
-		if (auto error = parseMinMax("max", accessor.max); error != Error::None) {
+		AccessorBounds bounds;
+
+		if (auto error = parseMinMax("max", bounds.max); error != Error::None) {
 			return error;
+		} else if (error == Error::None) {
+			accessor.bounds.emplace() = std::move(bounds);
 		}
-		if (auto error = parseMinMax("min", accessor.min); error != Error::None) {
+
+		if (auto error = parseMinMax("min", bounds.min); error != Error::None) {
 			return error;
+		} else if (error == Error::None) {
+			if (accessor.bounds.has_value())
+				accessor.bounds->min = std::move(bounds.min);
+			else
+				accessor.bounds.emplace() = std::move(bounds);
 		}
 
 		if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
@@ -2099,6 +2086,7 @@ fg::Error fgi::simdjson_parser::parseExtensions(simdjson::dom::object& extension
 				}
 				break;
 			}
+			default: break;
 		}
 	}
 
@@ -3817,13 +3805,13 @@ fg::Expected<fg::Asset> fgi::yyjson_parser::parse(std::unique_ptr<yyjson_doc>&& 
 	return std::move(asset);
 }
 
-fg::Error fgi::yyjson_parser::parseAccessorBounds(yyjson_val* array, decltype(Accessor::max)& bounds) {
+fg::Error fgi::yyjson_parser::parseAccessorBounds(yyjson_val* array, AccessorBounds::BoundsVector& bounds) {
 	if (!unsafe_yyjson_is_arr(array)) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
 
-	std::pmr::vector<double> vec;
-	vec.reserve(unsafe_yyjson_get_len(array));
+	bounds = AccessorBounds::BoundsVector(unsafe_yyjson_get_len(array));
+	//bounds = AccessorBounds::BoundsVector(unsafe_yyjson_get_len(array), resourceAllocator.get());
 
 	std::size_t idx, max;
 	yyjson_val* val;
@@ -3831,10 +3819,8 @@ fg::Error fgi::yyjson_parser::parseAccessorBounds(yyjson_val* array, decltype(Ac
 		if (!unsafe_yyjson_is_num(val)) FASTGLTF_UNLIKELY
 			return Error::InvalidGltf;
 
-		vec.emplace_back(unsafe_yyjson_get_num(val));
+		bounds[idx] = unsafe_yyjson_get_num(val);
 	}
-
-	bounds = std::move(vec);
 
 	return Error::None;
 }
@@ -3909,13 +3895,15 @@ fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, Asset& asset
 					break;
 				}
 				case force_consteval<crc32c("max")>: {
-					if (auto boundsError = parseAccessorBounds(val, accessor.max); boundsError != Error::None) FASTGLTF_UNLIKELY {
+					auto& bounds = accessor.bounds ? *accessor.bounds : accessor.bounds.emplace();
+					if (auto boundsError = parseAccessorBounds(val, bounds.max); boundsError != Error::None) FASTGLTF_UNLIKELY {
 						return boundsError;
 					}
 					break;
 				}
 				case force_consteval<crc32c("min")>: {
-					if (auto boundsError = parseAccessorBounds(val, accessor.min); boundsError != Error::None) FASTGLTF_UNLIKELY {
+					auto& bounds = accessor.bounds ? *accessor.bounds : accessor.bounds.emplace();
+					if (auto boundsError = parseAccessorBounds(val, bounds.min); boundsError != Error::None) FASTGLTF_UNLIKELY {
 						return boundsError;
 					}
 					break;
@@ -3936,11 +3924,11 @@ fg::Error fgi::yyjson_parser::parseAccessors(yyjson_val* accessors, Asset& asset
 				}
 				default: break;
 			}
+		}
 
-			// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
-			if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || accessor.componentType == ComponentType::Float)) {
-				return Error::InvalidGltf;
-			}
+		// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
+		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || accessor.componentType == ComponentType::Float)) {
+			return Error::InvalidGltf;
 		}
 	}
 
@@ -4018,6 +4006,7 @@ fg::Error fgi::yyjson_parser::parseAnimationChannels(yyjson_val* channels, Anima
 					}
 					break;
 				}
+				default: break;
 			}
 		}
 	}
@@ -4482,6 +4471,7 @@ fg::Error fgi::yyjson_parser::parseExtensions(yyjson_val* extensions_array, Asse
 						return lightsError;
 				break;
 			}
+			default: break;
 		}
 	}
 
@@ -4502,7 +4492,6 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 
 		auto& image = asset.images.emplace_back();
 
-		std::variant<std::monostate, URI, std::size_t> dataSource;
 		MimeType mimeType = MimeType::None;
 
 		std::size_t idx, max;
@@ -4513,7 +4502,7 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 
 			switch (hashedKey) {
 				case force_consteval<crc32c("uri")>: {
-					if (std::holds_alternative<std::size_t>(dataSource)) FASTGLTF_UNLIKELY {
+					if (!std::holds_alternative<std::monostate>(image.data)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
 
@@ -4521,11 +4510,31 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 						return Error::InvalidGltf;
 					}
 
-					URI uri(std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)));
+					URIView uri(std::string_view(unsafe_yyjson_get_str(val), unsafe_yyjson_get_len(val)));
 					if (!uri.valid()) FASTGLTF_UNLIKELY {
 						return Error::InvalidURI;
 					}
-					dataSource = std::move(uri);
+
+					if (uri.isDataUri()) {
+						auto [error, source] = decodeDataUri(uri);
+						if (error != Error::None) FASTGLTF_UNLIKELY {
+							return error;
+						}
+
+						image.data = std::move(source);
+					} else if (uri.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
+						auto [error, source] = loadFileFromUri(uri);
+						if (error != Error::None) FASTGLTF_UNLIKELY {
+							return error;
+						}
+
+						image.data = std::move(source);
+					} else {
+						sources::URI filePath;
+						filePath.fileByteOffset = 0;
+						filePath.uri = uri;
+						image.data = std::move(filePath);
+					}
 					break;
 				}
 				case force_consteval<crc32c("mimeType")>: {
@@ -4540,7 +4549,15 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 					if (!unsafe_yyjson_is_uint(val)) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
 					}
-					dataSource = static_cast<std::size_t>(unsafe_yyjson_get_uint(val));
+
+					if (!std::holds_alternative<std::monostate>(image.data)) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					sources::BufferView bufferView {
+						.bufferViewIndex = static_cast<std::size_t>(unsafe_yyjson_get_uint(val)),
+					};
+					image.data = bufferView;
 					break;
 				}
 				case force_consteval<crc32c("name")>: {
@@ -4554,33 +4571,7 @@ fg::Error fgi::yyjson_parser::parseImages(yyjson_val* images, Asset& asset) {
 			}
 		}
 
-		if (auto* uri = std::get_if<URI>(&dataSource); uri) {
-			if (uri->isDataUri()) {
-				auto [error, source] = decodeDataUri(*uri);
-				if (error != Error::None) FASTGLTF_UNLIKELY {
-					return error;
-				}
-
-				image.data = std::move(source);
-			} else if (uri->isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
-				auto [error, source] = loadFileFromUri(*uri);
-				if (error != Error::None) FASTGLTF_UNLIKELY {
-					return error;
-				}
-
-				image.data = std::move(source);
-			} else {
-				sources::URI filePath;
-				filePath.fileByteOffset = 0;
-				filePath.uri = std::move(*uri);
-				image.data = std::move(filePath);
-			}
-		} else if (auto* viewIndex = std::get_if<std::size_t>(&dataSource); viewIndex) {
-			sources::BufferView bufferView {
-				.bufferViewIndex = *viewIndex,
-			};
-			image.data = bufferView;
-		} else {
+		if (std::holds_alternative<std::monostate>(image.data)) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
@@ -4863,6 +4854,7 @@ fg::Error fgi::yyjson_parser::parseTextureInfo(yyjson_val* object, TextureInfo* 
 						static_cast<num>(unsafe_yyjson_get_num(val));
 				break;
 			}
+			default: break;
 		}
 	}
 
@@ -5498,7 +5490,7 @@ fg::Error fgi::yyjson_parser::parseScenes(yyjson_val* scenes, Asset& asset) {
 			}
 		}
 
-		if (scene.nodeIndices.size() < 1)
+		if (scene.nodeIndices.empty())
 			return Error::InvalidGltf;
 	}
 
@@ -5787,14 +5779,10 @@ fg::Error fg::validate(const Asset& asset) {
 			}
 		}
 
-		if (!std::holds_alternative<std::monostate>(accessor.max)) {
-			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-				&& !std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor.max))
+		if (accessor.bounds) {
+			if (accessor.bounds->max.size() != accessor.bounds->min.size())
 				return Error::InvalidGltf;
-		}
-		if (!std::holds_alternative<std::monostate>(accessor.min)) {
-			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-				&& !std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor.min))
+			if (accessor.bounds->max.size() != getNumComponents(accessor.type))
 				return Error::InvalidGltf;
 		}
 
@@ -6036,7 +6024,7 @@ fg::Error fg::validate(const Asset& asset) {
 				const auto& accessor = asset.accessors[index];
 				if (name == "POSITION") {
 					// Animation input and vertex position attribute accessors MUST have accessor.min and accessor.max defined.
-					if (std::holds_alternative<std::monostate>(accessor.max) || std::holds_alternative<std::monostate>(accessor.min))
+					if (!accessor.bounds.has_value())
 						return Error::InvalidGltf;
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
@@ -6402,24 +6390,19 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
 		}
 
-		auto writeMinMax = [&](const decltype(Accessor::max)& ref, std::string_view name) {
-			if (std::holds_alternative<std::monostate>(ref))
-				return;
+		auto writeMinMax = [&](const AccessorBounds::BoundsVector& ref, std::string_view name) {
 			json += ",\"" + std::string(name) + "\":[";
-			std::visit(visitor {
-				[](std::monostate) {},
-				[&](const auto& arg) {
-					for (auto it = arg.begin(); it != arg.end(); ++it) {
-						json += std::to_string(*it);
-						if (uabs(std::distance(arg.begin(), it)) + 1 < arg.size())
-							json += ',';
-					}
-				}
-			}, ref);
+			for (auto it = ref.begin(); it != ref.end(); ++it) {
+				json += std::to_string(*it);
+				if (uabs(std::distance(ref.begin(), it)) + 1 < ref.size())
+					json += ',';
+			}
 			json += ']';
 		};
-		writeMinMax(it->max, "max");
-		writeMinMax(it->min, "min");
+		if (it->bounds) {
+			writeMinMax(it->bounds->max, "max");
+			writeMinMax(it->bounds->min, "min");
+		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.accessors.begin(), it)), fastgltf::Category::Accessors, userPointer);

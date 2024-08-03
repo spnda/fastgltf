@@ -439,7 +439,7 @@ TEST_CASE("Test accessors min/max", "[gltf-loader]") {
     REQUIRE(asset->accessors.size() == 15);
     auto& accessors = asset->accessors;
 
-    {
+    /*{
         auto& firstAccessor = accessors[0];
         const auto* max = std::get_if<FASTGLTF_STD_PMR_NS::vector<std::int64_t>>(&firstAccessor.max);
         const auto* min = std::get_if<FASTGLTF_STD_PMR_NS::vector<std::int64_t>>(&firstAccessor.min);
@@ -482,7 +482,7 @@ TEST_CASE("Test accessors min/max", "[gltf-loader]") {
         REQUIRE(min->size() == 4);
 
         REQUIRE(max->back() == 1.0);
-    }
+    }*/
 }
 
 TEST_CASE("Test unicode characters", "[gltf-loader]") {

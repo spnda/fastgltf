@@ -44,24 +44,52 @@ TEST_CASE("Test resize/reserve", "[vector-tests]") {
 }
 
 TEST_CASE("Test constructors", "[vector-tests]") {
-    fastgltf::SmallVector<uint32_t, 4> vec = {0, 1, 2, 3};
-    for (std::size_t i = 0; i < vec.size(); ++i) {
-        REQUIRE(vec[i] == i);
-    }
+	SECTION("Stack-allocated") {
+		fastgltf::SmallVector<std::uint32_t, 4> vec = {0, 1, 2, 3};
+		for (std::size_t i = 0; i < vec.size(); ++i) {
+			REQUIRE(vec[i] == i);
+		}
 
-    fastgltf::SmallVector<uint32_t, 4> vec2(vec);
-    for (std::size_t i = 0; i < vec2.size(); ++i) {
-        REQUIRE(vec2[i] == i);
-    }
+		fastgltf::SmallVector<std::uint32_t, 4> vec2(vec);
+		for (std::size_t i = 0; i < vec2.size(); ++i) {
+			REQUIRE(vec2[i] == i);
+		}
 
-    fastgltf::SmallVector<uint32_t, 4> vec3 = std::move(vec2);
-    REQUIRE(vec2.empty());
-    vec3.resize(6);
-    for (std::size_t i = 0; i < 4; ++i) {
-        REQUIRE(vec3[i] == i);
-    }
-    REQUIRE(vec3[4] == 0);
-    REQUIRE(vec3[5] == 0);
+		fastgltf::SmallVector<std::uint32_t, 4> vec3 = std::move(vec2);
+		REQUIRE(vec2.empty());
+		vec3.resize(6);
+		for (std::size_t i = 0; i < 4; ++i) {
+			REQUIRE(vec3[i] == i);
+		}
+		REQUIRE(vec3[4] == 0);
+		REQUIRE(vec3[5] == 0);
+	}
+
+	SECTION("Heap allocated") {
+		fastgltf::SmallVector<std::uint32_t, 2> vec = {0, 1, 2, 3};
+		for (std::size_t i = 0; i < vec.size(); ++i) {
+			REQUIRE(vec[i] == i);
+		}
+
+		fastgltf::SmallVector<std::uint32_t, 2> vec2(vec);
+		for (std::size_t i = 0; i < vec2.size(); ++i) {
+			REQUIRE(vec2[i] == i);
+		}
+
+		fastgltf::SmallVector<std::uint32_t, 2> vec3 = vec2;
+		for (std::size_t i = 0; i < vec3.size(); ++i) {
+			REQUIRE(vec2[i] == i);
+		}
+
+		fastgltf::SmallVector<std::uint32_t, 2> vec4 = std::move(vec2);
+		REQUIRE(vec2.empty());
+		vec4.resize(6);
+		for (std::size_t i = 0; i < 4; ++i) {
+			REQUIRE(vec4[i] == i);
+		}
+		REQUIRE(vec4[4] == 0);
+		REQUIRE(vec4[5] == 0);
+	}
 }
 
 TEST_CASE("Nested SmallVector", "[vector-tests]") {

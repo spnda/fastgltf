@@ -626,6 +626,9 @@ namespace fastgltf {
 
         alignas(T) std::array<std::byte, N * sizeof(T)> storage = {};
 
+#if FASTGLTF_CPP_20
+		[[no_unique_address]]
+#endif
 		Allocator allocator;
 
         T* _data;
@@ -687,13 +690,6 @@ namespace fastgltf {
 
         SmallVector& operator=(const SmallVector& other) {
             if (std::addressof(other) != this) {
-                if (!isUsingStack() && _data) {
-	                std::destroy(begin(), end());
-					allocator.deallocate(_data, _capacity);
-                    _data = reinterpret_cast<T*>(storage.data());
-                    _size = _capacity = 0;
-                }
-
                 resize(other.size());
                 copy(other.begin(), other.size(), begin());
             }
@@ -751,6 +747,10 @@ namespace fastgltf {
 
         [[nodiscard]] bool empty() const noexcept { return _size == 0; }
         [[nodiscard]] bool isUsingStack() const noexcept { return data() == reinterpret_cast<const T*>(storage.data()); }
+
+		[[nodiscard]] auto get_allocator() const noexcept {
+			return allocator;
+		}
 
         void reserve(std::size_t newCapacity) {
 	        static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
@@ -2027,6 +2027,15 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::string name;
     };
 
+	FASTGLTF_EXPORT struct AccessorBounds {
+		/* Accessor bounds match the component count, meaning they could
+		 * only ever be 1, 2, 3, 4, 9, or 16. Since matrices are rarely used,
+		 * it should be good enough to just pre-allocate 4 elements. */
+		using BoundsVector = FASTGLTF_FG_PMR_NS::SmallVector<double, 4>;
+		BoundsVector min;
+		BoundsVector max;
+	};
+
     FASTGLTF_EXPORT struct SparseAccessor {
         std::size_t count;
         std::size_t indicesBufferView;
@@ -2043,8 +2052,7 @@ namespace fastgltf {
         ComponentType componentType;
         bool normalized = false;
 
-        std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> max;
-        std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> min;
+		std::optional<AccessorBounds> bounds;
 
         // Could have no value for sparse morph targets
         Optional<std::size_t> bufferViewIndex;
