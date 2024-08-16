@@ -480,10 +480,10 @@ namespace fastgltf::math {
 			return (*this)[3];
 		}
 
-		[[nodiscard]] constexpr auto value_ptr() noexcept {
+		[[nodiscard]] constexpr auto data() noexcept {
 			return _data.data();
 		}
-		[[nodiscard]] constexpr auto value_ptr() const noexcept {
+		[[nodiscard]] constexpr auto data() const noexcept {
 			return _data.data();
 		}
 
