@@ -898,11 +898,12 @@ FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fma
  * Iterates over every node within a scene recursively, computing the world space transform of each node,
  * and calling the callback function with that node and the transform.
  */
-FASTGLTF_EXPORT template <typename Callback>
+FASTGLTF_EXPORT template <typename AssetType, typename Callback>
 #if FASTGLTF_HAS_CONCEPTS
-requires std::is_invocable_v<Callback, fastgltf::Node&, const fastgltf::math::fmat4x4&>
+requires std::same_as<std::remove_cvref_t<AssetType>, Asset>
+      && std::is_invocable_v<Callback, fastgltf::Node&, const fastgltf::math::fmat4x4&>
 #endif
-void iterateSceneNodes(fastgltf::Asset& asset, std::size_t sceneIndex, math::fmat4x4 initial, Callback callback) {
+void iterateSceneNodes(AssetType&& asset, std::size_t sceneIndex, math::fmat4x4 initial, Callback callback) {
 	auto& scene = asset.scenes[sceneIndex];
 
 	auto function = [&](std::size_t nodeIndex, math::fmat4x4 nodeMatrix, auto& self) -> void {
