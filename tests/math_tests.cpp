@@ -249,7 +249,7 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[maths]") {
 		const auto* pDefaultTRS = std::get_if<fastgltf::TRS>(&assetWithMatrix->nodes.front().transform);
 		REQUIRE(pDefaultTRS != nullptr);
 		auto translation = glm::make_vec3(pDefaultTRS->translation.data());
-		auto rotation = glm::make_quat(pDefaultTRS->rotation.value_ptr());
+		auto rotation = glm::make_quat(pDefaultTRS->rotation.data());
 		auto scale = glm::make_vec3(pDefaultTRS->scale.data());
 		auto rotationMatrix = glm::toMat4(rotation);
 		auto transform = glm::translate(glm::mat4(1.0f), translation) * rotationMatrix * glm::scale(glm::mat4(1.0f), scale);
@@ -262,7 +262,7 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[maths]") {
 		// Check if the decomposed components equal the original components.
 		const auto* pDecomposedTRS = std::get_if<fastgltf::TRS>(&assetDecomposed->nodes.back().transform);
 		REQUIRE(glm::make_vec3(pDecomposedTRS->translation.data()) == translation);
-		REQUIRE(glm::make_quat(pDecomposedTRS->rotation.value_ptr()) == rotation);
+		REQUIRE(glm::make_quat(pDecomposedTRS->rotation.data()) == rotation);
 		REQUIRE(glm::make_vec3(pDecomposedTRS->scale.data()) == scale);
 	}
 
@@ -290,7 +290,7 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[maths]") {
 		// future, but I suspect using double in the decompose functions should help mitigate most
 		// of it.
 		REQUIRE(glm::make_vec3(translation.data()) == glmTranslation);
-		REQUIRE(glm::all(glm::epsilonEqual(glm::make_quat(rotation.value_ptr()), glmRotation, glm::epsilon<float>() * 10)));
+		REQUIRE(glm::all(glm::epsilonEqual(glm::make_quat(rotation.data()), glmRotation, glm::epsilon<float>() * 10)));
 		REQUIRE(glm::all(glm::epsilonEqual(glm::make_vec3(scale.data()), glmScale, glm::epsilon<float>())));
 	}
 }
