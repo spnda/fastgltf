@@ -1020,7 +1020,7 @@ namespace fastgltf {
 		static constexpr auto missing_value = static_cast<BufferTarget>(std::numeric_limits<std::underlying_type_t<BufferTarget>>::max());
 	};
 
-	template<typename T>
+	FASTGLTF_EXPORT template<typename T>
 	class OptionalWithFlagValue;
 
 	/**
@@ -1043,7 +1043,7 @@ namespace fastgltf {
 	 * If no specialization for T of OptionalFlagValue is provided, a static assert will be triggered.
 	 * In those cases, use std::optional or fastgltf::Optional instead.
 	 */
-	FASTGLTF_EXPORT template<typename T>
+	template<typename T>
 	class OptionalWithFlagValue final {
 		static_assert(!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
 			"OptionalWithFlagValue can only be used when there is an appropriate specialization of OptionalFlagValue<T>.");
@@ -1200,7 +1200,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func)&& {
-			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&&>>>;
+			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T>>>;
 			if (!has_value())
 				return U();
 			return std::invoke(std::forward<F>(func), std::move(**this));
@@ -1208,7 +1208,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func) const&& {
-			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&&>>>;
+			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T>>>;
 			if (!has_value())
 				return U();
 			return std::invoke(std::forward<F>(func), std::move(**this));
@@ -1232,7 +1232,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto transform(F&& func)&& {
-			using U = std::remove_cv_t<std::invoke_result_t<F, T&&>>;
+			using U = std::remove_cv_t<std::invoke_result_t<F, T>>;
 			if (!has_value())
 				return Optional<U>();
 			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
@@ -1240,7 +1240,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto transform(F&& func) const&& {
-			using U = std::remove_cv_t<std::invoke_result_t<F, const T&&>>;
+			using U = std::remove_cv_t<std::invoke_result_t<F, const T>>;
 			if (!has_value())
 				return Optional<U>();
 			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
