@@ -471,10 +471,10 @@ class IterableAccessor;
 template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
 class AccessorIterator {
 protected:
-	const IterableAccessor<ElementType, BufferDataAdapter>* accessor;
-	std::size_t idx;
-	std::size_t sparseIdx = 0;
-	std::size_t nextSparseIndex = 0;
+	const IterableAccessor<ElementType, BufferDataAdapter>* accessor = nullptr;
+	std::size_t idx = std::numeric_limits<std::size_t>::max();
+	mutable std::size_t sparseIdx = 0;
+	mutable std::size_t nextSparseIndex = 0;
 
 public:
 	using value_type = ElementType;
@@ -485,6 +485,8 @@ public:
 	// This iterator isn't truly random access (as per the C++ definition), but we do want to support
 	// some things that these come with (e.g. std::distance using operator-).
 	using iterator_category = std::random_access_iterator_tag;
+
+	AccessorIterator() = default;
 
 	AccessorIterator(const IterableAccessor<ElementType, BufferDataAdapter>* accessor, std::size_t idx = 0)
 			: accessor(accessor), idx(idx) {
@@ -512,7 +514,8 @@ public:
 
 	[[nodiscard]] bool operator==(const AccessorIterator& iterator) const noexcept {
 		// We don't compare sparse properties
-		return idx == iterator.idx &&
+		return accessor == iterator.accessor &&
+			idx == iterator.idx &&
 			accessor->bufferBytes.data() == iterator.accessor->bufferBytes.data() &&
 			accessor->stride == iterator.accessor->stride &&
 			accessor->componentType == iterator.accessor->componentType;
@@ -522,7 +525,7 @@ public:
 		return !(*this == iterator);
 	}
 
-	[[nodiscard]] ElementType operator*() noexcept {
+	[[nodiscard]] ElementType operator*() const noexcept {
 		if (accessor->accessor.sparse.has_value()) {
 			if (idx == nextSparseIndex) {
 				// Get the sparse value for this index
@@ -545,6 +548,10 @@ public:
 														   accessor->accessor.normalized);
 	}
 };
+
+#if FASTGLTF_HAS_CONCEPTS
+static_assert(std::input_iterator<AccessorIterator<math::fvec4>>, "AccessorIterator needs to satisfy input_iterator");
+#endif
 
 template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
 class IterableAccessor {
@@ -601,6 +608,10 @@ public:
 		return iterator(this, accessor.count);
 	}
 };
+
+#if FASTGLTF_HAS_CONCEPTS
+static_assert(std::ranges::input_range<IterableAccessor<math::fvec4>>, "IterableAccessor needs to satisfy input_range");
+#endif
 
 FASTGLTF_EXPORT template <typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
