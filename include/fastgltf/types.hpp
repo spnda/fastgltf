@@ -1354,15 +1354,6 @@ namespace fastgltf {
 		return opt.has_value() && *opt >= value;
 	}
 
-	/**
-	 * A type alias which checks if there is a specialization of OptionalFlagValue for T and "switches"
-	 * between fastgltf::OptionalWithFlagValue and std::optional.
-	 */
-	FASTGLTF_EXPORT template <typename T>
-	using Optional = std::conditional_t<
-		!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
-		OptionalWithFlagValue<T>,
-		std::optional<T>>;
 #pragma endregion
 
 #pragma region Structs
