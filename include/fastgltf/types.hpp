@@ -1186,7 +1186,7 @@ namespace fastgltf {
 		[[nodiscard]] auto and_then(F&& func)& {
 			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&>>>;
 			if (!has_value())
-				return U();
+				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
 		}
 
@@ -1194,7 +1194,7 @@ namespace fastgltf {
 		[[nodiscard]] auto and_then(F&& func) const& {
 			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
 			if (!has_value())
-				return U();
+				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
 		}
 
@@ -1202,7 +1202,7 @@ namespace fastgltf {
 		[[nodiscard]] auto and_then(F&& func)&& {
 			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T>>>;
 			if (!has_value())
-				return U();
+				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
 		}
 
@@ -1210,7 +1210,7 @@ namespace fastgltf {
 		[[nodiscard]] auto and_then(F&& func) const&& {
 			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T>>>;
 			if (!has_value())
-				return U();
+				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
 		}
 
@@ -1218,7 +1218,7 @@ namespace fastgltf {
 		[[nodiscard]] auto transform(F&& func)& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, T&>>;
 			if (!has_value())
-				return Optional<U>();
+				return Optional<U>(std::nullopt);
 			return Optional<U>(std::invoke(std::forward<F>(func), **this));
 		}
 
@@ -1226,7 +1226,7 @@ namespace fastgltf {
 		[[nodiscard]] auto transform(F&& func) const& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, const T&>>;
 			if (!has_value())
-				return Optional<U>();
+				return Optional<U>(std::nullopt);
 			return Optional<U>(std::invoke(std::forward<F>(func), **this));
 		}
 
@@ -1234,7 +1234,7 @@ namespace fastgltf {
 		[[nodiscard]] auto transform(F&& func)&& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, T>>;
 			if (!has_value())
-				return Optional<U>();
+				return Optional<U>(std::nullopt);
 			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
 		}
 
@@ -1242,18 +1242,18 @@ namespace fastgltf {
 		[[nodiscard]] auto transform(F&& func) const&& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, const T>>;
 			if (!has_value())
-				return Optional<U>();
+				return Optional<U>(std::nullopt);
 			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
 		}
 
 		template <typename F>
 		[[nodiscard]] T or_else(F&& func) const& {
-			return *this ? *this : std::forward<F>(func)();
+			return *this ? *this : std::invoke(std::forward<F>(func));
 		}
 
 		template <typename F>
 		[[nodiscard]] T or_else(F&& func)&& {
-			return *this ? std::move(*this) : std::forward<F>(func)();
+			return *this ? std::move(*this) : std::invoke(std::forward<F>(func));
 		}
 
 		void swap(OptionalWithFlagValue<T>& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
