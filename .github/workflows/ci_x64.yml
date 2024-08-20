@@ -31,9 +31,6 @@ jobs:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
 
-      - name: Download dependencies
-        run: python3 fetch_test_deps.py
-
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
@@ -58,9 +55,6 @@ jobs:
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
-
-      - name: Download dependencies
-        run: python3 fetch_test_deps.py
 
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
@@ -110,9 +104,6 @@ jobs:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
 
-      - name: Download dependencies
-        run: python3 fetch_test_deps.py
-
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
@@ -151,9 +142,6 @@ jobs:
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
           key: gltf-sample-models
-
-      - name: Download dependencies
-        run: python3 fetch_test_deps.py
 
       - name: Clone glTF-Sample-Models
         if: steps.sample-models-cache.outputs.cache-hit != 'true'
