@@ -1020,6 +1020,19 @@ namespace fastgltf {
 		static constexpr auto missing_value = static_cast<BufferTarget>(std::numeric_limits<std::underlying_type_t<BufferTarget>>::max());
 	};
 
+	FASTGLTF_EXPORT template<typename T>
+	class OptionalWithFlagValue;
+
+	/**
+	 * A type alias which checks if there is a specialization of OptionalFlagValue for T and "switches"
+	 * between fastgltf::OptionalWithFlagValue and std::optional.
+	 */
+	FASTGLTF_EXPORT template <typename T>
+	using Optional = std::conditional_t<
+		!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
+		OptionalWithFlagValue<T>,
+		std::optional<T>>;
+
 	/**
 	 * A custom optional class for fastgltf,
 	 * which uses so-called "flag values" which are specific values of T that will never be present as an actual value.
@@ -1030,7 +1043,7 @@ namespace fastgltf {
 	 * If no specialization for T of OptionalFlagValue is provided, a static assert will be triggered.
 	 * In those cases, use std::optional or fastgltf::Optional instead.
 	 */
-	FASTGLTF_EXPORT template<typename T>
+	template<typename T>
 	class OptionalWithFlagValue final {
 		static_assert(!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
 			"OptionalWithFlagValue can only be used when there is an appropriate specialization of OptionalFlagValue<T>.");
@@ -1170,31 +1183,67 @@ namespace fastgltf {
 		}
 
 		template <typename F>
-		[[nodiscard]] OptionalWithFlagValue<T> and_then(F&& func)& {
+		[[nodiscard]] auto and_then(F&& func)& {
+			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&>>>;
 			if (!has_value())
-				return std::nullopt;
-			return func(value());
+				return U();
+			return std::invoke(std::forward<F>(func), **this);
 		}
 
 		template <typename F>
-		[[nodiscard]] OptionalWithFlagValue<T> and_then(F&& func)&& {
+		[[nodiscard]] auto and_then(F&& func) const& {
+			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
 			if (!has_value())
-				return std::nullopt;
-			return func(std::move(value()));
+				return U();
+			return std::invoke(std::forward<F>(func), **this);
 		}
 
 		template <typename F>
-		[[nodiscard]] OptionalWithFlagValue<T> transform(F&& func)& {
+		[[nodiscard]] auto and_then(F&& func)&& {
+			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T>>>;
 			if (!has_value())
-				return std::nullopt;
-			return OptionalWithFlagValue<T>(func(value()));
+				return U();
+			return std::invoke(std::forward<F>(func), std::move(**this));
 		}
 
 		template <typename F>
-		[[nodiscard]] OptionalWithFlagValue<T> transform(F&& func)&& {
+		[[nodiscard]] auto and_then(F&& func) const&& {
+			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T>>>;
 			if (!has_value())
-				return std::nullopt;
-			return OptionalWithFlagValue<T>(func(std::move(value())));
+				return U();
+			return std::invoke(std::forward<F>(func), std::move(**this));
+		}
+
+		template <typename F>
+		[[nodiscard]] auto transform(F&& func)& {
+			using U = std::remove_cv_t<std::invoke_result_t<F, T&>>;
+			if (!has_value())
+				return Optional<U>();
+			return Optional<U>(std::invoke(std::forward<F>(func), **this));
+		}
+
+		template <typename F>
+		[[nodiscard]] auto transform(F&& func) const& {
+			using U = std::remove_cv_t<std::invoke_result_t<F, const T&>>;
+			if (!has_value())
+				return Optional<U>();
+			return Optional<U>(std::invoke(std::forward<F>(func), **this));
+		}
+
+		template <typename F>
+		[[nodiscard]] auto transform(F&& func)&& {
+			using U = std::remove_cv_t<std::invoke_result_t<F, T>>;
+			if (!has_value())
+				return Optional<U>();
+			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
+		}
+
+		template <typename F>
+		[[nodiscard]] auto transform(F&& func) const&& {
+			using U = std::remove_cv_t<std::invoke_result_t<F, const T>>;
+			if (!has_value())
+				return Optional<U>();
+			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
 		}
 
 		template <typename F>
@@ -1305,15 +1354,6 @@ namespace fastgltf {
 		return opt.has_value() && *opt >= value;
 	}
 
-	/**
-	 * A type alias which checks if there is a specialization of OptionalFlagValue for T and "switches"
-	 * between fastgltf::OptionalWithFlagValue and std::optional.
-	 */
-	FASTGLTF_EXPORT template <typename T>
-	using Optional = std::conditional_t<
-		!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
-		OptionalWithFlagValue<T>,
-		std::optional<T>>;
 #pragma endregion
 
 #pragma region Structs
