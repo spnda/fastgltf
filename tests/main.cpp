@@ -1,4 +1,7 @@
+#include <iostream>
+
 #include <catch2/catch_session.hpp>
+#include "gltf_path.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -9,6 +12,11 @@
 
 // See https://github.com/catchorg/Catch2/blob/v3.5.4/docs/own-main.md
 int main(int argc, char* argv[]) {
+	if (!is_directory(sampleModels) || is_empty(sampleModels)) {
+		std::cerr << "The sample models were not found. Please check the README for more information.\n" << std::endl;
+		return -1;
+	}
+
 	// Guarantee the best performance and result stability across runs
 #if defined(_WIN32) && defined(NDEBUG)
 	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
