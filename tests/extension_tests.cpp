@@ -101,6 +101,55 @@ TEST_CASE("Extension EXT_meshopt_compression", "[gltf-loader]") {
 	}
 }
 
+TEST_CASE("Extension KHR_draco_mesh_compression", "[gltf-loader]") {
+	auto brainStem = sampleModels / "2.0" / "BrainStem" / "glTF-Draco";
+	fastgltf::GltfFileStream jsonData(brainStem / "BrainStem.gltf");
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_draco_mesh_compression);
+	auto asset = parser.loadGltfJson(jsonData, brainStem, fastgltf::Options::None);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(!asset->meshes.empty());
+	REQUIRE(asset->meshes[0].primitives.size() >= 2);
+
+	{
+		auto& draco = asset->meshes[0].primitives[0].dracoCompression;
+		REQUIRE(draco);
+		REQUIRE(draco->bufferView == 4);
+
+		REQUIRE(draco->attributes[0].name == "JOINTS_0");
+		REQUIRE(draco->attributes[0].accessorIndex == 0);
+
+		REQUIRE(draco->attributes[1].name == "NORMAL");
+		REQUIRE(draco->attributes[1].accessorIndex == 1);
+
+		REQUIRE(draco->attributes[2].name == "POSITION");
+		REQUIRE(draco->attributes[2].accessorIndex == 2);
+
+		REQUIRE(draco->attributes[3].name == "WEIGHTS_0");
+		REQUIRE(draco->attributes[3].accessorIndex == 3);
+	}
+	{
+		auto& draco = asset->meshes[0].primitives[1].dracoCompression;
+		REQUIRE(draco);
+		REQUIRE(draco->bufferView == 5);
+
+		REQUIRE(draco->attributes[0].name == "JOINTS_0");
+		REQUIRE(draco->attributes[0].accessorIndex == 0);
+
+		REQUIRE(draco->attributes[1].name == "NORMAL");
+		REQUIRE(draco->attributes[1].accessorIndex == 1);
+
+		REQUIRE(draco->attributes[2].name == "POSITION");
+		REQUIRE(draco->attributes[2].accessorIndex == 2);
+
+		REQUIRE(draco->attributes[3].name == "WEIGHTS_0");
+		REQUIRE(draco->attributes[3].accessorIndex == 3);
+	}
+}
+
 TEST_CASE("Extension KHR_lights_punctual", "[gltf-loader]") {
 	SECTION("Point light") {
 		auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";

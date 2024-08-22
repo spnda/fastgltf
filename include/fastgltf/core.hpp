@@ -212,6 +212,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_accessor_float64
 		KHR_accessor_float64 = 1 << 25,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_draco_mesh_compression
+		KHR_draco_mesh_compression = 1 << 26,
     };
     // clang-format on
 
@@ -315,6 +318,7 @@ namespace fastgltf {
         constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
         constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
 		constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
+		constexpr std::string_view KHR_draco_mesh_compression = "KHR_draco_mesh_compression";
         constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
 		constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
         constexpr std::string_view KHR_materials_clearcoat = "KHR_materials_clearcoat";
@@ -345,15 +349,16 @@ namespace fastgltf {
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 24;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 25;
 #else
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 23;
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 24;
 #endif
 	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
 		{ extensions::KHR_accessor_float64,                     Extensions::KHR_accessor_float64 },
+		{ extensions::KHR_draco_mesh_compression,               Extensions::KHR_draco_mesh_compression },
 		{ extensions::KHR_lights_punctual,                      Extensions::KHR_lights_punctual },
 		{ extensions::KHR_materials_anisotropy,                 Extensions::KHR_materials_anisotropy },
 		{ extensions::KHR_materials_clearcoat,                  Extensions::KHR_materials_clearcoat },
@@ -811,6 +816,7 @@ namespace fastgltf {
 		Error parseLights(simdjson::dom::array& array, Asset& asset);
 		Error parseMaterialExtensions(simdjson::dom::object& object, Material& material);
 		Error parseMaterials(simdjson::dom::array& array, Asset& asset);
+		Error parsePrimitiveExtensions(simdjson::dom::object& object, Primitive& primitive);
 		Error parseMeshes(simdjson::dom::array& array, Asset& asset);
 		Error parseNodes(simdjson::dom::array& array, Asset& asset);
 		Error parseSamplers(simdjson::dom::array& array, Asset& asset);

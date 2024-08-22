@@ -1731,6 +1731,27 @@ namespace fastgltf {
         }
     };
 
+	struct DracoCompressedPrimitive {
+		std::size_t bufferView;
+		FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4> attributes;
+
+		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
+			for (auto* it = attributes.begin(); it != attributes.end(); ++it) {
+				if (it->name == name)
+					return it;
+			}
+			return attributes.end();
+		}
+
+		[[nodiscard]] auto findAttribute(std::string_view name) const noexcept {
+			for (const auto* it = attributes.cbegin(); it != attributes.cend(); ++it) {
+				if (it->name == name)
+					return it;
+			}
+			return attributes.cend();
+		}
+	};
+
     FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
@@ -1745,9 +1766,11 @@ namespace fastgltf {
 		/**
 		 * Represents the mappings data from KHR_material_variants.
 		 * Use the variant index to index into this array to get the corresponding material index to use.
-		 * If the optional has no value, the normal materialIndex should be used as a fallback.
+		 * If this vector is empty, the normal materialIndex should be used as a fallback.
 		 */
 		std::vector<Optional<std::size_t>> mappings;
+
+		std::unique_ptr<DracoCompressedPrimitive> dracoCompression;
 
 		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
 			for (auto* it = attributes.begin(); it != attributes.end(); ++it) {
