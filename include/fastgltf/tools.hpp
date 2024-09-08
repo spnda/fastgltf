@@ -446,7 +446,7 @@ FASTGLTF_EXPORT struct DefaultBufferDataAdapter {
 				assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
 				return {};
 			},
-			[](const sources::Fallback& fallback) -> span<const std::byte> {
+			[](const sources::Fallback&) -> span<const std::byte> {
 				assert(false && "Tried accessing data of a fallback buffer.");
 				return {};
 			},
