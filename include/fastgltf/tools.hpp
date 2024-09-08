@@ -484,7 +484,7 @@ public:
 
 	// This iterator isn't truly random access (as per the C++ definition), but we do want to support
 	// some things that these come with (e.g. std::distance using operator-).
-	using iterator_category = std::random_access_iterator_tag;
+	using iterator_category = std::input_iterator_tag;
 
 	AccessorIterator() = default;
 
