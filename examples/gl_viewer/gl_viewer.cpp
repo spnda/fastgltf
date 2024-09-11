@@ -102,7 +102,7 @@ constexpr std::string_view fragmentShaderSource = R"(
     const uint HAS_BASE_COLOR_TEXTURE = 1;
 
     layout(location = 0) uniform sampler2D albedoTexture;
-    layout(location = 0, std140) uniform MaterialUniforms {
+    layout(binding = 0, std140) uniform MaterialUniforms {
         vec4 baseColorFactor;
         float alphaCutoff;
         uint flags;
