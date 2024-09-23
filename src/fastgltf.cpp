@@ -55,6 +55,9 @@ static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, 
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 // MSVC does not provide the arm crc32 intrinsics.
 #include <arm_acle.h>
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
 #endif
 
 namespace fg = fastgltf;
@@ -224,6 +227,11 @@ namespace fastgltf {
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 		const auto& impls = simdjson::get_available_implementations();
 		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
+#ifdef __APPLE__
+			std::int64_t ret = 0;
+			std::size_t size = sizeof(ret);
+			if (sysctlbyname("hw.optional.armv8_crc32", &ret, &size, nullptr, 0) == 0 && ret == 1)
+#endif
 			crcStringFunction = armv8_crc32c;
 		}
 #endif
