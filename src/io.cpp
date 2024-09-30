@@ -392,11 +392,11 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 		}
 	}
 
+	StaticVector<std::byte> data(static_cast<std::size_t>(length));
+	AAsset_read(file.get(), data.data(), length);
 	sources::Array arraySource {
-		StaticVector<std::uint8_t>(length)
+		std::move(data),
 	};
-	AAsset_read(file.get(), arraySource.bytes.data(), length);
-
 	return { std::move(arraySource) };
 }
 #endif
