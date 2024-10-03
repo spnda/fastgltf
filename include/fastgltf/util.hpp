@@ -288,7 +288,7 @@ namespace fastgltf {
 #else
         // Very naive but working implementation of counting zero bits. Any sane compiler will
         // optimise this away, like instead use the bsr x86 instruction.
-        if (value == 0) return 64;
+        if (value == 0) return sizeof(T) * 8;
         std::uint8_t count = 0;
         for (auto i = std::numeric_limits<T>::digits - 1; i > 0; --i) {
             if ((value >> i) == 1) {

@@ -3,6 +3,7 @@
 #include <fastgltf/types.hpp>
 
 TEST_CASE("Verify clz", "[vector-tests]") {
+	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000000) == 8);
 	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000001) == 7);
 	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000010) == 6);
 	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000100) == 5);
