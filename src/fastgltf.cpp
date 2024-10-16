@@ -799,6 +799,9 @@ fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
         case force_consteval<crc32c(mimeTypeOctetStream)>: {
             return MimeType::OctetStream;
         }
+        case force_consteval<crc32c(mimeTypeWebp)>: {
+            return MimeType::WEBP;
+        }
         default: {
             return MimeType::None;
         }
@@ -2634,9 +2637,9 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 					return error;
 				}
 
-				TextureInfo clearcoatNormalTexture;
+				NormalTextureInfo clearcoatNormalTexture;
 				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatNormalTexture",
-												  &clearcoatNormalTexture, config.extensions); error ==
+												  &clearcoatNormalTexture, config.extensions, TextureInfoType::NormalTexture); error ==
 																							   Error::None) {
 					clearcoat->clearcoatNormalTexture = std::move(clearcoatNormalTexture);
 				} else if (error != Error::MissingField) {
@@ -4735,7 +4738,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			if (it->clearcoat->clearcoatNormalTexture.has_value()) {
 				if (json.back() != '{') json += ',';
 				json += "\"clearcoatNormalTexture\":";
-				writeTextureInfo(json, &it->clearcoat->clearcoatNormalTexture.value());
+				writeTextureInfo(json, &it->clearcoat->clearcoatNormalTexture.value(), TextureInfoType::NormalTexture);
 			}
 			json += '}';
 		}
