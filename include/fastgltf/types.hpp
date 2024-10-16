@@ -1929,7 +1929,7 @@ namespace fastgltf {
         Optional<TextureInfo> clearcoatTexture;
         num clearcoatRoughnessFactor = 0.0f;
         Optional<TextureInfo> clearcoatRoughnessTexture;
-        Optional<TextureInfo> clearcoatNormalTexture;
+        Optional<NormalTextureInfo> clearcoatNormalTexture;
     };
 
     FASTGLTF_EXPORT struct MaterialSheen {
