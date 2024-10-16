@@ -799,6 +799,9 @@ fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
         case force_consteval<crc32c(mimeTypeOctetStream)>: {
             return MimeType::OctetStream;
         }
+        case force_consteval<crc32c(mimeTypeWebp)>: {
+            return MimeType::WEBP;
+        }
         default: {
             return MimeType::None;
         }

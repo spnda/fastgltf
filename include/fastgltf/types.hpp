@@ -210,6 +210,7 @@ namespace fastgltf {
         DDS = 4,
         GltfBuffer = 5,
         OctetStream = 6,
+        WEBP = 7,
     };
 
     FASTGLTF_EXPORT enum class AnimationInterpolation : std::uint8_t {
@@ -458,6 +459,7 @@ namespace fastgltf {
 	constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
 	constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
 	constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+	constexpr std::string_view mimeTypeWebp = "image/webp";
 
 	constexpr std::string_view getMimeTypeString(MimeType mimeType) noexcept {
 		switch (mimeType) {
@@ -473,6 +475,8 @@ namespace fastgltf {
 				return mimeTypeGltfBuffer;
 			case MimeType::OctetStream:
 				return mimeTypeOctetStream;
+			case MimeType::WEBP:
+				return mimeTypeWebp;
 			default:
 				return "";
 		}
