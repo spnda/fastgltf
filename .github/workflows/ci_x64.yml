@@ -73,6 +73,7 @@ jobs:
     strategy:
       matrix:
         c_compiler: [gcc-9, gcc-10, clang-13, clang-15]
+        os: [ubuntu-22.04]
         cpp20: [NO, YES]
         exclude:
           # gcc 9 is too old to support C++20, and Clang 13/14 have an issue with the libstdc++ version on the runner images.
@@ -90,7 +91,16 @@ jobs:
           - cxx_compiler: clang++-15
             c_compiler: clang-15
 
-    runs-on: ubuntu-latest
+          # Add to configurations to test with GCC 14 and Clang 18 on Ubuntu 24.04,
+          # since we try to avoid explicitly installing any compilers in the runners.
+          - os: ubuntu-24.04
+            c_compiler: gcc-14
+            cxx_compiler: g++-14
+          - os: ubuntu-24.04
+            c_compiler: clang-18
+            cxx_compiler: clang++-18
+
+    runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.c_compiler }}
       CXX: ${{ matrix.cxx_compiler }}
@@ -121,6 +131,7 @@ jobs:
     strategy:
       matrix:
         c_compiler: [gcc-9, gcc-10, clang-13]
+        os: [ubuntu-22.04]
         include:
           - cxx_compiler: g++-9
             c_compiler: gcc-9
@@ -129,7 +140,14 @@ jobs:
           - cxx_compiler: clang++-13
             c_compiler: clang-13
 
-    runs-on: ubuntu-latest
+          - os: ubuntu-24.04
+            c_compiler: gcc-14
+            cxx_compiler: g++-14
+          - os: ubuntu-24.04
+            c_compiler: clang-18
+            cxx_compiler: clang++-18
+
+    runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.c_compiler }}
       CXX: ${{ matrix.cxx_compiler }}
