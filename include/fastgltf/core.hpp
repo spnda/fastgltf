@@ -629,7 +629,7 @@ namespace fastgltf {
 		}
 	};
 
-#if defined(__APPLE__) || defined(__linux__) || defined(_WIN32)
+#if defined(__APPLE__) || defined(__linux__) || (defined(_WIN32) && !defined(WINDOWS_UWP))
 #define FASTGLTF_HAS_MEMORY_MAPPED_FILE 1
 	/**
 	 * Memory-maps a file. This uses mmap on macOS and Linux, and MapViewOfFile on Windows, and is not available elsewhere.
