@@ -29,6 +29,7 @@
 #include <fastgltf/core.hpp>
 
 #if defined(__APPLE__) || defined(__linux__)
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/mman.h>
