@@ -815,7 +815,7 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 	// attribute map. The keys are only validated in the validate() method.
 	attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
 	attributes.reserve(object.size());
-	for (const auto& field : object) {
+	for (const auto field : object) {
 		const auto key = field.key;
 
 		std::uint64_t accessorIndex;
@@ -1470,8 +1470,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		asset.assetInfo = std::move(info);
 	}
 
-	dom::array extensionsRequired;
-	if (root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) FASTGLTF_LIKELY {
+	if (dom::array extensionsRequired; root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) FASTGLTF_LIKELY {
 		for (auto extension : extensionsRequired) {
 			std::string_view string;
 			if (extension.get_string().get(string) != SUCCESS) FASTGLTF_UNLIKELY {
@@ -1499,7 +1498,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	}
 
 	Category readCategories = Category::None;
-	for (const auto& object : root) {
+	for (const auto object : root) {
 		auto hashedKey = crcStringFunction(object.key);
 		if (hashedKey == force_consteval<crc32c("scene")>) {
 			std::uint64_t defaultScene;
