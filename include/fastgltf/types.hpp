@@ -28,13 +28,10 @@
 
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cassert>
-#include <cstddef>
-#include <cstring>
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 #endif
 

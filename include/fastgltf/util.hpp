@@ -36,6 +36,7 @@
 #include <memory>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 #endif
 
 #ifndef FASTGLTF_EXPORT
