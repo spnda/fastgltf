@@ -5050,8 +5050,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 		}
 
 		if (!it->children.empty()) {
-            if (json.back() != '{')
-                json += ',';
+			if (json.back() != '{')
+				json += ',';
 			json += R"("children":[)";
 			auto itc = it->children.begin();
 			while (itc != it->children.end()) {
@@ -5064,8 +5064,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 		}
 
 		if (!it->weights.empty()) {
-            if (json.back() != '{')
-                json += ',';
+			if (json.back() != '{')
+				json += ',';
 			json += R"("weights":[)";
 			auto itw = it->weights.begin();
 			while (itw != it->weights.end()) {
@@ -5077,27 +5077,27 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			json += ']';
 		}
 
-		std::visit(visitor {
+		visit_exhaustive(visitor {
 			[&](const TRS& trs) {
 				if (trs.rotation != math::fquat(0.f, 0.f, 0.f, 1.f)) {
-                    if (json.back() != '{')
-                        json += ',';
+					if (json.back() != '{')
+						json += ',';
 					json += R"("rotation":[)";
 					json += std::to_string(trs.rotation[0]) + ',' + std::to_string(trs.rotation[1]) + ',' + std::to_string(trs.rotation[2]) + ',' + std::to_string(trs.rotation[3]);
 					json += "]";
 				}
 
 				if (trs.scale != math::fvec3(1.f)) {
-                    if (json.back() != '{')
-                        json += ',';
+					if (json.back() != '{')
+						json += ',';
 					json += R"("scale":[)";
 					json += std::to_string(trs.scale[0]) + ',' + std::to_string(trs.scale[1]) + ',' + std::to_string(trs.scale[2]);
 					json += "]";
 				}
 
 				if (trs.translation != math::fvec3(0.f)) {
-                    if (json.back() != '{')
-                        json += ',';
+					if (json.back() != '{')
+						json += ',';
 					json += R"("translation":[)";
 					json += std::to_string(trs.translation[0]) + ',' + std::to_string(trs.translation[1]) + ',' + std::to_string(trs.translation[2]);
 					json += "]";
@@ -5119,7 +5119,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			},
 		}, it->transform);
 
-        if (!it->instancingAttributes.empty() || it->lightIndex.has_value()) {
+	if (!it->instancingAttributes.empty() || it->lightIndex.has_value()) {
 			if (json.back() != '{') json += ',';
 			json += R"("extensions":{)";
 			if (!it->instancingAttributes.empty()) {
@@ -5136,8 +5136,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 				if (json.back() != '{') json += ',';
 				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + "}";
 			}
-            json += "}";
-        }
+			json += "}";
+		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.nodes.begin(), it)), fastgltf::Category::Nodes, userPointer);
@@ -5149,8 +5149,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 		}
 
 		if (!it->name.empty()) {
-            if (json.back() != '{')
-                json += ',';
+			if (json.back() != '{')
+				json += ',';
 			json += R"("name":")" + fg::escapeString(it->name) + '"';
 		}
 		json += '}';

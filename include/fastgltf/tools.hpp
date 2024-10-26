@@ -895,7 +895,7 @@ void copyComponentsFromAccessor(const Asset& asset, const Accessor& accessor, vo
  * Computes the transform matrix for a given node, and multiplies the given base with that matrix.
  */
 FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
-	return std::visit(visitor {
+	return visit_exhaustive(visitor {
 		[&](const math::fmat4x4& matrix) {
 			return base * matrix;
 		},

@@ -330,6 +330,14 @@ namespace fastgltf {
         return str.rfind(search, 0) == 0;
     }
 
+	// Simple reimplementation of std::remove_cvref, which was only added in C++20.
+	template <typename T>
+	struct remove_cvref {
+		using type = std::remove_cv_t<std::remove_reference_t<T>>;
+	};
+	template <typename T>
+	using remove_cvref_t = typename remove_cvref<T>::type;
+
 	/**
 	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
 	 * std::visit
@@ -340,6 +348,24 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT template<class... Ts> visitor(Ts...) -> visitor<Ts...>;
+
+	template <typename Visitor, typename Variant, std::size_t... i>
+	constexpr bool is_exhaustive_visitor(std::integer_sequence<std::size_t, i...>) noexcept {
+		return std::conjunction_v<std::is_invocable<Visitor, std::variant_alternative_t<i, remove_cvref_t<Variant>>>...>;
+	}
+
+	/**
+	 * Simple wrapper around std::visit for a single variant that checks at compile-time if the given visitor contains
+	 * overloads for *all* required alternatives. This is meant to guarantee correctness, since using something like
+	 * fastgltf::visitor could fail unexpectedly due to const-issues without any compile-time errors or warnings.
+	 * @note This currently does not support auto parameters.
+	 */
+	FASTGLTF_EXPORT template<typename Visitor, typename Variant>
+	constexpr decltype(auto) visit_exhaustive(Visitor&& visitor, Variant&& variant) {
+		static_assert(is_exhaustive_visitor<Visitor, Variant>(std::make_index_sequence<std::variant_size_v<remove_cvref_t<Variant>>>()),
+			"The visitor does not include all necessary overloads for the given variant");
+		return std::visit(std::forward<Visitor>(visitor), std::forward<Variant>(variant));
+	}
 
     // For simple ops like &, |, +, - taking a left and right operand.
 #define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \

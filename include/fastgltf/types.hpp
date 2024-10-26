@@ -1188,7 +1188,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func)& {
-			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&>>>;
+			using U = remove_cvref_t<std::invoke_result_t<F, T&>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
@@ -1196,7 +1196,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func) const& {
-			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
+			using U = remove_cvref_t<std::invoke_result_t<F, const T&>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
@@ -1204,7 +1204,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func)&& {
-			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T>>>;
+			using U = remove_cvref_t<std::invoke_result_t<F, T>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
@@ -1212,7 +1212,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func) const&& {
-			using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T>>>;
+			using U = remove_cvref_t<std::invoke_result_t<F, const T>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
