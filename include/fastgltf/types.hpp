@@ -1313,6 +1313,14 @@ namespace fastgltf {
 		const T&& operator*() const&& noexcept {
 			return std::move(_value);
 		}
+
+		operator std::optional<T>() const noexcept {
+			return has_value() ? std::optional<T>(_value) : std::nullopt;
+		}
+
+		operator std::optional<T>&&()&& noexcept {
+			return has_value() ? std::optional<T>(std::move(_value)) : std::nullopt;
+		}
 	};
 
 	FASTGLTF_EXPORT template <typename T, typename U>
