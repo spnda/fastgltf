@@ -13,7 +13,7 @@ macro(fastgltf_compiler_flags TARGET)
 
             if (MINGW)
                 # Issue with MinGW: https://github.com/simdjson/simdjson/issues/1963
-                target_compile_options(${TARGET} PUBLIC $<$<CONFIG:DEBUG>:-Og>)
+                target_compile_options(${TARGET} PRIVATE $<$<CONFIG:DEBUG>:-Og>)
             endif()
 
             # https://github.com/simdjson/simdjson/blob/master/doc/basics.md#performance-tips
