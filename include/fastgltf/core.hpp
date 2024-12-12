@@ -133,7 +133,7 @@ namespace fastgltf {
             case Error::InvalidFileData: return "The file data is invalid, or the file type could not be determined.";
             case Error::FailedWritingFiles: return "The exporter failed to write some files (buffers/images) to disk.";
 			case Error::FileBufferAllocationFailed: return "The constructor of GltfDataBuffer failed to allocate a sufficiently large buffer.";
-			case Error::FileBufferReadingFailed: return "The buffer that was attempted to read had no data in it or was corrupted";
+			case Error::FileBufferReadingFailed: return "The buffer read attempt failed due to either being empty or containing corrupted data.";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}
