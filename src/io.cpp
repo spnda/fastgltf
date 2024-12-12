@@ -99,7 +99,7 @@ void fg::GltfDataBuffer::read(void *ptr, std::size_t count) {
 		std::memcpy(ptr, buffer.get() + idx, count);
 		idx += count;
 	}else{
-		error = Error::FileBufferAllocationFailed;
+		error = Error::FileBufferReadingFailed;
 	}
 }
 
