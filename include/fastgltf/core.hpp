@@ -91,6 +91,7 @@ namespace fastgltf {
 		InvalidFileData = 12, ///< The file data is invalid, or the file type could not be determined.
 		FailedWritingFiles = 13, ///< The exporter failed to write some files (buffers/images) to disk.
 		FileBufferAllocationFailed = 14, ///< The constructor of GltfDataBuffer failed to allocate a sufficiently large buffer.
+    	FileBufferReadingFailed = 15, ///< The buffer that was attempted to read had no data in it or was corrupted
     };
 
 	FASTGLTF_EXPORT constexpr std::string_view getErrorName(Error error) {
@@ -110,6 +111,7 @@ namespace fastgltf {
             case Error::InvalidFileData: return "InvalidFileData";
             case Error::FailedWritingFiles: return "FailedWritingFiles";
 			case Error::FileBufferAllocationFailed: return "FileBufferAllocationFailed";
+			case Error::FileBufferReadingFailed: return "FileBufferReadingFailed";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}
@@ -131,6 +133,7 @@ namespace fastgltf {
             case Error::InvalidFileData: return "The file data is invalid, or the file type could not be determined.";
             case Error::FailedWritingFiles: return "The exporter failed to write some files (buffers/images) to disk.";
 			case Error::FileBufferAllocationFailed: return "The constructor of GltfDataBuffer failed to allocate a sufficiently large buffer.";
+			case Error::FileBufferReadingFailed: return "The buffer that was attempted to read had no data in it or was corrupted";
 			default: FASTGLTF_UNREACHABLE
 		}
 	}

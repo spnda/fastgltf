@@ -94,8 +94,11 @@ void fg::GltfDataBuffer::allocateAndCopy(const std::byte *bytes) noexcept {
 }
 
 void fg::GltfDataBuffer::read(void *ptr, std::size_t count) {
-	std::memcpy(ptr, buffer.get() + idx, count);
-	idx += count;
+	if (buffer != nullptr)
+	{
+		std::memcpy(ptr, buffer.get() + idx, count);
+		idx += count;
+	}
 }
 
 fg::span<std::byte> fg::GltfDataBuffer::read(std::size_t count, std::size_t padding) {
