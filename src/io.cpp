@@ -69,13 +69,15 @@ fg::GltfDataBuffer::GltfDataBuffer(const fs::path& path) noexcept {
 	}
 }
 
-fg::GltfDataBuffer::GltfDataBuffer(const std::byte *bytes, std::size_t count) noexcept {
+fg::GltfDataBuffer::GltfDataBuffer(const std::byte *bytes, const std::size_t count) noexcept {
+	assert(bytes != nullptr && "Passing nullptr is not allowed.");
 	dataSize = count;
 	allocateAndCopy(bytes);
 }
 
 #if FASTGLTF_CPP_20
 fg::GltfDataBuffer::GltfDataBuffer(std::span<std::byte> span) noexcept {
+	assert(span.data() != nullptr && "Passing nullptr is not allowed");
 	dataSize = span.size_bytes();
 	allocateAndCopy(span.data());
 }
