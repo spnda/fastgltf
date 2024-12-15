@@ -27,6 +27,7 @@ else()
     set(FASTGLTF_COMPILE_TARGET cxx_std_17)
 endif()
 
+include(GNUInstallDirs)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 
@@ -147,17 +148,17 @@ install(
 install(
     TARGETS fastgltf
     EXPORT fastgltf-targets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
-    INCLUDES DESTINATION include
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 install(
     EXPORT fastgltf-targets
     FILE fastgltfConfig.cmake
     NAMESPACE fastgltf::
-    DESTINATION lib/cmake/fastgltf
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
 )
 
 if (FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
