@@ -39,7 +39,7 @@
  * The fastgltf::math namespace contains all math functions and types which are needed for working with glTF assets.
  */
 namespace fastgltf::math {
-	FASTGLTF_EXPORT inline constexpr long double pi = 3.141592653589793116;
+	FASTGLTF_EXPORT inline constexpr long double pi = 3.1415926535897932385;
 
 	/** Value clamp using std::less */
 	FASTGLTF_EXPORT template <typename T>
