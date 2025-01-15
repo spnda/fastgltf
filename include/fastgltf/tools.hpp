@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 - 2024 spnda
+ * Copyright (C) 2022 - 2025 Sean Apeler
  * This file is part of fastgltf <https://github.com/spnda/fastgltf>.
  *
  * Permission is hereby granted, free of charge, to any person
