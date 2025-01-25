@@ -1476,90 +1476,102 @@ namespace fastgltf {
 		[[nodiscard]] bool valid() const noexcept;
 		[[nodiscard]] bool isLocalPath() const noexcept;
 		[[nodiscard]] bool isDataUri() const noexcept;
-    };
+	};
 
-    FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
+	FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 
-    /**
-     * Custom span class imitating C++20's std::span for referencing bytes without owning the
-     * allocation. Can also directly be converted to a std::span or used by itself.
-     */
-    FASTGLTF_EXPORT template <typename T, std::size_t Extent = dynamic_extent>
-    class span {
-        using element_type = T;
-        using value_type = std::remove_cv_t<T>;
-        using size_type = std::size_t;
-        using difference_type = std::ptrdiff_t;
-        using pointer = T*;
-        using const_pointer = const T*;
-        using reference = T&;
-        using const_reference = const T&;
+	/**
+	 * Custom span class imitating C++20's std::span for referencing bytes without owning the
+	 * allocation. Can also directly be converted to a std::span or used by itself.
+	 */
+	FASTGLTF_EXPORT template <typename T, std::size_t Extent = dynamic_extent>
+	class span {
+		using element_type = T;
+		using value_type = std::remove_cv_t<T>;
+		using size_type = std::size_t;
+		using difference_type = std::ptrdiff_t;
+		using pointer = T*;
+		using const_pointer = const T*;
+		using reference = T&;
+		using const_reference = const T&;
 
-        pointer _ptr = nullptr;
-        size_type _size = 0;
+		pointer _ptr = nullptr;
+		size_type _size = 0;
 
-    public:
-        constexpr span() noexcept = default;
+	public:
+		constexpr span() = default;
 
-        template <typename Iterator>
-        explicit constexpr span(Iterator first, size_type count) : _ptr(first), _size(count) {}
+		// std::span ctor (2)
+		template <typename Iterator>
+		explicit /*(Extent != dynamic_extent)*/ constexpr span(Iterator first, const size_type count) : _ptr(first), _size(count) {}
+
+		// std::span ctor (5)
+		template<typename U, std::size_t N>
+		constexpr span(std::array<U, N>& arr) noexcept : _ptr(arr.data()), _size(N) {}
+
+		// std::span ctor (6)
+		template<typename U, std::size_t N>
+		constexpr span(const std::array<U, N>& arr) noexcept : _ptr(arr.data()), _size(N) {}
 
 #if FASTGLTF_CPP_20
-        constexpr span(std::span<T> data) : _ptr(data.data()), _size(data.size()) {}
+		constexpr span(std::span<T> data) : _ptr(data.data()), _size(data.size()) {}
 #endif
 
-        constexpr span(const span& other) noexcept = default;
-        constexpr span& operator=(const span& other) noexcept = default;
+		constexpr span(const span& other) noexcept = default;
+		constexpr span& operator=(const span& other) = default;
 
-        [[nodiscard]] constexpr reference operator[](size_type idx) const {
-            return data()[idx];
-        }
-
-		[[nodiscard]] constexpr reference at(size_type idx) const {
-			if (idx >= size()) {
-                raise<std::out_of_range>("Index is out of range for span");
-			}
+		[[nodiscard]] constexpr reference operator[](size_type idx) const {
 			return data()[idx];
 		}
 
-        [[nodiscard]] constexpr pointer data() const noexcept {
-            return _ptr;
-        }
+		[[nodiscard]] constexpr reference at(size_type idx) const {
+			return data()[idx];
+		}
 
-        [[nodiscard]] constexpr size_type size() const noexcept {
-            return _size;
-        }
+		[[nodiscard]] constexpr pointer data() const {
+			return _ptr;
+		}
 
-        [[nodiscard]] constexpr size_type size_bytes() const noexcept {
-            return size() * sizeof(element_type);
-        }
+		[[nodiscard]] constexpr size_type size() const {
+			return _size;
+		}
 
-        [[nodiscard]] constexpr bool empty() const noexcept {
-            return size() == 0;
-        }
+		[[nodiscard]] constexpr size_type size_bytes() const {
+			return size() * sizeof(element_type);
+		}
 
-        [[nodiscard]] constexpr span<T, Extent> first(size_type count) const {
-            return span(_ptr, count);
-        }
+		[[nodiscard]] constexpr bool empty() const {
+			return size() == 0;
+		}
 
-        [[nodiscard]] constexpr span<T, Extent> last(size_type count) const {
-            return span(&data()[size() - count], count);
-        }
+		[[nodiscard]] constexpr span first(size_type count) const {
+			return span(_ptr, count);
+		}
 
-        [[nodiscard]] constexpr span<T, Extent> subspan(size_type offset, size_type count = dynamic_extent) const {
-            return span(&data()[offset], count == dynamic_extent ? size() - offset : count);
-        }
+		[[nodiscard]] constexpr span last(size_type count) const {
+			return span(&data()[size() - count], count);
+		}
+
+		[[nodiscard]] constexpr span subspan(size_type offset, size_type count = dynamic_extent) const {
+			return span(&data()[offset], count == dynamic_extent ? size() - offset : count);
+		}
 
 #if FASTGLTF_CPP_20
-        operator std::span<T>() const {
-            return std::span(data(), size());
-        }
+		operator std::span<T, Extent == dynamic_extent ? std::dynamic_extent : Extent>() const {
+			return std::span<T, Extent == dynamic_extent ? std::dynamic_extent : Extent>(data(), size());
+		}
 #endif
-    };
+	};
 
-	// Deduction guide for easily instantiating spans
+	FASTGLTF_EXPORT template <typename T>
+	span(T* data, std::size_t count) -> span<T>;
+
 	FASTGLTF_EXPORT template <typename T>
 	span(const T* data, std::size_t size) -> span<const T>;
+
+	// std::span deduction guide (4)
+	FASTGLTF_EXPORT template<class T, std::size_t N>
+	span(const std::array<T, N>&) -> span<const T, N>;
 
     FASTGLTF_EXPORT using CustomBufferId = std::uint64_t;
 
