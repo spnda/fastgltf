@@ -387,42 +387,6 @@ namespace fastgltf {
 
 		return Error::None;
 	}
-
-	void writeTextureInfo(std::string& json, const TextureInfo* info, TextureInfoType type = TextureInfoType::Standard) {
-		json += '{';
-		json += "\"index\":" + std::to_string(info->textureIndex);
-		if (info->texCoordIndex != 0) {
-			json += ",\"texCoord\":" + std::to_string(info->texCoordIndex);
-		}
-		if (type == TextureInfoType::NormalTexture) {
-			json += ",\"scale\":" + std::to_string(reinterpret_cast<const NormalTextureInfo*>(info)->scale);
-		} else if (type == TextureInfoType::OcclusionTexture) {
-			json += ",\"strength\":" + std::to_string(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
-		}
-
-        if (info->transform != nullptr) {
-            json += R"(,"extensions":{"KHR_texture_transform":{)";
-            const auto& transform = *info->transform;
-            if (transform.uvOffset[0] != 0.0 || transform.uvOffset[1] != 0.0) {
-                json += "\"offset\":[" + std::to_string(transform.uvOffset[0]) + ',' + std::to_string(transform.uvOffset[1]) + ']';
-            }
-            if (transform.rotation != 0.0) {
-                if (json.back() != '{') json += ',';
-                json += "\"rotation\":" + std::to_string(transform.rotation);
-            }
-            if (transform.uvScale[0] != 1.0 || transform.uvScale[1] != 1.0) {
-                if (json.back() != '{') json += ',';
-                json += "\"scale\":[" + std::to_string(transform.uvScale[0]) + ',' + std::to_string(transform.uvScale[1]) + ']';
-            }
-            if (transform.texCoordIndex.has_value()) {
-                if (json.back() != '{') json += ',';
-                json += "\"texCoord\":" + std::to_string(transform.texCoordIndex.value());
-            }
-            json += "}}";
-        }
-
-		json += '}';
-	}
 } // namespace fastgltf
 
 #pragma region URI
@@ -4117,6 +4081,54 @@ namespace fastgltf {
 		escapeString(string);
 		return string;
 	}
+
+	// replacement for std::to_string that uses simdjson's grisu2 implementation, which is
+	// (1) bidirectionally lossless (std::to_string is not)
+	// (2) quite a lot faster than std::to_chars and std::to_string.
+	std::string to_string_fp(const num& value) {
+		std::array<char, 30> buffer {};
+		buffer.fill(0);
+
+		// TODO: Include a own copy of grisu2 instead of accessing functions from simdjson's internal namespace?
+		auto* end = simdjson::internal::to_chars(buffer.begin(), buffer.end(), value);
+		return {buffer.data(), end};
+	}
+
+	void writeTextureInfo(std::string& json, const TextureInfo* info, const TextureInfoType type = TextureInfoType::Standard) {
+		json += '{';
+		json += "\"index\":" + std::to_string(info->textureIndex);
+		if (info->texCoordIndex != 0) {
+			json += ",\"texCoord\":" + std::to_string(info->texCoordIndex);
+		}
+		if (type == TextureInfoType::NormalTexture) {
+			json += ",\"scale\":" + to_string_fp(reinterpret_cast<const NormalTextureInfo*>(info)->scale);
+		} else if (type == TextureInfoType::OcclusionTexture) {
+			json += ",\"strength\":" + to_string_fp(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
+		}
+
+		if (info->transform != nullptr) {
+			json += R"(,"extensions":{"KHR_texture_transform":{)";
+			const auto& transform = *info->transform;
+			if (transform.uvOffset[0] != 0.0 || transform.uvOffset[1] != 0.0) {
+				json += "\"offset\":[" + to_string_fp(transform.uvOffset[0]) + ',' + to_string_fp(transform.uvOffset[1]) + ']';
+			}
+			if (transform.rotation != 0.0) {
+				if (json.back() != '{') json += ',';
+				json += "\"rotation\":" + to_string_fp(transform.rotation);
+			}
+			if (transform.uvScale[0] != 1.0 || transform.uvScale[1] != 1.0) {
+				if (json.back() != '{') json += ',';
+				json += "\"scale\":[" + to_string_fp(transform.uvScale[0]) + ',' + to_string_fp(transform.uvScale[1]) + ']';
+			}
+			if (transform.texCoordIndex.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"texCoord\":" + std::to_string(transform.texCoordIndex.value());
+			}
+			json += "}}";
+		}
+
+		json += '}';
+	}
 } // namespace fastgltf
 
 std::string fg::escapeString(std::string_view string) {
@@ -4181,7 +4193,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 				[](std::monostate) {},
 				[&](const auto& arg) {
 					for (auto it = arg.begin(); it != arg.end(); ++it) {
-						json += std::to_string(*it);
+						json += to_string_fp(*it);
 						if (uabs(std::distance(arg.begin(), it)) + 1 < arg.size())
 							json += ',';
 					}
@@ -4450,25 +4462,25 @@ void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
 				json += "\"perspective\":{";
 
 				if (perspective.aspectRatio.has_value()) {
-					json += "\"aspectRatio\":" + std::to_string(perspective.aspectRatio.value()) + ',';
+					json += "\"aspectRatio\":" + to_string_fp(perspective.aspectRatio.value()) + ',';
 				}
 
-				json += "\"yfov\":" + std::to_string(perspective.yfov) + ',';
+				json += "\"yfov\":" + to_string_fp(perspective.yfov) + ',';
 
 				if (perspective.zfar.has_value()) {
-					json += "\"zfar\":" + std::to_string(perspective.zfar.value()) + ',';
+					json += "\"zfar\":" + to_string_fp(perspective.zfar.value()) + ',';
 				}
 
-				json += "\"znear\":" + std::to_string(perspective.znear);
+				json += "\"znear\":" + to_string_fp(perspective.znear);
 
 				json += R"(},"type":"perspective")";
 			},
 			[&](const Camera::Orthographic& orthographic) {
 				json += "\"orthographic\":{";
-				json += "\"xmag\":" + std::to_string(orthographic.xmag) + ',';
-				json += "\"ymag\":" + std::to_string(orthographic.ymag) + ',';
-				json += "\"zfar\":" + std::to_string(orthographic.zfar) + ',';
-				json += "\"znear\":" + std::to_string(orthographic.znear);
+				json += "\"xmag\":" + to_string_fp(orthographic.xmag) + ',';
+				json += "\"ymag\":" + to_string_fp(orthographic.ymag) + ',';
+				json += "\"zfar\":" + to_string_fp(orthographic.zfar) + ',';
+				json += "\"znear\":" + to_string_fp(orthographic.znear);
 				json += R"(},"type":"orthographic")";
 			}
 		}, it->camera);
@@ -4563,12 +4575,12 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 		// [1.0f, 1.0f, 1.0f] is the default.
 		if (it->color[0] != 1.0f && it->color[1] != 1.0f && it->color[2] != 1.0f) {
 			json += R"("color":[)";
-			json += std::to_string(it->color[0]) + ',' + std::to_string(it->color[1]) + ',' + std::to_string(it->color[2]);
+			json += to_string_fp(it->color[0]) + ',' + to_string_fp(it->color[1]) + ',' + to_string_fp(it->color[2]);
 			json += "],";
 		}
 
 		if (it->intensity != 1.0f) {
-			json += R"("intensity":)" + std::to_string(it->intensity) + ',';
+			json += R"("intensity":)" + to_string_fp(it->intensity) + ',';
 		}
 
 		switch (it->type) {
@@ -4587,15 +4599,15 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 		}
 
 		if (it->range.has_value()) {
-			json += R"(,"range":)" + std::to_string(it->range.value());
+			json += R"(,"range":)" + to_string_fp(it->range.value());
 		}
 
 		if (it->type == LightType::Spot) {
 			if (it->innerConeAngle.has_value())
-				json += R"("innerConeAngle":)" + std::to_string(it->innerConeAngle.value()) + ',';
+				json += R"("innerConeAngle":)" + to_string_fp(it->innerConeAngle.value()) + ',';
 
 			if (it->outerConeAngle.has_value())
-				json += R"("outerConeAngle":)" + std::to_string(it->outerConeAngle.value()) + ',';
+				json += R"("outerConeAngle":)" + to_string_fp(it->outerConeAngle.value()) + ',';
 		}
 
 		if (!it->name.empty())
@@ -4620,8 +4632,8 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		json += "\"pbrMetallicRoughness\":{";
 		if (it->pbrData.baseColorFactor != math::nvec4(1)) {
 			json += R"("baseColorFactor":[)";
-			json += std::to_string(it->pbrData.baseColorFactor[0]) + ',' + std::to_string(it->pbrData.baseColorFactor[1]) + ',' +
-				std::to_string(it->pbrData.baseColorFactor[2]) + ',' + std::to_string(it->pbrData.baseColorFactor[3]);
+			json += to_string_fp(it->pbrData.baseColorFactor[0]) + ',' + to_string_fp(it->pbrData.baseColorFactor[1]) + ',' +
+				to_string_fp(it->pbrData.baseColorFactor[2]) + ',' + to_string_fp(it->pbrData.baseColorFactor[3]);
 			json += "]";
 		}
 
@@ -4633,12 +4645,12 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 
 		if (it->pbrData.metallicFactor != 1.0f) {
 			if (json.back() != '{') json += ',';
-			json += "\"metallicFactor\":" + std::to_string(it->pbrData.metallicFactor);
+			json += "\"metallicFactor\":" + to_string_fp(it->pbrData.metallicFactor);
 		}
 
 		if (it->pbrData.roughnessFactor != 1.0f) {
 			if (json.back() != '{') json += ',';
-			json += "\"roughnessFactor\":" + std::to_string(it->pbrData.roughnessFactor);
+			json += "\"roughnessFactor\":" + to_string_fp(it->pbrData.roughnessFactor);
 		}
 
 		if (it->pbrData.metallicRoughnessTexture.has_value()) {
@@ -4670,7 +4682,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		if (it->emissiveFactor != math::nvec3(0)) {
 			if (json.back() != ',') json += ',';
 			json += R"("emissiveFactor":[)";
-			json += std::to_string(it->emissiveFactor[0]) + ',' + std::to_string(it->emissiveFactor[1]) + ',' + std::to_string(it->emissiveFactor[2]);
+			json += to_string_fp(it->emissiveFactor[0]) + ',' + to_string_fp(it->emissiveFactor[1]) + ',' + to_string_fp(it->emissiveFactor[2]);
 			json += "],";
 		}
 
@@ -4686,7 +4698,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 
 		if (it->alphaMode == AlphaMode::Mask && it->alphaCutoff != 0.5f) {
 			if (json.back() != ',') json += ',';
-			json += R"("alphaCutoff":)" + std::to_string(it->alphaCutoff);
+			json += R"("alphaCutoff":)" + to_string_fp(it->alphaCutoff);
 		}
 
 		if (it->doubleSided) {
@@ -4700,11 +4712,11 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 		if (it->anisotropy) {
 			json += R"("KHR_materials_anisotropy":{)";
 			if (it->anisotropy->anisotropyStrength != 0.0f) {
-				json += R"("anisotropyStrength":)" + std::to_string(it->anisotropy->anisotropyStrength);
+				json += R"("anisotropyStrength":)" + to_string_fp(it->anisotropy->anisotropyStrength);
 			}
 			if (it->anisotropy->anisotropyRotation != 0.0f) {
 				if (json.back() != '{') json += ',';
-				json += R"("anisotropyRotation":)" + std::to_string(it->anisotropy->anisotropyRotation);
+				json += R"("anisotropyRotation":)" + to_string_fp(it->anisotropy->anisotropyRotation);
 			}
 			if (it->anisotropy->anisotropyTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4718,7 +4730,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_clearcoat":{)";
 			if (it->clearcoat->clearcoatFactor != 0.0f) {
-				json += R"("clearcoatFactor":)" + std::to_string(it->clearcoat->clearcoatFactor);
+				json += R"("clearcoatFactor":)" + to_string_fp(it->clearcoat->clearcoatFactor);
 			}
 			if (it->clearcoat->clearcoatTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4727,7 +4739,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			}
 			if (it->clearcoat->clearcoatRoughnessFactor != 0.0f) {
 				if (json.back() != '{') json += ',';
-				json += R"("clearcoatRoughnessFactor":)" + std::to_string(it->clearcoat->clearcoatRoughnessFactor);
+				json += R"("clearcoatRoughnessFactor":)" + to_string_fp(it->clearcoat->clearcoatRoughnessFactor);
 			}
 			if (it->clearcoat->clearcoatRoughnessTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4744,24 +4756,24 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 
 		if (it->dispersion != 0.0f) {
 			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_dispersion":{"dispersion":)" + std::to_string(it->dispersion) + '}';
+			json += R"("KHR_materials_dispersion":{"dispersion":)" + to_string_fp(it->dispersion) + '}';
 		}
 
 		if (it->emissiveStrength != 1.0f) {
 			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_emissive_strength":{"emissiveStrength":)" + std::to_string(it->emissiveStrength) + '}';
+			json += R"("KHR_materials_emissive_strength":{"emissiveStrength":)" + to_string_fp(it->emissiveStrength) + '}';
 		}
 
 		if (it->ior != 1.5f) {
 			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_ior":{"ior":)" + std::to_string(it->ior) + '}';
+			json += R"("KHR_materials_ior":{"ior":)" + to_string_fp(it->ior) + '}';
 		}
 
 		if (it->iridescence) {
 			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_iridescence":{)";
 			if (it->iridescence->iridescenceFactor != 0.0f) {
-				json += R"("iridescenceFactor":)" + std::to_string(it->iridescence->iridescenceFactor);
+				json += R"("iridescenceFactor":)" + to_string_fp(it->iridescence->iridescenceFactor);
 			}
 			if (it->iridescence->iridescenceTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4770,15 +4782,15 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			}
 			if (it->iridescence->iridescenceIor != 1.3f) {
 				if (json.back() != '{') json += ',';
-				json += R"("iridescenceIor":)" + std::to_string(it->iridescence->iridescenceIor);
+				json += R"("iridescenceIor":)" + to_string_fp(it->iridescence->iridescenceIor);
 			}
 			if (it->iridescence->iridescenceThicknessMinimum != 100.0f) {
 				if (json.back() != '{') json += ',';
-				json += R"("iridescenceThicknessMinimum":)" + std::to_string(it->iridescence->iridescenceThicknessMinimum);
+				json += R"("iridescenceThicknessMinimum":)" + to_string_fp(it->iridescence->iridescenceThicknessMinimum);
 			}
 			if (it->iridescence->iridescenceThicknessMaximum != 400.0f) {
 				if (json.back() != '{') json += ',';
-				json += R"("iridescenceThicknessMaximum":)" + std::to_string(it->iridescence->iridescenceThicknessMaximum);
+				json += R"("iridescenceThicknessMaximum":)" + to_string_fp(it->iridescence->iridescenceThicknessMaximum);
 			}
 			if (it->iridescence->iridescenceThicknessTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4793,9 +4805,9 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			json += R"("KHR_materials_sheen":{)";
 			if (it->sheen->sheenColorFactor != math::nvec3(0)) {
 				json += R"("sheenColorFactor":[)" +
-					std::to_string(it->sheen->sheenColorFactor[0]) + ',' +
-					std::to_string(it->sheen->sheenColorFactor[1]) + ',' +
-					std::to_string(it->sheen->sheenColorFactor[2]) + ']';
+					to_string_fp(it->sheen->sheenColorFactor[0]) + ',' +
+					to_string_fp(it->sheen->sheenColorFactor[1]) + ',' +
+					to_string_fp(it->sheen->sheenColorFactor[2]) + ']';
 			}
 			if (it->sheen->sheenColorTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4804,7 +4816,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			}
 			if (it->sheen->sheenRoughnessFactor != 0.0f) {
 				if (json.back() != '{') json += ',';
-				json += R"("sheenRoughnessFactor":)" + std::to_string(it->sheen->sheenRoughnessFactor);
+				json += R"("sheenRoughnessFactor":)" + to_string_fp(it->sheen->sheenRoughnessFactor);
 			}
 			if (it->sheen->sheenRoughnessTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4818,7 +4830,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_specular":{)";
 			if (it->specular->specularFactor != 1.0f) {
-				json += R"("specularFactor":)" + std::to_string(it->specular->specularFactor);
+				json += R"("specularFactor":)" + to_string_fp(it->specular->specularFactor);
 			}
 			if (it->specular->specularTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4828,9 +4840,9 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			if (it->specular->specularColorFactor != math::nvec3(1)) {
 				if (json.back() != '{') json += ',';
 				json += R"("specularColorFactor":[)" +
-						std::to_string(it->specular->specularColorFactor[0]) + ',' +
-						std::to_string(it->specular->specularColorFactor[1]) + ',' +
-						std::to_string(it->specular->specularColorFactor[2]) + ']';
+						to_string_fp(it->specular->specularColorFactor[0]) + ',' +
+						to_string_fp(it->specular->specularColorFactor[1]) + ',' +
+						to_string_fp(it->specular->specularColorFactor[2]) + ']';
 			}
 			if (it->specular->specularColorTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4844,7 +4856,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_transmission":{)";
 			if (it->transmission->transmissionFactor != 0.0f) {
-				json += R"("transmissionFactor":)" + std::to_string(it->transmission->transmissionFactor);
+				json += R"("transmissionFactor":)" + to_string_fp(it->transmission->transmissionFactor);
 			}
 			if (it->transmission->transmissionTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4863,7 +4875,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			if (json.back() == '}') json += ',';
 			json += R"("KHR_materials_volume":{)";
 			if (it->volume->thicknessFactor != 0.0f) {
-				json += R"("thicknessFactor":)" + std::to_string(it->volume->thicknessFactor);
+				json += R"("thicknessFactor":)" + to_string_fp(it->volume->thicknessFactor);
 			}
 			if (it->volume->thicknessTexture.has_value()) {
 				if (json.back() != '{') json += ',';
@@ -4872,14 +4884,14 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			}
 			if (it->volume->attenuationDistance != std::numeric_limits<num>::infinity()) {
 				if (json.back() != '{') json += ',';
-				json += R"("attenuationDistance":)" + std::to_string(it->volume->attenuationDistance);
+				json += R"("attenuationDistance":)" + to_string_fp(it->volume->attenuationDistance);
 			}
 			if (it->volume->attenuationColor != math::nvec3(1)) {
 				if (json.back() != '{') json += ',';
 				json += R"("attenuationColor":[)" +
-						std::to_string(it->volume->attenuationColor[0]) + ',' +
-						std::to_string(it->volume->attenuationColor[1]) + ',' +
-						std::to_string(it->volume->attenuationColor[2]) + ']';
+						to_string_fp(it->volume->attenuationColor[0]) + ',' +
+						to_string_fp(it->volume->attenuationColor[1]) + ',' +
+						to_string_fp(it->volume->attenuationColor[2]) + ']';
 			}
 			json += '}';
 		}
@@ -4996,7 +5008,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 			json += R"("weights":[)";
 			auto itw = it->weights.begin();
 			while (itw != it->weights.end()) {
-				json += std::to_string(*itw);
+				json += to_string_fp(*itw);
 				++itw;
 				if (uabs(std::distance(it->weights.begin(), itw)) < it->weights.size())
 					json += ',';
@@ -5069,7 +5081,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			json += R"("weights":[)";
 			auto itw = it->weights.begin();
 			while (itw != it->weights.end()) {
-				json += std::to_string(*itw);
+				json += to_string_fp(*itw);
 				++itw;
 				if (uabs(std::distance(it->weights.begin(), itw)) < it->weights.size())
 					json += ',';
@@ -5083,7 +5095,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					if (json.back() != '{')
 						json += ',';
 					json += R"("rotation":[)";
-					json += std::to_string(trs.rotation[0]) + ',' + std::to_string(trs.rotation[1]) + ',' + std::to_string(trs.rotation[2]) + ',' + std::to_string(trs.rotation[3]);
+					json += to_string_fp(trs.rotation[0]) + ',' + to_string_fp(trs.rotation[1]) + ',' + to_string_fp(trs.rotation[2]) + ',' + to_string_fp(trs.rotation[3]);
 					json += "]";
 				}
 
@@ -5091,7 +5103,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					if (json.back() != '{')
 						json += ',';
 					json += R"("scale":[)";
-					json += std::to_string(trs.scale[0]) + ',' + std::to_string(trs.scale[1]) + ',' + std::to_string(trs.scale[2]);
+					json += to_string_fp(trs.scale[0]) + ',' + to_string_fp(trs.scale[1]) + ',' + to_string_fp(trs.scale[2]);
 					json += "]";
 				}
 
@@ -5099,7 +5111,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					if (json.back() != '{')
 						json += ',';
 					json += R"("translation":[)";
-					json += std::to_string(trs.translation[0]) + ',' + std::to_string(trs.translation[1]) + ',' + std::to_string(trs.translation[2]);
+					json += to_string_fp(trs.translation[0]) + ',' + to_string_fp(trs.translation[1]) + ',' + to_string_fp(trs.translation[2]);
 					json += "]";
 				}
 			},
@@ -5109,7 +5121,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 				json += R"("matrix":[)";
 				for (std::size_t i = 0; i < matrix.columns(); ++i) {
 					for (std::size_t j = 0; j < matrix.rows(); ++j) {
-						json += std::to_string(matrix.col(i)[j]);
+						json += to_string_fp(matrix.col(i)[j]);
 						if (i * matrix.columns() + j + 1 < matrix.columns() * matrix.rows()) {
 							json += ',';
 						}

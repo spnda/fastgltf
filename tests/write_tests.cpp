@@ -303,3 +303,80 @@ TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
 	REQUIRE(imageObject["uri"].get_string().get(imageUri) == simdjson::SUCCESS);
 	REQUIRE(imageUri == "textures1/Unicode❤♻Texture.bin");
 }
+
+TEST_CASE("Test floating point round-trip precision", "[write-tests]") {
+	auto cubePath = sampleModels / "2.0" / "Duck" / "glTF-Binary";
+
+	fastgltf::Parser parser;
+
+	auto original = [&parser, &cubePath]() {
+		fastgltf::GltfFileStream cubeJson(cubePath / "Duck.glb");
+		REQUIRE(cubeJson.isOpen());
+
+		auto asset = parser.loadGltfBinary(cubeJson, cubePath,
+			fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages);
+		REQUIRE(asset.error() == fastgltf::Error::None);
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+		return std::move(asset.get());
+	}();
+
+	fastgltf::FileExporter exporter;
+	auto exportedPath = path / "export_glb" / "Duck_rewritten.glb";
+	REQUIRE(exporter.writeGltfBinary(original, exportedPath) == fastgltf::Error::None);
+
+	// Now read the exported file again, and check if the floating-point values are the same as the original asset.
+	auto reimported = [&parser, &exportedPath] {
+		fastgltf::GltfFileStream rewrittenJson(exportedPath);
+		REQUIRE(rewrittenJson.isOpen());
+
+		auto asset = parser.loadGltfBinary(rewrittenJson, exportedPath.parent_path());
+		REQUIRE(asset.error() == fastgltf::Error::None);
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+		return std::move(asset.get());
+	}();
+
+	REQUIRE(original.accessors.size() == reimported.accessors.size());
+	for (std::size_t i = 0; i < reimported.accessors.size(); ++i) {
+		const auto& accessor_a = original.accessors[i];
+		const auto& accessor_b = reimported.accessors[i];
+
+		REQUIRE(accessor_a.min.index() == accessor_b.min.index());
+		if (!std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.min))
+			continue;
+
+		const auto& min_a = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.min);
+		const auto& min_b = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_b.min);
+		REQUIRE(min_a.size() == min_b.size());
+		for (std::size_t j = 0; j < min_a.size(); ++j) {
+			REQUIRE(min_a[j] == min_b[j]);
+		}
+
+		REQUIRE(accessor_a.max.index() == accessor_b.max.index());
+		if (!std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.max))
+			continue;
+
+		const auto& max_a = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.max);
+		const auto& max_b = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_b.max);
+		REQUIRE(max_a.size() == max_b.size());
+		for (std::size_t j = 0; j < max_a.size(); ++j) {
+			REQUIRE(max_a[j] == max_b[j]);
+		}
+	}
+
+	REQUIRE(original.materials.size() == reimported.materials.size());
+	for (std::size_t i = 0; i < reimported.materials.size(); ++i) {
+		const auto& material_a = original.materials[i];
+		const auto& material_b = reimported.materials[i];
+
+		for (std::size_t j = 0; j < 4; ++j) {
+			REQUIRE(material_a.pbrData.baseColorFactor[j] == material_b.pbrData.baseColorFactor[j]);
+		}
+		REQUIRE(material_a.pbrData.metallicFactor == material_b.pbrData.metallicFactor);
+		REQUIRE(material_a.pbrData.roughnessFactor == material_b.pbrData.roughnessFactor);
+
+		for (std::size_t j = 0; j < 3; ++j) {
+			REQUIRE(material_a.emissiveFactor[j] == material_b.emissiveFactor[j]);
+		}
+		REQUIRE(material_a.alphaCutoff == material_b.alphaCutoff);
+	}
+}
