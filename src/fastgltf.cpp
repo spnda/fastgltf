@@ -4086,12 +4086,11 @@ namespace fastgltf {
 	// (1) bidirectionally lossless (std::to_string is not)
 	// (2) quite a lot faster than std::to_chars and std::to_string.
 	std::string to_string_fp(const num& value) {
-		std::array<char, 30> buffer {};
-		buffer.fill(0);
+		char buffer[30] = {};
 
 		// TODO: Include a own copy of grisu2 instead of accessing functions from simdjson's internal namespace?
-		auto* end = simdjson::internal::to_chars(buffer.begin(), buffer.end(), value);
-		return {buffer.data(), end};
+		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), value);
+		return {std::begin(buffer), end};
 	}
 
 	void writeTextureInfo(std::string& json, const TextureInfo* info, const TextureInfoType type = TextureInfoType::Standard) {
