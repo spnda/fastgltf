@@ -135,8 +135,9 @@ As this is a functional interface it is possible to also use lambdas for this:
 
    std::vector<std::byte> fileBytes;
    std::vector<std::uint8_t> accessorData(accessor.count);
-   fastgltf::copyFromAccessor(asset.get(), accessor, accessorData.data(), [&](const fastgltf::Buffer& buffer) const {
-       return fileBytes.data();
+   fastgltf::copyFromAccessor(asset.get(), accessor, accessorData.data(), [&](const Asset& asset, const std::size_t bufferViewIdx) const {
+       const auto& bufferView = asset.bufferViews[bufferViewIdx];
+       return span(fileBytes).subspan(bufferView.byteOffset, bufferView.byteLength);
    });
 
 

@@ -438,10 +438,10 @@ inline bool findSparseIndex(ComponentType componentType, const std::byte* bytes,
 } // namespace internal
 
 FASTGLTF_EXPORT struct DefaultBufferDataAdapter {
-	auto operator()(const Asset& asset, std::size_t bufferViewIdx) const {
-		auto& bufferView = asset.bufferViews[bufferViewIdx];
+	auto operator()(const Asset& asset, const std::size_t bufferViewIdx) const {
+		const auto& bufferView = asset.bufferViews[bufferViewIdx];
 
-		auto data = std::visit(visitor {
+		const auto data = std::visit(visitor {
 			[](auto&) -> span<const std::byte> {
 				assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
 				return {};
@@ -451,10 +451,10 @@ FASTGLTF_EXPORT struct DefaultBufferDataAdapter {
 				return {};
 			},
 			[&](const sources::Array& array) -> span<const std::byte> {
-				return span(reinterpret_cast<const std::byte*>(array.bytes.data()), array.bytes.size_bytes());
+				return span(array.bytes.data(), array.bytes.size_bytes());
 			},
 			[&](const sources::Vector& vec) -> span<const std::byte> {
-				return span(reinterpret_cast<const std::byte*>(vec.bytes.data()), vec.bytes.size());
+				return span(vec.bytes.data(), vec.bytes.size());
 			},
 			[&](const sources::ByteView& bv) -> span<const std::byte> {
 				return bv.bytes;
