@@ -1495,10 +1495,15 @@ namespace fastgltf {
 		using reference = T&;
 		using const_reference = const T&;
 
+		using iterator = pointer;
+		using reverse_iterator = std::reverse_iterator<iterator>;
+
 		pointer _ptr = nullptr;
 		size_type _size = 0;
 
 	public:
+		static constexpr std::size_t extent = Extent;
+
 		constexpr span() = default;
 
 		// std::span ctor (2)
@@ -1519,6 +1524,22 @@ namespace fastgltf {
 
 		constexpr span(const span& other) noexcept = default;
 		constexpr span& operator=(const span& other) = default;
+
+		[[nodiscard]] constexpr iterator begin() const noexcept {
+			return data();
+		}
+		[[nodiscard]] constexpr iterator end() const noexcept {
+			return data() + size();
+		}
+		[[nodiscard]] constexpr reverse_iterator rbegin() const noexcept {
+			return std::reverse_iterator(end());
+		}
+		[[nodiscard]] constexpr reverse_iterator rend() const noexcept {
+			return std::reverse_iterator(begin());
+		}
+
+		[[nodiscard]] constexpr reference front() const { return *begin(); }
+		[[nodiscard]] constexpr reference back() const { return *(end() - 1); }
 
 		[[nodiscard]] constexpr reference operator[](size_type idx) const {
 			return data()[idx];
