@@ -977,11 +977,31 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
 			    && !std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor.max))
 				return Error::InvalidGltf;
+			if (const auto error = std::visit(visitor {
+				[](std::monostate) { return Error::None; },
+				[&](const auto& arg) {
+					if (arg.size() != getNumComponents(accessor.type))
+						return Error::InvalidGltf;
+					return Error::None;
+				}
+			}, accessor.max); error != Error::None) {
+				return error;
+			}
 		}
 		if (!std::holds_alternative<std::monostate>(accessor.min)) {
 			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
 			    && !std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor.min))
 				return Error::InvalidGltf;
+			if (const auto error = std::visit(visitor {
+				[](std::monostate) { return Error::None; },
+				[&](const auto& arg) {
+					if (arg.size() != getNumComponents(accessor.type))
+						return Error::InvalidGltf;
+					return Error::None;
+				}
+			}, accessor.min); error != Error::None) {
+				return error;
+			}
 		}
 
 		if (accessor.sparse) {
@@ -1619,17 +1639,20 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
 				using double_vec = std::variant_alternative_t<1, decltype(Accessor::max)>;
 				using int64_vec = std::variant_alternative_t<2, decltype(Accessor::max)>;
 
-				auto num = getNumComponents(accessor.type);
-                if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
+				const auto num = getNumComponents(accessor.type);
+				if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
 					variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(double_vec, resourceAllocator.get(), num);
-                } else {
-	                variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(int64_vec, resourceAllocator.get(), num);
-                }
+				} else {
+					variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(int64_vec, resourceAllocator.get(), num);
+				}
 
 				std::size_t idx = 0;
-                for (auto element : elements) {
-                    auto type = element.type();
-                    switch (type) {
+				for (auto element : elements) {
+					if (idx == num) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+
+					switch (element.type()) {
                         case dom::element_type::DOUBLE: {
                             double value;
                             if (element.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
@@ -1681,7 +1704,11 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
                         default: return Error::InvalidGltf;
                     }
                 }
-                ref = std::move(variant);
+
+				if (idx < num) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				ref = std::move(variant);
             }
             return Error::None;
         };
@@ -4184,16 +4211,19 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
 		}
 
-		auto writeMinMax = [&](const decltype(Accessor::max)& ref, std::string_view name) {
+		auto writeMinMax = [&](const decltype(Accessor::max)& ref, const std::string_view name) {
 			if (std::holds_alternative<std::monostate>(ref))
-				return;
+				return; // This is valid, since min/max are only required on specific accessors.
 			json += ",\"" + std::string(name) + "\":[";
 			std::visit(visitor {
 				[](std::monostate) {},
 				[&](const auto& arg) {
-					for (auto it = arg.begin(); it != arg.end(); ++it) {
-						json += to_string_fp(*it);
-						if (uabs(std::distance(arg.begin(), it)) + 1 < arg.size())
+					for (auto vit = arg.begin(); vit != arg.end(); ++vit) {
+						if constexpr (std::is_floating_point_v<remove_cvref_t<decltype(*vit)>>)
+							json += to_string_fp(*vit); // this only works for float and double.
+						else
+							json += std::to_string(*vit);
+						if (uabs(std::distance(arg.begin(), vit)) + 1 < arg.size())
 							json += ',';
 					}
 				}
@@ -5489,8 +5519,7 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const As
 	exportingBinary = false;
 
     if (hasBit(options, ExportOptions::ValidateAsset)) {
-        auto validation = validate(asset);
-        if (validation != Error::None) {
+        if (const auto validation = validate(asset); validation != Error::None) {
             return validation;
         }
     }
