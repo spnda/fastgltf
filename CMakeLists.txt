@@ -28,6 +28,7 @@ else()
 endif()
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 
@@ -140,9 +141,20 @@ elseif(FASTGLTF_ENABLE_CPP_MODULES)
     message(WARNING "FASTGLTF_ENABLE_CPP_MODULES is ON but compiler does not support them")
 endif()
 
+write_basic_package_version_file(
+    "${PROJECT_BINARY_DIR}/fastgltfConfigVersion.cmake"
+    VERSION ${PACKAGE_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
 install(
     FILES ${FASTGLTF_HEADERS}
     DESTINATION include/fastgltf
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
 )
 
 install(
