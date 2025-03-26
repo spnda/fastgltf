@@ -340,26 +340,28 @@ TEST_CASE("Test floating point round-trip precision", "[write-tests]") {
 		const auto& accessor_a = original.accessors[i];
 		const auto& accessor_b = reimported.accessors[i];
 
-		REQUIRE(accessor_a.min.index() == accessor_b.min.index());
-		if (!std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.min))
+		REQUIRE(accessor_a.min.has_value());
+		REQUIRE(accessor_b.min.has_value());
+		REQUIRE(accessor_a.min->type() == accessor_b.min->type());
+		if (!accessor_a.min->isType<double>())
 			continue;
 
-		const auto& min_a = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.min);
-		const auto& min_b = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_b.min);
+		const auto& min_a = accessor_a.min.value();
+		const auto& min_b = accessor_b.min.value();
 		REQUIRE(min_a.size() == min_b.size());
 		for (std::size_t j = 0; j < min_a.size(); ++j) {
-			REQUIRE(min_a[j] == min_b[j]);
+			REQUIRE(min_a.get<double>(j) == min_b.get<double>(j));
 		}
 
-		REQUIRE(accessor_a.max.index() == accessor_b.max.index());
-		if (!std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.max))
+		REQUIRE(accessor_a.max->type() == accessor_b.max->type());
+		if (!accessor_a.max->isType<double>())
 			continue;
 
-		const auto& max_a = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_a.max);
-		const auto& max_b = std::get<FASTGLTF_STD_PMR_NS::vector<double>>(accessor_b.max);
+		const auto& max_a = accessor_a.max.value();
+		const auto& max_b = accessor_b.max.value();
 		REQUIRE(max_a.size() == max_b.size());
 		for (std::size_t j = 0; j < max_a.size(); ++j) {
-			REQUIRE(max_a[j] == max_b[j]);
+			REQUIRE(max_a.get<double>(j) == max_b.get<double>(j));
 		}
 	}
 

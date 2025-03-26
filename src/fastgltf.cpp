@@ -973,35 +973,22 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			}
 		}
 
-		if (!std::holds_alternative<std::monostate>(accessor.max)) {
+		if (accessor.max.has_value()) {
 			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-			    && !std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor.max))
+				&& !accessor.max->isType<double>())
 				return Error::InvalidGltf;
-			if (const auto error = std::visit(visitor {
-				[](std::monostate) { return Error::None; },
-				[&](const auto& arg) {
-					if (arg.size() != getNumComponents(accessor.type))
-						return Error::InvalidGltf;
-					return Error::None;
-				}
-			}, accessor.max); error != Error::None) {
-				return error;
-			}
+
+			if (accessor.max->size() != getNumComponents(accessor.type))
+				return Error::InvalidGltf;
 		}
-		if (!std::holds_alternative<std::monostate>(accessor.min)) {
+
+		if (accessor.min.has_value()) {
 			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-			    && !std::holds_alternative<FASTGLTF_STD_PMR_NS::vector<double>>(accessor.min))
+				&& !accessor.min->isType<double>())
 				return Error::InvalidGltf;
-			if (const auto error = std::visit(visitor {
-				[](std::monostate) { return Error::None; },
-				[&](const auto& arg) {
-					if (arg.size() != getNumComponents(accessor.type))
-						return Error::InvalidGltf;
-					return Error::None;
-				}
-			}, accessor.min); error != Error::None) {
-				return error;
-			}
+
+			if (accessor.min->size() != getNumComponents(accessor.type))
+				return Error::InvalidGltf;
 		}
 
 		if (accessor.sparse) {
@@ -1242,7 +1229,7 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 				const auto& accessor = asset.accessors[index];
 				if (name == "POSITION") {
 					// Animation input and vertex position attribute accessors MUST have accessor.min and accessor.max defined.
-					if (std::holds_alternative<std::monostate>(accessor.max) || std::holds_alternative<std::monostate>(accessor.min))
+					if (!accessor.max.has_value() || !accessor.min.has_value())
 						return Error::InvalidGltf;
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
@@ -1630,22 +1617,19 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
             return Error::InvalidGltf;
         }
 
-        // Type of min and max should always be the same.
-        auto parseMinMax = [&](std::string_view key, decltype(Accessor::max)& ref) -> fastgltf::Error {
-            dom::array elements;
-            if (accessorObject[key].get_array().get(elements) == SUCCESS) FASTGLTF_LIKELY {
-                decltype(Accessor::max) variant;
-
-				using double_vec = std::variant_alternative_t<1, decltype(Accessor::max)>;
-				using int64_vec = std::variant_alternative_t<2, decltype(Accessor::max)>;
-
+		// Type of min and max should always be the same.
+		auto parseMinMax = [&](const std::string_view key, std::optional<AccessorBoundsArray>& ref) -> Error {
+			dom::array elements;
+			if (accessorObject[key].get_array().get(elements) == SUCCESS) FASTGLTF_LIKELY {
 				const auto num = getNumComponents(accessor.type);
+
 				if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
-					variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(double_vec, resourceAllocator.get(), num);
+					ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
 				} else {
-					variant = FASTGLTF_CONSTRUCT_PMR_RESOURCE(int64_vec, resourceAllocator.get(), num);
+					ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::int64);
 				}
 
+				auto& array = ref.value();
 				std::size_t idx = 0;
 				for (auto element : elements) {
 					if (idx == num) FASTGLTF_UNLIKELY {
@@ -1653,72 +1637,71 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
 					}
 
 					switch (element.type()) {
-                        case dom::element_type::DOUBLE: {
-                            double value;
-                            if (element.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
-                                return Error::InvalidGltf;
-                            }
-
-                            if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-                                (*doubles)[idx++] = value;
-                            } else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-                                (*ints)[idx++] = static_cast<std::int64_t>(value);
-                            } else {
-                                return Error::InvalidGltf;
-                            }
-                            break;
-                        }
-                        case dom::element_type::INT64: {
-                            std::int64_t value;
-                            if (element.get_int64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
-                                return Error::InvalidGltf;
-                            }
-
-							if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-								(*doubles)[idx++] = static_cast<double>(value);
-							} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-								(*ints)[idx++] = value;
-							} else {
+						case dom::element_type::DOUBLE: {
+							double value;
+							if (element.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
 								return Error::InvalidGltf;
 							}
-                            break;
-                        }
-                        case dom::element_type::UINT64: {
-                            // Note that the glTF spec doesn't care about any integer larger than 32-bits, so
-                            // truncating uint64 to int64 wouldn't make any difference, as those large values
-                            // aren't allowed anyway.
-                            std::uint64_t value;
-                            if (element.get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
-                                return Error::InvalidGltf;
-                            }
 
-							if (auto* doubles = std::get_if<double_vec>(&variant); doubles != nullptr) {
-								(*doubles)[idx++] = static_cast<double>(value);
-							} else if (auto* ints = std::get_if<int64_vec>(&variant); ints != nullptr) {
-								(*ints)[idx++] = static_cast<std::int64_t>(value);
+							if (array.isType<double>()) {
+								array.set(idx++, value);
+							} else if (array.isType<std::int64_t>()) {
+								array.set(idx++, static_cast<std::int64_t>(value));
 							} else {
+								FASTGLTF_UNREACHABLE
+							}
+							break;
+						}
+						case dom::element_type::INT64: {
+							std::int64_t value;
+							if (element.get_int64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
 								return Error::InvalidGltf;
 							}
-                            break;
-                        }
-                        default: return Error::InvalidGltf;
-                    }
-                }
+
+							if (array.isType<double>()) {
+								array.set(idx++, static_cast<double>(value));
+							} else if (array.isType<std::int64_t>()) {
+								array.set(idx++, value);
+							} else {
+								FASTGLTF_UNREACHABLE
+							}
+							break;
+						}
+						case dom::element_type::UINT64: {
+							// Note that the glTF spec doesn't care about any integer larger than 32-bits, so
+							// truncating uint64 to int64 wouldn't make any difference, as those large values
+							// aren't allowed anyway.
+							std::uint64_t value;
+							if (element.get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+								return Error::InvalidGltf;
+							}
+
+							if (array.isType<double>()) {
+								array.set(idx++, static_cast<double>(value));
+							} else if (array.isType<std::int64_t>()) {
+								array.set(idx++, static_cast<std::uint64_t>(value));
+							} else {
+								FASTGLTF_UNREACHABLE
+							}
+							break;
+						}
+						default: return Error::InvalidGltf;
+					}
+				}
 
 				if (idx < num) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
-				ref = std::move(variant);
-            }
-            return Error::None;
-        };
+			}
+			return Error::None;
+		};
 
-        if (auto error = parseMinMax("max", accessor.max); error != Error::None) {
-            return error;
-        }
-        if (auto error = parseMinMax("min", accessor.min); error != Error::None) {
-            return error;
-        }
+		if (auto error = parseMinMax("max", accessor.max); error != Error::None) {
+			return error;
+		}
+		if (auto error = parseMinMax("min", accessor.min); error != Error::None) {
+			return error;
+		}
 
         if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidGltf;
@@ -4211,23 +4194,20 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
 		}
 
-		auto writeMinMax = [&](const decltype(Accessor::max)& ref, const std::string_view name) {
-			if (std::holds_alternative<std::monostate>(ref))
+		auto writeMinMax = [&](const std::optional<AccessorBoundsArray>& ref, const std::string_view name) {
+			if (!ref.has_value())
 				return; // This is valid, since min/max are only required on specific accessors.
 			json += ",\"" + std::string(name) + "\":[";
-			std::visit(visitor {
-				[](std::monostate) {},
-				[&](const auto& arg) {
-					for (auto vit = arg.begin(); vit != arg.end(); ++vit) {
-						if constexpr (std::is_floating_point_v<remove_cvref_t<decltype(*vit)>>)
-							json += to_string_fp(*vit); // this only works for float and double.
-						else
-							json += std::to_string(*vit);
-						if (uabs(std::distance(arg.begin(), vit)) + 1 < arg.size())
-							json += ',';
-					}
+
+			for (std::size_t i = 0; i < ref->size(); ++i) {
+				if (ref->isType<double>()) {
+					json += to_string_fp(static_cast<num>(ref->get<double>(i)));
+				} else if (ref->isType<std::int64_t>()) {
+					json += std::to_string(ref->get<std::int64_t>(i));
 				}
-			}, ref);
+				if (i + 1 < ref->size())
+					json += ',';
+			}
 			json += ']';
 		};
 		writeMinMax(it->max, "max");

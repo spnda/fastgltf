@@ -1478,6 +1478,85 @@ namespace fastgltf {
 		[[nodiscard]] bool isDataUri() const noexcept;
 	};
 
+	/**
+	 * Represents the minimum and maximum bounds for glTF accessors in a better interface to avoid
+	 * heavy usage of std::variant, which can pollute the user's code needlessly.
+	 */
+	class AccessorBoundsArray {
+		friend class Parser;
+
+	public:
+		enum class BoundsType {
+			int64,
+			float64,
+		};
+
+	private:
+		std::size_t len;
+		BoundsType dataType;
+		std::unique_ptr<std::byte[]> buffer;
+
+	public:
+		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type)
+			: len(len), dataType(type) {
+			buffer = decltype(buffer)(new(std::nothrow) std::byte[sizeof(std::int64_t) * len]);
+		}
+
+		AccessorBoundsArray(const AccessorBoundsArray& other) = delete;
+		AccessorBoundsArray(AccessorBoundsArray&& other) noexcept
+			: len(other.len), dataType(other.dataType), buffer(std::move(other.buffer)) {}
+
+		auto& operator=(const AccessorBoundsArray& other) = delete;
+		auto& operator=(AccessorBoundsArray&& other) noexcept {
+			buffer = std::move(other.buffer);
+			return *this;
+		}
+
+		[[nodiscard]] BoundsType type() const noexcept {
+			return dataType;
+		}
+
+		template <typename T>
+		[[nodiscard]] constexpr bool isType() const noexcept {
+			switch (dataType) {
+				case BoundsType::int64:
+					return std::is_same_v<remove_cvref_t<T>, std::int64_t>;
+				case BoundsType::float64:
+					return std::is_same_v<remove_cvref_t<T>, double>;
+				default:
+					return false;
+			}
+		}
+
+		[[nodiscard]] std::size_t size() const noexcept {
+			return len;
+		}
+
+		template <typename T>
+		[[nodiscard]] auto* data() noexcept {
+			assert(isType<T>());
+			return reinterpret_cast<remove_cvref_t<T>*>(buffer.get());
+		}
+
+		template <typename T>
+		[[nodiscard]] const auto* data() const noexcept {
+			assert(isType<T>());
+			return reinterpret_cast<remove_cvref_t<T>*>(buffer.get());
+		}
+
+		template <typename T>
+		[[nodiscard]] T get(const std::size_t pos) const {
+			assert(pos < len && isType<T>());
+			return data<T>()[pos];
+		}
+
+		template <typename T>
+		void set(const std::size_t pos, T&& value) {
+			assert(pos < len && isType<T>());
+			data<T>()[pos] = value;
+		}
+	};
+
 	FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 
 	/**
@@ -2148,8 +2227,8 @@ namespace fastgltf {
         ComponentType componentType;
         bool normalized = false;
 
-        std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> max;
-        std::variant<std::monostate, FASTGLTF_STD_PMR_NS::vector<double>, FASTGLTF_STD_PMR_NS::vector<std::int64_t>> min;
+		std::optional<AccessorBoundsArray> max;
+		std::optional<AccessorBoundsArray> min;
 
         // Could have no value for sparse morph targets
         Optional<std::size_t> bufferViewIndex;

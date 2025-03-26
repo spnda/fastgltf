@@ -423,66 +423,73 @@ TEST_CASE("Validate morph target parsing", "[gltf-loader]") {
 }
 
 TEST_CASE("Test accessors min/max", "[gltf-loader]") {
-    auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
+	auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
 	fastgltf::GltfFileStream jsonData(lightsLamp / "LightsPunctualLamp.gltf");
 	REQUIRE(jsonData.isOpen());
 
 	fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
-    auto asset = parser.loadGltfJson(jsonData, lightsLamp, noOptions, fastgltf::Category::Accessors);
-    REQUIRE(asset.error() == fastgltf::Error::None);
+	auto asset = parser.loadGltfJson(jsonData, lightsLamp, noOptions, fastgltf::Category::Accessors);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(std::find_if(asset->extensionsUsed.begin(), asset->extensionsUsed.end(), [](auto& string) {
-        return string == fastgltf::extensions::KHR_lights_punctual;
-    }) != asset->extensionsUsed.end());
+	REQUIRE(std::find_if(asset->extensionsUsed.begin(), asset->extensionsUsed.end(), [](auto& string) {
+		return string == fastgltf::extensions::KHR_lights_punctual;
+	}) != asset->extensionsUsed.end());
 
-    REQUIRE(asset->accessors.size() == 15);
-    auto& accessors = asset->accessors;
+	REQUIRE(asset->accessors.size() == 15);
+	auto& accessors = asset->accessors;
 
-    {
-        auto& firstAccessor = accessors[0];
-        const auto* max = std::get_if<FASTGLTF_STD_PMR_NS::vector<std::int64_t>>(&firstAccessor.max);
-        const auto* min = std::get_if<FASTGLTF_STD_PMR_NS::vector<std::int64_t>>(&firstAccessor.min);
-        REQUIRE(max != nullptr);
-        REQUIRE(min != nullptr);
-        REQUIRE(max->size() == fastgltf::getNumComponents(firstAccessor.type));
-        REQUIRE(max->size() == 1);
-        REQUIRE(min->size() == 1);
-        REQUIRE(max->front() == 3211);
-        REQUIRE(min->front() == 0);
-    }
+	{
+		auto& firstAccessor = accessors[0];
+		const auto& max = firstAccessor.max;
+		const auto& min = firstAccessor.min;
+		REQUIRE(max.has_value());
+		REQUIRE(min.has_value());
+		REQUIRE(max->size() == fastgltf::getNumComponents(firstAccessor.type));
+		REQUIRE(max->size() == 1);
+		REQUIRE(min->size() == 1);
+		REQUIRE(max->isType<std::int64_t>());
+		REQUIRE(min->isType<std::int64_t>());
+		REQUIRE(max->get<std::int64_t>(0) == 3211);
+		REQUIRE(min->get<std::int64_t>(0) == 0);
+	}
 
-    {
-        auto& secondAccessor = accessors[1];
-        const auto* max = std::get_if<FASTGLTF_STD_PMR_NS::vector<double>>(&secondAccessor.max);
-        const auto* min = std::get_if<FASTGLTF_STD_PMR_NS::vector<double>>(&secondAccessor.min);
-        REQUIRE(max != nullptr);
-        REQUIRE(min != nullptr);
-        REQUIRE(max->size() == fastgltf::getNumComponents(secondAccessor.type));
-        REQUIRE(max->size() == 3);
-        REQUIRE(min->size() == 3);
+	{
+    	auto& secondAccessor = accessors[1];
+    	const auto& max = secondAccessor.max;
+    	const auto& min = secondAccessor.min;
+		REQUIRE(max.has_value());
+		REQUIRE(min.has_value());
+		REQUIRE(max->size() == fastgltf::getNumComponents(secondAccessor.type));
+		REQUIRE(max->size() == 3);
+		REQUIRE(min->size() == 3);
 
-		REQUIRE(max->at(0) == Catch::Approx(0.81497824192047119));
-		REQUIRE(max->at(1) == Catch::Approx(1.8746249675750732));
-		REQUIRE(max->at(2) == Catch::Approx(0.32295516133308411));
+		REQUIRE(max->isType<double>());
+		REQUIRE(min->isType<double>());
 
-		REQUIRE(min->at(0) == Catch::Approx(-0.12269512563943863));
-		REQUIRE(min->at(1) == Catch::Approx(0.013025385327637196));
-		REQUIRE(min->at(2) == Catch::Approx(-0.32393229007720947));
-    }
+		REQUIRE(max->get<double>(0) == Catch::Approx(0.81497824192047119));
+		REQUIRE(max->get<double>(1) == Catch::Approx(1.8746249675750732));
+		REQUIRE(max->get<double>(2) == Catch::Approx(0.32295516133308411));
 
-    {
-        auto& fifthAccessor = accessors[4];
-        const auto* max = std::get_if<FASTGLTF_STD_PMR_NS::vector<double>>(&fifthAccessor.max);
-        const auto* min = std::get_if<FASTGLTF_STD_PMR_NS::vector<double>>(&fifthAccessor.min);
-        REQUIRE(max != nullptr);
-        REQUIRE(min != nullptr);
-        REQUIRE(max->size() == fastgltf::getNumComponents(fifthAccessor.type));
-        REQUIRE(max->size() == 4);
-        REQUIRE(min->size() == 4);
+		REQUIRE(min->get<double>(0) == Catch::Approx(-0.12269512563943863));
+		REQUIRE(min->get<double>(1) == Catch::Approx(0.013025385327637196));
+		REQUIRE(min->get<double>(2) == Catch::Approx(-0.32393229007720947));
+	}
 
-        REQUIRE(max->back() == 1.0);
-    }
+	{
+		auto& fifthAccessor = accessors[4];
+		const auto& max = fifthAccessor.max;
+		const auto& min = fifthAccessor.min;
+		REQUIRE(max.has_value());
+		REQUIRE(min.has_value());
+		REQUIRE(max->size() == fastgltf::getNumComponents(fifthAccessor.type));
+		REQUIRE(max->size() == 4);
+		REQUIRE(min->size() == 4);
+		REQUIRE(max->isType<double>());
+		REQUIRE(min->isType<double>());
+
+		REQUIRE(max->get<double>(3) == 1.0);
+	}
 }
 
 TEST_CASE("Test unicode characters", "[gltf-loader]") {
