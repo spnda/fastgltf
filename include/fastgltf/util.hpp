@@ -281,6 +281,9 @@ namespace fastgltf {
 	template <typename T, typename... Ts>
 	using is_any = std::disjunction<std::is_same<T, Ts>...>;
 
+	template <typename T, typename... Ts>
+	constexpr bool is_any_v = is_any<T, Ts...>::value;
+
 	// Simple reimplementation of std::remove_cvref, which was only added in C++20.
 	template <typename T>
 	struct remove_cvref {

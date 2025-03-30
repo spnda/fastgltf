@@ -1483,13 +1483,16 @@ namespace fastgltf {
 	 * heavy usage of std::variant, which can pollute the user's code needlessly.
 	 */
 	class AccessorBoundsArray {
-		friend class Parser;
-
 	public:
 		enum class BoundsType {
 			int64,
 			float64,
 		};
+
+		template <typename T>
+		using is_valid_type = is_any<T, std::int64_t, double>;
+		template <typename T>
+		static constexpr auto is_valid_type_v = is_valid_type<T>::value;
 
 	private:
 		std::size_t len;
@@ -1508,6 +1511,8 @@ namespace fastgltf {
 
 		auto& operator=(const AccessorBoundsArray& other) = delete;
 		auto& operator=(AccessorBoundsArray&& other) noexcept {
+			len = other.len;
+			dataType = other.dataType;
 			buffer = std::move(other.buffer);
 			return *this;
 		}
@@ -1516,7 +1521,7 @@ namespace fastgltf {
 			return dataType;
 		}
 
-		template <typename T>
+		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] constexpr bool isType() const noexcept {
 			switch (dataType) {
 				case BoundsType::int64:
@@ -1532,28 +1537,28 @@ namespace fastgltf {
 			return len;
 		}
 
-		template <typename T>
+		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] auto* data() noexcept {
 			assert(isType<T>());
 			return reinterpret_cast<remove_cvref_t<T>*>(buffer.get());
 		}
 
-		template <typename T>
+		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] const auto* data() const noexcept {
 			assert(isType<T>());
 			return reinterpret_cast<remove_cvref_t<T>*>(buffer.get());
 		}
 
-		template <typename T>
+		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] T get(const std::size_t pos) const {
 			assert(pos < len && isType<T>());
 			return data<T>()[pos];
 		}
 
-		template <typename T>
-		void set(const std::size_t pos, T&& value) {
+		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		void set(const std::size_t pos, const T value) {
 			assert(pos < len && isType<T>());
-			data<T>()[pos] = value;
+			data<T>()[pos] = std::move(value);
 		}
 	};
 

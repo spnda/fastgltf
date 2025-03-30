@@ -1679,7 +1679,7 @@ fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& ass
 							if (array.isType<double>()) {
 								array.set(idx++, static_cast<double>(value));
 							} else if (array.isType<std::int64_t>()) {
-								array.set(idx++, static_cast<std::uint64_t>(value));
+								array.set(idx++, static_cast<std::int64_t>(value));
 							} else {
 								FASTGLTF_UNREACHABLE
 							}
