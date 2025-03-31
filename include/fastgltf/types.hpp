@@ -1482,7 +1482,7 @@ namespace fastgltf {
 	 * Represents the minimum and maximum bounds for glTF accessors in a better interface to avoid
 	 * heavy usage of std::variant, which can pollute the user's code needlessly.
 	 */
-	class AccessorBoundsArray {
+	FASTGLTF_EXPORT class AccessorBoundsArray {
 	public:
 		enum class BoundsType {
 			int64,
@@ -1490,7 +1490,7 @@ namespace fastgltf {
 		};
 
 		template <typename T>
-		using is_valid_type = is_any<T, std::int64_t, double>;
+		using is_valid_type = is_any_of<T, std::int64_t, double>;
 		template <typename T>
 		static constexpr auto is_valid_type_v = is_valid_type<T>::value;
 
@@ -1502,7 +1502,7 @@ namespace fastgltf {
 	public:
 		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type)
 			: len(len), dataType(type) {
-			buffer = decltype(buffer)(new(std::nothrow) std::byte[sizeof(std::int64_t) * len]);
+			buffer = decltype(buffer)(new(static_cast<std::align_val_t>(sizeof(std::int64_t))) std::byte[sizeof(std::int64_t) * len]);
 		}
 
 		AccessorBoundsArray(const AccessorBoundsArray& other) = delete;
@@ -1522,7 +1522,7 @@ namespace fastgltf {
 		}
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
-		[[nodiscard]] constexpr bool isType() const noexcept {
+		[[nodiscard]] bool isType() const noexcept {
 			switch (dataType) {
 				case BoundsType::int64:
 					return std::is_same_v<remove_cvref_t<T>, std::int64_t>;
@@ -1539,26 +1539,40 @@ namespace fastgltf {
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] auto* data() noexcept {
-			assert(isType<T>());
+			if (!isType<T>()) FASTGLTF_UNLIKELY {
+				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
+			}
 			return reinterpret_cast<remove_cvref_t<T>*>(buffer.get());
 		}
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] const auto* data() const noexcept {
-			assert(isType<T>());
-			return reinterpret_cast<remove_cvref_t<T>*>(buffer.get());
+			if (!isType<T>()) FASTGLTF_UNLIKELY {
+				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
+			}
+			return reinterpret_cast<const remove_cvref_t<T>*>(buffer.get());
 		}
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] T get(const std::size_t pos) const {
-			assert(pos < len && isType<T>());
+			if (!isType<T>()) FASTGLTF_UNLIKELY {
+				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
+			}
+			if (pos >= size()) FASTGLTF_UNLIKELY {
+				raise<std::out_of_range>("Index is out of range for AccessorBoundsArray");
+			}
 			return data<T>()[pos];
 		}
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		void set(const std::size_t pos, const T value) {
-			assert(pos < len && isType<T>());
-			data<T>()[pos] = std::move(value);
+			if (!isType<T>()) FASTGLTF_UNLIKELY {
+				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
+			}
+			if (pos >= size()) FASTGLTF_UNLIKELY {
+				raise<std::out_of_range>("Index is out of range for AccessorBoundsArray");
+			}
+			data<T>()[pos] = value;
 		}
 	};
 

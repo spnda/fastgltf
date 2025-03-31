@@ -2372,7 +2372,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
                     using T = std::decay_t<decltype(arg)>;
 
                     // This is kinda cursed
-                    if constexpr (is_any<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>()) {
+                    if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>) {
                         arg.mimeType = getMimeTypeFromString(mimeType);
                     }
                 }, image.data);
