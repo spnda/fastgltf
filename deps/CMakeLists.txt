@@ -8,7 +8,7 @@ if(FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
     FetchContent_Declare(
         glm
         GIT_REPOSITORY https://github.com/g-truc/glm
-        GIT_TAG 0.9.9.8
+        GIT_TAG 1.0.1
         GIT_SHALLOW TRUE
     )
 
@@ -19,6 +19,7 @@ if(FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
     FetchContent_MakeAvailable(glm)
 
     add_library(glm::glm ALIAS glm)
+    target_compile_definitions(glm PUBLIC GLM_ENABLE_EXPERIMENTAL=1)
 
     if (TARGET glm_static)
         set_target_properties(glm_static PROPERTIES EXCLUDE_FROM_ALL 1)
@@ -120,11 +121,12 @@ if (FASTGLTF_ENABLE_EXAMPLES)
         GIT_REPOSITORY https://github.com/ocornut/imgui
         GIT_TAG v1.90.9
         GIT_SHALLOW TRUE
+        SOURCE_SUBDIR doesnt-exist # This is so that MakeAvailable doesn't call add_subdirectory
     )
 
     FetchContent_GetProperties(imgui)
     if(NOT imgui_POPULATED)
-        FetchContent_Populate(imgui)
+        FetchContent_MakeAvailable(imgui)
 
         add_library(imgui)
         add_library(imgui::imgui ALIAS imgui)
@@ -153,11 +155,12 @@ if(FASTGLTF_ENABLE_EXAMPLES)
         GIT_REPOSITORY https://github.com/nothings/stb
         GIT_TAG master
         GIT_SHALLOW TRUE
+        SOURCE_SUBDIR doesnt-exist # This is so that MakeAvailable doesn't call add_subdirectory
     )
 
     FetchContent_GetProperties(stb)
     if(NOT stb_POPULATED)
-        FetchContent_Populate(stb)
+        FetchContent_MakeAvailable(stb)
 
         add_library(stb INTERFACE)
         target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})

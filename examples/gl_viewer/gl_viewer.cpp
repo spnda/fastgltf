@@ -348,7 +348,6 @@ bool loadGltf(Viewer* viewer, std::filesystem::path path) {
         constexpr auto gltfOptions =
             fastgltf::Options::DontRequireValidAssetMember |
             fastgltf::Options::AllowDouble |
-            fastgltf::Options::LoadGLBBuffers |
             fastgltf::Options::LoadExternalBuffers |
             fastgltf::Options::LoadExternalImages |
 			fastgltf::Options::GenerateMeshIndices;
