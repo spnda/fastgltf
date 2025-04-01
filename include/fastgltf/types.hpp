@@ -1497,23 +1497,87 @@ namespace fastgltf {
 	private:
 		std::size_t len;
 		BoundsType dataType;
-		std::unique_ptr<std::byte[]> buffer;
+		union {
+			std::unique_ptr<int64_t[]> int64_buffer;
+			std::unique_ptr<double[]> float64_buffer;
+		};
 
 	public:
-		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type)
-			: len(len), dataType(type) {
-			buffer = decltype(buffer)(new(static_cast<std::align_val_t>(sizeof(std::int64_t))) std::byte[sizeof(std::int64_t) * len]);
+		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type) : len(len), dataType(type) {
+			switch (dataType) {
+				case BoundsType::int64:
+					new (&int64_buffer) std::unique_ptr<int64_t[]>(new int64_t[len]);
+					break;
+				case BoundsType::float64:
+					new (&float64_buffer) std::unique_ptr<double[]>(new double[len]);
+					break;
+				default:
+					FASTGLTF_UNREACHABLE
+			}
+		}
+
+		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		static AccessorBoundsArray ForType(const std::size_t len) {
+			if constexpr (std::is_same_v<T, std::int64_t>) {
+				return AccessorBoundsArray(len, BoundsType::int64);
+			} else if constexpr(std::is_same_v<T, double>) {
+				return AccessorBoundsArray(len, BoundsType::float64);
+			}
+			FASTGLTF_UNREACHABLE
+		}
+
+		~AccessorBoundsArray() {
+			switch (dataType) {
+				case BoundsType::int64:
+					std::destroy_at(&int64_buffer);
+					break;
+				case BoundsType::float64:
+					std::destroy_at(&float64_buffer);
+					break;
+				default:
+					FASTGLTF_UNREACHABLE
+			}
 		}
 
 		AccessorBoundsArray(const AccessorBoundsArray& other) = delete;
 		AccessorBoundsArray(AccessorBoundsArray&& other) noexcept
-			: len(other.len), dataType(other.dataType), buffer(std::move(other.buffer)) {}
+			: len(other.len), dataType(other.dataType) {
+			switch (other.dataType) {
+				case BoundsType::int64:
+					new (&int64_buffer) std::unique_ptr(std::move(other.int64_buffer));
+					break;
+				case BoundsType::float64:
+					new (&float64_buffer) std::unique_ptr(std::move(other.float64_buffer));
+					break;
+				default:
+					FASTGLTF_UNREACHABLE
+			}
+		}
 
 		auto& operator=(const AccessorBoundsArray& other) = delete;
 		auto& operator=(AccessorBoundsArray&& other) noexcept {
 			len = other.len;
 			dataType = other.dataType;
-			buffer = std::move(other.buffer);
+			switch (dataType) {
+				case BoundsType::int64:
+					std::destroy_at(&int64_buffer);
+					break;
+				case BoundsType::float64:
+					std::destroy_at(&float64_buffer);
+					break;
+				default:
+					FASTGLTF_UNREACHABLE
+			}
+			switch (other.dataType) {
+				case BoundsType::int64:
+					new (&int64_buffer) std::unique_ptr(std::move(other.int64_buffer));
+					break;
+				case BoundsType::float64:
+					new (&float64_buffer) std::unique_ptr(std::move(other.float64_buffer));
+					break;
+				default:
+					FASTGLTF_UNREACHABLE
+			}
 			return *this;
 		}
 
@@ -1525,9 +1589,9 @@ namespace fastgltf {
 		[[nodiscard]] bool isType() const noexcept {
 			switch (dataType) {
 				case BoundsType::int64:
-					return std::is_same_v<remove_cvref_t<T>, std::int64_t>;
+					return std::is_same_v<T, std::int64_t>;
 				case BoundsType::float64:
-					return std::is_same_v<remove_cvref_t<T>, double>;
+					return std::is_same_v<T, double>;
 				default:
 					return false;
 			}
@@ -1539,39 +1603,35 @@ namespace fastgltf {
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] auto* data() noexcept {
-			if (!isType<T>()) FASTGLTF_UNLIKELY {
-				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
+			assert(isType<T>());
+			if constexpr (std::is_same_v<T, int64_t>) {
+				return int64_buffer.get();
+			} else if constexpr (std::is_same_v<T, double>) {
+				return float64_buffer.get();
 			}
-			return reinterpret_cast<remove_cvref_t<T>*>(buffer.get());
+			FASTGLTF_UNREACHABLE
 		}
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] const auto* data() const noexcept {
-			if (!isType<T>()) FASTGLTF_UNLIKELY {
-				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
+			assert(isType<T>());
+			if constexpr (std::is_same_v<T, int64_t>) {
+				return int64_buffer.get();
+			} else if constexpr (std::is_same_v<T, double>) {
+				return float64_buffer.get();
 			}
-			return reinterpret_cast<const remove_cvref_t<T>*>(buffer.get());
+			FASTGLTF_UNREACHABLE
 		}
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] T get(const std::size_t pos) const {
-			if (!isType<T>()) FASTGLTF_UNLIKELY {
-				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
-			}
-			if (pos >= size()) FASTGLTF_UNLIKELY {
-				raise<std::out_of_range>("Index is out of range for AccessorBoundsArray");
-			}
+			assert(pos < len && isType<T>());
 			return data<T>()[pos];
 		}
 
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		void set(const std::size_t pos, const T value) {
-			if (!isType<T>()) FASTGLTF_UNLIKELY {
-				raise<std::logic_error>("Wrong type passed to AccessorBoundsArray");
-			}
-			if (pos >= size()) FASTGLTF_UNLIKELY {
-				raise<std::out_of_range>("Index is out of range for AccessorBoundsArray");
-			}
+			assert(pos < len && isType<T>());
 			data<T>()[pos] = value;
 		}
 	};
