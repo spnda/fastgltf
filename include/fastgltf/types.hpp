@@ -2317,6 +2317,27 @@ namespace fastgltf {
 		FASTGLTF_STD_PMR_NS::string name;
 
 		/**
+		 * Helper function that updates the max/min variables dynamically.
+		 */
+		template <typename T, std::enable_if_t<AccessorBoundsArray::is_valid_type_v<T>, bool> = true>
+		void updateBoundsToInclude(T value) {
+			if (!max)
+				max = AccessorBoundsArray::ForType<T>(1);
+			if (!min)
+				min = AccessorBoundsArray::ForType<T>(1);
+
+			assert(max->isType<T>() && min->isType<T>());
+			assert(max->size() == 1 && min->size() == 1);
+
+			const auto cur_max = max->get<T>(0);
+			const auto cur_min = min->get<T>(0);
+			if (value > cur_max)
+				max->set<T>(0, value);
+			if (value < cur_min)
+				min->set<T>(0, value);
+		}
+
+		/**
 		 * Helper function that updates the max/min variables dynamically. Note that the value passed in
 		 * needs to be a vector with the same size as max/min
 		 */

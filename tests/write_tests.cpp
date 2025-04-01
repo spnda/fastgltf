@@ -384,6 +384,24 @@ TEST_CASE("Test floating point round-trip precision", "[write-tests]") {
 }
 
 TEST_CASE("Test Accessor::updateBoundsToInclude", "[write-tests]") {
+	SECTION("Scalar") {
+		fastgltf::Accessor accessor;
+
+		accessor.updateBoundsToInclude(static_cast<std::int64_t>(2));
+		accessor.updateBoundsToInclude(static_cast<std::int64_t>(4));
+		accessor.updateBoundsToInclude(static_cast<std::int64_t>(-2));
+
+		REQUIRE(accessor.max.has_value());
+		REQUIRE(accessor.max->isType<std::int64_t>());
+		REQUIRE(accessor.max->size() == 1);
+		REQUIRE(accessor.max->get<std::int64_t>(0) == 4);
+
+		REQUIRE(accessor.min.has_value());
+		REQUIRE(accessor.min->isType<std::int64_t>());
+		REQUIRE(accessor.min->size() == 1);
+		REQUIRE(accessor.min->get<std::int64_t>(0) == -2);
+	}
+
 	SECTION("Doubles") {
 		fastgltf::Accessor accessor;
 
