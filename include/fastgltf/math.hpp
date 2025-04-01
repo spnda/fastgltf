@@ -391,6 +391,15 @@ namespace fastgltf::math {
 	FASTGLTF_EXPORT using u32vec3 = u32vec<3>;
 	FASTGLTF_EXPORT using u32vec4 = u32vec<4>;
 
+	FASTGLTF_EXPORT template <std::size_t N> using s64vec = vec<std::int64_t, N>;
+	FASTGLTF_EXPORT using s64vec2 = s64vec<2>;
+	FASTGLTF_EXPORT using s64vec3 = s64vec<3>;
+	FASTGLTF_EXPORT using s64vec4 = s64vec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using u64vec = vec<std::uint64_t, N>;
+	FASTGLTF_EXPORT using u64vec2 = u64vec<2>;
+	FASTGLTF_EXPORT using u64vec3 = u64vec<3>;
+	FASTGLTF_EXPORT using u64vec4 = u64vec<4>;
+
 	FASTGLTF_EXPORT template <std::size_t N> using ivec = vec<int, N>;
 	FASTGLTF_EXPORT using ivec2 = ivec<2>;
 	FASTGLTF_EXPORT using ivec3 = ivec<3>;

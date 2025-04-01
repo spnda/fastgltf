@@ -382,3 +382,53 @@ TEST_CASE("Test floating point round-trip precision", "[write-tests]") {
 		REQUIRE(material_a.alphaCutoff == material_b.alphaCutoff);
 	}
 }
+
+TEST_CASE("Test Accessor::updateBoundsToInclude", "[write-tests]") {
+	SECTION("Doubles") {
+		fastgltf::Accessor accessor;
+
+		accessor.updateBoundsToInclude(fastgltf::math::f64vec3(1.0, 2.0, 3.0));
+		accessor.updateBoundsToInclude(fastgltf::math::f64vec3(2.0, 3.0, -4.0));
+		accessor.updateBoundsToInclude(fastgltf::math::f64vec3(0.0, 0.0, 0.0));
+
+		REQUIRE(accessor.max.has_value());
+		REQUIRE(accessor.max->size() == 3);
+		REQUIRE(accessor.max->isType<double>());
+		REQUIRE(!accessor.max->isType<std::int64_t>());
+		REQUIRE(accessor.max->get<double>(0) == 2.0);
+		REQUIRE(accessor.max->get<double>(1) == 3.0);
+		REQUIRE(accessor.max->get<double>(2) == 3.0);
+
+		REQUIRE(accessor.min.has_value());
+		REQUIRE(accessor.min->size() == 3);
+		REQUIRE(accessor.min->isType<double>());
+		REQUIRE(!accessor.min->isType<std::int64_t>());
+		REQUIRE(accessor.min->get<double>(0) == 0.0);
+		REQUIRE(accessor.min->get<double>(1) == 0.0);
+		REQUIRE(accessor.min->get<double>(2) == -4.0);
+	}
+
+	SECTION("Integers") {
+		fastgltf::Accessor accessor;
+
+		accessor.updateBoundsToInclude(fastgltf::math::s64vec3(1, 2, 3));
+		accessor.updateBoundsToInclude(fastgltf::math::s64vec3(2, 3, -4));
+		accessor.updateBoundsToInclude(fastgltf::math::s64vec3(0, 0, 0));
+
+		REQUIRE(accessor.max.has_value());
+		REQUIRE(accessor.max->size() == 3);
+		REQUIRE(!accessor.max->isType<double>());
+		REQUIRE(accessor.max->isType<std::int64_t>());
+		REQUIRE(accessor.max->get<std::int64_t>(0) == 2);
+		REQUIRE(accessor.max->get<std::int64_t>(1) == 3);
+		REQUIRE(accessor.max->get<std::int64_t>(2) == 3);
+
+		REQUIRE(accessor.min.has_value());
+		REQUIRE(accessor.min->size() == 3);
+		REQUIRE(!accessor.min->isType<double>());
+		REQUIRE(accessor.min->isType<std::int64_t>());
+		REQUIRE(accessor.min->get<std::int64_t>(0) == 0);
+		REQUIRE(accessor.min->get<std::int64_t>(1) == 0);
+		REQUIRE(accessor.min->get<std::int64_t>(2) == -4);
+	}
+}

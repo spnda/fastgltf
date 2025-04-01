@@ -1498,7 +1498,7 @@ namespace fastgltf {
 		std::size_t len;
 		BoundsType dataType;
 		union {
-			std::unique_ptr<int64_t[]> int64_buffer;
+			std::unique_ptr<std::int64_t[]> int64_buffer;
 			std::unique_ptr<double[]> float64_buffer;
 		};
 
@@ -1506,10 +1506,10 @@ namespace fastgltf {
 		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type) : len(len), dataType(type) {
 			switch (dataType) {
 				case BoundsType::int64:
-					new (&int64_buffer) std::unique_ptr<int64_t[]>(new int64_t[len]);
+					new (&int64_buffer) std::unique_ptr<std::int64_t[]>(new std::int64_t[len]());
 					break;
 				case BoundsType::float64:
-					new (&float64_buffer) std::unique_ptr<double[]>(new double[len]);
+					new (&float64_buffer) std::unique_ptr<double[]>(new double[len]());
 					break;
 				default:
 					FASTGLTF_UNREACHABLE
@@ -1604,7 +1604,7 @@ namespace fastgltf {
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] auto* data() noexcept {
 			assert(isType<T>());
-			if constexpr (std::is_same_v<T, int64_t>) {
+			if constexpr (std::is_same_v<T, std::int64_t>) {
 				return int64_buffer.get();
 			} else if constexpr (std::is_same_v<T, double>) {
 				return float64_buffer.get();
@@ -1615,7 +1615,7 @@ namespace fastgltf {
 		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
 		[[nodiscard]] const auto* data() const noexcept {
 			assert(isType<T>());
-			if constexpr (std::is_same_v<T, int64_t>) {
+			if constexpr (std::is_same_v<T, std::int64_t>) {
 				return int64_buffer.get();
 			} else if constexpr (std::is_same_v<T, double>) {
 				return float64_buffer.get();
@@ -2299,23 +2299,47 @@ namespace fastgltf {
         ComponentType indexComponentType;
     };
 
-    FASTGLTF_EXPORT struct Accessor {
-        std::size_t byteOffset = 0;
-        std::size_t count;
-        AccessorType type;
-        ComponentType componentType;
-        bool normalized = false;
+	FASTGLTF_EXPORT struct Accessor {
+		std::size_t byteOffset = 0;
+		std::size_t count;
+		AccessorType type;
+		ComponentType componentType;
+		bool normalized = false;
 
 		std::optional<AccessorBoundsArray> max;
 		std::optional<AccessorBoundsArray> min;
 
-        // Could have no value for sparse morph targets
-        Optional<std::size_t> bufferViewIndex;
+		// Could have no value for sparse morph targets
+		Optional<std::size_t> bufferViewIndex;
 
-        Optional<SparseAccessor> sparse;
+		Optional<SparseAccessor> sparse;
 
-        FASTGLTF_STD_PMR_NS::string name;
-    };
+		FASTGLTF_STD_PMR_NS::string name;
+
+		/**
+		 * Helper function that updates the max/min variables dynamically. Note that the value passed in
+		 * needs to be a vector with the same size as max/min
+		 */
+		template <typename T, std::size_t N, std::enable_if_t<AccessorBoundsArray::is_valid_type_v<T>, bool> = true>
+		void updateBoundsToInclude(math::vec<T, N> value) {
+			if (!max)
+				max = AccessorBoundsArray::ForType<T>(value.size());
+			if (!min)
+				min = AccessorBoundsArray::ForType<T>(value.size());
+
+			assert(max->isType<T>() && min->isType<T>());
+			assert(max->size() == value.size() && min->size() == value.size());
+
+			for (std::size_t i = 0; i < value.size(); ++i) {
+				const auto cur_max = max->get<T>(i);
+				const auto cur_min = min->get<T>(i);
+				if (value[i] > cur_max)
+					max->set<T>(i, value[i]);
+				if (value[i] < cur_min)
+					min->set<T>(i, value[i]);
+			}
+		}
+	};
 
     FASTGLTF_EXPORT struct CompressedBufferView {
         std::size_t bufferIndex;
