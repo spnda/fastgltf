@@ -7,7 +7,7 @@
 #include "gltf_path.hpp"
 
 TEST_CASE("Load basic GLB file", "[gltf-loader]") {
-    auto folder = sampleModels / "2.0" / "Box" / "glTF-Binary";
+    auto folder = sampleAssets / "Models" / "Box" / "glTF-Binary";
 	auto jsonData = fastgltf::GltfDataBuffer::FromPath(folder / "Box.glb");
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 

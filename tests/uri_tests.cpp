@@ -128,7 +128,7 @@ TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 }
 
 TEST_CASE("Test percent-encoded URIs in glTF", "[uri-tests]") {
-	auto boxWithSpaces = sampleModels / "2.0" / "Box With Spaces" / "glTF";
+	auto boxWithSpaces = sampleAssets / "Models" / "Box With Spaces" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(boxWithSpaces / "Box With Spaces.gltf");
 	REQUIRE(jsonData.isOpen());

@@ -9,7 +9,7 @@
 // Some tests might need expanding, by being tested on multiple assets.
 
 TEST_CASE("Extension KHR_texture_transform", "[gltf-loader]") {
-	auto transformTest = sampleModels / "2.0" / "TextureTransformMultiTest" / "glTF";
+	auto transformTest = sampleAssets / "Models" / "TextureTransformMultiTest" / "glTF";
 	fastgltf::GltfFileStream jsonData(transformTest / "TextureTransformMultiTest.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -28,7 +28,7 @@ TEST_CASE("Extension KHR_texture_transform", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
-    auto stainedLamp = sampleModels / "2.0" / "StainedGlassLamp" / "glTF-KTX-BasisU";
+    auto stainedLamp = sampleAssets / "Models" / "StainedGlassLamp" / "glTF-KTX-BasisU";
 	fastgltf::GltfFileStream jsonData(stainedLamp / "StainedGlassLamp.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -67,7 +67,7 @@ TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
 // TODO: Add tests for MSFT_texture_dds, KHR_mesh_quantization extension
 
 TEST_CASE("Extension EXT_meshopt_compression", "[gltf-loader]") {
-	auto brainStem = sampleModels / "2.0" / "BrainStem" / "glTF-Meshopt";
+	auto brainStem = sampleAssets / "Models" / "BrainStem" / "glTF-Meshopt";
 	fastgltf::GltfFileStream jsonData(brainStem / "BrainStem.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -102,7 +102,7 @@ TEST_CASE("Extension EXT_meshopt_compression", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_draco_mesh_compression", "[gltf-loader]") {
-	auto brainStem = sampleModels / "2.0" / "BrainStem" / "glTF-Draco";
+	auto brainStem = sampleAssets / "Models" / "BrainStem" / "glTF-Draco";
 	fastgltf::GltfFileStream jsonData(brainStem / "BrainStem.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -152,7 +152,7 @@ TEST_CASE("Extension KHR_draco_mesh_compression", "[gltf-loader]") {
 
 TEST_CASE("Extension KHR_lights_punctual", "[gltf-loader]") {
 	SECTION("Point light") {
-		auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
+		auto lightsLamp = sampleAssets / "Models" / "LightsPunctualLamp" / "glTF";
 		fastgltf::GltfFileStream jsonData(lightsLamp / "LightsPunctualLamp.gltf");
 		REQUIRE(jsonData.isOpen());
 
@@ -178,7 +178,7 @@ TEST_CASE("Extension KHR_lights_punctual", "[gltf-loader]") {
 	}
 
 	SECTION("Directional light") {
-		auto directionalLight = sampleModels / "2.0" / "DirectionalLight" / "glTF";
+		auto directionalLight = sampleAssets / "Models" / "DirectionalLight" / "glTF";
 		fastgltf::GltfFileStream jsonData(directionalLight / "DirectionalLight.gltf");
 		REQUIRE(jsonData.isOpen());
 
@@ -200,7 +200,7 @@ TEST_CASE("Extension KHR_lights_punctual", "[gltf-loader]") {
 // TODO: Add tests for EXT_texture_webp extension
 
 TEST_CASE("Extension KHR_materials_specular", "[gltf-loader]") {
-    auto specularTest = sampleModels / "2.0" / "SpecularTest" / "glTF";
+    auto specularTest = sampleAssets / "Models" / "SpecularTest" / "glTF";
 	fastgltf::GltfFileStream jsonData(specularTest / "SpecularTest.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -229,7 +229,7 @@ TEST_CASE("Extension KHR_materials_specular", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_materials_ior and KHR_materials_iridescence", "[gltf-loader]") {
-    auto specularTest = sampleModels / "2.0" / "IridescenceDielectricSpheres" / "glTF";
+    auto specularTest = sampleAssets / "Models" / "IridescenceDielectricSpheres" / "glTF";
 	fastgltf::GltfFileStream jsonData(specularTest / "IridescenceDielectricSpheres.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -257,7 +257,7 @@ TEST_CASE("Extension KHR_materials_ior and KHR_materials_iridescence", "[gltf-lo
 }
 
 TEST_CASE("Extension KHR_materials_volume and KHR_materials_transmission", "[gltf-loader]") {
-    auto beautifulGame = sampleModels / "2.0" / "ABeautifulGame" / "glTF";
+    auto beautifulGame = sampleAssets / "Models" / "ABeautifulGame" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(beautifulGame / "ABeautifulGame.gltf");
 	REQUIRE(jsonData.isOpen());
@@ -281,7 +281,7 @@ TEST_CASE("Extension KHR_materials_volume and KHR_materials_transmission", "[glt
 }
 
 TEST_CASE("Extension KHR_materials_clearcoat", "[gltf-loader]") {
-    auto clearcoatTest = sampleModels / "2.0" / "ClearCoatTest" / "glTF";
+    auto clearcoatTest = sampleAssets / "Models" / "ClearCoatTest" / "glTF";
 	fastgltf::GltfFileStream jsonData(clearcoatTest / "ClearCoatTest.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -301,12 +301,12 @@ TEST_CASE("Extension KHR_materials_clearcoat", "[gltf-loader]") {
     REQUIRE(materials[7].clearcoat->clearcoatFactor == 1.0f);
     REQUIRE(materials[7].clearcoat->clearcoatRoughnessFactor == 1.0f);
     REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture.has_value());
-    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->textureIndex == 2);
+    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->textureIndex == 1);
     REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->texCoordIndex == 0);
 }
 
 TEST_CASE("Extension KHR_materials_emissive_strength", "[gltf-loader]") {
-	auto emissiveStrengthTest = sampleModels / "2.0" / "EmissiveStrengthTest" / "glTF";
+	auto emissiveStrengthTest = sampleAssets / "Models" / "EmissiveStrengthTest" / "glTF";
 	fastgltf::GltfFileStream jsonData(emissiveStrengthTest / "EmissiveStrengthTest.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -322,7 +322,7 @@ TEST_CASE("Extension KHR_materials_emissive_strength", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_materials_sheen", "[gltf-loader]") {
-	auto sheenChair = sampleModels / "2.0" / "SheenChair" / "glTF";
+	auto sheenChair = sampleAssets / "Models" / "SheenChair" / "glTF";
 	fastgltf::GltfFileStream jsonData(sheenChair / "SheenChair.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -340,7 +340,7 @@ TEST_CASE("Extension KHR_materials_sheen", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_materials_unlit", "[gltf-loader]") {
-	auto unlitTest = sampleModels / "2.0" / "UnlitTest" / "glTF";
+	auto unlitTest = sampleAssets / "Models" / "UnlitTest" / "glTF";
 	fastgltf::GltfFileStream jsonData(unlitTest / "UnlitTest.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -355,7 +355,7 @@ TEST_CASE("Extension KHR_materials_unlit", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_materials_anisotropy", "[gltf-loader]") {
-	auto carbonFibre = sampleModels / "2.0" / "CarbonFibre" / "glTF";
+	auto carbonFibre = sampleAssets / "Models" / "CarbonFibre" / "glTF";
 	fastgltf::GltfFileStream jsonData(carbonFibre / "CarbonFibre.gltf");
 	REQUIRE(jsonData.isOpen());
 
@@ -374,7 +374,7 @@ TEST_CASE("Extension KHR_materials_anisotropy", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension EXT_mesh_gpu_instancing", "[gltf-loader]") {
-    auto simpleInstancingTest = sampleModels / "2.0" / "SimpleInstancing" / "glTF";
+    auto simpleInstancingTest = sampleAssets / "Models" / "SimpleInstancing" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(simpleInstancingTest / "SimpleInstancing.gltf");
 	REQUIRE(jsonData.isOpen());
@@ -396,7 +396,7 @@ TEST_CASE("Extension EXT_mesh_gpu_instancing", "[gltf-loader]") {
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
 TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
-    auto specularGlossinessTest = sampleModels / "2.0" / "SpecGlossVsMetalRough" / "glTF";
+    auto specularGlossinessTest = sampleAssets / "Models" / "SpecGlossVsMetalRough" / "glTF";
     fastgltf::GltfFileStream jsonData(specularGlossinessTest / "SpecGlossVsMetalRough.gltf");
     REQUIRE(jsonData.isOpen());
 
@@ -452,7 +452,7 @@ TEST_CASE("Extension KHR_materials_dispersion", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_materials_variant", "[gltf-loader]") {
-	auto velvetSofa = sampleModels / "2.0" / "GlamVelvetSofa" / "glTF";
+	auto velvetSofa = sampleAssets / "Models" / "GlamVelvetSofa" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(velvetSofa / "GlamVelvetSofa.gltf");
 	REQUIRE(jsonData.isOpen());

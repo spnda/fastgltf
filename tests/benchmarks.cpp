@@ -151,25 +151,25 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
     std::string warn, err;
 #endif
 
-    auto cylinderEngine = sampleModels / "2.0" / "2CylinderEngine" / "glTF-Embedded";
-    auto bytes = readFileAsBytes(cylinderEngine / "2CylinderEngine.gltf");
+    auto cylinderEngine = sampleAssets / "Models" / "MetalRoughSpheres" / "glTF-Embedded";
+    auto bytes = readFileAsBytes(cylinderEngine / "MetalRoughSpheres.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
-    BENCHMARK("Parse 2CylinderEngine and decode base64") {
+    BENCHMARK("Parse MetalRoughSpheres and decode base64") {
         return parser.loadGltfJson(jsonData.get(), cylinderEngine, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
     setTinyGLTFCallbacks(tinygltf);
-    BENCHMARK("2CylinderEngine decode with tinygltf") {
+    BENCHMARK("MetalRoughSpheres decode with tinygltf") {
         return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), cylinderEngine.string());
     };
 #endif
 
 #ifdef HAS_CGLTF
-    BENCHMARK("2CylinderEngine decode with cgltf") {
+    BENCHMARK("MetalRoughSpheres decode with cgltf") {
         cgltf_options options = {};
         cgltf_data* data = nullptr;
         auto filePath = cylinderEngine.string();
@@ -182,14 +182,14 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
 #endif
 
 #ifdef HAS_GLTFRS
-	BENCHMARK("2CylinderEngine with gltf-rs") {
+	BENCHMARK("MetalRoughSpheres with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size());
 		return rust::gltf::run(slice);
 	};
 #endif
 
 #ifdef HAS_ASSIMP
-	BENCHMARK("2CylinderEngine with assimp") {
+	BENCHMARK("MetalRoughSpheres with assimp") {
 		const auto* scene = aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0, nullptr);
 		REQUIRE(scene != nullptr);
 		return scene;
@@ -205,28 +205,28 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
     std::string warn, err;
 #endif
 
-    auto buggyPath = sampleModels / "2.0" / "Buggy" / "glTF";
-    auto bytes = readFileAsBytes(buggyPath / "Buggy.gltf");
+    auto sponzaPath = sampleAssets / "Models" / "Sponza" / "glTF";
+    auto bytes = readFileAsBytes(sponzaPath / "Sponza.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
-    BENCHMARK("Parse Buggy.gltf") {
-        return parser.loadGltfJson(jsonData.get(), buggyPath, benchmarkOptions);
+    BENCHMARK("Parse Sponza.gltf") {
+        return parser.loadGltfJson(jsonData.get(), sponzaPath, benchmarkOptions);
     };
 
 #ifdef HAS_TINYGLTF
     setTinyGLTFCallbacks(tinygltf);
-    BENCHMARK("Parse Buggy.gltf with tinygltf") {
-        return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), buggyPath.string());
+    BENCHMARK("Parse Sponza.gltf with tinygltf") {
+        return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), sponzaPath.string());
     };
 #endif
 
 #ifdef HAS_CGLTF
-    BENCHMARK("Parse Buggy.gltf with cgltf") {
+    BENCHMARK("Parse Sponza.gltf with cgltf") {
         cgltf_options options = {};
         cgltf_data* data = nullptr;
-        auto filePath = buggyPath.string();
+        auto filePath = sponzaPath.string();
         cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
         REQUIRE(result == cgltf_result_success);
         cgltf_free(data);
@@ -235,14 +235,14 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
 #endif
 
 #ifdef HAS_GLTFRS
-	BENCHMARK("Parse Buggy.gltf with gltf-rs") {
+	BENCHMARK("Parse Sponza.gltf with gltf-rs") {
 		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(bytes.data()), bytes.size());
 		return rust::gltf::run(slice);
 	};
 #endif
 
 #ifdef HAS_ASSIMP
-	BENCHMARK("Parse Buggy.gltf with assimp") {
+	BENCHMARK("Parse Sponza.gltf with assimp") {
 		return aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0, nullptr);
 	};
 #endif
@@ -304,8 +304,8 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
 }
 
 TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmark]") {
-    auto buggyPath = sampleModels / "2.0" / "Buggy" / "glTF";
-    auto bytes = readFileAsBytes(buggyPath / "Buggy.gltf");
+    auto sponzaPath = sampleAssets / "Models" / "Sponza" / "glTF";
+    auto bytes = readFileAsBytes(sponzaPath / "Sponza.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
@@ -319,7 +319,7 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
     minified.resize(dstLen);
 
     // For completeness, benchmark minifying the JSON
-    BENCHMARK("Minify Buggy.gltf") {
+    BENCHMARK("Minify Sponza.gltf") {
         auto result = simdjson::minify(reinterpret_cast<const char*>(bytes.data()), bytes.size(),
                                        reinterpret_cast<char*>(minified.data()), dstLen);
         REQUIRE(result == simdjson::SUCCESS);
@@ -331,12 +331,12 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
 	REQUIRE(minifiedJsonData.error() == fastgltf::Error::None);
 
     fastgltf::Parser parser;
-    BENCHMARK("Parse Buggy.gltf with normal JSON") {
-        return parser.loadGltfJson(jsonData.get(), buggyPath, benchmarkOptions);
+    BENCHMARK("Parse Sponza.gltf with normal JSON") {
+        return parser.loadGltfJson(jsonData.get(), sponzaPath, benchmarkOptions);
     };
 
-    BENCHMARK("Parse Buggy.gltf with minified JSON") {
-        return parser.loadGltfJson(minifiedJsonData.get(), buggyPath, benchmarkOptions);
+    BENCHMARK("Parse Sponza.gltf with minified JSON") {
+        return parser.loadGltfJson(minifiedJsonData.get(), sponzaPath, benchmarkOptions);
     };
 }
 

@@ -69,11 +69,10 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
     fastgltf::Image texture;
     std::string bufferData;
 
-    auto cylinderEngine = sampleModels / "2.0" / "2CylinderEngine" / "glTF-Embedded";
-    auto boxTextured = sampleModels / "2.0" / "BoxTextured" / "glTF-Embedded";
+    auto cylinderEngine = sampleAssets / "Models" / "MetalRoughSpheres" / "glTF-Embedded";
+    auto boxTextured = sampleAssets / "Models" / "BoxTextured" / "glTF-Embedded";
 
-
-	fastgltf::GltfFileStream tceJsonData(cylinderEngine / "2CylinderEngine.gltf");
+	fastgltf::GltfFileStream tceJsonData(cylinderEngine / "MetalRoughSpheres.gltf");
 	REQUIRE(tceJsonData.isOpen());
 	fastgltf::GltfFileStream btJsonData(boxTextured / "BoxTextured.gltf");
 	REQUIRE(btJsonData.isOpen());
@@ -86,7 +85,7 @@ TEST_CASE("Test base64 buffer decoding", "[base64]") {
 
         // Load the buffer from the parsed glTF file.
         auto& buffer = asset->buffers.front();
-        REQUIRE(buffer.byteLength == 1794612);
+        REQUIRE(buffer.byteLength == 11199904);
         auto bufferVector = std::get_if<fastgltf::sources::Array>(&buffer.data);
         REQUIRE(bufferVector != nullptr);
         REQUIRE(bufferVector->mimeType == fastgltf::MimeType::OctetStream);

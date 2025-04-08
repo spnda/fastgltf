@@ -150,7 +150,7 @@ TEST_CASE("Test matrix transpose", "[gltf-tools]") {
 }
 
 TEST_CASE("Test accessor", "[gltf-tools]") {
-    auto lightsLamp = sampleModels / "2.0" / "LightsPunctualLamp" / "glTF";
+    auto lightsLamp = sampleAssets / "Models" / "LightsPunctualLamp" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(lightsLamp / "LightsPunctualLamp.gltf");
 	REQUIRE(jsonData.isOpen());
@@ -239,7 +239,7 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 }
 
 TEST_CASE("Test sparse accessor", "[gltf-tools]") {
-    auto simpleSparseAccessor = sampleModels / "2.0" / "SimpleSparseAccessor" / "glTF";
+    auto simpleSparseAccessor = sampleAssets / "Models" / "SimpleSparseAccessor" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(simpleSparseAccessor / "SimpleSparseAccessor.gltf");
 	REQUIRE(jsonData.isOpen());

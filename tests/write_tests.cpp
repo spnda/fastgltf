@@ -26,7 +26,7 @@ TEST_CASE("Test simple glTF composition", "[write-tests]") {
 }
 
 TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-tests]") {
-	auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
+	auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
 	fastgltf::GltfFileStream cubeJsonData(cubePath / "Cube.gltf");
 	REQUIRE(cubeJsonData.isOpen());
 
@@ -48,7 +48,7 @@ TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-te
 }
 
 TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]") {
-	auto dishPath = sampleModels / "2.0" / "IridescentDishWithOlives" / "glTF";
+	auto dishPath = sampleAssets / "Models" / "IridescentDishWithOlives" / "glTF";
 	fastgltf::GltfFileStream dishJsonData(dishPath / "IridescentDishWithOlives.gltf");
 	REQUIRE(dishJsonData.isOpen());
 
@@ -75,7 +75,7 @@ TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]"
 }
 
 TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
-    auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
+    auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
 
 	fastgltf::GltfFileStream cubeJson(cubePath / "Cube.gltf");
 	REQUIRE(cubeJson.isOpen());
@@ -103,7 +103,7 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
 }
 
 TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
-    auto cubePath = sampleModels / "2.0" / "Cube" / "glTF";
+    auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
 
 	fastgltf::GltfFileStream cubeJson(cubePath / "Cube.gltf");
 	REQUIRE(cubeJson.isOpen());
@@ -221,10 +221,10 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 
 TEST_CASE("Test Unicode exporting", "[write-tests]") {
 #if FASTGLTF_CPP_20
-	auto unicodePath = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
+	auto unicodePath = sampleAssets / "Models" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf"));
 #else
-	auto unicodePath = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
+	auto unicodePath = sampleAssets / "Models" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf"));
 #endif
 	REQUIRE(jsonData.isOpen());
@@ -258,10 +258,10 @@ TEST_CASE("Test Unicode exporting", "[write-tests]") {
 
 TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
 #if FASTGLTF_CPP_20
-	auto unicodePath = sampleModels / "2.0" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
+	auto unicodePath = sampleAssets / "Models" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf"));
 #else
-	auto unicodePath = sampleModels / "2.0" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
+	auto unicodePath = sampleAssets / "Models" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf"));
 #endif
 	REQUIRE(jsonData.isOpen());
@@ -305,7 +305,7 @@ TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
 }
 
 TEST_CASE("Test floating point round-trip precision", "[write-tests]") {
-	auto cubePath = sampleModels / "2.0" / "Duck" / "glTF-Binary";
+	auto cubePath = sampleAssets / "Models" / "Duck" / "glTF-Binary";
 
 	fastgltf::Parser parser;
 

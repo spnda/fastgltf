@@ -13,7 +13,7 @@ on:
 
 env:
   BUILD_TYPE: Release
-  SAMPLE_MODELS_LOCATION: tests/gltf/glTF-Sample-Models
+  SAMPLE_ASSETS_LOCATION: tests/gltf/glTF-Sample-Assets
 
 jobs:
   build_windows:
@@ -24,16 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download cached sample models
+      - name: Download cached sample assets
         uses: actions/cache@v4
-        id: sample-models-cache
+        id: sample-assets-cache
         with:
-          path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
-          key: gltf-sample-models
+          path: ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
+          key: gltf-sample-assets
 
-      - name: Clone glTF-Sample-Models
-        if: steps.sample-models-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
+      - name: Clone gltf-sample-assets
+        if: steps.sample-assets-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Assets ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_COMPILE_AS_CPP20=${{ matrix.cpp20 }}
@@ -49,16 +49,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download cached sample models
+      - name: Download cached sample assets
         uses: actions/cache@v4
-        id: sample-models-cache
+        id: sample-assets-cache
         with:
-          path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
-          key: gltf-sample-models
+          path: ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
+          key: gltf-sample-assets
 
-      - name: Clone glTF-Sample-Models
-        if: steps.sample-models-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
+      - name: Clone gltf-sample-assets
+        if: steps.sample-assets-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Assets ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_ENABLE_DEPRECATED_EXT=ON
@@ -107,16 +107,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download cached sample models
+      - name: Download cached sample assets
         uses: actions/cache@v4
-        id: sample-models-cache
+        id: sample-assets-cache
         with:
-          path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
-          key: gltf-sample-models
+          path: ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
+          key: gltf-sample-assets
 
-      - name: Clone glTF-Sample-Models
-        if: steps.sample-models-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
+      - name: Clone gltf-sample-assets
+        if: steps.sample-assets-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Assets ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_COMPILE_AS_CPP20=${{ matrix.cpp20 }}
@@ -154,16 +154,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download cached sample models
+      - name: Download cached sample assets
         uses: actions/cache@v4
-        id: sample-models-cache
+        id: sample-assets-cache
         with:
-          path: ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
-          key: gltf-sample-models
+          path: ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
+          key: gltf-sample-assets
 
-      - name: Clone glTF-Sample-Models
-        if: steps.sample-models-cache.outputs.cache-hit != 'true'
-        run: git clone https://github.com/KhronosGroup/glTF-Sample-Models ${{ github.workspace }}/${{ env.SAMPLE_MODELS_LOCATION }}
+      - name: Clone gltf-sample-assets
+        if: steps.sample-assets-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/KhronosGroup/glTF-Sample-Assets ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
 
       - name: Configure CMake
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_ENABLE_DEPRECATED_EXT=ON
