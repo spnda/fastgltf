@@ -24,7 +24,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef FASTGLTF_MATH_HPP
+#define FASTGLTF_MATH_HPP
 
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cmath>
@@ -903,3 +904,5 @@ namespace fastgltf::math {
 		rotation.z() = std::copysignf(rotation.z(), matrix[0][1] - matrix[1][0]);
 	}
 } // namespace fastgltf::math
+
+#endif

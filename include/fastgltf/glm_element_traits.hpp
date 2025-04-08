@@ -24,7 +24,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef FASTGLTF_GLM_TRAITS_HPP
+#define FASTGLTF_GLM_TRAITS_HPP
 
 #include <fastgltf/tools.hpp>
 
@@ -100,3 +101,5 @@ template<>
 struct ElementTraits<glm::mat4> : ElementTraitsBase<glm::mat4, AccessorType::Mat4, float> {};
 
 } // namespace fastgltf
+
+#endif

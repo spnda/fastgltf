@@ -24,7 +24,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef FASTGLTF_DXMATH_TRAITS_HPP
+#define FASTGLTF_DXMATH_TRAITS_HPP
 
 #include <fastgltf/tools.hpp>
 
@@ -90,3 +91,5 @@ template<>
 struct ElementTraits<DirectX::XMFLOAT4X4> : TransposedElementTraits<DirectX::XMFLOAT4X4, AccessorType::Mat4, float> {};
 
 } // namespace fastgltf
+
+#endif

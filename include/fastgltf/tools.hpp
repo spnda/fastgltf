@@ -24,7 +24,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef FASTGLTF_TOOLS_HPP
+#define FASTGLTF_TOOLS_HPP
 
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cstring>
@@ -935,3 +936,5 @@ void iterateSceneNodes(AssetType&& asset, std::size_t sceneIndex, math::fmat4x4 
 }
 
 } // namespace fastgltf
+
+#endif

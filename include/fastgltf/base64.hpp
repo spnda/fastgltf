@@ -24,7 +24,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef FASTGLTF_BASE_64_HPP
+#define FASTGLTF_BASE_64_HPP
 
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cassert>
@@ -84,4 +85,6 @@ namespace fastgltf::base64 {
 
 #ifdef _MSC_VER
 #pragma warning(pop)
+#endif
+
 #endif

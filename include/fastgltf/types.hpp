@@ -24,7 +24,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef FASTGLTF_TYPES_HPP
+#define FASTGLTF_TYPES_HPP
 
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <cassert>
@@ -2516,4 +2517,6 @@ namespace fastgltf {
 
 #ifdef _MSC_VER
 #pragma warning(pop)
+#endif
+
 #endif
