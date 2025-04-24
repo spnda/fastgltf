@@ -518,15 +518,12 @@ std::string_view fg::URIView::fragment() const noexcept { return _fragment; }
 fs::path fg::URIView::fspath() const {
 	if (!isLocalPath())
 		return {};
-#ifdef _WIN32
-#if __cplusplus >= 202002L
+
+#if FASTGLTF_CPP_20 && __cpp_char8_t >= 201811L
 	const std::string_view charPath = path();
-	return { std::u8string_view { reinterpret_cast<char8_t>(charPath.data()), charPath.size() } };
+	return { std::u8string_view { reinterpret_cast<const char8_t*>(charPath.data()), charPath.size() } };
 #else
 	return fs::u8path(path());
-#endif
-#else
-	return { path() };
 #endif
 }
 
