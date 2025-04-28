@@ -301,6 +301,27 @@ namespace fastgltf {
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, &)
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Category, ~)
     // clang-format on
+
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+	FASTGLTF_EXPORT enum class CombineMode : std::uint8_t {
+        Average,
+		Minimum,
+		Maximum,
+		Multiply,
+		Invalid,
+    };
+
+	FASTGLTF_EXPORT enum class DriveType : std::uint8_t {
+	    Linear,
+		Angular
+	};
+
+	FASTGLTF_EXPORT enum class DriveMode : std::uint8_t {
+	    Force,
+		Acceleration
+	};
+#endif
 #pragma endregion
 
 #pragma region ConversionFunctions
@@ -479,6 +500,41 @@ namespace fastgltf {
 				return "";
 		}
 	}
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+	constexpr auto getFrictionCombineType(std::string_view name) noexcept {
+		assert(!name.empty());
+	    if(name[0] == 'a') {
+			return CombineMode::Average;
+	    }
+
+		switch(name[1]) {
+	    case 'i':
+			return CombineMode::Minimum;
+
+	    case 'a':
+			return CombineMode::Maximum;
+
+	    case 'u':
+			return CombineMode::Multiply;
+		}
+
+		return CombineMode::Invalid;
+	}
+
+	static constexpr std::array<std::string_view, 4> frictionCombineNames{
+        "average",
+        "minimum",
+        "maximum",
+        "multiply"
+	};
+
+	constexpr std::string_view getFrictionCombineName(CombineMode frictionCombine) noexcept {
+		static_assert(std::is_same_v<std::underlying_type_t<CombineMode>, std::uint8_t>);
+		const auto idx = to_underlying(frictionCombine) & 0x3;
+		return frictionCombineNames[idx];
+	}
+#endif
 #pragma endregion
 
 #pragma region Containers
@@ -1888,6 +1944,224 @@ namespace fastgltf {
 		std::size_t accessorIndex;
 	};
 
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+    FASTGLTF_EXPORT struct Motion {
+        /**
+         * When true, treat the rigid body as having infinite mass. Its velocity will be constant during simulation
+         */
+        bool isKinematic = false;
+
+        /**
+         * The mass of the rigid body. Larger values imply the rigid body is harder to move
+         */
+        Optional<num> mass;
+
+        /**
+         * The quaternion rotating from inertia major axis space to node space
+         */
+        Optional<math::fvec4> inertialOrientation;
+
+        /**
+         * The principal moments of inertia. Larger values imply the rigid body is harder to rotate
+         */
+        Optional<math::fvec3> inertialDiagonal;
+
+        /**
+         * Center of mass of the rigid body in node space
+         */
+        math::fvec3 centerOfMass = {0, 0, 0};
+
+        /**
+         * Initial linear velocity of the rigid body in node space
+         */
+        math::fvec3 linearVelocity = {0, 0, 0};
+
+        /**
+         * Initial angular velocity of the rigid body in node space
+         */
+        math::fvec3 angularVelocity = {0, 0, 0};
+	};
+
+	FASTGLTF_EXPORT struct Geometry {
+        /**
+         * The index of a top-level `KHR_implicit_shapes.shape`, providing an implicit representation of the geometry
+         */
+        Optional<size_t> shape;
+
+        /**
+         * The index of a glTF `node` which provides a mesh representation of the geometry
+         */
+        Optional<size_t> node;
+
+        /**
+         * Flag to indicate that the geometry should be a convex hull.
+         */
+        bool convexHull;
+	};
+
+	FASTGLTF_EXPORT struct PhysicsMaterial {
+		num staticFriction;
+
+		num dynamicFriction;
+
+		num restitution;
+
+		CombineMode frictionCombine;
+
+		CombineMode restitutionCombine;
+	};
+
+	FASTGLTF_EXPORT struct CollisionFilter {
+        /**
+         * An array of arbitrary strings indicating the "system" a node is a member of
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collisionSystems;
+
+        /**
+         * An array of strings representing the systems which this node can _not_ collide with
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> notCollideWithSystems;
+
+        /**
+         * An array of strings representing the systems which this node can collide with
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collideWithSystems;
+	};
+
+	FASTGLTF_EXPORT struct Collider {
+        /**
+         * An object describing the geometrical representation of this collider
+         */
+        Geometry geometry;
+
+        /**
+         * Indexes into the top-level `physicsMaterials` and describes how the collider should respond to collisions
+         */
+        std::size_t physicsMaterial;
+
+        /**
+         * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
+         */
+        std::size_t collisionFilter;
+	};
+
+	FASTGLTF_EXPORT struct Trigger {
+		/**
+		 * An object describing the geometrical representation of this collider
+		 */
+		Geometry geometry;
+
+        /**
+         * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodes;
+
+        /**
+         * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
+         */
+        std::size_t collisionFilter;
+	};
+
+	FASTGLTF_EXPORT struct JointLimit {
+		/**
+		 * The linear axes to constrain (0=X, 1=Y, 2=Z)
+		 */
+		FASTGLTF_FG_PMR_NS::SmallVector<uint32_t, 3> linearAxes;
+
+		/**
+		 * The angular axes to constrain (0=X, 1=Y, 2=Z)
+		 */
+		FASTGLTF_FG_PMR_NS::SmallVector<uint32_t, 3> angularAxes;
+
+		/**
+		 * The minimum allowed relative distance/angle
+		 */
+		Optional<num> min;
+
+		/**
+		 * The maximum allowed relative distance/angle
+		 */
+		Optional<num> max;
+
+		/**
+		 * Optional softness of the limits when beyond the limits
+		 */
+		Optional<num> stiffness;
+
+		/**
+		 * Optional spring damping applied when beyond the limits
+		 */
+		Optional<num> damping;
+	};
+
+	FASTGLTF_EXPORT struct JointDrive {
+        /**
+         * Determines if the drive affects is a `linear` or `angular` driv
+         */
+        DriveType type;
+
+        /**
+         * Determines if the drive is operating in `force` or `acceleration` mode
+         */
+        DriveMode mode;
+
+        /**
+         * The index of the axis which this drive affects
+         */
+        uint8_t axis;
+
+        /**
+         * The maximum force that the drive can apply
+         */
+        num maxForce;
+
+        /**
+         * The desired relative target between the pivot axes
+         */
+        num positionTarget;
+
+        /**
+         * The desired relative velocity of the pivot axes
+         */
+        num velocityTarget;
+
+        /**
+         * The drive's stiffness, used to achieve the position target
+         */
+        num stiffness;
+
+        /**
+         * The damping factor applied to reach the velocity target
+         */
+        num sampling;
+	};
+
+	FASTGLTF_EXPORT struct PhysicsJoint {
+		FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointLimit> limits;
+
+        /**
+         * Each drive specifies a force to apply along a single axis
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointDrive> drives;
+	};
+
+	FASTGLTF_EXPORT struct Joint {
+	    std::size_t connectedNode;
+
+		std::size_t joint;
+	};
+
+    FASTGLTF_EXPORT struct PhysicsRigidBody {
+		Optional<Motion> motion;
+
+		Collider collider;
+
+		Optional<Trigger> trigger;
+
+		Optional<Joint> joint;
+	};
+#endif
+
     FASTGLTF_EXPORT struct Node {
         Optional<std::size_t> meshIndex;
 	    Optional<std::size_t> skinIndex;
@@ -1914,6 +2188,10 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::vector<Attribute> instancingAttributes;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		Optional<PhysicsRigidBody> physicsRigidBody;
+#endif
 
         [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
@@ -2452,6 +2730,12 @@ namespace fastgltf {
         std::vector<Texture> textures;
 
 		std::vector<std::string> materialVariants;
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		std::vector<PhysicsMaterial> physicsMaterials;
+	    std::vector<PhysicsJoint> physicsJoints;
+		std::vector<CollisionFilter> collisionFilters;
+#endif
 
         // Keeps tracked of categories that were actually parsed.
         Category availableCategories = Category::None;
