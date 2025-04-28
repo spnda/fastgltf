@@ -20,6 +20,7 @@ option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for e
 option(FASTGLTF_COMPILE_AS_CPP20 "Have the library compile as C++20" OFF)
 option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which uses C++20 modules" OFF)
 option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
+option(FASTGLTF_ENABLE_KHR_PHYSICS_RIGIDBODY "Enable support for the experimental KHR_physics_ridigbody extension", OFF)
 
 if (FASTGLTF_COMPILE_AS_CPP20)
     set(FASTGLTF_COMPILE_TARGET cxx_std_20)
@@ -111,6 +112,7 @@ target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BO
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_DEPRECATED_EXT=$<BOOL:${FASTGLTF_ENABLE_DEPRECATED_EXT}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL=$<BOOL:${FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_64BIT_FLOAT=$<BOOL:${FASTGLTF_USE_64BIT_FLOAT}>")
+target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_KHR_PHYSICS_RIGIDBODY=$<BOOL:${FASTGLTF_ENABLE_KHR_PHYSICS_RIGIDBODY}>")
 
 fastgltf_check_modules_support()
 if (FASTGLTF_ENABLE_CPP_MODULES AND FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
