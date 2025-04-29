@@ -289,9 +289,22 @@ namespace fastgltf {
         Scenes      = 1 << 12,
         Asset       = 1 << 13,
 
-        All = ~(~0u << 14),
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		PhysicsMaterials	= 1 << 14,
+		CollisionFilters	= 1 << 15,
+		PhysicsJoints		= 1 << 16,
+
+		All = ~(~0u << 16),
+#else
+		All = ~(~0u << 14),
+#endif
+
         // Includes everything needed for rendering but animations
-        OnlyRenderable = All & ~(Animations) & ~(Skins),
+        OnlyRenderable = All & ~(Animations) & ~(Skins)
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		& ~(PhysicsMaterials) & ~(CollisionFilters) & ~(PhysicsJoints)
+#endif
+        ,
         OnlyAnimations = Animations | Accessors | BufferViews | Buffers,
     };
 
@@ -502,7 +515,7 @@ namespace fastgltf {
 	}
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-	constexpr auto getFrictionCombineType(std::string_view name) noexcept {
+	constexpr auto getCombineMode(std::string_view name) noexcept {
 		assert(!name.empty());
 	    if(name[0] == 'a') {
 			return CombineMode::Average;
@@ -1980,6 +1993,11 @@ namespace fastgltf {
          * Initial angular velocity of the rigid body in node space
          */
         math::fvec3 angularVelocity = {0, 0, 0};
+
+        /**
+         * A multiplier applied to the acceleration due to gravity
+         */
+        num gravityFactor = 1;
 	};
 
 	FASTGLTF_EXPORT struct Geometry {
@@ -2000,11 +2018,11 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct PhysicsMaterial {
-		num staticFriction;
+		num staticFriction = 0.6f;
 
-		num dynamicFriction;
+		num dynamicFriction = 0.6f;
 
-		num restitution;
+		num restitution = 0.0f;
 
 		CombineMode frictionCombine;
 
@@ -2066,12 +2084,12 @@ namespace fastgltf {
 		/**
 		 * The linear axes to constrain (0=X, 1=Y, 2=Z)
 		 */
-		FASTGLTF_FG_PMR_NS::SmallVector<uint32_t, 3> linearAxes;
+		FASTGLTF_FG_PMR_NS::SmallVector<uint8_t, 3> linearAxes;
 
 		/**
 		 * The angular axes to constrain (0=X, 1=Y, 2=Z)
 		 */
-		FASTGLTF_FG_PMR_NS::SmallVector<uint32_t, 3> angularAxes;
+		FASTGLTF_FG_PMR_NS::SmallVector<uint8_t, 3> angularAxes;
 
 		/**
 		 * The minimum allowed relative distance/angle
@@ -2091,12 +2109,12 @@ namespace fastgltf {
 		/**
 		 * Optional spring damping applied when beyond the limits
 		 */
-		Optional<num> damping;
+		num damping = 0;
 	};
 
 	FASTGLTF_EXPORT struct JointDrive {
         /**
-         * Determines if the drive affects is a `linear` or `angular` driv
+         * Determines if the drive affects is a `linear` or `angular` drive
          */
         DriveType type;
 
@@ -2128,12 +2146,12 @@ namespace fastgltf {
         /**
          * The drive's stiffness, used to achieve the position target
          */
-        num stiffness;
+        num stiffness = 0;
 
         /**
          * The damping factor applied to reach the velocity target
          */
-        num sampling;
+        num damping = 0;
 	};
 
 	FASTGLTF_EXPORT struct PhysicsJoint {
@@ -2149,6 +2167,8 @@ namespace fastgltf {
 	    std::size_t connectedNode;
 
 		std::size_t joint;
+
+		bool enableCollision = false;
 	};
 
     FASTGLTF_EXPORT struct PhysicsRigidBody {

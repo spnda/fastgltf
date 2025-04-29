@@ -843,6 +843,11 @@ namespace fastgltf {
 		Error parseScenes(simdjson::dom::array& array, Asset& asset);
 		Error parseSkins(simdjson::dom::array& array, Asset& asset);
 		Error parseTextures(simdjson::dom::array& array, Asset& asset);
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		Error parsePhysicsMaterials(simdjson::dom::array& physicsMaterials, Asset& asset);
+		Error parseCollisionFilters(simdjson::dom::array& collisionFilters, Asset& asset);
+		Error parsePhysicsJoints(simdjson::dom::array& physicsJoints, Asset& asset);
+#endif
 		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
     public:
