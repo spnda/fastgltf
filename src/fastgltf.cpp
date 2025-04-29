@@ -3613,9 +3613,13 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			if (hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
+				PhysicsRigidBody physicsRigidBody = {};
 				dom::object physicsRigidBodiesObject;
-				if (extensionsObject[extensions::KHR_physics_rigid_bodies].get_object().get(physicsRigidBodiesObject) == SUCCESS) FASTGLTF_LIKELY {
-					
+				if (extensionsObject[extensions::KHR_physics_rigid_bodies].get_object().get(physicsRigidBodiesObject) == SUCCESS) FASTGLTF_LIKELY{
+					const auto rigidBodyError = parsePhysicsRigidBody(physicsRigidBodiesObject, node);
+					if (rigidBodyError != Error::None) {
+						return rigidBodyError;
+					}
 			    }
 			}
 #endif
@@ -4336,6 +4340,151 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 	}
 
 	return Error::None;
+}
+
+fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node) {
+	using namespace simdjson;
+
+	PhysicsRigidBody rigid_body = {};
+
+	dom::object motionObject;
+	if (auto error = khr_physics_rigid_bodies["motion"].get_object().get(motionObject); error == SUCCESS) {
+		Motion motion = {};
+
+		bool isKinematic;
+		if (error = motionObject["isKinematic"].get_bool().get(isKinematic); error == SUCCESS) {
+			motion.isKinematic = isKinematic;
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		double mass;
+		if (error = motionObject["mass"].get_double().get(mass); error == SUCCESS) {
+			motion.mass = static_cast<num>(mass);
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::array centerOfMassArray;
+		if (error = motionObject["centerOfMass"].get_array().get(centerOfMassArray); error == SUCCESS) {
+			if (centerOfMassArray.size() != 3) {
+				return Error::InvalidGltf;
+			}
+
+			auto i = 0U;
+			for (auto num : centerOfMassArray) {
+				double val;
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+					return Error::InvalidGltf;
+				}
+				motion.centerOfMass[i] = static_cast<fastgltf::num>(val);
+				++i;
+			}
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::array inertiaDiagonalArray;
+		if (error = motionObject["inertiaDiagonal"].get_array().get(inertiaDiagonalArray); error == SUCCESS) {
+			if (inertiaDiagonalArray.size() != 3) {
+				return Error::InvalidGltf;
+			}
+
+			math::fvec3 inertialDiagonal;
+
+			auto i = 0U;
+			for (auto num : inertiaDiagonalArray) {
+				double val;
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+					return Error::InvalidGltf;
+				}
+				inertialDiagonal[i] = static_cast<fastgltf::num>(val);
+				++i;
+			}
+
+			motion.inertialDiagonal = inertialDiagonal;
+
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::array inertialOrientationArray;
+		if (error = motionObject["inertialOrientation"].get_array().get(inertialOrientationArray); error == SUCCESS) {
+			if (inertialOrientationArray.size() != 4) {
+				return Error::InvalidGltf;
+			}
+
+			math::fvec4 inertialOrientation;
+
+			auto i = 0U;
+			for (auto num : inertialOrientationArray) {
+				double val;
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+					return Error::InvalidGltf;
+				}
+				inertialOrientation[i] = static_cast<fastgltf::num>(val);
+				++i;
+			}
+
+			motion.inertialOrientation = inertialOrientation;
+
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::array linearVelocityArray;
+		if (error = motionObject["linearVelocity"].get_array().get(linearVelocityArray); error == SUCCESS) {
+			if (linearVelocityArray.size() != 3) {
+				return Error::InvalidGltf;
+			}
+
+			auto i = 0U;
+			for (auto num : linearVelocityArray) {
+				double val;
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+					return Error::InvalidGltf;
+				}
+				motion.linearVelocity[i] = static_cast<fastgltf::num>(val);
+				++i;
+			}
+
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::array angularVelocityArray;
+		if (error = motionObject["angularVelocity"].get_array().get(angularVelocityArray); error == SUCCESS) {
+			if (angularVelocityArray.size() != 3) {
+				return Error::InvalidGltf;
+			}
+
+			auto i = 0U;
+			for (auto num : angularVelocityArray) {
+				double val;
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+					return Error::InvalidGltf;
+				}
+				motion.angularVelocity[i] = static_cast<fastgltf::num>(val);
+				++i;
+			}
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		double gravityFactor;
+		if (error = motionObject["gravityFactor"].get_double().get(gravityFactor); error == SUCCESS) {
+			motion.gravityFactor = static_cast<num>(gravityFactor);
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		rigid_body.motion = motion;
+
+	} else if (error != NO_SUCH_FIELD) {
+		return Error::InvalidGltf;
+	}
+
+	
 }
 #endif
 

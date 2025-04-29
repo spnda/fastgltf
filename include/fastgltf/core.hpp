@@ -867,6 +867,8 @@ namespace fastgltf {
 		Error parsePhysicsMaterials(simdjson::dom::array& physicsMaterials, Asset& asset);
 		Error parseCollisionFilters(simdjson::dom::array& collisionFilters, Asset& asset);
 		Error parsePhysicsJoints(simdjson::dom::array& physicsJoints, Asset& asset);
+
+		Error parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node);
 #endif
 		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
