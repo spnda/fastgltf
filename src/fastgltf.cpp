@@ -4606,6 +4606,18 @@ namespace fastgltf {
 		return {std::begin(buffer), end};
 	}
 
+    std::string to_string(const math::fvec2 value) {
+		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]);
+	}
+
+	std::string to_string(const math::fvec3 value) {
+		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]) + ',' + to_string_fp(value[2]);
+	}
+
+	std::string to_string(const math::fvec4 value) {
+		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]) + ',' + to_string_fp(value[2]) + ',' + to_string_fp(value[3]);
+	}
+
 	void writeTextureInfo(std::string& json, const TextureInfo* info, const TextureInfoType type = TextureInfoType::Standard) {
 		json += '{';
 		json += "\"index\":" + std::to_string(info->textureIndex);
@@ -5643,7 +5655,11 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			},
 		}, it->transform);
 
-	    if (!it->instancingAttributes.empty() || it->lightIndex.has_value()) {
+	    if (!it->instancingAttributes.empty() || it->lightIndex.has_value()
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			|| it->physicsRigidBody.has_value()
+#endif
+			) {
 			if (json.back() != '{') json += ',';
 			json += R"("extensions":{)";
 			if (!it->instancingAttributes.empty()) {
@@ -5660,10 +5676,93 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 				if (json.back() != '{') json += ',';
 				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + "}";
 			}
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			if (it->physicsRigidBody.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += R"("KHR_physics_rigid_body":{)";
+				if (it->physicsRigidBody->motion.has_value()) {
+					const auto& motion = *it->physicsRigidBody->motion;
+					json += R"("motion":{"isKinematic":)" + std::to_string(motion.isKinematic);
+					if (motion.mass.has_value()) {
+						json += R"(,"mass":)" + std::to_string(*motion.mass);
+					}
+					json += R"(,"centerOfMass":[)" + to_string(motion.centerOfMass) + "]";
+					if (motion.inertialDiagonal.has_value()) {
+						json += R"(,"inertialDiagonal":[)" + to_string(*motion.inertialDiagonal) + "]";
+					}
+					if (motion.inertialOrientation.has_value()) {
+						json += R"(,"inertialOrientation":[)" + to_string(*motion.inertialOrientation) + "]";
+					}
+					json += R"(,"linearVelocity":)" + to_string(motion.linearVelocity)
+				        + R"(],"angularVelocity":[)" + to_string(motion.angularVelocity)
+				        + R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + "},";
+				}
+
+				if (it->physicsRigidBody->trigger.has_value()) {
+					const auto& trigger = *it->physicsRigidBody->trigger;
+					json += R"("trigger":{)";
+					std::visit(visitor{
+	            [&](auto&) {
+							// Is this needed?
+						},
+						[&](const GeometryTrigger& geometry) {
+							json += R"("geometry":{)";
+							if (geometry.geometry.shape.has_value()) {
+								json += R"("shape":)" + std::to_string(*geometry.geometry.shape) + ",";
+							} else if(geometry.geometry.node.has_value()) {
+								json += R"("node":)" + std::to_string(*geometry.geometry.node) + ",";
+							}
+							json += R"("convexHull":)" + std::to_string(geometry.geometry.convexHull) + "}";
+
+							if (geometry.collisionFilter.has_value()) {
+								json += R"(,"collisionFilter":)" + std::to_string(*geometry.collisionFilter);
+							}
+						},
+						[&](const NodeTrigger& node) {
+							json += R"("nodes":[)";
+							for(auto it = node.nodes.begin(); it != node.nodes.end(); ++it) {
+								json += std::to_string(*it);
+								if (uabs(std::distance(node.nodes.begin(), it)) + 1 < node.nodes.size())
+									json += ',';
+							}
+							json += ']';
+						},
+						}, trigger);
+					json += "},";
+				}
+
+				if (it->physicsRigidBody->joint.has_value()) {
+					const auto& joint = *it->physicsRigidBody->joint;
+					json += R"("joint":{"connectedNode":)" + std::to_string(joint.connectedNode)
+				        + R"(,"joint":)" + std::to_string(joint.joint)
+				        + R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + "},";
+				}
+
+				const auto& collider = it->physicsRigidBody->collider;
+				json += R"("collider":{)";
+
+				json += R"("geometry":{)";
+				if (collider.geometry.shape.has_value()) {
+					json += R"("shape":)" + std::to_string(*collider.geometry.shape) + ",";
+				}
+				else if (collider.geometry.node.has_value()) {
+					json += R"("node":)" + std::to_string(*collider.geometry.node) + ",";
+				}
+				json += R"("convexHull":)" + std::to_string(collider.geometry.convexHull) + "}";
+
+				if (collider.physicsMaterial.has_value()) {
+					json += R"(,"physicsMaterial":)" + std::to_string(*collider.physicsMaterial);
+				}
+				if (collider.collisionFilter) {
+					json += R"(,"collisionFilter":)" + std::to_string(*collider.collisionFilter);
+				}
+				json += "}";
+			}
+#endif
+
 			json += "}";
 		}
-
-		TODO: physics motion or whatever
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.nodes.begin(), it)), fastgltf::Category::Nodes, userPointer);

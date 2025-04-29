@@ -2032,20 +2032,20 @@ namespace fastgltf {
          */
         Optional<num> mass;
 
+		/**
+		 * Center of mass of the rigid body in node space
+		 */
+		math::fvec3 centerOfMass = { 0, 0, 0 };
+
+		/**
+		 * The principal moments of inertia. Larger values imply the rigid body is harder to rotate
+		 */
+		Optional<math::fvec3> inertialDiagonal;
+
         /**
          * The quaternion rotating from inertia major axis space to node space
          */
         Optional<math::fvec4> inertialOrientation;
-
-        /**
-         * The principal moments of inertia. Larger values imply the rigid body is harder to rotate
-         */
-        Optional<math::fvec3> inertialDiagonal;
-
-        /**
-         * Center of mass of the rigid body in node space
-         */
-        math::fvec3 centerOfMass = {0, 0, 0};
 
         /**
          * Initial linear velocity of the rigid body in node space
@@ -2118,29 +2118,32 @@ namespace fastgltf {
         /**
          * Indexes into the top-level `physicsMaterials` and describes how the collider should respond to collisions
          */
-        std::size_t physicsMaterial;
+        Optional<std::size_t> physicsMaterial;
 
         /**
          * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
          */
-        std::size_t collisionFilter;
+        Optional<std::size_t> collisionFilter;
 	};
 
-	FASTGLTF_EXPORT struct Trigger {
+	FASTGLTF_EXPORT struct GeometryTrigger {
 		/**
 		 * An object describing the geometrical representation of this collider
 		 */
 		Geometry geometry;
 
-        /**
-         * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
-         */
-        FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodes;
+		/**
+		 * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
+		 */
+		Optional<std::size_t> collisionFilter;
+	};
 
-        /**
-         * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
-         */
-        std::size_t collisionFilter;
+	FASTGLTF_EXPORT struct NodeTrigger {
+
+		/**
+		 * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
+		 */
+		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodes;
 	};
 
 	FASTGLTF_EXPORT struct JointLimit {
@@ -2239,7 +2242,7 @@ namespace fastgltf {
 
 		Collider collider;
 
-		Optional<Trigger> trigger;
+		Optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
 
 		Optional<Joint> joint;
 	};
