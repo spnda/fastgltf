@@ -2240,7 +2240,7 @@ namespace fastgltf {
     FASTGLTF_EXPORT struct PhysicsRigidBody {
 		Optional<Motion> motion;
 
-		Collider collider;
+		Optional<Collider> collider;
 
 		Optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
 

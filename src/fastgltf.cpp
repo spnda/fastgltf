@@ -4484,7 +4484,55 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		return Error::InvalidGltf;
 	}
 
-	
+	dom::object colliderObject;
+	if (auto error = khr_physics_rigid_bodies["collider"].get_object().get(colliderObject); error == SUCCESS) {
+		Collider collider;
+
+		dom::object geometryObject;
+		if (colliderObject["geometry"].get_object().get(geometryObject) == SUCCESS) {
+			uint64_t shape;
+			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) {
+				collider.geometry.shape = static_cast<std::size_t>(shape);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+			uint64_t geometryNode;
+			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
+				collider.geometry.node = static_cast<std::size_t>(geometryNode);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+			bool convexHull;
+			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
+				collider.geometry.convexHull = convexHull;
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		} else {
+			return Error::InvalidGltf;
+		}
+
+		std::size_t physicsMaterial;
+		if (error = colliderObject["physicsMaterial"].get_uint64().get(physicsMaterial); error == SUCCESS) {
+			collider.physicsMaterial = physicsMaterial;
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		std::size_t collisionFilter;
+		if (error = colliderObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
+			collider.collisionFilter = collisionFilter;
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		rigid_body.collider = collider;
+
+	} else if (error != NO_SUCH_FIELD) {
+		return Error::InvalidGltf;
+	}
+
+	TODO: Trigger, Joint
 }
 #endif
 
