@@ -41,7 +41,6 @@
 #endif
 
 #include <simdjson.h>
-#include <windows.h>
 
 #ifdef SIMDJSON_TARGET_VERSION
 // Make sure that SIMDJSON_TARGET_VERSION is equal to SIMDJSON_VERSION.
@@ -3857,6 +3856,158 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 	return Error::None;
 }
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
+	using namespace simdjson;
+
+	asset.shapes.resize(shapes.size());
+	for(auto shapeValue : shapes) {
+		auto& shape = asset.shapes.emplace_back();
+
+		dom::object shapeObject;
+		if (shapeValue.get_object().get(shapeObject) != SUCCESS) FASTGLTF_UNLIKELY {
+		    return Error::InvalidGltf;
+		}
+
+		std::string_view shapeTypeName;
+		if(shapeObject["type"].get_string().get(shapeTypeName) == SUCCESS) {
+		    shape.type = getShapeType(shapeTypeName);
+		} else {
+			return Error::InvalidGltf;
+		}
+
+		dom::object sphereObject;
+		if (auto error = shapeObject["sphere"].get_object().get(sphereObject); error == SUCCESS) {
+			if (shape.type != ShapeType::Sphere) {
+				return Error::InvalidGltf;
+			}
+
+			double radius;
+			if (error = sphereObject["radius"].get_double().get(radius); error == SUCCESS) {
+				shape.shape = SphereShape{ static_cast<num>(radius) };
+			} else if(error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		} else if(error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::object boxObject;
+		if(auto error = shapeObject["box"].get_object().get(boxObject); error == SUCCESS) {
+		    if(shape.type != ShapeType::Box) {
+				return Error::InvalidGltf;
+		    }
+
+			dom::array sizeArray;
+			if(error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
+			    if(sizeArray.size() != 3) {
+					return Error::InvalidGltf;
+			    }
+
+				auto box = BoxShape{};
+				auto curIndex = 0;
+				for(auto sizeNum : sizeArray) {
+					double value;
+					if(sizeNum.get_double().get(value) == SUCCESS) {
+						box.size[curIndex] = static_cast<num>(value);
+					} else {
+						return Error::InvalidGltf;
+					}
+
+					curIndex++;
+				}
+
+				shape.shape = box;
+			}
+		} else if(error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::object capsuleObject;
+		if(auto error = shapeObject["capsule"].get_object().get(capsuleObject); error == SUCCESS) {
+			if(shape.type != ShapeType::Capsule) {
+				return Error::InvalidGltf;
+			}
+
+			auto capsule = CapsuleShape{};
+
+			double height;
+			if(error = capsuleObject["height"].get_double().get(height); error == SUCCESS) {
+				capsule.height = static_cast<num>(height);
+			} else if(error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			double radiusBottom;
+			if (error = capsuleObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
+				capsule.radiusBottom = static_cast<num>(radiusBottom);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			double radiusTop;
+			if (error = capsuleObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
+				capsule.radiusTop = static_cast<num>(radiusTop);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			shape.shape = capsule;
+
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+
+		dom::object cylinderObject;
+		if (auto error = shapeObject["cylinder"].get_object().get(cylinderObject); error == SUCCESS) {
+			if (shape.type != ShapeType::Capsule) {
+				return Error::InvalidGltf;
+			}
+
+			auto cylinder = CylinderShape{};
+
+			double height;
+			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) {
+				cylinder.height = static_cast<num>(height);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			double radiusBottom;
+			if (error = cylinderObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
+				cylinder.radiusBottom = static_cast<num>(radiusBottom);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			double radiusTop;
+			if (error = cylinderObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
+				cylinder.radiusTop = static_cast<num>(radiusTop);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			shape.shape = cylinder;
+
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = shapeObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.shapes.size() - 1, Category::Shapes, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
+	return Error::None;
+}
+#endif
+
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 fg::Error fg::Parser::parsePhysicsMaterials(simdjson::dom::array& physicsMaterials, Asset& asset) {
 	using namespace simdjson;
@@ -3985,7 +4136,7 @@ fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilte
 }
 
 fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, Asset& asset) {
-	using namespace simdjson;
+	using namespace simdjson; 
 
 	asset.physicsJoints.reserve(physicsJoints.size());
 	for(auto physicsJointValue : physicsJoints) {
@@ -4016,24 +4167,24 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 					return Error::InvalidGltf;
 				}
 
-				double min;
-				if(limitObject["min"].get_double().get(min) == SUCCESS) {
-					limit.min = static_cast<num>(min);
+				double limitMin;
+				if(limitObject["min"].get_double().get(limitMin) == SUCCESS) {
+					limit.min = static_cast<num>(limitMin);
 				}
 
-				double max;
-				if (limitObject["max"].get_double().get(max) == SUCCESS) {
-					limit.max = static_cast<num>(max);
+				double limitMax;
+				if (limitObject["max"].get_double().get(limitMax) == SUCCESS) {
+					limit.max = static_cast<num>(limitMax);
 				}
 
 				double stiffness;
 				if (limitObject["stiffness"].get_double().get(stiffness) == SUCCESS) {
-					limit.stiffness = max(static_cast<num>(stiffness), 0);
+					limit.stiffness = static_cast<num>(stiffness);
 				}
 
 				double damping;
 				if (limitObject["damping"].get_double().get(damping) == SUCCESS) {
-					limit.damping = max(static_cast<num>(damping), 0);
+					limit.damping = static_cast<num>(damping);
 				}
 
 				dom::array linearAxesArray;

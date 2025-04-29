@@ -289,18 +289,23 @@ namespace fastgltf {
         Scenes      = 1 << 12,
         Asset       = 1 << 13,
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		PhysicsMaterials	= 1 << 14,
-		CollisionFilters	= 1 << 15,
-		PhysicsJoints		= 1 << 16,
-
-		All = ~(~0u << 16),
-#else
-		All = ~(~0u << 14),
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		Shapes		= 1 << 14,
 #endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		PhysicsMaterials	= 1 << 15,
+		CollisionFilters	= 1 << 16,
+		PhysicsJoints		= 1 << 17,
+#endif
+
+		All = ~0u,
 
         // Includes everything needed for rendering but animations
         OnlyRenderable = All & ~(Animations) & ~(Skins)
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		& ~(Shapes)
+#endif
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		& ~(PhysicsMaterials) & ~(CollisionFilters) & ~(PhysicsJoints)
 #endif
@@ -315,6 +320,15 @@ namespace fastgltf {
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Category, ~)
     // clang-format on
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+	enum class ShapeType : std::uint8_t {
+        Sphere,
+		Box,
+		Cylinder,
+		Capsule,
+        Invalid,
+    };
+#endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	FASTGLTF_EXPORT enum class CombineMode : std::uint8_t {
@@ -513,6 +527,23 @@ namespace fastgltf {
 				return "";
 		}
 	}
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+	constexpr auto getShapeType(std::string_view name) noexcept {
+		assert(!name.empty());
+		if(name[0] == 's') {
+			return ShapeType::Sphere;
+		} else if(name[0] == 'b') {
+			return ShapeType::Box;
+		} else if(name[1] == 'y') {
+			return ShapeType::Cylinder;
+		} else if(name[1] == 'a') {
+			return ShapeType::Capsule;
+		}
+
+		return ShapeType::Invalid;
+	}
+#endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	constexpr auto getCombineMode(std::string_view name) noexcept {
@@ -1957,6 +1988,38 @@ namespace fastgltf {
 		std::size_t accessorIndex;
 	};
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+	FASTGLTF_EXPORT struct SphereShape {
+		num radius = 0.5;
+	};
+
+	FASTGLTF_EXPORT struct BoxShape {
+		math::fvec3 size = { 1, 1, 1 };
+	};
+
+	FASTGLTF_EXPORT struct CapsuleShape {
+		num height = 0.5;
+
+		num radiusBottom = 0.25;
+
+		num radiusTop = 0.25;
+	};
+
+	FASTGLTF_EXPORT struct CylinderShape {
+		num height = 0.5;
+
+		num radiusBottom = 0.25;
+
+		num radiusTop = 0.25;
+	};
+
+	FASTGLTF_EXPORT struct Shape {
+		std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape> shape;
+
+		ShapeType type;
+	};
+#endif
+
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
     FASTGLTF_EXPORT struct Motion {
         /**
@@ -2751,6 +2814,10 @@ namespace fastgltf {
 
 		std::vector<std::string> materialVariants;
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		std::vector<Shape> shapes;
+#endif
+
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		std::vector<PhysicsMaterial> physicsMaterials;
 	    std::vector<PhysicsJoint> physicsJoints;
@@ -2785,7 +2852,15 @@ namespace fastgltf {
 				skins(std::move(other.skins)),
 				textures(std::move(other.textures)),
 				materialVariants(std::move(other.materialVariants)),
-				availableCategories(other.availableCategories) {}
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+			    shapes(std::move(other.shapes)),
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			    physicsMaterials(std::move(other.physicsMaterials)),
+			    physicsJoints(std::move(other.physicsJoints)),
+			    collisionFilters(std::move(other.collisionFilters)),
+#endif
+	            availableCategories(other.availableCategories) {}
 
 		Asset& operator=(const Asset& other) = delete;
 		Asset& operator=(Asset&& other) noexcept {
@@ -2808,6 +2883,14 @@ namespace fastgltf {
 			skins = std::move(other.skins);
 			textures = std::move(other.textures);
 			materialVariants = std::move(other.materialVariants);
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+			shapes = std::move(other.shapes);
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			physicsMaterials = std::move(other.physicsMaterials);
+			physicsJoints = std::move(other.physicsJoints);
+			collisionFilters = std::move(other.collisionFilters);
+#endif
 			availableCategories = other.availableCategories;
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 			// This needs to be last to not destroy the old memoryResource for the current data.
