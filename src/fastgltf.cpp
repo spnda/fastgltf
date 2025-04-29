@@ -5636,7 +5636,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			},
 		}, it->transform);
 
-	if (!it->instancingAttributes.empty() || it->lightIndex.has_value()) {
+	    if (!it->instancingAttributes.empty() || it->lightIndex.has_value()) {
 			if (json.back() != '{') json += ',';
 			json += R"("extensions":{)";
 			if (!it->instancingAttributes.empty()) {
@@ -5655,6 +5655,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			}
 			json += "}";
 		}
+
+		TODO: physics motion or whatever
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.nodes.begin(), it)), fastgltf::Category::Nodes, userPointer);
@@ -5862,12 +5864,67 @@ void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
 	json += ']';
 }
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
+	if (asset.shapes.empty()) {
+		return;
+	}
+	if (json.back() == ']' || json.back() == '}') {
+		json += ',';
+	}
+
+	json += R"("KHR_implicit_shapes":{"shapes":[)";
+	for (auto it = asset.shapes.begin(); it < asset.shapes.end(); ++it) {
+		const auto& shape = *it;
+		json += "{";
+
+		switch(shape.type) {
+        case ShapeType::Sphere:
+			const auto& sphere = std::get<SphereShape>(shape.shape);
+			json += R"("type"="sphere","sphere"={"radius"=)" + std::to_string(sphere.radius) + "}";
+            break;
+		case ShapeType::Box:
+			const auto& box = std::get<BoxShape>(shape.shape);
+			json += R"("type"="box","box"={"size"=[)" + std::to_string(box.size.x) + "," + std::to_string(box.size.y) + "," + std::to_string(box.size.z) + "]}";
+            break;
+		case ShapeType::Cylinder:
+			const auto& cylinder = std::get<CylinderShape>(shape.shape);
+			json += R"("type"="cylinder","cylinder"={"height"=)" + std::to_string(cylinder.height) + R"(,"radiusBottom"=)" + std::to_string(cylinder.radiusBottom) + R"(,"radiusTop"=)" + std::to_string(cylinder.radiusTop) + "}";
+            break;
+		case ShapeType::Capsule:
+			const auto& capsule = std::get<CapsuleShape>(shape.shape);
+			json += R"("type"="capsule","capsule"={"height"=)" + std::to_string(capsule.height) + R"(,"radiusBottom"=)" + std::to_string(capsule.radiusBottom) + R"(,"radiusTop"=)" + std::to_string(capsule.radiusTop) + "}";
+            break;
+        case ShapeType::Invalid:
+            break;
+        }
+
+		json += "}";
+
+		if (uabs(std::distance(asset.shapes.begin(), it)) + 1 < asset.shapes.size()) {
+			json += ',';
+		}
+	}
+	json += "]}";    
+}
+#endif
+
 void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& json) {
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
     json += "\"extensions\":{";
 
     writeLights(asset, json);
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+	writeShapes(asset, json);
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+	writePhysicsMaterials(asset, json);
+	writeCollisionFilters(asset, json);
+    writePhysicsJoints(asset, json);
+#endif
 
 	if (!asset.materialVariants.empty()) {
 		if (json.back() != '{')

@@ -991,6 +991,14 @@ namespace fastgltf {
         void writeScenes(const Asset& asset, std::string& json);
         void writeSkins(const Asset& asset, std::string& json);
         void writeTextures(const Asset& asset, std::string& json);
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		void writeShapes(const Asset& asset, std::string& json);
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		void writePhysicsMaterials(const Asset& asset, std::string& json);
+		void writeCollisionFilters(const Asset& asset, std::string& json);
+		void writePhysicsJoints(const Asset& asset, std::string& json);
+#endif
         void writeExtensions(const Asset& asset, std::string& json);
 
         std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
