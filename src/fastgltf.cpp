@@ -1397,6 +1397,46 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			return Error::InvalidGltf;
 	}
 
+	if (isExtensionUsed(extensions::GODOT_single_root)) {
+		// The document "scenes" array MUST have exactly one scene.
+		if (asset.scenes.size() != 1) {
+			return Error::InvalidGltf;
+		}
+		// The document "scene" index MUST be set to 0, the index of the only scene in the "scenes" array.
+		if (asset.defaultScene != 0) {
+			return Error::InvalidGltf;
+		}
+		// The scene MUST have exactly one node, the single root node.
+		if (asset.scenes[0].nodeIndices.size() != 1) {
+			return Error::InvalidGltf;
+		}
+		// The scene's node index MUST be set to 0, the index of the first node in the "nodes" array.
+		if (asset.scenes[0].nodeIndices[0] != 0) {
+			return Error::InvalidGltf;
+		}
+		if (asset.nodes.empty()) {
+			return Error::InvalidGltf;
+		}
+		auto &transform = asset.nodes[0].transform;
+		TRS trs;
+		// The "translation", "rotation", "scale", and "matrix" properties of the single root node MUST either be not defined or have default values.
+		if (!std::holds_alternative<TRS>(transform)){
+			math::decomposeTransformMatrix(std::get<math::fmat4x4>(transform), trs.scale, trs.rotation, trs.translation);
+		} else {
+			trs = std::get<TRS>(transform);
+		}
+		auto defaultTRS = TRS{};
+		if (trs.rotation != defaultTRS.rotation) {
+			return Error::InvalidGltf;
+		}
+		if (trs.scale != defaultTRS.scale) {
+			return Error::InvalidGltf;
+		}
+		if (trs.translation != defaultTRS.translation) {
+			return Error::InvalidGltf;
+		}
+	}
+
 	return Error::None;
 }
 
