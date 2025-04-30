@@ -3876,20 +3876,20 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 		}
 
 		std::string_view shapeTypeName;
-		if (shapeObject["type"].get_string().get(shapeTypeName) == SUCCESS) {
+		if (shapeObject["type"].get_string().get(shapeTypeName) == SUCCESS) FASTGLTF_LIKELY {
 		    shape.type = getShapeType(shapeTypeName);
 		} else {
 			return Error::InvalidGltf;
 		}
 
 		dom::object sphereObject;
-		if (auto error = shapeObject["sphere"].get_object().get(sphereObject); error == SUCCESS) {
+		if (auto error = shapeObject["sphere"].get_object().get(sphereObject); error == SUCCESS) FASTGLTF_LIKELY {
 			if (shape.type != ShapeType::Sphere) {
 				return Error::InvalidGltf;
 			}
 
 			double radius;
-			if (error = sphereObject["radius"].get_double().get(radius); error == SUCCESS) {
+			if (error = sphereObject["radius"].get_double().get(radius); error == SUCCESS) FASTGLTF_LIKELY {
 				shape.shape = SphereShape{ static_cast<num>(radius) };
 			} else if(error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
@@ -3905,7 +3905,7 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 		    }
 
 			dom::array sizeArray;
-			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
+			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) FASTGLTF_LIKELY {
 			    if (sizeArray.size() != 3) {
 					return Error::InvalidGltf;
 			    }
@@ -3923,74 +3923,73 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 					curIndex++;
 				}
 			}
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
 		dom::object capsuleObject;
 		if (auto error = shapeObject["capsule"].get_object().get(capsuleObject); error == SUCCESS) {
-			if (shape.type != ShapeType::Capsule) {
+			if (shape.type != ShapeType::Capsule) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
 			auto& capsule =shape.shape.emplace<CapsuleShape>();
 
 			double height;
-			if (error = capsuleObject["height"].get_double().get(height); error == SUCCESS) {
+			if (error = capsuleObject["height"].get_double().get(height); error == SUCCESS) FASTGLTF_LIKELY {
 				capsule.height = static_cast<num>(height);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			double radiusBottom;
-			if (error = capsuleObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
+			if (error = capsuleObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) FASTGLTF_LIKELY {
 				capsule.radiusBottom = static_cast<num>(radiusBottom);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			double radiusTop;
-			if (error = capsuleObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
+			if (error = capsuleObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) FASTGLTF_LIKELY {
 				capsule.radiusTop = static_cast<num>(radiusTop);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY{
 			return Error::InvalidGltf;
 		}
 
-
 		dom::object cylinderObject;
 		if (auto error = shapeObject["cylinder"].get_object().get(cylinderObject); error == SUCCESS) {
-			if (shape.type != ShapeType::Capsule) {
+			if (shape.type != ShapeType::Capsule) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
 			auto& cylinder = shape.shape.emplace<CylinderShape>();
 
 			double height;
-			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) {
+			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) FASTGLTF_LIKELY {
 				cylinder.height = static_cast<num>(height);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			double radiusBottom;
-			if (error = cylinderObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
+			if (error = cylinderObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) FASTGLTF_LIKELY {
 				cylinder.radiusBottom = static_cast<num>(radiusBottom);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			double radiusTop;
-			if (error = cylinderObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
+			if (error = cylinderObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) FASTGLTF_LIKELY {
 				cylinder.radiusTop = static_cast<num>(radiusTop);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
@@ -3998,7 +3997,7 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 			dom::object extrasObject;
 			if (auto extrasError = shapeObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
 				config.extrasCallback(&extrasObject, asset.shapes.size() - 1, Category::Shapes, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY{
 				return Error::InvalidGltf;
 			}
 		}
@@ -4059,7 +4058,7 @@ fg::Error fg::Parser::parsePhysicsMaterials(simdjson::dom::array& physicsMateria
 			dom::object extrasObject;
 			if (auto extrasError = materialObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
 				config.extrasCallback(&extrasObject, asset.physicsMaterials.size() - 1, Category::PhysicsMaterials, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 		}
@@ -4085,7 +4084,7 @@ fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilte
 			collisionFilter.collisionSystems.reserve(collisionSystems.size());
 			for (auto systemNameValue : collisionSystems) {
 				std::string_view systemName;
-				if (systemNameValue.get_string().get(systemName) == SUCCESS) {
+				if (systemNameValue.get_string().get(systemName) == SUCCESS) FASTGLTF_LIKELY {
 					collisionFilter.collisionSystems.emplace_back(systemName);
 				} else {
 					return Error::InvalidGltf;
@@ -4096,7 +4095,7 @@ fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilte
 		}
 
 	    // A glTF isn't allowed to have both
-		if (collisionFilterObject["collideWithSystems"].error() == SUCCESS && collisionFilterObject["notCollideWithSystems"].error() == SUCCESS) {
+		if (collisionFilterObject["collideWithSystems"].error() == SUCCESS && collisionFilterObject["notCollideWithSystems"].error() == SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
@@ -4105,7 +4104,7 @@ fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilte
 			collisionFilter.collideWithSystems.reserve(collideWithSystems.size());
 			for (auto systemNameValue : collideWithSystems) {
 				std::string_view systemName;
-				if (systemNameValue.get_string().get(systemName) == SUCCESS) {
+				if (systemNameValue.get_string().get(systemName) == SUCCESS) FASTGLTF_LIKELY {
 					collisionFilter.collideWithSystems.emplace_back(systemName);
 				} else {
 					return Error::InvalidGltf;
@@ -4120,7 +4119,7 @@ fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilte
 			collisionFilter.notCollideWithSystems.reserve(notCollideWithSystems.size());
 			for (auto systemNameValue : notCollideWithSystems) {
 				std::string_view systemName;
-				if (systemNameValue.get_string().get(systemName) == SUCCESS) {
+				if (systemNameValue.get_string().get(systemName) == SUCCESS) FASTGLTF_LIKELY {
 					collisionFilter.notCollideWithSystems.emplace_back(systemName);
 				} else {
 					return Error::InvalidGltf;
@@ -4134,7 +4133,7 @@ fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilte
 			dom::object extrasObject;
 			if (auto extrasError = collisionFilterObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
 				config.extrasCallback(&extrasObject, asset.collisionFilters.size() - 1, Category::CollisionFilters, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 		}
@@ -4165,42 +4164,42 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 			        return Error::InvalidGltf;
 				}
 
-				if(limitObject["linearAxis"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) {
+				if(limitObject["linearAxis"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) FASTGLTF_UNLIKELY {
 				    // A limit may only have one of these
 					return Error::InvalidGltf;
 				}
 
-				if (limitObject["linearAxis"].error() != SUCCESS && limitObject["angularAxes"].error() != SUCCESS) {
+				if (limitObject["linearAxis"].error() != SUCCESS && limitObject["angularAxes"].error() != SUCCESS) FASTGLTF_UNLIKELY {
 					// A limit MUST have one of these
 					return Error::InvalidGltf;
 				}
 
 				double limitMin;
-				if (limitObject["min"].get_double().get(limitMin) == SUCCESS) {
+				if (limitObject["min"].get_double().get(limitMin) == SUCCESS) FASTGLTF_LIKELY {
 					limit.min = static_cast<num>(limitMin);
 				}
 
 				double limitMax;
-				if (limitObject["max"].get_double().get(limitMax) == SUCCESS) {
+				if (limitObject["max"].get_double().get(limitMax) == SUCCESS) FASTGLTF_LIKELY {
 					limit.max = static_cast<num>(limitMax);
 				}
 
 				double stiffness;
-				if (limitObject["stiffness"].get_double().get(stiffness) == SUCCESS) {
+				if (limitObject["stiffness"].get_double().get(stiffness) == SUCCESS) FASTGLTF_LIKELY {
 					limit.stiffness = static_cast<num>(stiffness);
 				}
 
 				double damping;
-				if (limitObject["damping"].get_double().get(damping) == SUCCESS) {
+				if (limitObject["damping"].get_double().get(damping) == SUCCESS) FASTGLTF_LIKELY {
 					limit.damping = static_cast<num>(damping);
 				}
 
 				dom::array linearAxesArray;
-				if (limitObject["linearAxes"].get_array().get(linearAxesArray) == SUCCESS) {
+				if (limitObject["linearAxes"].get_array().get(linearAxesArray) == SUCCESS) FASTGLTF_LIKELY {
 					limit.linearAxes.reserve(linearAxesArray.size());
 					for(auto axisValue : linearAxesArray) {
 						uint64_t axis;
-						if(axisValue.get_uint64().get(axis) == SUCCESS && axis > 0 && axis < 4) {
+						if(axisValue.get_uint64().get(axis) == SUCCESS && axis > 0 && axis < 4) FASTGLTF_LIKELY {
 							limit.linearAxes.emplace_back(static_cast<uint8_t>(axis));
 						} else {
 							return Error::InvalidGltf;
@@ -4209,11 +4208,11 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 				}
 
 				dom::array angularAxesArray;
-				if (limitObject["angularAxes"].get_array().get(angularAxesArray) == SUCCESS) {
+				if (limitObject["angularAxes"].get_array().get(angularAxesArray) == SUCCESS) FASTGLTF_LIKELY {
 					limit.angularAxes.reserve(angularAxesArray.size());
 					for (auto axisValue : angularAxesArray) {
 						uint64_t axis;
-						if (axisValue.get_uint64().get(axis) == SUCCESS && axis > 0 && axis < 4) {
+						if (axisValue.get_uint64().get(axis) == SUCCESS && axis > 0 && axis < 4) FASTGLTF_LIKELY {
 							limit.angularAxes.emplace_back(static_cast<uint8_t>(axis));
 						} else {
 							return Error::InvalidGltf;
@@ -4224,19 +4223,19 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 		}
 
 		dom::array driveArray;
-		if (auto error = physicsJointValue["drives"].get_array().get(driveArray); error == SUCCESS) {
+		if (auto error = physicsJointValue["drives"].get_array().get(driveArray); error == SUCCESS) FASTGLTF_LIKELY {
 			physicsJoint.drives.reserve(driveArray.size());
 			for (auto driveValue : driveArray) {
 			    auto& drive = physicsJoint.drives.emplace_back();
 				dom::object driveObject;
-				if (driveValue.get_object().get(driveObject) != SUCCESS) {
+				if (driveValue.get_object().get(driveObject) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				// Type, mode, and axis are required
 
 				std::string_view type;
-				if (driveValue["type"].get_string().get(type) == SUCCESS) {
+				if (driveValue["type"].get_string().get(type) == SUCCESS) FASTGLTF_LIKELY {
 				    if (type == "linear") {
 						drive.type = DriveType::Linear;
 				    } else if (type == "angular") {
@@ -4249,7 +4248,7 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 				}
 
 				std::string_view mode;
-				if (driveValue["mode"].get_string().get(mode) == SUCCESS) {
+				if (driveValue["mode"].get_string().get(mode) == SUCCESS) FASTGLTF_LIKELY {
 				    if (type == "force") {
 						drive.mode = DriveMode::Force;
 				    } else if (type == "acceleration") {
@@ -4262,7 +4261,7 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 				}
 
 				uint64_t axis;
-				if (driveValue["axis"].get_uint64().get(axis) == SUCCESS) {
+				if (driveValue["axis"].get_uint64().get(axis) == SUCCESS) FASTGLTF_LIKELY {
 				    if (axis < 3) {
 						drive.axis = static_cast<uint8_t>(axis);
 				    } else {
@@ -4275,7 +4274,7 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 				// Other fields are not required
 
 				double maxForce;
-				if (error = driveValue["maxForce"].get_double().get(maxForce); error == SUCCESS) {
+				if (error = driveValue["maxForce"].get_double().get(maxForce); error == SUCCESS) FASTGLTF_LIKELY {
 					drive.maxForce = static_cast<num>(maxForce);
 				} else if (error != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
@@ -4284,19 +4283,19 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 				// If the thing has positionTarget, it must also have stiffness
 				const auto hasPositionTarget = driveValue["positionTarget"].error() == SUCCESS;
 				const auto hasStiffness = driveValue["stiffness"].error() == SUCCESS;
-				if (hasPositionTarget != hasStiffness) {
+				if (hasPositionTarget != hasStiffness) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double positionTarget;
-				if (error = driveValue["positionTarget"].get_double().get(positionTarget); error == SUCCESS) {
+				if (error = driveValue["positionTarget"].get_double().get(positionTarget); error == SUCCESS) FASTGLTF_LIKELY {
 				    drive.positionTarget = static_cast<num>(positionTarget);
 				} else if (error != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
 				}
 
 				double stiffness;
-				if (error = driveValue["stiffness"].get_double().get(stiffness); error == SUCCESS) {
+				if (error = driveValue["stiffness"].get_double().get(stiffness); error == SUCCESS) FASTGLTF_LIKELY {
 					drive.stiffness = static_cast<num>(stiffness);
 				} else if (error != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
@@ -4305,19 +4304,19 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 				// If the thing has velocityTarget, it must also have damping
 				const auto hasVelocityTarget = driveValue["velocityTarget"].error() == SUCCESS;
 				const auto hasDamping = driveValue["damping"].error() == SUCCESS;
-				if (hasVelocityTarget != hasDamping) {
+				if (hasVelocityTarget != hasDamping) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 
 				double velocityTarget;
-				if (error = driveValue["velocityTarget"].get_double().get(velocityTarget); error == SUCCESS) {
+				if (error = driveValue["velocityTarget"].get_double().get(velocityTarget); error == SUCCESS) FASTGLTF_LIKELY {
 					drive.velocityTarget = static_cast<num>(velocityTarget);
 				} else if (error != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
 				}
 
 				double damping;
-				if (error = driveValue["damping"].get_double().get(damping); error == SUCCESS) {
+				if (error = driveValue["damping"].get_double().get(damping); error == SUCCESS) FASTGLTF_LIKELY {
 					drive.damping = static_cast<num>(damping);
 				} else if (error != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
@@ -4329,7 +4328,7 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 			dom::object extrasObject;
 			if (auto extrasError = physicsJointValue["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
 				config.extrasCallback(&extrasObject, asset.physicsJoints.size() - 1, Category::PhysicsJoints, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 		}
@@ -4348,21 +4347,21 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		auto& motion = rigidBody.motion.emplace();
 
 		bool isKinematic;
-		if (error = motionObject["isKinematic"].get_bool().get(isKinematic); error == SUCCESS) {
+		if (error = motionObject["isKinematic"].get_bool().get(isKinematic); error == SUCCESS) FASTGLTF_LIKELY {
 			motion.isKinematic = isKinematic;
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
 		double mass;
-		if (error = motionObject["mass"].get_double().get(mass); error == SUCCESS) {
+		if (error = motionObject["mass"].get_double().get(mass); error == SUCCESS) FASTGLTF_LIKELY {
 			motion.mass = static_cast<num>(mass);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
 		dom::array centerOfMassArray;
-		if (error = motionObject["centerOfMass"].get_array().get(centerOfMassArray); error == SUCCESS) {
+		if (error = motionObject["centerOfMass"].get_array().get(centerOfMassArray); error == SUCCESS) FASTGLTF_LIKELY {
 			if (centerOfMassArray.size() != 3) {
 				return Error::InvalidGltf;
 			}
@@ -4370,13 +4369,13 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			auto i = 0U;
 			for (auto num : centerOfMassArray) {
 				double val;
-				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				motion.centerOfMass[i] = static_cast<fastgltf::num>(val);
 				++i;
 			}
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
@@ -4391,7 +4390,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			auto i = 0U;
 			for (auto num : inertiaDiagonalArray) {
 				double val;
-				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				inertialDiagonal[i] = static_cast<fastgltf::num>(val);
@@ -4400,13 +4399,13 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 			motion.inertialDiagonal = inertialDiagonal;
 
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
 		dom::array inertialOrientationArray;
 		if (error = motionObject["inertialOrientation"].get_array().get(inertialOrientationArray); error == SUCCESS) {
-			if (inertialOrientationArray.size() != 4) {
+			if (inertialOrientationArray.size() != 4) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
@@ -4415,7 +4414,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			auto i = 0U;
 			for (auto num : inertialOrientationArray) {
 				double val;
-				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				inertialOrientation[i] = static_cast<fastgltf::num>(val);
@@ -4424,40 +4423,40 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 			motion.inertialOrientation = inertialOrientation;
 
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
 		dom::array linearVelocityArray;
 		if (error = motionObject["linearVelocity"].get_array().get(linearVelocityArray); error == SUCCESS) {
-			if (linearVelocityArray.size() != 3) {
+			if (linearVelocityArray.size() != 3) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
 			auto i = 0U;
 			for (auto num : linearVelocityArray) {
 				double val;
-				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				motion.linearVelocity[i] = static_cast<fastgltf::num>(val);
 				++i;
 			}
 
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
 		dom::array angularVelocityArray;
-		if (error = motionObject["angularVelocity"].get_array().get(angularVelocityArray); error == SUCCESS) {
-			if (angularVelocityArray.size() != 3) {
+		if (error = motionObject["angularVelocity"].get_array().get(angularVelocityArray); error == SUCCESS) FASTGLTF_LIKELY {
+			if (angularVelocityArray.size() != 3) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
 			auto i = 0U;
 			for (auto num : angularVelocityArray) {
 				double val;
-				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY{
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
 				motion.angularVelocity[i] = static_cast<fastgltf::num>(val);
@@ -4468,13 +4467,13 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		}
 
 		double gravityFactor;
-		if (error = motionObject["gravityFactor"].get_double().get(gravityFactor); error == SUCCESS) {
+		if (error = motionObject["gravityFactor"].get_double().get(gravityFactor); error == SUCCESS) FASTGLTF_LIKELY {
 			motion.gravityFactor = static_cast<num>(gravityFactor);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
-	} else if (error != NO_SUCH_FIELD) {
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
 
@@ -4483,21 +4482,21 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		auto& collider = rigidBody.collider.emplace();
 
 		dom::object geometryObject;
-		if (colliderObject["geometry"].get_object().get(geometryObject) == SUCCESS) {
+		if (colliderObject["geometry"].get_object().get(geometryObject) == SUCCESS) FASTGLTF_LIKELY {
 			uint64_t shape;
-			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) {
+			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) FASTGLTF_LIKELY {
 				collider.geometry.shape = static_cast<std::size_t>(shape);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 			uint64_t geometryNode;
-			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
+			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) FASTGLTF_LIKELY {
 				collider.geometry.node = static_cast<std::size_t>(geometryNode);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 			bool convexHull;
-			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
+			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) FASTGLTF_LIKELY {
 				collider.geometry.convexHull = convexHull;
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
@@ -4507,37 +4506,37 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		}
 
 		std::size_t physicsMaterial;
-		if (error = colliderObject["physicsMaterial"].get_uint64().get(physicsMaterial); error == SUCCESS) {
+		if (error = colliderObject["physicsMaterial"].get_uint64().get(physicsMaterial); error == SUCCESS) FASTGLTF_LIKELY {
 			collider.physicsMaterial = physicsMaterial;
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
 		std::size_t collisionFilter;
-		if (error = colliderObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
+		if (error = colliderObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) FASTGLTF_LIKELY {
 			collider.collisionFilter = collisionFilter;
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
-	} else if (error != NO_SUCH_FIELD) {
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
 
 	dom::object triggerObject;
 	if (auto error = khr_physics_rigid_bodies["trigger"].get_object().get(triggerObject); error == SUCCESS) {
 		dom::object geometryObject;
-		if (error = triggerObject["geometry"].get_object().get(geometryObject); error == SUCCESS) {
+		if (error = triggerObject["geometry"].get_object().get(geometryObject); error == SUCCESS) FASTGLTF_LIKELY {
 			auto& geometryTrigger = rigidBody.trigger.emplace().emplace<GeometryTrigger>();
 
 			uint64_t shape;
-			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) {
+			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) FASTGLTF_LIKELY {
 				geometryTrigger.geometry.shape = static_cast<std::size_t>(shape);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 			uint64_t geometryNode;
-			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
+			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) FASTGLTF_LIKELY {
 				geometryTrigger.geometry.node = static_cast<std::size_t>(geometryNode);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
@@ -4545,7 +4544,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			bool convexHull;
 			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
 				geometryTrigger.geometry.convexHull = convexHull;
-			} else if (error != NO_SUCH_FIELD) {
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
@@ -4553,11 +4552,11 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			std::size_t collisionFilter;
 			if (error = triggerObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
 				geometryTrigger.collisionFilter = collisionFilter;
-			} else if (error != NO_SUCH_FIELD) {
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
@@ -4576,30 +4575,30 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				++i;
 			}
 
-		} else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 	    
-	} else if (error != NO_SUCH_FIELD) {
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
 
 	dom::object jointObject;
 	if (auto error = khr_physics_rigid_bodies["joint"].get_object().get(jointObject); error == SUCCESS) {
 		auto& joint = rigidBody.joint.emplace();
-		if (jointObject["connectedNode"].get_uint64().get(joint.connectedNode) != SUCCESS) {
+		if (jointObject["connectedNode"].get_uint64().get(joint.connectedNode) != SUCCESS) FASTGLTF_LIKELY {
 			return Error::InvalidGltf;
 		}
 
-		if (jointObject["joint"].get_uint64().get(joint.joint) != SUCCESS) {
+		if (jointObject["joint"].get_uint64().get(joint.joint) != SUCCESS) FASTGLTF_LIKELY {
 			return Error::InvalidGltf;
 		}
 
-		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) {
+		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 	    
-	} else if (error != NO_SUCH_FIELD) {
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
 
