@@ -226,8 +226,12 @@ namespace fastgltf {
 		// See https://github.com/KhronosGroup/glTF/pull/2424
 		KHR_physics_rigid_bodies = 1 << 28,
 #endif
+
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Vendor/GODOT_single_root
 		GODOT_single_root = 1 << 29,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_diffuse_transmission
+		KHR_materials_diffuse_transmission = 1 << 30,
     };
     // clang-format on
 
@@ -330,11 +334,13 @@ namespace fastgltf {
         constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
         constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
         constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
+		constexpr std::string_view GODOT_single_root = "GODOT_single_root";
 		constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
 		constexpr std::string_view KHR_draco_mesh_compression = "KHR_draco_mesh_compression";
         constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
 		constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
         constexpr std::string_view KHR_materials_clearcoat = "KHR_materials_clearcoat";
+		constexpr std::string_view KHR_materials_diffuse_transmission = "KHR_materials_diffuse_transmission";
 		constexpr std::string_view KHR_materials_dispersion = "KHR_materials_dispersion";
         constexpr std::string_view KHR_materials_emissive_strength = "KHR_materials_emissive_strength";
         constexpr std::string_view KHR_materials_ior = "KHR_materials_ior";
@@ -351,7 +357,6 @@ namespace fastgltf {
 	    constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
 	    constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
         constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
-		constexpr std::string_view GODOT_single_root = "GODOT_single_root";
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
         constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
@@ -374,11 +379,13 @@ namespace fastgltf {
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
+		{ extensions::GODOT_single_root,                        Extensions::GODOT_single_root },
 		{ extensions::KHR_accessor_float64,                     Extensions::KHR_accessor_float64 },
 		{ extensions::KHR_draco_mesh_compression,               Extensions::KHR_draco_mesh_compression },
 		{ extensions::KHR_lights_punctual,                      Extensions::KHR_lights_punctual },
 		{ extensions::KHR_materials_anisotropy,                 Extensions::KHR_materials_anisotropy },
 		{ extensions::KHR_materials_clearcoat,                  Extensions::KHR_materials_clearcoat },
+		{ extensions::KHR_materials_diffuse_transmission,       Extensions::KHR_materials_diffuse_transmission },
 		{ extensions::KHR_materials_dispersion,                 Extensions::KHR_materials_dispersion },
 		{ extensions::KHR_materials_emissive_strength,          Extensions::KHR_materials_emissive_strength },
 		{ extensions::KHR_materials_ior,                        Extensions::KHR_materials_ior },
@@ -395,8 +402,6 @@ namespace fastgltf {
 		{ extensions::MSFT_packing_normalRoughnessMetallic,     Extensions::MSFT_packing_normalRoughnessMetallic },
 		{ extensions::MSFT_packing_occlusionRoughnessMetallic,  Extensions::MSFT_packing_occlusionRoughnessMetallic },
 		{ extensions::MSFT_texture_dds,                         Extensions::MSFT_texture_dds },
-		{ extensions::GODOT_single_root,                        Extensions::GODOT_single_root },
-
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
 		{ extensions::KHR_materials_pbrSpecularGlossiness,Extensions::KHR_materials_pbrSpecularGlossiness },
 #endif

@@ -2439,6 +2439,16 @@ namespace fastgltf {
 		Optional<TextureInfo> anisotropyTexture;
 	};
 
+	/**
+	 * Diffuse transmission information from KHR_materials_diffuse_transmission
+	 */
+	FASTGLTF_EXPORT struct MaterialDiffuseTransmission {
+		num diffuseTransmissionFactor = 0.0f;
+		Optional<TextureInfo> diffuseTransmissionTexture;
+		math::nvec3 diffuseTransmissionColorFactor = math::nvec3(1);
+		Optional<TextureInfo> diffuseTransmissionColorTexture;
+	};
+
     /**
      * Specular information from KHR_materials_specular.
      */
@@ -2568,6 +2578,11 @@ namespace fastgltf {
 		std::unique_ptr<MaterialAnisotropy> anisotropy;
 
         std::unique_ptr<MaterialClearcoat> clearcoat;
+
+		/**
+		 * Diffuse transmission information from KHR_materials_diffuse_transmission.
+		 */
+		std::unique_ptr<MaterialDiffuseTransmission> diffuseTransmission;
 
         /**
          * Iridescence information from KHR_materials_iridescence.

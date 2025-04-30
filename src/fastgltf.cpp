@@ -1188,6 +1188,8 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			return Error::InvalidGltf;
 		if (material.packedOcclusionRoughnessMetallicTextures && !isExtensionUsed(extensions::MSFT_packing_occlusionRoughnessMetallic))
 			return Error::InvalidGltf;
+		if (material.diffuseTransmission && !isExtensionUsed(extensions::KHR_materials_diffuse_transmission))
+			return Error::InvalidGltf;
 	}
 
 	for (const auto& mesh : asset.meshes) {
@@ -2846,6 +2848,58 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 				material.iridescence = std::move(iridescence);
 				break;
 			}
+			case force_consteval<crc32c(extensions::KHR_materials_diffuse_transmission)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_diffuse_transmission))
+					break;
+
+				dom::object diffuseTransmissionObject;
+				auto diffuseTransmissionError = extensionField.value.get_object().get(diffuseTransmissionObject);
+				if (diffuseTransmissionError != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}	
+
+				auto diffuseTransmission = std::make_unique<MaterialDiffuseTransmission>();
+
+				double diffuseTransmissionFactor;
+				if (auto error = diffuseTransmissionObject["diffuseTransmissionFactor"].get_double().get(diffuseTransmissionFactor); error == SUCCESS) FASTGLTF_LIKELY {
+					diffuseTransmission->diffuseTransmissionFactor = static_cast<num>(diffuseTransmissionFactor);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo diffuseTransmissionTexture;
+				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionTexture", &diffuseTransmissionTexture, config.extensions); error == Error::None) FASTGLTF_LIKELY {
+					diffuseTransmission->diffuseTransmissionTexture = std::move(diffuseTransmissionTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				dom::array diffuseTransmissionColorFactor;
+				if (auto error = diffuseTransmissionObject["diffuseTransmissionColorFactor"].get_array().get(diffuseTransmissionColorFactor); error == SUCCESS) FASTGLTF_LIKELY {
+					std::size_t i = 0;
+					for (auto factor: diffuseTransmissionColorFactor) {
+						if (i >= diffuseTransmission->diffuseTransmissionColorFactor.size()) {
+							return Error::InvalidGltf;
+						}
+						double value;
+						if (factor.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						diffuseTransmission->diffuseTransmissionColorFactor[i++] = static_cast<num>(value);
+					}
+				}
+
+				TextureInfo diffuseTransmissionColorTexture;
+				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionColorTexture", &diffuseTransmissionColorTexture, config.extensions); error == Error::None) FASTGLTF_LIKELY {
+					diffuseTransmission->diffuseTransmissionColorTexture = std::move(diffuseTransmissionColorTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				material.diffuseTransmission = std::move(diffuseTransmission);
+				break;
+			}
+
 			case force_consteval<crc32c(extensions::KHR_materials_sheen)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_sheen))
 					break;
@@ -5686,6 +5740,32 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 				if (json.back() != '{') json += ',';
 				json += "\"clearcoatNormalTexture\":";
 				writeTextureInfo(json, &it->clearcoat->clearcoatNormalTexture.value(), TextureInfoType::NormalTexture);
+			}
+			json += '}';
+		}
+
+		if (it->diffuseTransmission) {
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_diffuse_transmission":{)";
+			if (it->diffuseTransmission->diffuseTransmissionFactor != 0.0f) {
+				json += R"("diffuseTransmissionFactor":)" + to_string_fp(it->diffuseTransmission->diffuseTransmissionFactor);
+			}
+			if (it->diffuseTransmission->diffuseTransmissionTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += R"("diffuseTransmissionTexture":)";
+				writeTextureInfo(json, &it->diffuseTransmission->diffuseTransmissionTexture.value());
+			}
+			if (it->diffuseTransmission->diffuseTransmissionColorFactor != math::nvec3(1)) {
+				if (json.back() != '{') json += ',';
+				json += R"("diffuseTransmissionColorFactor":[)";
+				json += to_string_fp(it->diffuseTransmission->diffuseTransmissionColorFactor[0]) + ',' +
+						to_string_fp(it->diffuseTransmission->diffuseTransmissionColorFactor[1]) + ',' +
+						to_string_fp(it->diffuseTransmission->diffuseTransmissionColorFactor[2]) + ']';
+			}
+			if (it->diffuseTransmission->diffuseTransmissionColorTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"diffuseTransmissionColorTexture\":";
+				writeTextureInfo(json, &it->diffuseTransmission->diffuseTransmissionColorTexture.value());
 			}
 			json += '}';
 		}

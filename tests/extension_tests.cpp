@@ -545,6 +545,32 @@ TEST_CASE("Extension GODOT_single_root", "[gltf-loader]") {
 	}
 }
 
+TEST_CASE("KHR_materials_diffuse_transmission", "[gltf-loader]") {
+	auto diffuseTransmissionTest = sampleAssets / "Models" / "DiffuseTransmissionTest" / "glTF" / "DiffuseTransmissionTest.gltf";
+	fastgltf::GltfFileStream jsonData(diffuseTransmissionTest);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_diffuse_transmission | fastgltf::Extensions::KHR_materials_unlit | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, diffuseTransmissionTest);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(asset->materials.size() == 29);
+
+	REQUIRE(asset->materials[0].diffuseTransmission);
+	REQUIRE(asset->materials[0].diffuseTransmission->diffuseTransmissionFactor == 0.0f);
+	REQUIRE(asset->materials[0].diffuseTransmission->diffuseTransmissionTexture == std::nullopt);
+	REQUIRE(asset->materials[0].diffuseTransmission->diffuseTransmissionColorFactor == fastgltf::math::nvec3(1.0f));
+	REQUIRE(asset->materials[0].diffuseTransmission->diffuseTransmissionColorTexture == std::nullopt);
+
+	REQUIRE(asset->materials[1].diffuseTransmission);
+	REQUIRE(asset->materials[1].diffuseTransmission->diffuseTransmissionFactor == 0.25f);
+	REQUIRE(asset->materials[1].diffuseTransmission->diffuseTransmissionTexture == std::nullopt);
+	REQUIRE(asset->materials[1].diffuseTransmission->diffuseTransmissionColorFactor == fastgltf::math::nvec3(1.0f));
+	REQUIRE(asset->materials[1].diffuseTransmission->diffuseTransmissionColorTexture == std::nullopt);
+
+	REQUIRE(!asset->materials[20].diffuseTransmission);
+}
+
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
