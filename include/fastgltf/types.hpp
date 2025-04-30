@@ -2889,6 +2889,24 @@ namespace fastgltf {
 		}
 	};
 
+	/**
+	 * Diffuse transmission information from KHR_materials_diffuse_transmission
+	 */
+	FASTGLTF_EXPORT struct MaterialDiffuseTransmission {
+		num diffuseTransmissionFactor = 0.0f;
+		Optional<TextureInfo> diffuseTransmissionTexture;
+		math::nvec3 diffuseTransmissionColorFactor = math::nvec3(1);
+		Optional<TextureInfo> diffuseTransmissionColorTexture;
+
+		bool operator==(const MaterialDiffuseTransmission& other) const {
+			FASTGLTF_REQUIRE(diffuseTransmissionFactor == other.diffuseTransmissionFactor);
+			FASTGLTF_REQUIRE(diffuseTransmissionTexture == other.diffuseTransmissionTexture);
+			FASTGLTF_REQUIRE(diffuseTransmissionColorFactor == other.diffuseTransmissionColorFactor);
+			FASTGLTF_REQUIRE(diffuseTransmissionColorTexture == other.diffuseTransmissionColorTexture);
+			return true;
+		}
+	};
+
     /**
      * Specular information from KHR_materials_specular.
      */
@@ -3084,6 +3102,11 @@ namespace fastgltf {
 
         std::unique_ptr<MaterialClearcoat> clearcoat;
 
+		/**
+		 * Diffuse transmission information from KHR_materials_diffuse_transmission.
+		 */
+		std::unique_ptr<MaterialDiffuseTransmission> diffuseTransmission;
+
         /**
          * Iridescence information from KHR_materials_iridescence.
          */
@@ -3139,6 +3162,7 @@ namespace fastgltf {
 			FASTGLTF_REQUIRE(dispersion == other.dispersion);
 			FASTGLTF_REQUIRE(compareUniquePtr(anisotropy, other.anisotropy));
 			FASTGLTF_REQUIRE(compareUniquePtr(clearcoat, other.clearcoat));
+			FASTGLTF_REQUIRE(compareUniquePtr(diffuseTransmission, other.diffuseTransmission));
 			FASTGLTF_REQUIRE(compareUniquePtr(iridescence, other.iridescence));
 			FASTGLTF_REQUIRE(compareUniquePtr(sheen, other.sheen));
 			FASTGLTF_REQUIRE(compareUniquePtr(specular, other.specular));
