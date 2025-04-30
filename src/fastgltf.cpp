@@ -5942,7 +5942,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			}
 			if (it->lightIndex.has_value()) {
 				if (json.back() != '{') json += ',';
-				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + "}";
+				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + '}';
 			}
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
@@ -5955,16 +5955,16 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					if (motion.mass.has_value()) {
 						json += R"(,"mass":)" + to_string_fp(*motion.mass);
 					}
-					json += R"(,"centerOfMass":[)" + to_string(motion.centerOfMass) + "]";
+					json += R"(,"centerOfMass":[)" + to_string(motion.centerOfMass) + ']';
 					if (motion.inertialDiagonal.has_value()) {
-						json += R"(,"inertialDiagonal":[)" + to_string(*motion.inertialDiagonal) + "]";
+						json += R"(,"inertialDiagonal":[)" + to_string(*motion.inertialDiagonal) + ']';
 					}
 					if (motion.inertialOrientation.has_value()) {
-						json += R"(,"inertialOrientation":[)" + to_string(*motion.inertialOrientation) + "]";
+						json += R"(,"inertialOrientation":[)" + to_string(*motion.inertialOrientation) + ']';
 					}
 					json += R"(,"linearVelocity":)" + to_string(motion.linearVelocity)
 				        + R"(],"angularVelocity":[)" + to_string(motion.angularVelocity)
-				        + R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + "}";
+				        + R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + '}';
 				}
 
 				if (it->physicsRigidBody->trigger.has_value()) {
@@ -5975,11 +5975,11 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 						[&](const GeometryTrigger& geometry) {
 							json += R"("geometry":{)";
 							if (geometry.geometry.shape.has_value()) {
-								json += R"("shape":)" + std::to_string(*geometry.geometry.shape) + ",";
+								json += R"("shape":)" + std::to_string(*geometry.geometry.shape) + ',';
 							} else if(geometry.geometry.node.has_value()) {
-								json += R"("node":)" + std::to_string(*geometry.geometry.node) + ",";
+								json += R"("node":)" + std::to_string(*geometry.geometry.node) + ',';
 							}
-							json += R"("convexHull":)" + std::to_string(geometry.geometry.convexHull) + "}";
+							json += R"("convexHull":)" + std::to_string(geometry.geometry.convexHull) + '}';
 
 							if (geometry.collisionFilter.has_value()) {
 								json += R"(,"collisionFilter":)" + std::to_string(*geometry.collisionFilter);
@@ -5995,7 +5995,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 							json += ']';
 						},
 						}, trigger);
-					json += "}";
+					json += '}';
 				}
 
 				if (it->physicsRigidBody->joint.has_value()) {
@@ -6003,7 +6003,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					const auto& joint = *it->physicsRigidBody->joint;
 					json += R"("joint":{"connectedNode":)" + std::to_string(joint.connectedNode)
 				        + R"(,"joint":)" + std::to_string(joint.joint)
-				        + R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + "}";
+				        + R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + '}';
 				}
 
 				if (it->physicsRigidBody->collider.has_value()) {
@@ -6013,11 +6013,11 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 
 					json += R"("geometry":{)";
 					if (collider.geometry.shape.has_value()) {
-						json += R"("shape":)" + std::to_string(*collider.geometry.shape) + ",";
+						json += R"("shape":)" + std::to_string(*collider.geometry.shape) + ',';
 					} else if (collider.geometry.node.has_value()) {
-						json += R"("node":)" + std::to_string(*collider.geometry.node) + ",";
+						json += R"("node":)" + std::to_string(*collider.geometry.node) + ',';
 					}
-					json += R"("convexHull":)" + std::to_string(collider.geometry.convexHull) + "}";
+					json += R"("convexHull":)" + std::to_string(collider.geometry.convexHull) + '}';
 
 					if (collider.physicsMaterial.has_value()) {
 						json += R"(,"physicsMaterial":)" + std::to_string(*collider.physicsMaterial);
@@ -6025,7 +6025,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					if (collider.collisionFilter) {
 						json += R"(,"collisionFilter":)" + std::to_string(*collider.collisionFilter);
 					}
-					json += "}";
+					json += '}';
 				}
 			}
 #endif
@@ -6251,13 +6251,13 @@ void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
 	json += R"("KHR_implicit_shapes":{"shapes":[)";
 	for (auto it = asset.shapes.begin(); it != asset.shapes.end(); ++it) {
 		const auto& shape = *it;
-		json += "{";
+		json += '{';
 
 		switch(shape.type) {
 		case ShapeType::Sphere:
 		    {
 			    const auto& sphere = std::get<SphereShape>(shape.shape);
-			    json += R"("type":"sphere","sphere":{"radius":)" + to_string_fp(sphere.radius) + "}";
+			    json += R"("type":"sphere","sphere":{"radius":)" + to_string_fp(sphere.radius) + '}';
 		    }
             break;
 		case ShapeType::Box:
@@ -6279,7 +6279,7 @@ void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
 			    const auto& capsule = std::get<CapsuleShape>(shape.shape);
 			    json += R"("type":"capsule","capsule":{"height":)" + to_string_fp(capsule.height)
 		            + R"(,"radiusBottom":)" + to_string_fp(capsule.radiusBottom)
-		            + R"(,"radiusTop":)" + to_string_fp(capsule.radiusTop) + "}";
+		            + R"(,"radiusTop":)" + to_string_fp(capsule.radiusTop) + '}';
 		    }
             break;
         case ShapeType::Invalid:
@@ -6296,7 +6296,7 @@ void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
 			}
 		}
 
-		json += "}";
+		json += '};
 
 		if (uabs(std::distance(asset.shapes.begin(), it)) + 1 < asset.shapes.size()) {
 			json += ',';
@@ -6364,14 +6364,14 @@ void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) 
 			}
 		}
 
-		json += "}";
+		json += '}';
 
 		if (uabs(std::distance(asset.physicsMaterials.begin(), it)) + 1 < asset.physicsMaterials.size()) {
 			json += ',';
 		}
 	}
 
-	json += "]";
+	json += ']';
 }
 
 void fg::Exporter::writeCollisionFilters(const Asset& asset, std::string& json) {
@@ -6387,20 +6387,20 @@ void fg::Exporter::writeCollisionFilters(const Asset& asset, std::string& json) 
 	for (auto it = asset.collisionFilters.begin(); it != asset.collisionFilters.end(); ++it) {
 		const auto& filter = *it;
 
-		json += "{";
+		json += '{';
 
 		if (!filter.collisionSystems.empty()) {
 			json += R"("collisionSystems":[)";
 			for (auto systemIt = filter.collisionSystems.begin(); systemIt != filter.collisionSystems.end(); ++systemIt) {
-				json += R"(")";
+				json += '"';
 				json += *systemIt;
-				json += R"(")";
+				json += '"';
 
 				if (uabs(std::distance(filter.collisionSystems.begin(), systemIt)) + 1 < filter.collisionSystems.size()) {
 					json += ',';
 				}
 			}
-			json += "]";
+			json += ']';
 		}
 		if (json.back() == ']') {
 			json += ',';
@@ -6409,15 +6409,15 @@ void fg::Exporter::writeCollisionFilters(const Asset& asset, std::string& json) 
 		if (!filter.collideWithSystems.empty()) {
 			json += R"("collideWithSystems":[)";
 			for (auto systemIt = filter.collideWithSystems.begin(); systemIt != filter.collideWithSystems.end(); ++systemIt) {
-				json += R"(")";
+				json += '"';
 				json += *systemIt;
-				json += R"(")";
+				json += '"';
 
 				if (uabs(std::distance(filter.collideWithSystems.begin(), systemIt)) + 1 < filter.collideWithSystems.size()) {
 					json += ',';
 				}
 			}
-			json += "]";
+			json += ']';
 		}
 		if (json.back() == ']') {
 			json += ',';
@@ -6426,15 +6426,15 @@ void fg::Exporter::writeCollisionFilters(const Asset& asset, std::string& json) 
 		if (!filter.notCollideWithSystems.empty()) {
 			json += R"("notCollideWithSystems":[)";
 			for (auto systemIt = filter.notCollideWithSystems.begin(); systemIt != filter.notCollideWithSystems.end(); ++systemIt) {
-				json += R"(")";
+				json += '"';
 				json += *systemIt;
-				json += R"(")";
+				json += '"';
 
 				if (uabs(std::distance(filter.notCollideWithSystems.begin(), systemIt)) + 1 < filter.notCollideWithSystems.size()) {
 					json += ',';
 				}
 			}
-			json += "]";
+			json += ']';
 		}
 
 		if (extrasWriteCallback != nullptr) {
@@ -6447,14 +6447,14 @@ void fg::Exporter::writeCollisionFilters(const Asset& asset, std::string& json) 
 			}
 		}
 
-		json += "}";
+		json += '}';
 
 		if (uabs(std::distance(asset.collisionFilters.begin(), it)) + 1 < asset.collisionFilters.size()) {
 			json += ',';
 		}
 	}
 
-	json += "]";
+	json += ']';
 }
 
 void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
@@ -6470,14 +6470,14 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 	for (auto it = asset.physicsJoints.begin(); it != asset.physicsJoints.end(); ++it) {
 		const auto& joint = *it;
 
-		json += "{";
+		json += '{';
 
 		if (!joint.limits.empty()) {
 			json += R"("limits":[)";
 			for (auto limitIt = joint.limits.begin(); limitIt != joint.limits.end(); ++limitIt) {
 				const auto& limit = *limitIt;
 
-				json += "{";
+				json += '{';
 				if (!limit.linearAxes.empty()) {
 					json += R"("linearAxes":[)";
 					for (auto axisIt = limit.linearAxes.begin(); axisIt != limit.linearAxes.end(); ++axisIt) {
@@ -6501,25 +6501,25 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 					json += "],";
 				}
 				if (limit.min) {
-					json += R"("min":)" + to_string_fp(*limit.min) + ",";
+					json += R"("min":)" + to_string_fp(*limit.min) + ',';
 				}
 				if (limit.max) {
-					json += R"("max":)" + to_string_fp(*limit.max) + ",";
+					json += R"("max":)" + to_string_fp(*limit.max) + ',';
 				}
 				if (limit.stiffness) {
-					json += R"("stiffness":)" + to_string_fp(*limit.stiffness) + ",";
+					json += R"("stiffness":)" + to_string_fp(*limit.stiffness) + ',';
 				}
 			    json += R"("damping":)" + to_string_fp(limit.damping);
-				json += "}";
+				json += '}';
 
 				if (uabs(std::distance(joint.limits.begin(), limitIt)) + 1 < joint.limits.size()) {
 					json += ',';
 				}
 			}
-			json += "]";
+			json += ']';
 
 			if(!joint.drives.empty()) {
-				json += ",";
+				json += ',';
 			}
 		}
 
@@ -6562,7 +6562,7 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 				}
 			}
 
-			json += "]";
+			json += ']';
 		}
 
 		if (extrasWriteCallback != nullptr) {
@@ -6605,7 +6605,7 @@ void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& js
 	writePhysicsMaterials(asset, json);
 	writeCollisionFilters(asset, json);
     writePhysicsJoints(asset, json);
-	json += "}";
+	json += '}';
 #endif
 
 	if (!asset.materialVariants.empty()) {
