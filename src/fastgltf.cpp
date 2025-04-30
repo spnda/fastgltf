@@ -1527,6 +1527,9 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			KEY_SWITCH_CASE(Scenes, scenes)
 			KEY_SWITCH_CASE(Skins, skins)
 			KEY_SWITCH_CASE(Textures, textures)
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+			KEY_SWITCH_CASE(Shapes, shapes)
+#endif
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			KEY_SWITCH_CASE(PhysicsMaterials, physicsMaterials)
 			KEY_SWITCH_CASE(CollisionFilters, collisionFilters)
@@ -3613,7 +3616,6 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			if (hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
-				PhysicsRigidBody physicsRigidBody = {};
 				dom::object physicsRigidBodiesObject;
 				if (extensionsObject[extensions::KHR_physics_rigid_bodies].get_object().get(physicsRigidBodiesObject) == SUCCESS) FASTGLTF_LIKELY{
 					const auto rigidBodyError = parsePhysicsRigidBody(physicsRigidBodiesObject, node);
@@ -3908,7 +3910,7 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 					return Error::InvalidGltf;
 			    }
 
-				auto box = BoxShape{};
+				auto& box = shape.shape.emplace<BoxShape>();
 				auto curIndex = 0;
 				for (auto sizeNum : sizeArray) {
 					double value;
@@ -3920,8 +3922,6 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 
 					curIndex++;
 				}
-
-				shape.shape = box;
 			}
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
@@ -3933,7 +3933,7 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 				return Error::InvalidGltf;
 			}
 
-			auto capsule = CapsuleShape{};
+			auto& capsule =shape.shape.emplace<CapsuleShape>();
 
 			double height;
 			if (error = capsuleObject["height"].get_double().get(height); error == SUCCESS) {
@@ -3956,8 +3956,6 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 				return Error::InvalidGltf;
 			}
 
-			shape.shape = capsule;
-
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
@@ -3969,7 +3967,7 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 				return Error::InvalidGltf;
 			}
 
-			auto cylinder = CylinderShape{};
+			auto& cylinder = shape.shape.emplace<CylinderShape>();
 
 			double height;
 			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) {
@@ -3991,8 +3989,6 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
-
-			shape.shape = cylinder;
 
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
@@ -4345,11 +4341,11 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node) {
 	using namespace simdjson;
 
-	PhysicsRigidBody rigid_body = {};
+	auto& rigidBody = node.physicsRigidBody.emplace();
 
 	dom::object motionObject;
 	if (auto error = khr_physics_rigid_bodies["motion"].get_object().get(motionObject); error == SUCCESS) {
-		Motion motion = {};
+		auto& motion = rigidBody.motion.emplace();
 
 		bool isKinematic;
 		if (error = motionObject["isKinematic"].get_bool().get(isKinematic); error == SUCCESS) {
@@ -4478,15 +4474,13 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			return Error::InvalidGltf;
 		}
 
-		rigid_body.motion = motion;
-
 	} else if (error != NO_SUCH_FIELD) {
 		return Error::InvalidGltf;
 	}
 
 	dom::object colliderObject;
 	if (auto error = khr_physics_rigid_bodies["collider"].get_object().get(colliderObject); error == SUCCESS) {
-		Collider collider;
+		auto& collider = rigidBody.collider.emplace();
 
 		dom::object geometryObject;
 		if (colliderObject["geometry"].get_object().get(geometryObject) == SUCCESS) {
@@ -4526,8 +4520,6 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			return Error::InvalidGltf;
 		}
 
-		rigid_body.collider = collider;
-
 	} else if (error != NO_SUCH_FIELD) {
 		return Error::InvalidGltf;
 	}
@@ -4536,7 +4528,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 	if (auto error = khr_physics_rigid_bodies["trigger"].get_object().get(triggerObject); error == SUCCESS) {
 		dom::object geometryObject;
 		if (error = triggerObject["geometry"].get_object().get(geometryObject); error == SUCCESS) {
-			GeometryTrigger geometryTrigger;
+			auto& geometryTrigger = rigidBody.trigger.emplace().emplace<GeometryTrigger>();
 
 			uint64_t shape;
 			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) {
@@ -4565,15 +4557,13 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				return Error::InvalidGltf;
 			}
 
-			rigid_body.trigger = geometryTrigger;
-
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
 		dom::array nodes;
 		if (error = triggerObject["nodes"].get_array().get(nodes); error == SUCCESS) {
-			NodeTrigger nodeTrigger = {};
+			auto& nodeTrigger = rigidBody.trigger.emplace().emplace<NodeTrigger>();
 
 			nodeTrigger.nodes.resize(nodes.size());
 			auto i = 0U;
@@ -4586,8 +4576,6 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				++i;
 			}
 
-			rigid_body.trigger = nodeTrigger;
-
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
@@ -4598,7 +4586,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 	dom::object jointObject;
 	if (auto error = khr_physics_rigid_bodies["joint"].get_object().get(jointObject); error == SUCCESS) {
-		Joint joint = {};
+		auto& joint = rigidBody.joint.emplace();
 		if (jointObject["connectedNode"].get_uint64().get(joint.connectedNode) != SUCCESS) {
 			return Error::InvalidGltf;
 		}
@@ -4610,14 +4598,10 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
-
-		rigid_body.joint = joint;
 	    
 	} else if (error != NO_SUCH_FIELD) {
 		return Error::InvalidGltf;
 	}
-
-    node.physicsRigidBody = rigid_body;
 
 	return Error::None;
 }
@@ -5969,7 +5953,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					const auto& motion = *it->physicsRigidBody->motion;
 					json += R"("motion":{"isKinematic":)" + std::to_string(motion.isKinematic);
 					if (motion.mass.has_value()) {
-						json += R"(,"mass":)" + std::to_string(*motion.mass);
+						json += R"(,"mass":)" + to_string_fp(*motion.mass);
 					}
 					json += R"(,"centerOfMass":[)" + to_string(motion.centerOfMass) + "]";
 					if (motion.inertialDiagonal.has_value()) {
@@ -5987,10 +5971,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					if (json.back() != '{') json += ',';
 					const auto& trigger = *it->physicsRigidBody->trigger;
 					json += R"("trigger":{)";
-					std::visit(visitor{
-	            [&](auto&) {
-							// Is this needed?
-						},
+					visit_exhaustive(visitor{
 						[&](const GeometryTrigger& geometry) {
 							json += R"("geometry":{)";
 							if (geometry.geometry.shape.has_value()) {
@@ -6276,25 +6257,29 @@ void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
 		case ShapeType::Sphere:
 		    {
 			    const auto& sphere = std::get<SphereShape>(shape.shape);
-			    json += R"("type":"sphere","sphere":{"radius":)" + std::to_string(sphere.radius) + "}";
+			    json += R"("type":"sphere","sphere":{"radius":)" + to_string_fp(sphere.radius) + "}";
 		    }
             break;
 		case ShapeType::Box:
 		    {
 			    const auto& box = std::get<BoxShape>(shape.shape);
-			    json += R"("type":"box","box":{"size":[)" + std::to_string(box.size.x()) + "," + std::to_string(box.size.y()) + "," + std::to_string(box.size.z()) + "]}";
+			    json += R"("type":"box","box":{"size":[)" + to_string(box.size) + "]}";
 		    }
 		    break;
 		case ShapeType::Cylinder:
 		    {
 			    const auto& cylinder = std::get<CylinderShape>(shape.shape);
-			    json += R"("type":"cylinder","cylinder":{"height":)" + std::to_string(cylinder.height) + R"(,"radiusBottom":)" + std::to_string(cylinder.radiusBottom) + R"(,"radiusTop":)" + std::to_string(cylinder.radiusTop) + "}";
+			    json += R"("type":"cylinder","cylinder":{"height":)" + to_string_fp(cylinder.height)
+		            + R"(,"radiusBottom":)" + to_string_fp(cylinder.radiusBottom) + R"(,"radiusTop":)"
+		            + to_string_fp(cylinder.radiusTop) + "}";
 		    }
 		    break;
 		case ShapeType::Capsule:
 		    {
 			    const auto& capsule = std::get<CapsuleShape>(shape.shape);
-			    json += R"("type":"capsule","capsule":{"height":)" + std::to_string(capsule.height) + R"(,"radiusBottom":)" + std::to_string(capsule.radiusBottom) + R"(,"radiusTop":)" + std::to_string(capsule.radiusTop) + "}";
+			    json += R"("type":"capsule","capsule":{"height":)" + to_string_fp(capsule.height)
+		            + R"(,"radiusBottom":)" + to_string_fp(capsule.radiusBottom)
+		            + R"(,"radiusTop":)" + to_string_fp(capsule.radiusTop) + "}";
 		    }
             break;
         case ShapeType::Invalid:
@@ -6335,7 +6320,10 @@ void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) 
 	for (auto it = asset.physicsMaterials.begin(); it != asset.physicsMaterials.end(); ++it) {
 		const auto& material = *it;
 
-		json += R"({"staticFriction":)" + std::to_string(material.staticFriction) + R"(,"dynamicFriction":)" + std::to_string(material.dynamicFriction) + R"(,"restitution":)" + std::to_string(material.restitution) + R"(,"frictionCombine":)";
+		json += R"({"staticFriction":)" + to_string_fp(material.staticFriction)
+	        + R"(,"dynamicFriction":)" + to_string_fp(material.dynamicFriction)
+	        + R"(,"restitution":)" + to_string_fp(material.restitution)
+	        + R"(,"frictionCombine":)";
 		switch (material.frictionCombine) {
         case CombineMode::Average:
 			json += R"("average")";
@@ -6513,15 +6501,15 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 					json += "],";
 				}
 				if (limit.min) {
-					json += R"("min":)" + std::to_string(*limit.min) + ",";
+					json += R"("min":)" + to_string_fp(*limit.min) + ",";
 				}
 				if (limit.max) {
-					json += R"("max":)" + std::to_string(*limit.max) + ",";
+					json += R"("max":)" + to_string_fp(*limit.max) + ",";
 				}
 				if (limit.stiffness) {
-					json += R"("stiffness":)" + std::to_string(*limit.stiffness) + ",";
+					json += R"("stiffness":)" + to_string_fp(*limit.stiffness) + ",";
 				}
-			    json += R"("damping":)" + std::to_string(limit.damping);
+			    json += R"("damping":)" + to_string_fp(limit.damping);
 				json += "}";
 
 				if (uabs(std::distance(joint.limits.begin(), limitIt)) + 1 < joint.limits.size()) {
@@ -6561,11 +6549,11 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 				}
 
 				json += R"(,"axis":)" + std::to_string(drive.axis)
-			        + R"(,"maxForce":)" + std::to_string(drive.maxForce)
-			        + R"(,"positionTarget":)" + std::to_string(drive.positionTarget)
-			        + R"(,"velocityTarget":)" + std::to_string(drive.velocityTarget)
-			        + R"(,"stiffness":)" + std::to_string(drive.stiffness)
-			        + R"(,"damping":)" + std::to_string(drive.damping);
+			        + R"(,"maxForce":)" + to_string_fp(drive.maxForce)
+			        + R"(,"positionTarget":)" + to_string_fp(drive.positionTarget)
+			        + R"(,"velocityTarget":)" + to_string_fp(drive.velocityTarget)
+			        + R"(,"stiffness":)" + to_string_fp(drive.stiffness)
+			        + R"(,"damping":)" + to_string_fp(drive.damping);
 
 				json += '}';
 
@@ -6655,7 +6643,7 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
 		case MimeType::KTX2:
 			extension = ".ktx2";
 			break;
-		case MimeType::DDS: 
+		case MimeType::DDS:
 			extension = ".dds";
 			break;
 		default:
