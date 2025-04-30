@@ -4532,7 +4532,94 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		return Error::InvalidGltf;
 	}
 
-	TODO: Trigger, Joint
+	dom::object triggerObject;
+	if (auto error = khr_physics_rigid_bodies["trigger"].get_object().get(triggerObject); error == SUCCESS) {
+		dom::object geometryObject;
+		if (error = triggerObject["geometry"].get_object().get(geometryObject); error == SUCCESS) {
+			GeometryTrigger geometryTrigger;
+
+			uint64_t shape;
+			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) {
+				geometryTrigger.geometry.shape = static_cast<std::size_t>(shape);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+			uint64_t geometryNode;
+			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
+				geometryTrigger.geometry.node = static_cast<std::size_t>(geometryNode);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+			bool convexHull;
+			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
+				geometryTrigger.geometry.convexHull = convexHull;
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			// The trigger can only have a collision filter if it has geometry, otherwise it deferes to the nodes
+			std::size_t collisionFilter;
+			if (error = triggerObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
+				geometryTrigger.collisionFilter = collisionFilter;
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+
+			rigid_body.trigger = geometryTrigger;
+
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::array nodes;
+		if (error = triggerObject["nodes"].get_array().get(nodes); error == SUCCESS) {
+			NodeTrigger nodeTrigger = {};
+
+			nodeTrigger.nodes.resize(nodes.size());
+			auto i = 0U;
+			for (auto num : nodes) {
+				std::size_t val;
+				if (num.get_uint64().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				nodeTrigger.nodes[i] = val;
+				++i;
+			}
+
+			rigid_body.trigger = nodeTrigger;
+
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+	    
+	} else if (error != NO_SUCH_FIELD) {
+		return Error::InvalidGltf;
+	}
+
+	dom::object jointObject;
+	if (auto error = khr_physics_rigid_bodies["joint"].get_object().get(jointObject); error == SUCCESS) {
+		Joint joint = {};
+		if (jointObject["connectedNode"].get_uint64().get(joint.connectedNode) != SUCCESS) {
+			return Error::InvalidGltf;
+		}
+
+		if (jointObject["joint"].get_uint64().get(joint.joint) != SUCCESS) {
+			return Error::InvalidGltf;
+		}
+
+		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		rigid_body.joint = joint;
+	    
+	} else if (error != NO_SUCH_FIELD) {
+		return Error::InvalidGltf;
+	}
+
+    node.physicsRigidBody = rigid_body;
+
+	return Error::None;
 }
 #endif
 
@@ -5893,10 +5980,11 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					}
 					json += R"(,"linearVelocity":)" + to_string(motion.linearVelocity)
 				        + R"(],"angularVelocity":[)" + to_string(motion.angularVelocity)
-				        + R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + "},";
+				        + R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + "}";
 				}
 
 				if (it->physicsRigidBody->trigger.has_value()) {
+					if (json.back() != '{') json += ',';
 					const auto& trigger = *it->physicsRigidBody->trigger;
 					json += R"("trigger":{)";
 					std::visit(visitor{
@@ -5926,35 +6014,38 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 							json += ']';
 						},
 						}, trigger);
-					json += "},";
+					json += "}";
 				}
 
 				if (it->physicsRigidBody->joint.has_value()) {
+					if (json.back() != '{') json += ',';
 					const auto& joint = *it->physicsRigidBody->joint;
 					json += R"("joint":{"connectedNode":)" + std::to_string(joint.connectedNode)
 				        + R"(,"joint":)" + std::to_string(joint.joint)
-				        + R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + "},";
+				        + R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + "}";
 				}
 
-				const auto& collider = it->physicsRigidBody->collider;
-				json += R"("collider":{)";
+				if (it->physicsRigidBody->collider.has_value()) {
+					if (json.back() != '{') json += ',';
+					const auto& collider = *it->physicsRigidBody->collider;
+					json += R"("collider":{)";
 
-				json += R"("geometry":{)";
-				if (collider.geometry.shape.has_value()) {
-					json += R"("shape":)" + std::to_string(*collider.geometry.shape) + ",";
-				}
-				else if (collider.geometry.node.has_value()) {
-					json += R"("node":)" + std::to_string(*collider.geometry.node) + ",";
-				}
-				json += R"("convexHull":)" + std::to_string(collider.geometry.convexHull) + "}";
+					json += R"("geometry":{)";
+					if (collider.geometry.shape.has_value()) {
+						json += R"("shape":)" + std::to_string(*collider.geometry.shape) + ",";
+					} else if (collider.geometry.node.has_value()) {
+						json += R"("node":)" + std::to_string(*collider.geometry.node) + ",";
+					}
+					json += R"("convexHull":)" + std::to_string(collider.geometry.convexHull) + "}";
 
-				if (collider.physicsMaterial.has_value()) {
-					json += R"(,"physicsMaterial":)" + std::to_string(*collider.physicsMaterial);
+					if (collider.physicsMaterial.has_value()) {
+						json += R"(,"physicsMaterial":)" + std::to_string(*collider.physicsMaterial);
+					}
+					if (collider.collisionFilter) {
+						json += R"(,"collisionFilter":)" + std::to_string(*collider.collisionFilter);
+					}
+					json += "}";
 				}
-				if (collider.collisionFilter) {
-					json += R"(,"collisionFilter":)" + std::to_string(*collider.collisionFilter);
-				}
-				json += "}";
 			}
 #endif
 
