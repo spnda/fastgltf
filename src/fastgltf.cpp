@@ -4210,12 +4210,12 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 			        return Error::InvalidGltf;
 				}
 
-				if(limitObject["linearAxis"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) FASTGLTF_UNLIKELY {
+				if(limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) FASTGLTF_UNLIKELY {
 				    // A limit may only have one of these
 					return Error::InvalidGltf;
 				}
 
-				if (limitObject["linearAxis"].error() != SUCCESS && limitObject["angularAxes"].error() != SUCCESS) FASTGLTF_UNLIKELY {
+				if (limitObject["linearAxes"].error() != SUCCESS && limitObject["angularAxes"].error() != SUCCESS) FASTGLTF_UNLIKELY {
 					// A limit MUST have one of these
 					return Error::InvalidGltf;
 				}
@@ -4244,7 +4244,7 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 				double damping;
 				if (auto error = limitObject["damping"].get_double().get(damping); error == SUCCESS) {
 					limit.damping = static_cast<num>(damping);
-				} else if (error == NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				    return Error::InvalidGltf;
 				}
 
@@ -4253,7 +4253,7 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 					limit.linearAxes.reserve(linearAxesArray.size());
 					for(auto axisValue : linearAxesArray) {
 						uint64_t axis;
-						if(axisValue.get_uint64().get(axis) == SUCCESS && axis > 0 && axis < 4) FASTGLTF_LIKELY {
+						if(axisValue.get_uint64().get(axis) == SUCCESS && axis >= 0 && axis <= 2) FASTGLTF_LIKELY {
 							limit.linearAxes.emplace_back(static_cast<uint8_t>(axis));
 						} else {
 							return Error::InvalidGltf;
@@ -4268,7 +4268,7 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 					limit.angularAxes.reserve(angularAxesArray.size());
 					for (auto axisValue : angularAxesArray) {
 						uint64_t axis;
-						if (axisValue.get_uint64().get(axis) == SUCCESS && axis > 0 && axis < 4) FASTGLTF_LIKELY {
+						if (axisValue.get_uint64().get(axis) == SUCCESS && axis >= 0 && axis <= 3) FASTGLTF_LIKELY {
 							limit.angularAxes.emplace_back(static_cast<uint8_t>(axis));
 						} else {
 							return Error::InvalidGltf;
@@ -4307,9 +4307,9 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 
 				std::string_view mode;
 				if (driveValue["mode"].get_string().get(mode) == SUCCESS) FASTGLTF_LIKELY {
-				    if (type == "force") {
+				    if (mode == "force") {
 						drive.mode = DriveMode::Force;
-				    } else if (type == "acceleration") {
+				    } else if (mode == "acceleration") {
 						drive.mode = DriveMode::Acceleration;
 				    } else {
 						return Error::InvalidGltf;

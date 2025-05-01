@@ -574,7 +574,7 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-TEST_CASE("Extension KHR_physics_rigid_bodies", "[gltf-loader]") {
+TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
 
 	fastgltf::GltfFileStream jsonData(shapeTypes);
@@ -649,6 +649,105 @@ TEST_CASE("Extension KHR_physics_rigid_bodies", "[gltf-loader]") {
 		}
 
 	    REQUIRE(!node10.physicsRigidBody->joint.has_value());
+	}
+}
+
+TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
+	auto shapeTypes = physicsSampleAssets / "samples" / "Robot_skinned" / "Robot_skinned.gltf";
+
+	fastgltf::GltfFileStream jsonData(shapeTypes);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_physics_rigid_bodies | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, shapeTypes.parent_path());
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->physicsMaterials.size() == 1);
+	REQUIRE(asset->collisionFilters.size() == 3);
+	REQUIRE(asset->physicsJoints.size() == 10);
+
+	const auto& material = asset->physicsMaterials.at(0);
+	REQUIRE(material.staticFriction == 0.5);
+	REQUIRE(material.dynamicFriction == 0.5);
+	REQUIRE(material.restitution == 0);
+
+	const auto& filter0 = asset->collisionFilters.at(0);
+	REQUIRE(filter0.collisionSystems.size() == 1);
+	REQUIRE(filter0.collisionSystems.at(0) == "System_0");
+	REQUIRE(filter0.collideWithSystems.size() == 1);
+	REQUIRE(filter0.collideWithSystems.at(0) == "System_0");
+	REQUIRE(filter0.notCollideWithSystems.size() == 0);
+
+	const auto& filter2 = asset->collisionFilters.at(2);
+	REQUIRE(filter2.collisionSystems.size() == 2);
+	REQUIRE(filter2.collisionSystems.at(0) == "System_0");
+    REQUIRE(filter2.collisionSystems.at(1) == "System_1");
+	REQUIRE(filter2.collideWithSystems.size() == 2);
+	REQUIRE(filter2.collideWithSystems.at(0) == "System_0");
+	REQUIRE(filter2.collideWithSystems.at(1) == "System_1");
+	REQUIRE(filter0.notCollideWithSystems.size() == 0);
+
+	{
+		const auto& joint0 = asset->physicsJoints.at(0);
+		REQUIRE(joint0.limits.size() == 5);
+
+	    const auto& limit0 = joint0.limits.at(0);
+		REQUIRE(limit0.linearAxes.size() == 1);
+		REQUIRE(limit0.linearAxes.at(0) == 0);
+		REQUIRE(limit0.angularAxes.size() == 0);
+		REQUIRE(limit0.min == 0);
+		REQUIRE(limit0.max == 0);
+		REQUIRE(!limit0.stiffness.has_value());
+
+		const auto limit4 = joint0.limits.at(4);
+		REQUIRE(limit4.linearAxes.size() == 0);
+		REQUIRE(limit4.angularAxes.size() == 1);
+		REQUIRE(limit4.angularAxes.at(0) == 1);
+		REQUIRE(limit4.min == 0);
+		REQUIRE(limit4.max == 0);
+		REQUIRE(!limit4.stiffness.has_value());
+
+		REQUIRE(joint0.drives.size() == 1);
+		const auto& drive0 = joint0.drives.at(0);
+
+		REQUIRE(drive0.type == fastgltf::DriveType::Angular);
+		REQUIRE(drive0.mode == fastgltf::DriveMode::Acceleration);
+		REQUIRE(drive0.axis == 0);
+		REQUIRE(drive0.positionTarget == 0);
+        REQUIRE(drive0.velocityTarget == -2);
+		REQUIRE(drive0.stiffness == 0);
+		REQUIRE(drive0.damping == 100);
+	}
+
+	{
+		const auto& joint9 = asset->physicsJoints.at(9);
+		REQUIRE(joint9.limits.size() == 3);
+
+		const auto& limit1 = joint9.limits.at(1);
+		REQUIRE(limit1.linearAxes.size() == 1);
+		REQUIRE(limit1.linearAxes.at(0) == 2);
+		REQUIRE(limit1.angularAxes.size() == 0);
+		REQUIRE(limit1.min == 0);
+		REQUIRE(limit1.max == 0);
+		REQUIRE(!limit1.stiffness.has_value());
+
+		REQUIRE(joint9.drives.size() == 0);
+	}
+
+	const auto& node10 = asset->nodes.at(10);
+	REQUIRE(node10.physicsRigidBody.has_value());
+	if(node10.physicsRigidBody) {
+		REQUIRE(!node10.physicsRigidBody->collider.has_value());
+		REQUIRE(!node10.physicsRigidBody->motion.has_value());
+		REQUIRE(!node10.physicsRigidBody->trigger.has_value());
+		REQUIRE(node10.physicsRigidBody->joint.has_value());
+		if(node10.physicsRigidBody->joint) {
+			const auto& joint = *node10.physicsRigidBody->joint;
+		    REQUIRE(joint.connectedNode == 9);
+			REQUIRE(joint.joint == 0);
+			REQUIRE(joint.enableCollision == false);
+		}
 	}
 }
 #endif
