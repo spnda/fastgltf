@@ -3912,7 +3912,7 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 	using namespace simdjson;
 
-	asset.shapes.resize(shapes.size());
+	asset.shapes.reserve(shapes.size());
 	for (auto shapeValue : shapes) {
 		auto& shape = asset.shapes.emplace_back();
 
@@ -4008,7 +4008,7 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 
 		dom::object cylinderObject;
 		if (auto error = shapeObject["cylinder"].get_object().get(cylinderObject); error == SUCCESS) {
-			if (shape.type != ShapeType::Capsule) FASTGLTF_UNLIKELY {
+			if (shape.type != ShapeType::Cylinder) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 

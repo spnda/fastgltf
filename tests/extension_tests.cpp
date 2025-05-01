@@ -480,3 +480,95 @@ TEST_CASE("Extension KHR_materials_variant", "[gltf-loader]") {
 	REQUIRE(primitive.mappings[3] == 5U);
 	REQUIRE(primitive.mappings[4] == 6U);
 }
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
+	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
+
+	fastgltf::GltfFileStream jsonData(shapeTypes);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_implicit_shapes | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, shapeTypes.parent_path());
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->shapes.size() == 7);
+
+	const auto& box0 = asset->shapes.at(0);
+	REQUIRE(box0.type == fastgltf::ShapeType::Box);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+	    [](const fastgltf::BoxShape& box) {
+			REQUIRE(box.size == fastgltf::math::fvec3(0.5285500288009644, 1, 0.5285500288009644));
+	    },
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(false);
+		}
+		},
+		box0.shape);
+
+	const auto& sphere4 = asset->shapes.at(4);
+	REQUIRE(sphere4.type == fastgltf::ShapeType::Sphere);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::BoxShape& box) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(abs(sphere.radius - 0.3417187615099374) < FLT_EPSILON);
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(false);
+		}
+		},
+		sphere4.shape);
+
+	const auto& capsule6 = asset->shapes.at(6);
+	REQUIRE(capsule6.type == fastgltf::ShapeType::Capsule);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::BoxShape& box) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(abs(capsule.height - 0.6000000238418579) < FLT_EPSILON);
+			REQUIRE(abs(capsule.radiusBottom - 0.25) < FLT_EPSILON);
+			REQUIRE(abs(capsule.radiusTop - 0.4000000059604645) < FLT_EPSILON);
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(false);
+		}
+		},
+		capsule6.shape);
+
+	const auto& cylinder2 = asset->shapes.at(2);
+	REQUIRE(cylinder2.type == fastgltf::ShapeType::Cylinder);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::BoxShape& box) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(abs(cylinder.height - 0.06662015616893768) < FLT_EPSILON);
+			REQUIRE(abs(cylinder.radiusBottom - 0.15483441948890686) < FLT_EPSILON);
+			REQUIRE(abs(cylinder.radiusTop - 0.15483441948890686) < FLT_EPSILON);
+		}
+		},
+		cylinder2.shape);
+}
+#endif

@@ -30,6 +30,7 @@ deps/
 tests/gltf/intel_sponza
 tests/gltf/glTF-Sample-Models
 tests/gltf/glTF-Sample-Assets
+tests/gltf/glTF_Physics
 tests/gltf/good-froge
 tests/gltf/deccer-cubes
 tests/gltf/bistro
