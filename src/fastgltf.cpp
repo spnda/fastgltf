@@ -1527,14 +1527,6 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			KEY_SWITCH_CASE(Scenes, scenes)
 			KEY_SWITCH_CASE(Skins, skins)
 			KEY_SWITCH_CASE(Textures, textures)
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-			KEY_SWITCH_CASE(Shapes, shapes)
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-			KEY_SWITCH_CASE(PhysicsMaterials, physicsMaterials)
-			KEY_SWITCH_CASE(CollisionFilters, collisionFilters)
-		    KEY_SWITCH_CASE(PhysicsJoints, physicsJoints)
-#endif
 			case force_consteval<crc32c("extensionsUsed")>: {
 				for (auto usedValue : array) {
 					std::string_view usedString;
@@ -2330,6 +2322,60 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 				}
 				break;
 			}
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+			case force_consteval<crc32c(extensions::KHR_implicit_shapes)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_implicit_shapes)) {
+					break;
+				}
+
+				dom::array shapesArray;
+				if (auto arrayError = extensionsObject["shapes"].get_array().get(shapesArray); arrayError == SUCCESS) FASTGLTF_LIKELY {
+					if (auto shapesError = parseShapes(shapesArray, asset); shapesError != Error::None) FASTGLTF_UNLIKELY {
+						return shapesError;
+					}
+				} else {
+					return Error::InvalidGltf;
+				}
+				break;
+            }
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			case force_consteval<crc32c(extensions::KHR_physics_rigid_bodies)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
+					break;
+				}
+
+				dom::array materialsArray;
+				if (auto arrayError = extensionsObject["physicsMaterials"].get_array().get(materialsArray); arrayError == SUCCESS) {
+					if (auto materialsError = parsePhysicsMaterials(materialsArray, asset); materialsError != Error::None) FASTGLTF_UNLIKELY {
+						return materialsError;
+					}
+				} else if (arrayError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				dom::array filtersArray;
+				if (auto arrayError = extensionsObject["collisionFilters"].get_array().get(filtersArray); arrayError == SUCCESS) {
+					if (auto filtersError = parseCollisionFilters(filtersArray, asset); filtersError != Error::None) FASTGLTF_UNLIKELY {
+						return filtersError;
+					}
+				} else if (arrayError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				dom::array jointsArray;
+				if (auto arrayError = extensionsObject["physicsJoints"].get_array().get(jointsArray); arrayError == SUCCESS) {
+					if (auto jointsError = parsePhysicsJoints(jointsArray, asset); jointsError != Error::None) FASTGLTF_UNLIKELY {
+						return jointsError;
+					}
+				} else if (arrayError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				break;
+			}
+#endif
         }
     }
 
