@@ -2330,7 +2330,7 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 				}
 
 				dom::array shapesArray;
-				if (auto arrayError = extensionsObject["shapes"].get_array().get(shapesArray); arrayError == SUCCESS) FASTGLTF_LIKELY {
+				if (auto arrayError = extensionObject["shapes"].get_array().get(shapesArray); arrayError == SUCCESS) FASTGLTF_LIKELY {
 					if (auto shapesError = parseShapes(shapesArray, asset); shapesError != Error::None) FASTGLTF_UNLIKELY {
 						return shapesError;
 					}
@@ -2347,7 +2347,7 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 				}
 
 				dom::array materialsArray;
-				if (auto arrayError = extensionsObject["physicsMaterials"].get_array().get(materialsArray); arrayError == SUCCESS) {
+				if (auto arrayError = extensionObject["physicsMaterials"].get_array().get(materialsArray); arrayError == SUCCESS) {
 					if (auto materialsError = parsePhysicsMaterials(materialsArray, asset); materialsError != Error::None) FASTGLTF_UNLIKELY {
 						return materialsError;
 					}
@@ -2356,7 +2356,7 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 				}
 
 				dom::array filtersArray;
-				if (auto arrayError = extensionsObject["collisionFilters"].get_array().get(filtersArray); arrayError == SUCCESS) {
+				if (auto arrayError = extensionObject["collisionFilters"].get_array().get(filtersArray); arrayError == SUCCESS) {
 					if (auto filtersError = parseCollisionFilters(filtersArray, asset); filtersError != Error::None) FASTGLTF_UNLIKELY {
 						return filtersError;
 					}
@@ -2365,7 +2365,7 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 				}
 
 				dom::array jointsArray;
-				if (auto arrayError = extensionsObject["physicsJoints"].get_array().get(jointsArray); arrayError == SUCCESS) {
+				if (auto arrayError = extensionObject["physicsJoints"].get_array().get(jointsArray); arrayError == SUCCESS) {
 					if (auto jointsError = parsePhysicsJoints(jointsArray, asset); jointsError != Error::None) FASTGLTF_UNLIKELY {
 						return jointsError;
 					}
