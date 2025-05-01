@@ -572,3 +572,83 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 		cylinder2.shape);
 }
 #endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+TEST_CASE("Extension KHR_physics_rigid_bodies", "[gltf-loader]") {
+	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
+
+	fastgltf::GltfFileStream jsonData(shapeTypes);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_physics_rigid_bodies | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, shapeTypes.parent_path());
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->physicsMaterials.size() == 1);
+	const auto& material = asset->physicsMaterials.at(0);
+	REQUIRE(material.staticFriction == 0.5);
+	REQUIRE(material.dynamicFriction == 0.5);
+	REQUIRE(material.restitution == 0);
+
+	REQUIRE(asset->collisionFilters.size() == 1);
+	const auto& filter = asset->collisionFilters.at(0);
+	REQUIRE(filter.collisionSystems.size() == 1);
+	REQUIRE(filter.collisionSystems.at(0) == "System_0");
+	REQUIRE(filter.collideWithSystems.size() == 1);
+	REQUIRE(filter.collideWithSystems.at(0) == "System_0");
+	REQUIRE(filter.notCollideWithSystems.size() == 0);
+
+	REQUIRE(asset->physicsJoints.size() == 0);
+
+	const auto& node = asset->nodes.at(0);
+
+	REQUIRE(node.physicsRigidBody.has_value());
+	if (node.physicsRigidBody) {
+		REQUIRE(node.physicsRigidBody->motion.has_value());
+		if (node.physicsRigidBody->motion) {
+			REQUIRE(node.physicsRigidBody->motion->mass == 1);
+			REQUIRE(!node.physicsRigidBody->motion->inertialDiagonal.has_value());
+			REQUIRE(!node.physicsRigidBody->motion->inertialOrientation.has_value());
+		}
+
+		REQUIRE(node.physicsRigidBody->collider.has_value());
+		if (node.physicsRigidBody->collider) {
+			REQUIRE(node.physicsRigidBody->collider->geometry.shape.has_value());
+			REQUIRE(node.physicsRigidBody->collider->geometry.shape == 0);
+			REQUIRE(!node.physicsRigidBody->collider->geometry.node.has_value());
+			REQUIRE(node.physicsRigidBody->collider->physicsMaterial == 0);
+			REQUIRE(node.physicsRigidBody->collider->collisionFilter == 0);
+		}
+
+		REQUIRE(!node.physicsRigidBody->trigger.has_value());
+		REQUIRE(!node.physicsRigidBody->joint.has_value());
+	}
+
+	const auto& node10 = asset->nodes.at(11);
+
+	REQUIRE(node10.physicsRigidBody.has_value());
+	if (node10.physicsRigidBody) {
+		REQUIRE(!node10.physicsRigidBody->motion.has_value());
+		REQUIRE(!node10.physicsRigidBody->collider.has_value());
+
+	    REQUIRE(node10.physicsRigidBody->trigger.has_value());
+		if(node10.physicsRigidBody->trigger) {
+			fastgltf::visit_exhaustive(fastgltf::visitor{
+				[](const fastgltf::GeometryTrigger& geo) {
+					REQUIRE(geo.geometry.convexHull);
+					REQUIRE(geo.geometry.node == 10);
+					REQUIRE(geo.collisionFilter.has_value());
+					REQUIRE(geo.collisionFilter == 0);
+				},
+				[](const fastgltf::NodeTrigger& node) {
+					REQUIRE(false);
+				}
+			},
+			*node10.physicsRigidBody->trigger);
+		}
+
+	    REQUIRE(!node10.physicsRigidBody->joint.has_value());
+	}
+}
+#endif
