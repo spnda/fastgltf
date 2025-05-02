@@ -1,5 +1,3 @@
-#include <cmath>
-
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
@@ -501,7 +499,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 	REQUIRE(box0.type == fastgltf::ShapeType::Box);
 	fastgltf::visit_exhaustive(fastgltf::visitor{
 	    [](const fastgltf::BoxShape& box) {
-			REQUIRE(box.size == fastgltf::math::fvec3(0.5285500288009644, 1, 0.5285500288009644));
+			REQUIRE(box.size.x() == Catch::Approx(0.5285500288009644));
+			REQUIRE(box.size.y() == Catch::Approx(1));
+	        REQUIRE(box.size.z() == Catch::Approx(0.5285500288009644));
 	    },
 		[](const fastgltf::SphereShape& sphere) {
 			REQUIRE(false);
@@ -522,7 +522,7 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(false);
 		},
 		[](const fastgltf::SphereShape& sphere) {
-			REQUIRE(abs(sphere.radius - 0.3417187615099374) < FLT_EPSILON);
+			REQUIRE(sphere.radius == Catch::Approx(0.3417187615099374));
 		},
 		[](const fastgltf::CapsuleShape& capsule) {
 			REQUIRE(false);
@@ -543,9 +543,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(false);
 		},
 		[](const fastgltf::CapsuleShape& capsule) {
-			REQUIRE(abs(capsule.height - 0.6000000238418579) < FLT_EPSILON);
-			REQUIRE(abs(capsule.radiusBottom - 0.25) < FLT_EPSILON);
-			REQUIRE(abs(capsule.radiusTop - 0.4000000059604645) < FLT_EPSILON);
+			REQUIRE(capsule.height == Catch::Approx(0.6000000238418579));
+			REQUIRE(capsule.radiusBottom == Catch::Approx(0.25));
+			REQUIRE(capsule.radiusTop == Catch::Approx(0.4000000059604645));
 		},
 		[](const fastgltf::CylinderShape& cylinder) {
 			REQUIRE(false);
@@ -566,9 +566,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(false);
 		},
 		[](const fastgltf::CylinderShape& cylinder) {
-			REQUIRE(abs(cylinder.height - 0.06662015616893768) < FLT_EPSILON);
-			REQUIRE(abs(cylinder.radiusBottom - 0.15483441948890686) < FLT_EPSILON);
-			REQUIRE(abs(cylinder.radiusTop - 0.15483441948890686) < FLT_EPSILON);
+			REQUIRE(cylinder.height == Catch::Approx(0.06662015616893768));
+			REQUIRE(cylinder.radiusBottom == Catch::Approx(0.15483441948890686));
+			REQUIRE(cylinder.radiusTop == Catch::Approx(0.15483441948890686));
 		}
 		},
 		cylinder2.shape);
@@ -589,9 +589,9 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 
 	REQUIRE(asset->physicsMaterials.size() == 1);
 	const auto& material = asset->physicsMaterials.at(0);
-	REQUIRE(material.staticFriction == 0.5);
-	REQUIRE(material.dynamicFriction == 0.5);
-	REQUIRE(material.restitution == 0);
+	REQUIRE(material.staticFriction == Catch::Approx(0.5));
+	REQUIRE(material.dynamicFriction == Catch::Approx(0.5));
+	REQUIRE(material.restitution == Catch::Approx(0));
 
 	REQUIRE(asset->collisionFilters.size() == 1);
 	const auto& filter = asset->collisionFilters.at(0);
@@ -670,9 +670,9 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 	REQUIRE(asset->physicsJoints.size() == 10);
 
 	const auto& material = asset->physicsMaterials.at(0);
-	REQUIRE(material.staticFriction == 0.5);
-	REQUIRE(material.dynamicFriction == 0.5);
-	REQUIRE(material.restitution == 0);
+	REQUIRE(material.staticFriction == Catch::Approx(0.5));
+	REQUIRE(material.dynamicFriction == Catch::Approx(0.5));
+	REQUIRE(material.restitution == Catch::Approx(0));
 
 	const auto& filter0 = asset->collisionFilters.at(0);
 	REQUIRE(filter0.collisionSystems.size() == 1);
@@ -698,16 +698,16 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 		REQUIRE(limit0.linearAxes.size() == 1);
 		REQUIRE(limit0.linearAxes.at(0) == 0);
 		REQUIRE(limit0.angularAxes.size() == 0);
-		REQUIRE(limit0.min == 0);
-		REQUIRE(limit0.max == 0);
+		REQUIRE(limit0.min == Catch::Approx(0));
+		REQUIRE(limit0.max == Catch::Approx(0));
 		REQUIRE(!limit0.stiffness.has_value());
 
 		const auto limit4 = joint0.limits.at(4);
 		REQUIRE(limit4.linearAxes.size() == 0);
 		REQUIRE(limit4.angularAxes.size() == 1);
 		REQUIRE(limit4.angularAxes.at(0) == 1);
-		REQUIRE(limit4.min == 0);
-		REQUIRE(limit4.max == 0);
+		REQUIRE(limit4.min == Catch::Approx(0));
+		REQUIRE(limit4.max == Catch::Approx(0));
 		REQUIRE(!limit4.stiffness.has_value());
 
 		REQUIRE(joint0.drives.size() == 1);
@@ -716,10 +716,10 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 		REQUIRE(drive0.type == fastgltf::DriveType::Angular);
 		REQUIRE(drive0.mode == fastgltf::DriveMode::Acceleration);
 		REQUIRE(drive0.axis == 0);
-		REQUIRE(drive0.positionTarget == 0);
-        REQUIRE(drive0.velocityTarget == -2);
-		REQUIRE(drive0.stiffness == 0);
-		REQUIRE(drive0.damping == 100);
+		REQUIRE(drive0.positionTarget == Catch::Approx(0));
+        REQUIRE(drive0.velocityTarget == Catch::Approx(-2));
+		REQUIRE(drive0.stiffness == Catch::Approx(0));
+		REQUIRE(drive0.damping == Catch::Approx(100));
 	}
 
 	{
@@ -730,8 +730,8 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 		REQUIRE(limit1.linearAxes.size() == 1);
 		REQUIRE(limit1.linearAxes.at(0) == 2);
 		REQUIRE(limit1.angularAxes.size() == 0);
-		REQUIRE(limit1.min == 0);
-		REQUIRE(limit1.max == 0);
+		REQUIRE(limit1.min == Catch::Approx(0));
+		REQUIRE(limit1.max == Catch::Approx(0));
 		REQUIRE(!limit1.stiffness.has_value());
 
 		REQUIRE(joint9.drives.size() == 0);
