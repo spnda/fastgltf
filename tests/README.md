@@ -12,7 +12,7 @@ expect a copy of the aforementioned repository to be in the `tests/gltf/glTF-Sam
 folder. This can be a simple clone or a symlink to another copy you have locally.
 
 The tests for KHR_implicit_shapes and KHR_physics_rigid_body use various assets from the 
-[glTF_Physics](https://github.com/eoineoineoin/glTF_Physics/tree/master) repository. The 
+[glTF_Physics](https://github.com/eoineoineoin/glTF_Physics) repository. The 
 tests expect a copy of that repo to be in `tests/gltf/glTF_Physics` - as with the other sample
 assets, you may use a symlink if you so choose
 
