@@ -2121,6 +2121,13 @@ namespace fastgltf {
         Optional<TextureInfo> transmissionTexture;
     };
 
+	 FASTGLTF_EXPORT struct MaterialDiffuseTransmission {
+        num diffuseTransmissionFactor = 0.0f;
+		math::nvec3 diffuseTransmissionColorFactor = math::nvec3(1);
+        Optional<TextureInfo> diffuseTransmissionTexture;
+        Optional<TextureInfo> diffuseTransmissionColorTexture;
+    };
+
     FASTGLTF_EXPORT struct MaterialClearcoat {
         num clearcoatFactor = 0.0f;
         Optional<TextureInfo> clearcoatTexture;
@@ -2237,6 +2244,11 @@ namespace fastgltf {
          * Specular information from KHR_materials_transmission.
          */
         std::unique_ptr<MaterialTransmission> transmission;
+
+ 		/**
+        * Diffuse transmission information from KHR_materials_diffuse_transmission. 
+        */
+		std::unique_ptr<MaterialDiffuseTransmission> diffuseTransmission;
 
         /**
          * Volume information from KHR_materials_volume

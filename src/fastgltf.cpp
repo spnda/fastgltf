@@ -22,7 +22,7 @@
  * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
- */
+ */ 
 
 #if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L)
 #error "fastgltf requires C++17"
@@ -1174,6 +1174,8 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			return Error::InvalidGltf;
 #endif
 		if (material.transmission && !isExtensionUsed(extensions::KHR_materials_transmission))
+			return Error::InvalidGltf;
+		if (material.diffuseTransmission && !isExtensionUsed(extensions::KHR_materials_diffuse_transmission))
 			return Error::InvalidGltf;
 		if (material.volume && !isExtensionUsed(extensions::KHR_materials_volume))
 			return Error::InvalidGltf;
@@ -2892,6 +2894,63 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fas
 				}
 
 				material.transmission = std::move(transmission);
+				break;
+			}
+			case force_consteval<crc32c(extensions::KHR_materials_diffuse_transmission)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_materials_diffuse_transmission))
+					break;
+
+				dom::object diffuseTransmissionObject;
+				auto diffuseTransmissionError = extensionField.value.get_object().get(diffuseTransmissionObject);
+				if (diffuseTransmissionError != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				auto diffuseTransmission = std::make_unique<MaterialDiffuseTransmission>();
+
+				double diffuseTransmissionFactor;
+				if (auto error = diffuseTransmissionObject["diffuseTransmissionFactor"].get_double().get(diffuseTransmissionFactor);
+					error == SUCCESS) FASTGLTF_LIKELY {
+					diffuseTransmission->diffuseTransmissionFactor = static_cast<num>(diffuseTransmissionFactor);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				TextureInfo diffuseTransmissionTexture;
+				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionTexture", &diffuseTransmissionTexture,
+					config.extensions); error == Error::None) FASTGLTF_LIKELY {
+					diffuseTransmission->diffuseTransmissionTexture = std::move(diffuseTransmissionTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				TextureInfo diffuseTransmissionColorTexture;
+				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionColorTexture", &diffuseTransmissionColorTexture,
+					config.extensions); error == Error::None) FASTGLTF_LIKELY {
+					diffuseTransmission->diffuseTransmissionColorTexture = std::move(diffuseTransmissionColorTexture);
+				} else if (error != Error::MissingField) {
+					return error;
+				}
+
+				dom::array diffuseTransmissionColorFactor;
+				if (auto error = diffuseTransmissionObject["diffuseTransmissionColorFactor"].get_array().get(diffuseTransmissionColorFactor);
+						error == SUCCESS) FASTGLTF_LIKELY {
+					std::size_t i = 0;
+					for (auto factor: diffuseTransmissionColorFactor) {
+						if (i >= diffuseTransmission->diffuseTransmissionColorFactor.size()) {
+							return Error::InvalidGltf;
+						}
+						double value;
+						if (factor.get_double().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+							return Error::InvalidGltf;
+						}
+						diffuseTransmission->diffuseTransmissionColorFactor[i++] = static_cast<num>(value);
+					}
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				material.diffuseTransmission = std::move(diffuseTransmission);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_unlit)>: {
