@@ -496,7 +496,6 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 	REQUIRE(asset->shapes.size() == 7);
 
 	const auto& box0 = asset->shapes.at(0);
-	REQUIRE(box0.type == fastgltf::ShapeType::Box);
 	fastgltf::visit_exhaustive(fastgltf::visitor{
 	    [](const fastgltf::BoxShape& box) {
 			REQUIRE(box.size.x() == Catch::Approx(0.5285500288009644));
@@ -513,10 +512,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(false);
 		}
 		},
-		box0.shape);
+		box0);
 
 	const auto& sphere4 = asset->shapes.at(4);
-	REQUIRE(sphere4.type == fastgltf::ShapeType::Sphere);
 	fastgltf::visit_exhaustive(fastgltf::visitor{
 		[](const fastgltf::BoxShape& box) {
 			REQUIRE(false);
@@ -531,10 +529,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(false);
 		}
 		},
-		sphere4.shape);
+		sphere4);
 
 	const auto& capsule6 = asset->shapes.at(6);
-	REQUIRE(capsule6.type == fastgltf::ShapeType::Capsule);
 	fastgltf::visit_exhaustive(fastgltf::visitor{
 		[](const fastgltf::BoxShape& box) {
 			REQUIRE(false);
@@ -551,10 +548,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(false);
 		}
 		},
-		capsule6.shape);
+		capsule6);
 
 	const auto& cylinder2 = asset->shapes.at(2);
-	REQUIRE(cylinder2.type == fastgltf::ShapeType::Cylinder);
 	fastgltf::visit_exhaustive(fastgltf::visitor{
 		[](const fastgltf::BoxShape& box) {
 			REQUIRE(false);
@@ -571,7 +567,7 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(cylinder.radiusTop == Catch::Approx(0.15483441948890686));
 		}
 		},
-		cylinder2.shape);
+		cylinder2);
 }
 #endif
 
@@ -606,52 +602,43 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 	const auto& node = asset->nodes.at(0);
 
 	REQUIRE(node.physicsRigidBody.has_value());
-	if (node.physicsRigidBody) {
-		REQUIRE(node.physicsRigidBody->motion.has_value());
-		if (node.physicsRigidBody->motion) {
-			REQUIRE(node.physicsRigidBody->motion->mass == 1);
-			REQUIRE(!node.physicsRigidBody->motion->inertialDiagonal.has_value());
-			REQUIRE(!node.physicsRigidBody->motion->inertialOrientation.has_value());
-		}
+	REQUIRE(node.physicsRigidBody->motion.has_value());
+	REQUIRE(node.physicsRigidBody->motion->mass == 1);
+	REQUIRE(!node.physicsRigidBody->motion->inertialDiagonal.has_value());
+	REQUIRE(!node.physicsRigidBody->motion->inertialOrientation.has_value());
 
-		REQUIRE(node.physicsRigidBody->collider.has_value());
-		if (node.physicsRigidBody->collider) {
-			REQUIRE(node.physicsRigidBody->collider->geometry.shape.has_value());
-			REQUIRE(node.physicsRigidBody->collider->geometry.shape == 0);
-			REQUIRE(!node.physicsRigidBody->collider->geometry.node.has_value());
-			REQUIRE(node.physicsRigidBody->collider->physicsMaterial == 0);
-			REQUIRE(node.physicsRigidBody->collider->collisionFilter == 0);
-		}
+	REQUIRE(node.physicsRigidBody->collider.has_value());
+	REQUIRE(node.physicsRigidBody->collider->geometry.shape.has_value());
+	REQUIRE(node.physicsRigidBody->collider->geometry.shape == 0);
+	REQUIRE(!node.physicsRigidBody->collider->geometry.node.has_value());
+	REQUIRE(node.physicsRigidBody->collider->physicsMaterial == 0);
+	REQUIRE(node.physicsRigidBody->collider->collisionFilter == 0);
 
-		REQUIRE(!node.physicsRigidBody->trigger.has_value());
-		REQUIRE(!node.physicsRigidBody->joint.has_value());
-	}
+	REQUIRE(!node.physicsRigidBody->trigger.has_value());
+	REQUIRE(!node.physicsRigidBody->joint.has_value());
+
 
 	const auto& node10 = asset->nodes.at(11);
 
 	REQUIRE(node10.physicsRigidBody.has_value());
-	if (node10.physicsRigidBody) {
-		REQUIRE(!node10.physicsRigidBody->motion.has_value());
-		REQUIRE(!node10.physicsRigidBody->collider.has_value());
+	REQUIRE(!node10.physicsRigidBody->motion.has_value());
+	REQUIRE(!node10.physicsRigidBody->collider.has_value());
 
-	    REQUIRE(node10.physicsRigidBody->trigger.has_value());
-		if(node10.physicsRigidBody->trigger) {
-			fastgltf::visit_exhaustive(fastgltf::visitor{
-				[](const fastgltf::GeometryTrigger& geo) {
-					REQUIRE(geo.geometry.convexHull);
-					REQUIRE(geo.geometry.node == 10);
-					REQUIRE(geo.collisionFilter.has_value());
-					REQUIRE(geo.collisionFilter == 0);
-				},
-				[](const fastgltf::NodeTrigger& node) {
-					REQUIRE(false);
-				}
-			},
-			*node10.physicsRigidBody->trigger);
+	REQUIRE(node10.physicsRigidBody->trigger.has_value());
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::GeometryTrigger& geo) {
+			REQUIRE(geo.geometry.convexHull);
+			REQUIRE(geo.geometry.node == 10);
+			REQUIRE(geo.collisionFilter.has_value());
+			REQUIRE(geo.collisionFilter == 0);
+		},
+		[](const fastgltf::NodeTrigger& node) {
+			REQUIRE(false);
 		}
+		},
+		*node10.physicsRigidBody->trigger);
 
-	    REQUIRE(!node10.physicsRigidBody->joint.has_value());
-	}
+	REQUIRE(!node10.physicsRigidBody->joint.has_value());
 }
 
 TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
@@ -684,72 +671,64 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 	const auto& filter2 = asset->collisionFilters.at(2);
 	REQUIRE(filter2.collisionSystems.size() == 2);
 	REQUIRE(filter2.collisionSystems.at(0) == "System_0");
-    REQUIRE(filter2.collisionSystems.at(1) == "System_1");
+	REQUIRE(filter2.collisionSystems.at(1) == "System_1");
 	REQUIRE(filter2.collideWithSystems.size() == 2);
 	REQUIRE(filter2.collideWithSystems.at(0) == "System_0");
 	REQUIRE(filter2.collideWithSystems.at(1) == "System_1");
 	REQUIRE(filter0.notCollideWithSystems.size() == 0);
 
-	{
-		const auto& joint0 = asset->physicsJoints.at(0);
-		REQUIRE(joint0.limits.size() == 5);
+	const auto& joint0 = asset->physicsJoints.at(0);
+	REQUIRE(joint0.limits.size() == 5);
 
-	    const auto& limit0 = joint0.limits.at(0);
-		REQUIRE(limit0.linearAxes.size() == 1);
-		REQUIRE(limit0.linearAxes.at(0) == 0);
-		REQUIRE(limit0.angularAxes.size() == 0);
-		REQUIRE(limit0.min == Catch::Approx(0));
-		REQUIRE(limit0.max == Catch::Approx(0));
-		REQUIRE(!limit0.stiffness.has_value());
+	const auto& limit0 = joint0.limits.at(0);
+	REQUIRE(limit0.linearAxes.size() == 1);
+	REQUIRE(limit0.linearAxes.at(0) == 0);
+	REQUIRE(limit0.angularAxes.size() == 0);
+	REQUIRE(limit0.min == Catch::Approx(0));
+	REQUIRE(limit0.max == Catch::Approx(0));
+	REQUIRE(!limit0.stiffness.has_value());
 
-		const auto limit4 = joint0.limits.at(4);
-		REQUIRE(limit4.linearAxes.size() == 0);
-		REQUIRE(limit4.angularAxes.size() == 1);
-		REQUIRE(limit4.angularAxes.at(0) == 1);
-		REQUIRE(limit4.min == Catch::Approx(0));
-		REQUIRE(limit4.max == Catch::Approx(0));
-		REQUIRE(!limit4.stiffness.has_value());
+	const auto limit4 = joint0.limits.at(4);
+	REQUIRE(limit4.linearAxes.size() == 0);
+	REQUIRE(limit4.angularAxes.size() == 1);
+	REQUIRE(limit4.angularAxes.at(0) == 1);
+	REQUIRE(limit4.min == Catch::Approx(0));
+	REQUIRE(limit4.max == Catch::Approx(0));
+	REQUIRE(!limit4.stiffness.has_value());
 
-		REQUIRE(joint0.drives.size() == 1);
-		const auto& drive0 = joint0.drives.at(0);
+	REQUIRE(joint0.drives.size() == 1);
+	const auto& drive0 = joint0.drives.at(0);
 
-		REQUIRE(drive0.type == fastgltf::DriveType::Angular);
-		REQUIRE(drive0.mode == fastgltf::DriveMode::Acceleration);
-		REQUIRE(drive0.axis == 0);
-		REQUIRE(drive0.positionTarget == Catch::Approx(0));
-        REQUIRE(drive0.velocityTarget == Catch::Approx(-2));
-		REQUIRE(drive0.stiffness == Catch::Approx(0));
-		REQUIRE(drive0.damping == Catch::Approx(100));
-	}
+	REQUIRE(drive0.type == fastgltf::DriveType::Angular);
+	REQUIRE(drive0.mode == fastgltf::DriveMode::Acceleration);
+	REQUIRE(drive0.axis == 0);
+	REQUIRE(drive0.positionTarget == Catch::Approx(0));
+	REQUIRE(drive0.velocityTarget == Catch::Approx(-2));
+	REQUIRE(drive0.stiffness == Catch::Approx(0));
+	REQUIRE(drive0.damping == Catch::Approx(100));
 
-	{
-		const auto& joint9 = asset->physicsJoints.at(9);
-		REQUIRE(joint9.limits.size() == 3);
+	const auto& joint9 = asset->physicsJoints.at(9);
+	REQUIRE(joint9.limits.size() == 3);
 
-		const auto& limit1 = joint9.limits.at(1);
-		REQUIRE(limit1.linearAxes.size() == 1);
-		REQUIRE(limit1.linearAxes.at(0) == 2);
-		REQUIRE(limit1.angularAxes.size() == 0);
-		REQUIRE(limit1.min == Catch::Approx(0));
-		REQUIRE(limit1.max == Catch::Approx(0));
-		REQUIRE(!limit1.stiffness.has_value());
+	const auto& limit1 = joint9.limits.at(1);
+	REQUIRE(limit1.linearAxes.size() == 1);
+	REQUIRE(limit1.linearAxes.at(0) == 2);
+	REQUIRE(limit1.angularAxes.size() == 0);
+	REQUIRE(limit1.min == Catch::Approx(0));
+	REQUIRE(limit1.max == Catch::Approx(0));
+	REQUIRE(!limit1.stiffness.has_value());
 
-		REQUIRE(joint9.drives.size() == 0);
-	}
+	REQUIRE(joint9.drives.size() == 0);
 
 	const auto& node10 = asset->nodes.at(10);
 	REQUIRE(node10.physicsRigidBody.has_value());
-	if(node10.physicsRigidBody) {
-		REQUIRE(!node10.physicsRigidBody->collider.has_value());
-		REQUIRE(!node10.physicsRigidBody->motion.has_value());
-		REQUIRE(!node10.physicsRigidBody->trigger.has_value());
-		REQUIRE(node10.physicsRigidBody->joint.has_value());
-		if(node10.physicsRigidBody->joint) {
-			const auto& joint = *node10.physicsRigidBody->joint;
-		    REQUIRE(joint.connectedNode == 9);
-			REQUIRE(joint.joint == 0);
-			REQUIRE(joint.enableCollision == false);
-		}
-	}
+	REQUIRE(!node10.physicsRigidBody->collider.has_value());
+	REQUIRE(!node10.physicsRigidBody->motion.has_value());
+	REQUIRE(!node10.physicsRigidBody->trigger.has_value());
+	REQUIRE(node10.physicsRigidBody->joint.has_value());
+	const auto& joint = *node10.physicsRigidBody->joint;
+	REQUIRE(joint.connectedNode == 9);
+	REQUIRE(joint.joint == 0);
+	REQUIRE(joint.enableCollision == false);
 }
 #endif

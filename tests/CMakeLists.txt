@@ -1,6 +1,6 @@
 set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
-message(STATUS "fastgltf: Adding executable fastgltf_tests")
+message(STATUS "fastgltf: Bulding tests")
 
 # We want these tests to be a optional executable.
 add_executable(fastgltf_tests EXCLUDE_FROM_ALL "main.cpp"

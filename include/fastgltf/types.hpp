@@ -320,16 +320,6 @@ namespace fastgltf {
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Category, ~)
     // clang-format on
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-	enum class ShapeType : std::uint8_t {
-        Sphere,
-		Box,
-		Cylinder,
-		Capsule,
-        Invalid,
-    };
-#endif
-
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	FASTGLTF_EXPORT enum class CombineMode : std::uint8_t {
         Average,
@@ -341,12 +331,14 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT enum class DriveType : std::uint8_t {
 	    Linear,
-		Angular
+		Angular,
+		Invalid
 	};
 
 	FASTGLTF_EXPORT enum class DriveMode : std::uint8_t {
 	    Force,
-		Acceleration
+		Acceleration,
+	    Invalid
 	};
 #endif
 #pragma endregion
@@ -528,25 +520,8 @@ namespace fastgltf {
 		}
 	}
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-	constexpr auto getShapeType(std::string_view name) noexcept {
-		assert(!name.empty());
-		if(name[0] == 's') {
-			return ShapeType::Sphere;
-		} else if(name[0] == 'b') {
-			return ShapeType::Box;
-		} else if(name[1] == 'y') {
-			return ShapeType::Cylinder;
-		} else if(name[1] == 'a') {
-			return ShapeType::Capsule;
-		}
-
-		return ShapeType::Invalid;
-	}
-#endif
-
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-	constexpr auto getCombineMode(std::string_view name) noexcept {
+	[[nodiscard]] constexpr auto getCombineMode(const std::string_view name) noexcept {
 		assert(!name.empty());
 	    if(name[0] == 'a') {
 			return CombineMode::Average;
@@ -573,10 +548,32 @@ namespace fastgltf {
         "multiply"
 	};
 
-	constexpr std::string_view getFrictionCombineName(CombineMode frictionCombine) noexcept {
+	[[nodiscard]] constexpr std::string_view getFrictionCombineName(const CombineMode frictionCombine) noexcept {
 		static_assert(std::is_same_v<std::underlying_type_t<CombineMode>, std::uint8_t>);
 		const auto idx = to_underlying(frictionCombine) & 0x3;
 		return frictionCombineNames[idx];
+	}
+
+	[[nodiscard]] constexpr auto getDriveType(const std::string_view name) noexcept {
+		if (name[0] == 'l') {
+			return DriveType::Linear;
+		}
+		else if (name[0] == 'a') {
+			return DriveType::Angular;
+		}
+		else {
+			return DriveType::Invalid;
+		}
+	}
+
+	[[nodiscard]] constexpr auto getDriveMode(const std::string_view name) noexcept {
+	    if (name[0] == 'f') {
+			return DriveMode::Force;
+	    } else if (name[0] == 'a') {
+			return DriveMode::Acceleration;
+	    } else {
+			return DriveMode::Invalid;
+	    }
 	}
 #endif
 #pragma endregion
@@ -2013,11 +2010,7 @@ namespace fastgltf {
 		num radiusTop = 0.25;
 	};
 
-	FASTGLTF_EXPORT struct Shape {
-		std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape> shape;
-
-		ShapeType type;
-	};
+	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape>;
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
