@@ -99,6 +99,18 @@ When this ``BOOL`` option is set to ``YES`` fastgltf will use `corrosion`_, whic
 to link against the `gltf-rs`_ Rust library for comparison within the benchmarks.
 Note that this option has no effect when ``FASTGLTF_ENABLE_TESTS`` is set to ``NO``.
 
+``FASTGLTF_ENABLE_IMPLICIT_SHAPES``
+--------------------------------------------
+
+This option enables support for the draft KHR_implicit_shapes <https://github.com/KhronosGroup/glTF/pull/2370> extension
+
+``FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES``
+--------------------------------------------
+
+This option enables support for the draft KHR_physics_rigid_bodies <https://github.com/KhronosGroup/glTF/pull/2424> extension
+
+KHR_physics_rigid_bodies relies on KHR_implicit_shapes, so this option implicitly enables `FASTGLTF_ENABLE_IMPLICIT_SHAPES`
+
 Parsing options
 ===============
 

@@ -2322,6 +2322,60 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 				}
 				break;
 			}
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+			case force_consteval<crc32c(extensions::KHR_implicit_shapes)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_implicit_shapes)) {
+					break;
+				}
+
+				dom::array shapesArray;
+				if (auto arrayError = extensionObject["shapes"].get_array().get(shapesArray); arrayError == SUCCESS) FASTGLTF_LIKELY {
+					if (auto shapesError = parseShapes(shapesArray, asset); shapesError != Error::None) FASTGLTF_UNLIKELY {
+						return shapesError;
+					}
+				} else {
+					return Error::InvalidGltf;
+				}
+				break;
+            }
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			case force_consteval<crc32c(extensions::KHR_physics_rigid_bodies)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
+					break;
+				}
+
+				dom::array materialsArray;
+				if (auto arrayError = extensionObject["physicsMaterials"].get_array().get(materialsArray); arrayError == SUCCESS) {
+					if (auto materialsError = parsePhysicsMaterials(materialsArray, asset); materialsError != Error::None) FASTGLTF_UNLIKELY {
+						return materialsError;
+					}
+				} else if (arrayError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				dom::array filtersArray;
+				if (auto arrayError = extensionObject["collisionFilters"].get_array().get(filtersArray); arrayError == SUCCESS) {
+					if (auto filtersError = parseCollisionFilters(filtersArray, asset); filtersError != Error::None) FASTGLTF_UNLIKELY {
+						return filtersError;
+					}
+				} else if (arrayError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				dom::array jointsArray;
+				if (auto arrayError = extensionObject["physicsJoints"].get_array().get(jointsArray); arrayError == SUCCESS) {
+					if (auto jointsError = parsePhysicsJoints(jointsArray, asset); jointsError != Error::None) FASTGLTF_UNLIKELY {
+						return jointsError;
+					}
+				} else if (arrayError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				break;
+			}
+#endif
         }
     }
 
@@ -3605,6 +3659,20 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					return Error::InvalidGltf;
 				}
 			}
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			if (hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
+				dom::object physicsRigidBodiesObject;
+				if (auto rigidBodiesError = extensionsObject[extensions::KHR_physics_rigid_bodies].get_object().get(physicsRigidBodiesObject); rigidBodiesError == SUCCESS) FASTGLTF_LIKELY {
+					const auto rigidBodyError = parsePhysicsRigidBody(physicsRigidBodiesObject, node);
+					if (rigidBodyError != Error::None) {
+						return rigidBodyError;
+					}
+			    } else if (rigidBodiesError != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+			    }
+			}
+#endif
         }
 
 		if (config.extrasCallback != nullptr) {
@@ -3842,10 +3910,769 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 	return Error::None;
 }
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
+	using namespace simdjson;
+
+	asset.shapes.reserve(shapes.size());
+	for (auto shapeValue : shapes) {
+		auto& shape = asset.shapes.emplace_back();
+
+		dom::object shapeObject;
+		if (shapeValue.get_object().get(shapeObject) != SUCCESS) FASTGLTF_UNLIKELY {
+		    return Error::InvalidGltf;
+		}
+
+		std::string_view shapeTypeName;
+		if (shapeObject["type"].get_string().get(shapeTypeName) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::object sphereObject;
+		if (auto error = shapeObject["sphere"].get_object().get(sphereObject); error == SUCCESS) {
+			if (shapeTypeName != "sphere") FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			double radius;
+			if (error = sphereObject["radius"].get_double().get(radius); error == SUCCESS) {
+				shape = SphereShape{ static_cast<num>(radius) };
+			} else if(error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+		} else if(error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::object boxObject;
+		if (auto error = shapeObject["box"].get_object().get(boxObject); error == SUCCESS) {
+			if (shapeTypeName != "box") FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+		    }
+
+			dom::array sizeArray;
+			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
+			    if (sizeArray.size() != 3) {
+					return Error::InvalidGltf;
+			    }
+
+				auto& box = shape.emplace<BoxShape>();
+				auto curIndex = 0;
+				for (auto sizeNum : sizeArray) {
+					double value;
+					if (sizeNum.get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
+						box.size[curIndex] = static_cast<num>(value);
+					} else {
+						return Error::InvalidGltf;
+					}
+
+					curIndex++;
+				}
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			    return Error::InvalidGltf;
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::object capsuleObject;
+		if (auto error = shapeObject["capsule"].get_object().get(capsuleObject); error == SUCCESS) {
+			if (shapeTypeName != "capsule") FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			auto& capsule = shape.emplace<CapsuleShape>();
+
+			double height;
+			if (error = capsuleObject["height"].get_double().get(height); error == SUCCESS) {
+				capsule.height = static_cast<num>(height);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			double radiusBottom;
+			if (error = capsuleObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
+				capsule.radiusBottom = static_cast<num>(radiusBottom);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			double radiusTop;
+			if (error = capsuleObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
+				capsule.radiusTop = static_cast<num>(radiusTop);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::object cylinderObject;
+		if (auto error = shapeObject["cylinder"].get_object().get(cylinderObject); error == SUCCESS) {
+			if (shapeTypeName != "cylinder") FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			auto& cylinder = shape.emplace<CylinderShape>();
+
+			double height;
+			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) {
+				cylinder.height = static_cast<num>(height);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			double radiusBottom;
+			if (error = cylinderObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
+				cylinder.radiusBottom = static_cast<num>(radiusBottom);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			double radiusTop;
+			if (error = cylinderObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
+				cylinder.radiusTop = static_cast<num>(radiusTop);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = shapeObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.shapes.size() - 1, Category::Shapes, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
+	return Error::None;
+}
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+fg::Error fg::Parser::parsePhysicsMaterials(simdjson::dom::array& physicsMaterials, Asset& asset) {
+	using namespace simdjson;
+
+	asset.physicsMaterials.reserve(physicsMaterials.size());
+	for (auto materialValue : physicsMaterials) {
+		PhysicsMaterial& material = asset.physicsMaterials.emplace_back();
+		dom::object materialObject;
+		if (materialValue.get_object().get(materialObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		double staticFriction;
+		if (auto error = materialObject["staticFriction"].get_double().get(staticFriction); error == SUCCESS) {
+		   material.staticFriction = static_cast<num>(staticFriction);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		double dynamicFriction;
+		if (auto error = materialObject["dynamicFriction"].get_double().get(dynamicFriction); error == SUCCESS) {
+		   material.dynamicFriction = static_cast<num>(dynamicFriction);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		double restitution;
+		if (auto error = materialObject["restitution"].get_double().get(restitution); error == SUCCESS) {
+		   material.restitution = static_cast<num>(restitution);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		std::string_view frictionCombine;
+		if (auto error = materialObject["frictionCombine"].get_string().get(frictionCombine); error == SUCCESS) {
+			material.frictionCombine = getCombineMode(frictionCombine);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		std::string_view restitutionCombine;
+		if (auto error = materialObject["restitutionCombine"].get_string().get(restitutionCombine); error == SUCCESS) {
+		   material.restitutionCombine = getCombineMode(restitutionCombine);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = materialObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.physicsMaterials.size() - 1, Category::PhysicsMaterials, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilters, Asset& asset) {
+	using namespace simdjson;
+
+	asset.collisionFilters.reserve(collisionFilters.size());
+	for (auto collisionFilterValue : collisionFilters) {
+		auto& collisionFilter = asset.collisionFilters.emplace_back();
+
+		dom::object collisionFilterObject;
+		if (collisionFilterValue.get_object().get(collisionFilterObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array collisionSystems;
+		if (auto error = collisionFilterObject["collisionSystems"].get_array().get(collisionSystems); error == SUCCESS) {
+			collisionFilter.collisionSystems.reserve(collisionSystems.size());
+			for (auto systemNameValue : collisionSystems) {
+				std::string_view systemName;
+				if (systemNameValue.get_string().get(systemName) == SUCCESS) FASTGLTF_LIKELY {
+					collisionFilter.collisionSystems.emplace_back(systemName);
+				} else {
+					return Error::InvalidGltf;
+				}
+			}
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+	    // A glTF isn't allowed to have both
+		if (collisionFilterObject["collideWithSystems"].error() == SUCCESS && collisionFilterObject["notCollideWithSystems"].error() == SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array collideWithSystems;
+		if (auto error = collisionFilterObject["collideWithSystems"].get_array().get(collideWithSystems); error == SUCCESS) {
+			collisionFilter.collideWithSystems.reserve(collideWithSystems.size());
+			for (auto systemNameValue : collideWithSystems) {
+				std::string_view systemName;
+				if (systemNameValue.get_string().get(systemName) == SUCCESS) FASTGLTF_LIKELY {
+					collisionFilter.collideWithSystems.emplace_back(systemName);
+				} else {
+					return Error::InvalidGltf;
+				}
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array notCollideWithSystems;
+		if (auto error = collisionFilterObject["notCollideWithSystems"].get_array().get(notCollideWithSystems); error == SUCCESS) {
+			collisionFilter.notCollideWithSystems.reserve(notCollideWithSystems.size());
+			for (auto systemNameValue : notCollideWithSystems) {
+				std::string_view systemName;
+				if (systemNameValue.get_string().get(systemName) == SUCCESS) FASTGLTF_LIKELY {
+					collisionFilter.notCollideWithSystems.emplace_back(systemName);
+				} else {
+					return Error::InvalidGltf;
+				}
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = collisionFilterObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.collisionFilters.size() - 1, Category::CollisionFilters, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, Asset& asset) {
+	using namespace simdjson; 
+
+	asset.physicsJoints.reserve(physicsJoints.size());
+	for (auto physicsJointValue : physicsJoints) {
+	    auto& physicsJoint = asset.physicsJoints.emplace_back();
+
+		dom::object physicsJointObject;
+		if (physicsJointValue.get_object().get(physicsJointObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array limitsArray;
+		if (physicsJointValue["limits"].get_array().get(limitsArray) == SUCCESS) {
+			physicsJoint.limits.reserve(limitsArray.size());
+            for (auto limitValue : limitsArray) {
+				auto& limit = physicsJoint.limits.emplace_back();
+				dom::object limitObject;
+				if (limitValue.get_object().get(limitObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			        return Error::InvalidGltf;
+				}
+
+				if(limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) FASTGLTF_UNLIKELY {
+				    // A limit may only have one of these
+					return Error::InvalidGltf;
+				}
+
+				if (limitObject["linearAxes"].error() != SUCCESS && limitObject["angularAxes"].error() != SUCCESS) FASTGLTF_UNLIKELY {
+					// A limit MUST have one of these
+					return Error::InvalidGltf;
+				}
+
+				double limitMin;
+				if (auto error = limitObject["min"].get_double().get(limitMin); error == SUCCESS) {
+					limit.min = static_cast<num>(limitMin);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				    return Error::InvalidGltf;
+				}
+
+				double limitMax;
+				if (auto error = limitObject["max"].get_double().get(limitMax); error == SUCCESS) {
+					limit.max = static_cast<num>(limitMax);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				double stiffness;
+				if (auto error = limitObject["stiffness"].get_double().get(stiffness); error == SUCCESS) {
+					limit.stiffness = static_cast<num>(stiffness);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				double damping;
+				if (auto error = limitObject["damping"].get_double().get(damping); error == SUCCESS) {
+					limit.damping = static_cast<num>(damping);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				    return Error::InvalidGltf;
+				}
+
+				dom::array linearAxesArray;
+				if (auto error = limitObject["linearAxes"].get_array().get(linearAxesArray); error == SUCCESS) {
+					limit.linearAxes.reserve(linearAxesArray.size());
+					for(auto axisValue : linearAxesArray) {
+						std::uint64_t axis;
+						if(axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) FASTGLTF_LIKELY {
+							limit.linearAxes.emplace_back(static_cast<uint8_t>(axis));
+						} else {
+							return Error::InvalidGltf;
+						}
+					}
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				dom::array angularAxesArray;
+				if (auto error = limitObject["angularAxes"].get_array().get(angularAxesArray); error == SUCCESS) {
+					limit.angularAxes.reserve(angularAxesArray.size());
+					for (auto axisValue : angularAxesArray) {
+						std::uint64_t axis;
+						if (axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) FASTGLTF_LIKELY {
+							limit.angularAxes.emplace_back(static_cast<uint8_t>(axis));
+						} else {
+							return Error::InvalidGltf;
+						}
+					}
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+            }
+		}
+
+		dom::array driveArray;
+		if (auto error = physicsJointValue["drives"].get_array().get(driveArray); error == SUCCESS) {
+			physicsJoint.drives.reserve(driveArray.size());
+			for (auto driveValue : driveArray) {
+			    auto& drive = physicsJoint.drives.emplace_back();
+				dom::object driveObject;
+				if (driveValue.get_object().get(driveObject) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				// Type, mode, and axis are required
+
+				std::string_view type;
+				if (driveValue["type"].get_string().get(type) == SUCCESS) FASTGLTF_LIKELY {
+					drive.type = getDriveType(type);
+					if (drive.type == DriveType::Invalid) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+				} else {
+					return Error::InvalidGltf;
+				}
+
+				std::string_view mode;
+				if (driveValue["mode"].get_string().get(mode) == SUCCESS) FASTGLTF_LIKELY {
+					drive.mode = getDriveMode(mode);
+					if (drive.mode == DriveMode::Invalid) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+				    }
+				} else {
+					return Error::InvalidGltf;
+				}
+
+				uint64_t axis;
+				if (driveValue["axis"].get_uint64().get(axis) == SUCCESS) FASTGLTF_LIKELY {
+				    if (axis < 3) {
+						drive.axis = static_cast<uint8_t>(axis);
+				    } else FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+				    }
+				} else {
+					return Error::InvalidGltf;
+				}
+
+				// Other fields are not required
+
+				double maxForce;
+				if (error = driveValue["maxForce"].get_double().get(maxForce); error == SUCCESS) {
+					drive.maxForce = static_cast<num>(maxForce);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				// If the drive has positionTarget, it must also have stiffness
+				const auto hasPositionTarget = driveValue["positionTarget"].error() == SUCCESS;
+				const auto hasStiffness = driveValue["stiffness"].error() == SUCCESS;
+				if (hasPositionTarget != hasStiffness) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				double positionTarget;
+				if (error = driveValue["positionTarget"].get_double().get(positionTarget); error == SUCCESS) {
+				    drive.positionTarget = static_cast<num>(positionTarget);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				double stiffness;
+				if (error = driveValue["stiffness"].get_double().get(stiffness); error == SUCCESS) {
+					drive.stiffness = static_cast<num>(stiffness);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				// If the drive has velocityTarget, it must also have damping
+				const auto hasVelocityTarget = driveValue["velocityTarget"].error() == SUCCESS;
+				const auto hasDamping = driveValue["damping"].error() == SUCCESS;
+				if (hasVelocityTarget != hasDamping) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				double velocityTarget;
+				if (error = driveValue["velocityTarget"].get_double().get(velocityTarget); error == SUCCESS) {
+					drive.velocityTarget = static_cast<num>(velocityTarget);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+
+				double damping;
+				if (error = driveValue["damping"].get_double().get(damping); error == SUCCESS) {
+					drive.damping = static_cast<num>(damping);
+				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+    		return Error::InvalidGltf;
+		}
+
+		if (config.extrasCallback != nullptr) {
+			dom::object extrasObject;
+			if (auto extrasError = physicsJointValue["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
+				config.extrasCallback(&extrasObject, asset.physicsJoints.size() - 1, Category::PhysicsJoints, config.userPointer);
+			} else if (extrasError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+		}
+	}
+
+	return Error::None;
+}
+
+fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node) {
+	using namespace simdjson;
+
+	node.physicsRigidBody = std::make_unique<PhysicsRigidBody>();
+	auto& rigidBody = *node.physicsRigidBody;
+
+	dom::object motionObject;
+	if (auto error = khr_physics_rigid_bodies["motion"].get_object().get(motionObject); error == SUCCESS) {
+		auto& motion = rigidBody.motion.emplace();
+
+		bool isKinematic;
+		if (error = motionObject["isKinematic"].get_bool().get(isKinematic); error == SUCCESS) {
+			motion.isKinematic = isKinematic;
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		double mass;
+		if (error = motionObject["mass"].get_double().get(mass); error == SUCCESS) {
+			motion.mass = static_cast<num>(mass);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array centerOfMassArray;
+		if (error = motionObject["centerOfMass"].get_array().get(centerOfMassArray); error == SUCCESS) {
+			if (centerOfMassArray.size() != 3) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			auto i = 0U;
+			for (auto numValue : centerOfMassArray) {
+				double val;
+				if (numValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				motion.centerOfMass[i] = static_cast<num>(val);
+				++i;
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array inertiaDiagonalArray;
+		if (error = motionObject["inertiaDiagonal"].get_array().get(inertiaDiagonalArray); error == SUCCESS) {
+			if (inertiaDiagonalArray.size() != 3) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			math::fvec3 inertialDiagonal;
+
+			auto i = 0U;
+			for (auto numValue : inertiaDiagonalArray) {
+				double val;
+				if (numValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				inertialDiagonal[i] = static_cast<num>(val);
+				++i;
+			}
+
+			motion.inertialDiagonal = inertialDiagonal;
+
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array inertialOrientationArray;
+		if (error = motionObject["inertialOrientation"].get_array().get(inertialOrientationArray); error == SUCCESS) {
+			if (inertialOrientationArray.size() != 4) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			math::fvec4 inertialOrientation;
+
+			auto i = 0U;
+			for (auto numValue : inertialOrientationArray) {
+				double val;
+				if (numValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				inertialOrientation[i] = static_cast<num>(val);
+				++i;
+			}
+
+			motion.inertialOrientation = inertialOrientation;
+
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array linearVelocityArray;
+		if (error = motionObject["linearVelocity"].get_array().get(linearVelocityArray); error == SUCCESS) {
+			if (linearVelocityArray.size() != 3) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			auto i = 0U;
+			for (auto numValue : linearVelocityArray) {
+				double val;
+				if (numValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				motion.linearVelocity[i] = static_cast<num>(val);
+				++i;
+			}
+
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array angularVelocityArray;
+		if (error = motionObject["angularVelocity"].get_array().get(angularVelocityArray); error == SUCCESS) {
+			if (angularVelocityArray.size() != 3) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			auto i = 0U;
+			for (auto numValue : angularVelocityArray) {
+				double val;
+				if (numValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				motion.angularVelocity[i] = static_cast<num>(val);
+				++i;
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		double gravityFactor;
+		if (error = motionObject["gravityFactor"].get_double().get(gravityFactor); error == SUCCESS) {
+			motion.gravityFactor = static_cast<num>(gravityFactor);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+		return Error::InvalidGltf;
+	}
+
+	dom::object colliderObject;
+	if (auto error = khr_physics_rigid_bodies["collider"].get_object().get(colliderObject); error == SUCCESS) {
+		auto& collider = rigidBody.collider.emplace();
+
+		dom::object geometryObject;
+		if (colliderObject["geometry"].get_object().get(geometryObject) == SUCCESS) FASTGLTF_LIKELY {
+			std::uint64_t shape;
+			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) FASTGLTF_LIKELY {
+				collider.geometry.shape = static_cast<std::size_t>(shape);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+			std::uint64_t geometryNode;
+			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
+				collider.geometry.node = static_cast<std::size_t>(geometryNode);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			bool convexHull;
+			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
+				collider.geometry.convexHull = convexHull;
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+		} else {
+			return Error::InvalidGltf;
+		}
+
+		std::uint64_t physicsMaterial;
+		if (error = colliderObject["physicsMaterial"].get_uint64().get(physicsMaterial); error == SUCCESS) {
+			collider.physicsMaterial = static_cast<std::size_t>(physicsMaterial);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		std::uint64_t collisionFilter;
+		if (error = colliderObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
+			collider.collisionFilter = static_cast<std::size_t>(collisionFilter);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+		return Error::InvalidGltf;
+	}
+
+	dom::object triggerObject;
+	if (auto error = khr_physics_rigid_bodies["trigger"].get_object().get(triggerObject); error == SUCCESS) {
+		dom::object geometryObject;
+		if (error = triggerObject["geometry"].get_object().get(geometryObject); error == SUCCESS) {
+			auto& geometryTrigger = rigidBody.trigger.emplace().emplace<GeometryTrigger>();
+
+			std::uint64_t shape;
+			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) FASTGLTF_LIKELY {
+				geometryTrigger.geometry.shape = static_cast<std::size_t>(shape);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+			std::uint64_t geometryNode;
+			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
+				geometryTrigger.geometry.node = static_cast<std::size_t>(geometryNode);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			bool convexHull;
+			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
+				geometryTrigger.geometry.convexHull = convexHull;
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+			// The trigger can only have a collision filter if it has geometry, otherwise it defers to the nodes
+			std::uint64_t collisionFilter;
+			if (error = triggerObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
+				geometryTrigger.collisionFilter = static_cast<std::size_t>(collisionFilter);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array nodes;
+		if (error = triggerObject["nodes"].get_array().get(nodes); error == SUCCESS) {
+			auto& nodeTrigger = rigidBody.trigger.emplace().emplace<NodeTrigger>();
+
+			nodeTrigger.nodes.resize(nodes.size());
+			auto i = 0U;
+			for (auto num : nodes) {
+				std::uint64_t val;
+				if (num.get_uint64().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				nodeTrigger.nodes[i] = static_cast<std::size_t>(val);
+				++i;
+			}
+
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+	    
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+		return Error::InvalidGltf;
+	}
+
+	dom::object jointObject;
+	if (auto error = khr_physics_rigid_bodies["joint"].get_object().get(jointObject); error == SUCCESS) {
+		auto& joint = rigidBody.joint.emplace();
+		std::uint64_t connectedNodeId;
+		if (jointObject["connectedNode"].get_uint64().get(connectedNodeId) == SUCCESS) FASTGLTF_LIKELY {
+			joint.connectedNode = connectedNodeId;
+		} else {
+			return Error::InvalidGltf;
+		}
+
+		std::uint64_t jointId;
+		if (jointObject["joint"].get_uint64().get(jointId) == SUCCESS) FASTGLTF_LIKELY {
+			joint.joint = static_cast<std::size_t>(jointId);
+		} else {
+			return Error::InvalidGltf;
+		}
+
+		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+	    
+	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+		return Error::InvalidGltf;
+	}
+
+	return Error::None;
+}
+#endif
+
 #pragma endregion
 
 #pragma region Parser
-fastgltf::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
+fg::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 	// We'll try and read a BinaryGltfHeader from the buffer to see if the magic is correct.
 	auto header = readBinaryHeader(data);
 	data.reset();
@@ -4107,6 +4934,18 @@ namespace fastgltf {
 		// TODO: Include a own copy of grisu2 instead of accessing functions from simdjson's internal namespace?
 		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), value);
 		return {std::begin(buffer), end};
+	}
+
+    std::string to_string(const math::fvec2 value) {
+		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]);
+	}
+
+	std::string to_string(const math::fvec3 value) {
+		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]) + ',' + to_string_fp(value[2]);
+	}
+
+	std::string to_string(const math::fvec4 value) {
+		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]) + ',' + to_string_fp(value[2]) + ',' + to_string_fp(value[3]);
 	}
 
 	void writeTextureInfo(std::string& json, const TextureInfo* info, const TextureInfoType type = TextureInfoType::Standard) {
@@ -5146,7 +5985,11 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			},
 		}, it->transform);
 
-	if (!it->instancingAttributes.empty() || it->lightIndex.has_value()) {
+	    if (!it->instancingAttributes.empty() || it->lightIndex.has_value()
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			|| it->physicsRigidBody
+#endif
+			) {
 			if (json.back() != '{') json += ',';
 			json += R"("extensions":{)";
 			if (!it->instancingAttributes.empty()) {
@@ -5161,8 +6004,94 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			}
 			if (it->lightIndex.has_value()) {
 				if (json.back() != '{') json += ',';
-				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + "}";
+				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + '}';
 			}
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			if (it->physicsRigidBody) {
+				if (json.back() != '{') json += ',';
+				json += R"("KHR_physics_rigid_body":{)";
+				if (it->physicsRigidBody->motion.has_value()) {
+					const auto& motion = *it->physicsRigidBody->motion;
+					json += R"("motion":{"isKinematic":)" + std::to_string(motion.isKinematic);
+					if (motion.mass.has_value()) {
+						json += R"(,"mass":)" + to_string_fp(*motion.mass);
+					}
+					json += R"(,"centerOfMass":[)" + to_string(motion.centerOfMass) + ']';
+					if (motion.inertialDiagonal.has_value()) {
+						json += R"(,"inertialDiagonal":[)" + to_string(*motion.inertialDiagonal) + ']';
+					}
+					if (motion.inertialOrientation.has_value()) {
+						json += R"(,"inertialOrientation":[)" + to_string(*motion.inertialOrientation) + ']';
+					}
+					json += R"(,"linearVelocity":)" + to_string(motion.linearVelocity)
+				        + R"(],"angularVelocity":[)" + to_string(motion.angularVelocity)
+				        + R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + '}';
+				}
+
+				if (it->physicsRigidBody->trigger.has_value()) {
+					if (json.back() != '{') json += ',';
+					const auto& trigger = *it->physicsRigidBody->trigger;
+					json += R"("trigger":{)";
+					visit_exhaustive(visitor{
+						[&](const GeometryTrigger& geometry) {
+							json += R"("geometry":{)";
+							if (geometry.geometry.shape.has_value()) {
+								json += R"("shape":)" + std::to_string(*geometry.geometry.shape) + ',';
+							} else if(geometry.geometry.node.has_value()) {
+								json += R"("node":)" + std::to_string(*geometry.geometry.node) + ',';
+							}
+							json += R"("convexHull":)" + std::to_string(geometry.geometry.convexHull) + '}';
+
+							if (geometry.collisionFilter.has_value()) {
+								json += R"(,"collisionFilter":)" + std::to_string(*geometry.collisionFilter);
+							}
+						},
+						[&](const NodeTrigger& node) {
+							json += R"("nodes":[)";
+							for(auto it = node.nodes.begin(); it != node.nodes.end(); ++it) {
+								json += std::to_string(*it);
+								if (uabs(std::distance(node.nodes.begin(), it)) + 1 < node.nodes.size())
+									json += ',';
+							}
+							json += ']';
+						},
+						}, trigger);
+					json += '}';
+				}
+
+				if (it->physicsRigidBody->joint.has_value()) {
+					if (json.back() != '{') json += ',';
+					const auto& joint = *it->physicsRigidBody->joint;
+					json += R"("joint":{"connectedNode":)" + std::to_string(joint.connectedNode)
+				        + R"(,"joint":)" + std::to_string(joint.joint)
+				        + R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + '}';
+				}
+
+				if (it->physicsRigidBody->collider.has_value()) {
+					if (json.back() != '{') json += ',';
+					const auto& collider = *it->physicsRigidBody->collider;
+					json += R"("collider":{)";
+
+					json += R"("geometry":{)";
+					if (collider.geometry.shape.has_value()) {
+						json += R"("shape":)" + std::to_string(*collider.geometry.shape) + ',';
+					} else if (collider.geometry.node.has_value()) {
+						json += R"("node":)" + std::to_string(*collider.geometry.node) + ',';
+					}
+					json += R"("convexHull":)" + std::to_string(collider.geometry.convexHull) + '}';
+
+					if (collider.physicsMaterial.has_value()) {
+						json += R"(,"physicsMaterial":)" + std::to_string(*collider.physicsMaterial);
+					}
+					if (collider.collisionFilter) {
+						json += R"(,"collisionFilter":)" + std::to_string(*collider.collisionFilter);
+					}
+					json += '}';
+				}
+			}
+#endif
+
 			json += "}";
 		}
 
@@ -5372,12 +6301,361 @@ void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
 	json += ']';
 }
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
+	if (asset.shapes.empty()) {
+		return;
+	}
+	if (json.back() == ']' || json.back() == '}') {
+		json += ',';
+	}
+
+	json += R"("KHR_implicit_shapes":{"shapes":[)";
+	for (auto it = asset.shapes.begin(); it != asset.shapes.end(); ++it) {
+		const auto& shape = *it;
+		json += '{';
+
+		visit_exhaustive(visitor{
+			[&](const SphereShape& sphere) {
+				json += R"("type":"sphere","sphere":{"radius":)" + to_string_fp(sphere.radius) + '}';
+			},
+			[&](const BoxShape& box) {
+			    json += R"("type":"box","box":{"size":[)" + to_string(box.size) + "]}";
+			},
+			[&](const CylinderShape& cylinder) {
+				json += R"("type":"cylinder","cylinder":{"height":)" + to_string_fp(cylinder.height)
+					+ R"(,"radiusBottom":)" + to_string_fp(cylinder.radiusBottom) + R"(,"radiusTop":)"
+					+ to_string_fp(cylinder.radiusTop) + "}";;
+			},
+			[&](const CapsuleShape& capsule) {
+				json += R"("type":"capsule","capsule":{"height":)" + to_string_fp(capsule.height)
+					+ R"(,"radiusBottom":)" + to_string_fp(capsule.radiusBottom)
+					+ R"(,"radiusTop":)" + to_string_fp(capsule.radiusTop) + '}';
+			}
+			},
+			shape);
+
+		if (extrasWriteCallback != nullptr) {
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.shapes.begin(), it)), fastgltf::Category::Shapes, userPointer);
+			if (extras.has_value()) {
+				if (json.back() != '{') {
+					json += ',';
+				}
+				json += std::string("\"extras\":") + *extras;
+			}
+		}
+
+		json += '}';
+
+		if (uabs(std::distance(asset.shapes.begin(), it)) + 1 < asset.shapes.size()) {
+			json += ',';
+		}
+	}
+	json += "]}";    
+}
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) {
+    if (asset.physicsMaterials.empty()) {
+        return;
+    }
+	if (json.back() == ']' || json.back() == '}') {
+		json += ',';
+	}
+
+	json += R"("physicsMaterials":[)";
+
+	for (auto it = asset.physicsMaterials.begin(); it != asset.physicsMaterials.end(); ++it) {
+		const auto& material = *it;
+
+		json += R"({"staticFriction":)" + to_string_fp(material.staticFriction)
+	        + R"(,"dynamicFriction":)" + to_string_fp(material.dynamicFriction)
+	        + R"(,"restitution":)" + to_string_fp(material.restitution)
+	        + R"(,"frictionCombine":)";
+		switch (material.frictionCombine) {
+        case CombineMode::Average:
+			json += R"("average")";
+            break;
+        case CombineMode::Minimum:
+			json += R"("minimum")";
+            break;
+        case CombineMode::Maximum:
+			json += R"("maximum")";
+            break;
+        case CombineMode::Multiply:
+			json += R"("multiply")";
+            break;
+        }
+		json += R"(,"restitutionCombine":)";
+		switch (material.restitutionCombine) {
+		case CombineMode::Average:
+			json += R"("average")";
+			break;
+		case CombineMode::Minimum:
+			json += R"("minimum")";
+			break;
+		case CombineMode::Maximum:
+			json += R"("maximum")";
+			break;
+		case CombineMode::Multiply:
+			json += R"("multiply")";
+			break;
+		}
+
+		if (extrasWriteCallback != nullptr) {
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsMaterials.begin(), it)), fastgltf::Category::PhysicsMaterials, userPointer);
+			if (extras.has_value()) {
+				if (json.back() != '{') {
+					json += ',';
+				}
+				json += std::string("\"extras\":") + *extras;
+			}
+		}
+
+		json += '}';
+
+		if (uabs(std::distance(asset.physicsMaterials.begin(), it)) + 1 < asset.physicsMaterials.size()) {
+			json += ',';
+		}
+	}
+
+	json += ']';
+}
+
+void fg::Exporter::writeCollisionFilters(const Asset& asset, std::string& json) {
+	if (asset.collisionFilters.empty()) {
+		return;
+	}
+	if (json.back() == ']' || json.back() == '}') {
+		json += ',';
+	}
+
+	json += R"("collisionFilters":[)";
+
+	for (auto it = asset.collisionFilters.begin(); it != asset.collisionFilters.end(); ++it) {
+		const auto& filter = *it;
+
+		json += '{';
+
+		if (!filter.collisionSystems.empty()) {
+			json += R"("collisionSystems":[)";
+			for (auto systemIt = filter.collisionSystems.begin(); systemIt != filter.collisionSystems.end(); ++systemIt) {
+				json += '"';
+				json += *systemIt;
+				json += '"';
+
+				if (uabs(std::distance(filter.collisionSystems.begin(), systemIt)) + 1 < filter.collisionSystems.size()) {
+					json += ',';
+				}
+			}
+			json += ']';
+		}
+		if (json.back() == ']') {
+			json += ',';
+		}
+
+		if (!filter.collideWithSystems.empty()) {
+			json += R"("collideWithSystems":[)";
+			for (auto systemIt = filter.collideWithSystems.begin(); systemIt != filter.collideWithSystems.end(); ++systemIt) {
+				json += '"';
+				json += *systemIt;
+				json += '"';
+
+				if (uabs(std::distance(filter.collideWithSystems.begin(), systemIt)) + 1 < filter.collideWithSystems.size()) {
+					json += ',';
+				}
+			}
+			json += ']';
+		}
+		if (json.back() == ']') {
+			json += ',';
+		}
+
+		if (!filter.notCollideWithSystems.empty()) {
+			json += R"("notCollideWithSystems":[)";
+			for (auto systemIt = filter.notCollideWithSystems.begin(); systemIt != filter.notCollideWithSystems.end(); ++systemIt) {
+				json += '"';
+				json += *systemIt;
+				json += '"';
+
+				if (uabs(std::distance(filter.notCollideWithSystems.begin(), systemIt)) + 1 < filter.notCollideWithSystems.size()) {
+					json += ',';
+				}
+			}
+			json += ']';
+		}
+
+		if (extrasWriteCallback != nullptr) {
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.collisionFilters.begin(), it)), fastgltf::Category::Shapes, userPointer);
+			if (extras.has_value()) {
+				if (json.back() != '{') {
+					json += ',';
+				}
+				json += std::string("\"extras\":") + *extras;
+			}
+		}
+
+		json += '}';
+
+		if (uabs(std::distance(asset.collisionFilters.begin(), it)) + 1 < asset.collisionFilters.size()) {
+			json += ',';
+		}
+	}
+
+	json += ']';
+}
+
+void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
+	if (asset.physicsJoints.empty()) {
+		return;
+	}
+	if (json.back() == ']' || json.back() == '}') {
+		json += ',';
+	}
+
+	json += R"("physicsJoints":[)";
+
+	for (auto it = asset.physicsJoints.begin(); it != asset.physicsJoints.end(); ++it) {
+		const auto& joint = *it;
+
+		json += '{';
+
+		if (!joint.limits.empty()) {
+			json += R"("limits":[)";
+			for (auto limitIt = joint.limits.begin(); limitIt != joint.limits.end(); ++limitIt) {
+				const auto& limit = *limitIt;
+
+				json += '{';
+				if (!limit.linearAxes.empty()) {
+					json += R"("linearAxes":[)";
+					for (auto axisIt = limit.linearAxes.begin(); axisIt != limit.linearAxes.end(); ++axisIt) {
+						json += std::to_string(*axisIt);
+
+						if (uabs(std::distance(limit.linearAxes.begin(), axisIt)) + 1 < limit.linearAxes.size()) {
+							json += ',';
+						}
+					}
+					json += "],";
+				}
+				if (!limit.angularAxes.empty()) {
+					json += R"("angularAxes":[)";
+					for (auto axisIt = limit.angularAxes.begin(); axisIt != limit.angularAxes.end(); ++axisIt) {
+						json += std::to_string(*axisIt);
+
+						if (uabs(std::distance(limit.angularAxes.begin(), axisIt)) + 1 < limit.angularAxes.size()) {
+							json += ',';
+						}
+					}
+					json += "],";
+				}
+				if (limit.min) {
+					json += R"("min":)" + to_string_fp(*limit.min) + ',';
+				}
+				if (limit.max) {
+					json += R"("max":)" + to_string_fp(*limit.max) + ',';
+				}
+				if (limit.stiffness) {
+					json += R"("stiffness":)" + to_string_fp(*limit.stiffness) + ',';
+				}
+			    json += R"("damping":)" + to_string_fp(limit.damping);
+				json += '}';
+
+				if (uabs(std::distance(joint.limits.begin(), limitIt)) + 1 < joint.limits.size()) {
+					json += ',';
+				}
+			}
+			json += ']';
+
+			if(!joint.drives.empty()) {
+				json += ',';
+			}
+		}
+
+		if (!joint.drives.empty()) {
+			json += R"("drives":[)";
+			for (auto driveIt = joint.drives.begin(); driveIt != joint.drives.end(); ++driveIt) {
+				const auto& drive = *driveIt;
+
+				json += R"({"type":)";
+				switch(drive.type) {
+                case DriveType::Linear:
+					json += R"("linear")";
+                    break;
+                case DriveType::Angular:
+					json += R"("angular")";
+                    break;
+                }
+
+				json += R"(,"mode":)";
+				switch (drive.mode) {
+				case DriveMode::Force:
+					json += R"("force")";
+					break;
+				case DriveMode::Acceleration:
+					json += R"("acceleration")";
+					break;
+				}
+
+				json += R"(,"axis":)" + std::to_string(drive.axis)
+			        + R"(,"maxForce":)" + to_string_fp(drive.maxForce)
+			        + R"(,"positionTarget":)" + to_string_fp(drive.positionTarget)
+			        + R"(,"velocityTarget":)" + to_string_fp(drive.velocityTarget)
+			        + R"(,"stiffness":)" + to_string_fp(drive.stiffness)
+			        + R"(,"damping":)" + to_string_fp(drive.damping);
+
+				json += '}';
+
+				if (uabs(std::distance(joint.drives.begin(), driveIt)) + 1 < joint.drives.size()) {
+					json += ',';
+				}
+			}
+
+			json += ']';
+		}
+
+		if (extrasWriteCallback != nullptr) {
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsJoints.begin(), it)), fastgltf::Category::PhysicsJoints, userPointer);
+			if (extras.has_value()) {
+				if (json.back() != '{') {
+					json += ',';
+				}
+				json += std::string("\"extras\":") + *extras;
+			}
+		}
+
+		json += "}";
+
+		if (uabs(std::distance(asset.physicsJoints.begin(), it)) + 1 < asset.physicsJoints.size()) {
+			json += ',';
+		}
+	}
+
+	json += "]";
+}
+#endif
+
 void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& json) {
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
     json += "\"extensions\":{";
 
     writeLights(asset, json);
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+	writeShapes(asset, json);
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+	if (json.back() == ']' || json.back() == '}') {
+		json += ',';
+	}
+	json += R"("KHR_physics_rigid_bodies":{)";
+	writePhysicsMaterials(asset, json);
+	writeCollisionFilters(asset, json);
+    writePhysicsJoints(asset, json);
+	json += '}';
+#endif
 
 	if (!asset.materialVariants.empty()) {
 		if (json.back() != '{')

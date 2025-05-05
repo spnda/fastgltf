@@ -11,6 +11,11 @@ repository to test if the parser correctly maps data to the structs. The tests
 expect a copy of the aforementioned repository to be in the `tests/gltf/glTF-Sample-Models`
 folder. This can be a simple clone or a symlink to another copy you have locally.
 
+The tests for KHR_implicit_shapes and KHR_physics_rigid_body use various assets from the 
+[glTF_Physics](https://github.com/eoineoineoin/glTF_Physics) repository. The 
+tests expect a copy of that repo to be in `tests/gltf/glTF_Physics` - as with the other sample
+assets, you may use a symlink if you so choose
+
 You can also directly change the paths where the test application searches by modifying
 `gltf_path.hpp` in this directory. It uses source-file-relative paths by default,
 regardless of where the binary is stored.
@@ -30,6 +35,11 @@ to `ON`. The CMake script will automatically fetch `Catch2` and other required l
 simply calling the following command will build the target with all tests:
 ```
 cmake --build . --target fastgltf_tests
+```
+
+If you're using Visual Studio you may need to use this command instead:
+```
+cmake --build . --target tests/fastgltf_tests
 ```
 
 **fastgltf** uses the `Catch2` test framework, which can take various command-line parameters when running.

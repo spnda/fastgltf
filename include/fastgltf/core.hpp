@@ -216,6 +216,16 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_draco_mesh_compression
 		KHR_draco_mesh_compression = 1 << 26,
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		// See https://github.com/KhronosGroup/glTF/pull/2370
+		KHR_implicit_shapes = 1 << 27,
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		// See https://github.com/KhronosGroup/glTF/pull/2424
+		KHR_physics_rigid_bodies = 1 << 28
+#endif
     };
     // clang-format on
 
@@ -343,17 +353,31 @@ namespace fastgltf {
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
         constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
 #endif
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		constexpr std::string_view KHR_physics_rigid_bodies = "KHR_physics_rigid_bodies";
+#endif
     } // namespace extensions
 
 	// clang-format off
 	// An array of pairs of string representations of extension identifiers and their respective enum
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
-#if FASTGLTF_ENABLE_DEPRECATED_EXT
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 25;
-#else
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 24;
+    static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 24
+#if FASTGLTF_ENABLE_DEPRECATED_EXT 
+	+ 1
 #endif
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+	+ 1
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+	+ 1
+#endif
+	;
 	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
@@ -382,6 +406,14 @@ namespace fastgltf {
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
 		{ extensions::KHR_materials_pbrSpecularGlossiness,Extensions::KHR_materials_pbrSpecularGlossiness },
+#endif
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+        {extensions::KHR_implicit_shapes,						Extensions::KHR_implicit_shapes},
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		{ extensions::KHR_physics_rigid_bodies,					Extensions::KHR_physics_rigid_bodies },
 #endif
 	}};
 	// clang-format on
@@ -828,6 +860,16 @@ namespace fastgltf {
 		Error parseScenes(simdjson::dom::array& array, Asset& asset);
 		Error parseSkins(simdjson::dom::array& array, Asset& asset);
 		Error parseTextures(simdjson::dom::array& array, Asset& asset);
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		Error parseShapes(simdjson::dom::array& shapes, Asset& asset);
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		Error parsePhysicsMaterials(simdjson::dom::array& physicsMaterials, Asset& asset);
+		Error parseCollisionFilters(simdjson::dom::array& collisionFilters, Asset& asset);
+		Error parsePhysicsJoints(simdjson::dom::array& physicsJoints, Asset& asset);
+
+		Error parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node);
+#endif
 		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
     public:
@@ -951,6 +993,14 @@ namespace fastgltf {
         void writeScenes(const Asset& asset, std::string& json);
         void writeSkins(const Asset& asset, std::string& json);
         void writeTextures(const Asset& asset, std::string& json);
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		void writeShapes(const Asset& asset, std::string& json);
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		void writePhysicsMaterials(const Asset& asset, std::string& json);
+		void writeCollisionFilters(const Asset& asset, std::string& json);
+		void writePhysicsJoints(const Asset& asset, std::string& json);
+#endif
         void writeExtensions(const Asset& asset, std::string& json);
 
         std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);

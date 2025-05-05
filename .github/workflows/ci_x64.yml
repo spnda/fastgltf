@@ -14,6 +14,7 @@ on:
 env:
   BUILD_TYPE: Release
   SAMPLE_ASSETS_LOCATION: tests/gltf/glTF-Sample-Assets
+  PHYSICS_SAMPLE_ASSETS_LOCATION: tests/gltf/glTF_Physics
 
 jobs:
   build_windows:
@@ -59,9 +60,20 @@ jobs:
       - name: Clone gltf-sample-assets
         if: steps.sample-assets-cache.outputs.cache-hit != 'true'
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Assets ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
+        
+      - name: Download cached physics sample assets
+        uses: actions/cache@v4
+        id: physics-sample-assets-cache
+        with:
+          path: ${{ github.workspace }}/${{ env.PHYSICS_SAMPLE_ASSETS_LOCATION }}
+          key: gltf-physics-sample-assets
+
+      - name: Clone gltf-physics
+        if: steps.physics-sample-assets-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/eoineoineoin/glTF_Physics ${{ github.workspace }}/${{ env.PHYSICS_SAMPLE_ASSETS_LOCATION }}
 
       - name: Configure CMake
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_ENABLE_DEPRECATED_EXT=ON
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_ENABLE_DEPRECATED_EXT=ON -DFASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES=ON
 
       - name: Build (Windows)
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/fastgltf_tests --verbose
@@ -164,9 +176,20 @@ jobs:
       - name: Clone gltf-sample-assets
         if: steps.sample-assets-cache.outputs.cache-hit != 'true'
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Assets ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
+        
+      - name: Download cached physics sample assets
+        uses: actions/cache@v4
+        id: physics-sample-assets-cache
+        with:
+          path: ${{ github.workspace }}/${{ env.PHYSICS_SAMPLE_ASSETS_LOCATION }}
+          key: gltf-physics-sample-assets
+
+      - name: Clone gltf-physics
+        if: steps.physics-sample-assets-cache.outputs.cache-hit != 'true'
+        run: git clone https://github.com/eoineoineoin/glTF_Physics ${{ github.workspace }}/${{ env.PHYSICS_SAMPLE_ASSETS_LOCATION }}
 
       - name: Configure CMake
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_ENABLE_DEPRECATED_EXT=ON
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DFASTGLTF_ENABLE_DEPRECATED_EXT=ON -DFASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES=ON
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target fastgltf_tests --verbose

@@ -1,5 +1,7 @@
 set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
+message(STATUS "fastgltf: Bulding tests")
+
 # We want these tests to be a optional executable.
 add_executable(fastgltf_tests EXCLUDE_FROM_ALL "main.cpp"
     "base64_tests.cpp" "basic_test.cpp" "benchmarks.cpp" "glb_tests.cpp" "gltf_path.hpp" "util_tests.cpp"

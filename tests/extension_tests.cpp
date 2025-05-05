@@ -480,3 +480,255 @@ TEST_CASE("Extension KHR_materials_variant", "[gltf-loader]") {
 	REQUIRE(primitive.mappings[3] == 5U);
 	REQUIRE(primitive.mappings[4] == 6U);
 }
+
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
+	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
+
+	fastgltf::GltfFileStream jsonData(shapeTypes);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_implicit_shapes | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, shapeTypes.parent_path());
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->shapes.size() == 7);
+
+	const auto& box0 = asset->shapes.at(0);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+	    [](const fastgltf::BoxShape& box) {
+			REQUIRE(box.size.x() == Catch::Approx(0.5285500288009644));
+			REQUIRE(box.size.y() == Catch::Approx(1));
+	        REQUIRE(box.size.z() == Catch::Approx(0.5285500288009644));
+	    },
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(false);
+		}
+		},
+		box0);
+
+	const auto& sphere4 = asset->shapes.at(4);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::BoxShape& box) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(sphere.radius == Catch::Approx(0.3417187615099374));
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(false);
+		}
+		},
+		sphere4);
+
+	const auto& capsule6 = asset->shapes.at(6);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::BoxShape& box) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(capsule.height == Catch::Approx(0.6000000238418579));
+			REQUIRE(capsule.radiusBottom == Catch::Approx(0.25));
+			REQUIRE(capsule.radiusTop == Catch::Approx(0.4000000059604645));
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(false);
+		}
+		},
+		capsule6);
+
+	const auto& cylinder2 = asset->shapes.at(2);
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::BoxShape& box) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::SphereShape& sphere) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CapsuleShape& capsule) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(cylinder.height == Catch::Approx(0.06662015616893768));
+			REQUIRE(cylinder.radiusBottom == Catch::Approx(0.15483441948890686));
+			REQUIRE(cylinder.radiusTop == Catch::Approx(0.15483441948890686));
+		}
+		},
+		cylinder2);
+}
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
+	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
+
+	fastgltf::GltfFileStream jsonData(shapeTypes);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_physics_rigid_bodies | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, shapeTypes.parent_path());
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->physicsMaterials.size() == 1);
+	const auto& material = asset->physicsMaterials.at(0);
+	REQUIRE(material.staticFriction == Catch::Approx(0.5));
+	REQUIRE(material.dynamicFriction == Catch::Approx(0.5));
+	REQUIRE(material.restitution == Catch::Approx(0));
+
+	REQUIRE(asset->collisionFilters.size() == 1);
+	const auto& filter = asset->collisionFilters.at(0);
+	REQUIRE(filter.collisionSystems.size() == 1);
+	REQUIRE(filter.collisionSystems.at(0) == "System_0");
+	REQUIRE(filter.collideWithSystems.size() == 1);
+	REQUIRE(filter.collideWithSystems.at(0) == "System_0");
+	REQUIRE(filter.notCollideWithSystems.size() == 0);
+
+	REQUIRE(asset->physicsJoints.size() == 0);
+
+	const auto& node = asset->nodes.at(0);
+
+	REQUIRE(node.physicsRigidBody);
+	REQUIRE(node.physicsRigidBody->motion.has_value());
+	REQUIRE(node.physicsRigidBody->motion->mass == 1);
+	REQUIRE(!node.physicsRigidBody->motion->inertialDiagonal.has_value());
+	REQUIRE(!node.physicsRigidBody->motion->inertialOrientation.has_value());
+
+	REQUIRE(node.physicsRigidBody->collider.has_value());
+	REQUIRE(node.physicsRigidBody->collider->geometry.shape.has_value());
+	REQUIRE(node.physicsRigidBody->collider->geometry.shape == 0);
+	REQUIRE(!node.physicsRigidBody->collider->geometry.node.has_value());
+	REQUIRE(node.physicsRigidBody->collider->physicsMaterial == 0);
+	REQUIRE(node.physicsRigidBody->collider->collisionFilter == 0);
+
+	REQUIRE(!node.physicsRigidBody->trigger.has_value());
+	REQUIRE(!node.physicsRigidBody->joint.has_value());
+
+
+	const auto& node10 = asset->nodes.at(11);
+
+	REQUIRE(node10.physicsRigidBody);
+	REQUIRE(!node10.physicsRigidBody->motion.has_value());
+	REQUIRE(!node10.physicsRigidBody->collider.has_value());
+
+	REQUIRE(node10.physicsRigidBody->trigger.has_value());
+	fastgltf::visit_exhaustive(fastgltf::visitor{
+		[](const fastgltf::GeometryTrigger& geo) {
+			REQUIRE(geo.geometry.convexHull);
+			REQUIRE(geo.geometry.node == 10);
+			REQUIRE(geo.collisionFilter.has_value());
+			REQUIRE(geo.collisionFilter == 0);
+		},
+		[](const fastgltf::NodeTrigger& node) {
+			REQUIRE(false);
+		}
+		},
+		*node10.physicsRigidBody->trigger);
+
+	REQUIRE(!node10.physicsRigidBody->joint.has_value());
+}
+
+TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
+	auto shapeTypes = physicsSampleAssets / "samples" / "Robot_skinned" / "Robot_skinned.gltf";
+
+	fastgltf::GltfFileStream jsonData(shapeTypes);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_physics_rigid_bodies | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, shapeTypes.parent_path());
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->physicsMaterials.size() == 1);
+	REQUIRE(asset->collisionFilters.size() == 3);
+	REQUIRE(asset->physicsJoints.size() == 10);
+
+	const auto& material = asset->physicsMaterials.at(0);
+	REQUIRE(material.staticFriction == Catch::Approx(0.5));
+	REQUIRE(material.dynamicFriction == Catch::Approx(0.5));
+	REQUIRE(material.restitution == Catch::Approx(0));
+
+	const auto& filter0 = asset->collisionFilters.at(0);
+	REQUIRE(filter0.collisionSystems.size() == 1);
+	REQUIRE(filter0.collisionSystems.at(0) == "System_0");
+	REQUIRE(filter0.collideWithSystems.size() == 1);
+	REQUIRE(filter0.collideWithSystems.at(0) == "System_0");
+	REQUIRE(filter0.notCollideWithSystems.size() == 0);
+
+	const auto& filter2 = asset->collisionFilters.at(2);
+	REQUIRE(filter2.collisionSystems.size() == 2);
+	REQUIRE(filter2.collisionSystems.at(0) == "System_0");
+	REQUIRE(filter2.collisionSystems.at(1) == "System_1");
+	REQUIRE(filter2.collideWithSystems.size() == 2);
+	REQUIRE(filter2.collideWithSystems.at(0) == "System_0");
+	REQUIRE(filter2.collideWithSystems.at(1) == "System_1");
+	REQUIRE(filter0.notCollideWithSystems.size() == 0);
+
+	const auto& joint0 = asset->physicsJoints.at(0);
+	REQUIRE(joint0.limits.size() == 5);
+
+	const auto& limit0 = joint0.limits.at(0);
+	REQUIRE(limit0.linearAxes.size() == 1);
+	REQUIRE(limit0.linearAxes.at(0) == 0);
+	REQUIRE(limit0.angularAxes.size() == 0);
+	REQUIRE(limit0.min == Catch::Approx(0));
+	REQUIRE(limit0.max == Catch::Approx(0));
+	REQUIRE(!limit0.stiffness.has_value());
+
+	const auto limit4 = joint0.limits.at(4);
+	REQUIRE(limit4.linearAxes.size() == 0);
+	REQUIRE(limit4.angularAxes.size() == 1);
+	REQUIRE(limit4.angularAxes.at(0) == 1);
+	REQUIRE(limit4.min == Catch::Approx(0));
+	REQUIRE(limit4.max == Catch::Approx(0));
+	REQUIRE(!limit4.stiffness.has_value());
+
+	REQUIRE(joint0.drives.size() == 1);
+	const auto& drive0 = joint0.drives.at(0);
+
+	REQUIRE(drive0.type == fastgltf::DriveType::Angular);
+	REQUIRE(drive0.mode == fastgltf::DriveMode::Acceleration);
+	REQUIRE(drive0.axis == 0);
+	REQUIRE(drive0.positionTarget == Catch::Approx(0));
+	REQUIRE(drive0.velocityTarget == Catch::Approx(-2));
+	REQUIRE(drive0.stiffness == Catch::Approx(0));
+	REQUIRE(drive0.damping == Catch::Approx(100));
+
+	const auto& joint9 = asset->physicsJoints.at(9);
+	REQUIRE(joint9.limits.size() == 3);
+
+	const auto& limit1 = joint9.limits.at(1);
+	REQUIRE(limit1.linearAxes.size() == 1);
+	REQUIRE(limit1.linearAxes.at(0) == 2);
+	REQUIRE(limit1.angularAxes.size() == 0);
+	REQUIRE(limit1.min == Catch::Approx(0));
+	REQUIRE(limit1.max == Catch::Approx(0));
+	REQUIRE(!limit1.stiffness.has_value());
+
+	REQUIRE(joint9.drives.size() == 0);
+
+	const auto& node10 = asset->nodes.at(10);
+	REQUIRE(node10.physicsRigidBody);
+	REQUIRE(!node10.physicsRigidBody->collider.has_value());
+	REQUIRE(!node10.physicsRigidBody->motion.has_value());
+	REQUIRE(!node10.physicsRigidBody->trigger.has_value());
+	REQUIRE(node10.physicsRigidBody->joint.has_value());
+	const auto& joint = *node10.physicsRigidBody->joint;
+	REQUIRE(joint.connectedNode == 9);
+	REQUIRE(joint.joint == 0);
+	REQUIRE(joint.enableCollision == false);
+}
+#endif

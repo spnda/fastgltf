@@ -289,9 +289,27 @@ namespace fastgltf {
         Scenes      = 1 << 12,
         Asset       = 1 << 13,
 
-        All = ~(~0u << 14),
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		Shapes		= 1 << 14,
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		PhysicsMaterials	= 1 << 15,
+		CollisionFilters	= 1 << 16,
+		PhysicsJoints		= 1 << 17,
+#endif
+
+		All = ~0u,
+
         // Includes everything needed for rendering but animations
-        OnlyRenderable = All & ~(Animations) & ~(Skins),
+        OnlyRenderable = All & ~(Animations) & ~(Skins)
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		& ~(Shapes)
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		& ~(PhysicsMaterials) & ~(CollisionFilters) & ~(PhysicsJoints)
+#endif
+        ,
         OnlyAnimations = Animations | Accessors | BufferViews | Buffers,
     };
 
@@ -301,6 +319,28 @@ namespace fastgltf {
     FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Category, Category, &)
     FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Category, ~)
     // clang-format on
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+	FASTGLTF_EXPORT enum class CombineMode : std::uint8_t {
+        Average,
+		Minimum,
+		Maximum,
+		Multiply,
+		Invalid,
+    };
+
+	FASTGLTF_EXPORT enum class DriveType : std::uint8_t {
+	    Linear,
+		Angular,
+		Invalid
+	};
+
+	FASTGLTF_EXPORT enum class DriveMode : std::uint8_t {
+	    Force,
+		Acceleration,
+	    Invalid
+	};
+#endif
 #pragma endregion
 
 #pragma region ConversionFunctions
@@ -479,6 +519,61 @@ namespace fastgltf {
 				return "";
 		}
 	}
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+	[[nodiscard]] constexpr auto getCombineMode(const std::string_view name) noexcept {
+		assert(!name.empty());
+	    if(name[0] == 'a') {
+			return CombineMode::Average;
+	    }
+
+		switch(name[1]) {
+	    case 'i':
+			return CombineMode::Minimum;
+
+	    case 'a':
+			return CombineMode::Maximum;
+
+	    case 'u':
+			return CombineMode::Multiply;
+		}
+
+		return CombineMode::Invalid;
+	}
+
+	static constexpr std::array<std::string_view, 4> frictionCombineNames{
+        "average",
+        "minimum",
+        "maximum",
+        "multiply"
+	};
+
+	[[nodiscard]] constexpr std::string_view getFrictionCombineName(const CombineMode frictionCombine) noexcept {
+		static_assert(std::is_same_v<std::underlying_type_t<CombineMode>, std::uint8_t>);
+		const auto idx = to_underlying(frictionCombine) & 0x3;
+		return frictionCombineNames[idx];
+	}
+
+	[[nodiscard]] constexpr auto getDriveType(const std::string_view name) noexcept {
+		if (name[0] == 'l') {
+			return DriveType::Linear;
+		} else if (name[0] == 'a') {
+			return DriveType::Angular;
+		} else {
+			return DriveType::Invalid;
+		}
+	}
+
+	[[nodiscard]] constexpr auto getDriveMode(const std::string_view name) noexcept {
+	    if (name[0] == 'f') {
+			return DriveMode::Force;
+	    } else if (name[0] == 'a') {
+			return DriveMode::Acceleration;
+	    } else {
+			return DriveMode::Invalid;
+	    }
+	}
+#endif
 #pragma endregion
 
 #pragma region Containers
@@ -1888,6 +1983,262 @@ namespace fastgltf {
 		std::size_t accessorIndex;
 	};
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+	FASTGLTF_EXPORT struct SphereShape {
+		num radius = 0.5;
+	};
+
+	FASTGLTF_EXPORT struct BoxShape {
+		math::fvec3 size = { 1, 1, 1 };
+	};
+
+	FASTGLTF_EXPORT struct CapsuleShape {
+		num height = 0.5;
+
+		num radiusBottom = 0.25;
+
+		num radiusTop = 0.25;
+	};
+
+	FASTGLTF_EXPORT struct CylinderShape {
+		num height = 0.5;
+
+		num radiusBottom = 0.25;
+
+		num radiusTop = 0.25;
+	};
+
+	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape>;
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+    FASTGLTF_EXPORT struct Motion {
+        /**
+         * When true, treat the rigid body as having infinite mass. Its velocity will be constant during simulation
+         */
+        bool isKinematic = false;
+
+        /**
+         * The mass of the rigid body. Larger values imply the rigid body is harder to move
+         */
+        Optional<num> mass;
+
+		/**
+		 * Center of mass of the rigid body in node space
+		 */
+		math::fvec3 centerOfMass = { 0, 0, 0 };
+
+		/**
+		 * The principal moments of inertia. Larger values imply the rigid body is harder to rotate
+		 */
+		Optional<math::fvec3> inertialDiagonal;
+
+        /**
+         * The quaternion rotating from inertia major axis space to node space
+         */
+        Optional<math::fvec4> inertialOrientation;
+
+        /**
+         * Initial linear velocity of the rigid body in node space
+         */
+        math::fvec3 linearVelocity = {0, 0, 0};
+
+        /**
+         * Initial angular velocity of the rigid body in node space
+         */
+        math::fvec3 angularVelocity = {0, 0, 0};
+
+        /**
+         * A multiplier applied to the acceleration due to gravity
+         */
+        num gravityFactor = 1;
+	};
+
+	FASTGLTF_EXPORT struct Geometry {
+        /**
+         * The index of a top-level `KHR_implicit_shapes.shape`, providing an implicit representation of the geometry
+         */
+        Optional<size_t> shape;
+
+        /**
+         * The index of a glTF `node` which provides a mesh representation of the geometry
+         */
+        Optional<size_t> node;
+
+        /**
+         * Flag to indicate that the geometry should be a convex hull.
+         */
+        bool convexHull;
+	};
+
+	FASTGLTF_EXPORT struct PhysicsMaterial {
+		num staticFriction = 0.6f;
+
+		num dynamicFriction = 0.6f;
+
+		num restitution = 0.0f;
+
+		CombineMode frictionCombine;
+
+		CombineMode restitutionCombine;
+	};
+
+	FASTGLTF_EXPORT struct CollisionFilter {
+        /**
+         * An array of arbitrary strings indicating the "system" a node is a member of
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collisionSystems;
+
+        /**
+         * An array of strings representing the systems which this node can _not_ collide with
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> notCollideWithSystems;
+
+        /**
+         * An array of strings representing the systems which this node can collide with
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collideWithSystems;
+	};
+
+	FASTGLTF_EXPORT struct Collider {
+        /**
+         * An object describing the geometrical representation of this collider
+         */
+        Geometry geometry;
+
+        /**
+         * Indexes into the top-level `physicsMaterials` and describes how the collider should respond to collisions
+         */
+        Optional<std::size_t> physicsMaterial;
+
+        /**
+         * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
+         */
+        Optional<std::size_t> collisionFilter;
+	};
+
+	FASTGLTF_EXPORT struct GeometryTrigger {
+		/**
+		 * An object describing the geometrical representation of this collider
+		 */
+		Geometry geometry;
+
+		/**
+		 * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
+		 */
+		Optional<std::size_t> collisionFilter;
+	};
+
+	FASTGLTF_EXPORT struct NodeTrigger {
+
+		/**
+		 * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
+		 */
+		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodes;
+	};
+
+	FASTGLTF_EXPORT struct JointLimit {
+		/**
+		 * The linear axes to constrain (0=X, 1=Y, 2=Z)
+		 */
+		FASTGLTF_FG_PMR_NS::SmallVector<uint8_t, 3> linearAxes;
+
+		/**
+		 * The angular axes to constrain (0=X, 1=Y, 2=Z)
+		 */
+		FASTGLTF_FG_PMR_NS::SmallVector<uint8_t, 3> angularAxes;
+
+		/**
+		 * The minimum allowed relative distance/angle
+		 */
+		Optional<num> min;
+
+		/**
+		 * The maximum allowed relative distance/angle
+		 */
+		Optional<num> max;
+
+		/**
+		 * Optional softness of the limits when beyond the limits
+		 */
+		Optional<num> stiffness;
+
+		/**
+		 * Optional spring damping applied when beyond the limits
+		 */
+		num damping = 0;
+	};
+
+	FASTGLTF_EXPORT struct JointDrive {
+        /**
+         * Determines if the drive affects is a `linear` or `angular` drive
+         */
+        DriveType type;
+
+        /**
+         * Determines if the drive is operating in `force` or `acceleration` mode
+         */
+        DriveMode mode;
+
+        /**
+         * The index of the axis which this drive affects
+         */
+        uint8_t axis;
+
+        /**
+         * The maximum force that the drive can apply
+         */
+        num maxForce;
+
+        /**
+         * The desired relative target between the pivot axes
+         */
+        num positionTarget;
+
+        /**
+         * The desired relative velocity of the pivot axes
+         */
+        num velocityTarget;
+
+        /**
+         * The drive's stiffness, used to achieve the position target
+         */
+        num stiffness = 0;
+
+        /**
+         * The damping factor applied to reach the velocity target
+         */
+        num damping = 0;
+	};
+
+	FASTGLTF_EXPORT struct PhysicsJoint {
+		FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointLimit> limits;
+
+        /**
+         * Each drive specifies a force to apply along a single axis
+         */
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointDrive> drives;
+	};
+
+	FASTGLTF_EXPORT struct Joint {
+	    std::size_t connectedNode;
+
+		std::size_t joint;
+
+		bool enableCollision = false;
+	};
+
+    FASTGLTF_EXPORT struct PhysicsRigidBody {
+		Optional<Motion> motion;
+
+		Optional<Collider> collider;
+
+		Optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
+
+		Optional<Joint> joint;
+	};
+#endif
+
     FASTGLTF_EXPORT struct Node {
         Optional<std::size_t> meshIndex;
 	    Optional<std::size_t> skinIndex;
@@ -1914,6 +2265,10 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::vector<Attribute> instancingAttributes;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
+#endif
 
         [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
@@ -2453,6 +2808,16 @@ namespace fastgltf {
 
 		std::vector<std::string> materialVariants;
 
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+		std::vector<Shape> shapes;
+#endif
+
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		std::vector<PhysicsMaterial> physicsMaterials;
+	    std::vector<PhysicsJoint> physicsJoints;
+		std::vector<CollisionFilter> collisionFilters;
+#endif
+
         // Keeps tracked of categories that were actually parsed.
         Category availableCategories = Category::None;
 
@@ -2481,7 +2846,15 @@ namespace fastgltf {
 				skins(std::move(other.skins)),
 				textures(std::move(other.textures)),
 				materialVariants(std::move(other.materialVariants)),
-				availableCategories(other.availableCategories) {}
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+			    shapes(std::move(other.shapes)),
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			    physicsMaterials(std::move(other.physicsMaterials)),
+			    physicsJoints(std::move(other.physicsJoints)),
+			    collisionFilters(std::move(other.collisionFilters)),
+#endif
+	            availableCategories(other.availableCategories) {}
 
 		Asset& operator=(const Asset& other) = delete;
 		Asset& operator=(Asset&& other) noexcept {
@@ -2504,6 +2877,14 @@ namespace fastgltf {
 			skins = std::move(other.skins);
 			textures = std::move(other.textures);
 			materialVariants = std::move(other.materialVariants);
+#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
+			shapes = std::move(other.shapes);
+#endif
+#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			physicsMaterials = std::move(other.physicsMaterials);
+			physicsJoints = std::move(other.physicsJoints);
+			collisionFilters = std::move(other.collisionFilters);
+#endif
 			availableCategories = other.availableCategories;
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 			// This needs to be last to not destroy the old memoryResource for the current data.
