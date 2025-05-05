@@ -1024,10 +1024,10 @@
 		  */
 		 Error writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
 	 };
- } // namespace fastgltf 
+ } // namespace fastgltf
  
  #ifdef _MSC_VER
  #pragma warning(pop)
  #endif
  
- #endif
+ #endif 
