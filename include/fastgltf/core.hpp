@@ -367,18 +367,7 @@ namespace fastgltf {
 	// An array of pairs of string representations of extension identifiers and their respective enum
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
-    static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = 24
-#if FASTGLTF_ENABLE_DEPRECATED_EXT 
-	+ 1
-#endif
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-	+ 1
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-	+ 1
-#endif
-	;
-	static constexpr std::array<std::pair<std::string_view, Extensions>, SUPPORTED_EXTENSION_COUNT> extensionStrings = {{
+	static constexpr auto extensionStrings = to_array<std::pair<std::string_view, Extensions>>({
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
@@ -415,8 +404,9 @@ namespace fastgltf {
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		{ extensions::KHR_physics_rigid_bodies,					Extensions::KHR_physics_rigid_bodies },
 #endif
-	}};
+	});
 	// clang-format on
+	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = extensionStrings.size();
 
 	/**
 	 * Returns the name of the passed glTF extension.

@@ -333,6 +333,26 @@ namespace fastgltf {
 	/** Allows the quick creation of a unique_ptr type that can take any function of the form void(T*) for its deleter */
 	template <typename T, auto callback>
 	using deletable_unique_ptr = std::unique_ptr<T, UniqueDeleter<callback>>;
+	namespace internal {
+		template <typename T, std::size_t N, std::size_t... I>
+		constexpr std::array<std::remove_cv_t<T>, N> to_array_impl(T (&a)[N], std::index_sequence<I...>) {
+			return {{ a[I]... }};
+		}
+		template <typename T, std::size_t N, std::size_t... I>
+		constexpr std::array<std::remove_cv_t<T>, N> to_array_impl(T (&&a)[N], std::index_sequence<I...>) {
+			return {{ std::move(a[I])... }};
+		}
+	} // namespace internal
+
+	// Basic reimplementation of std::to_array
+	template <typename T, std::size_t N>
+	constexpr decltype(auto) to_array(T (&a)[N]) {
+		return internal::to_array_impl(a, std::make_index_sequence<N>{});
+	}
+	template <typename T, std::size_t N>
+	constexpr decltype(auto) to_array(T (&&a)[N]) {
+		return internal::to_array_impl(a, std::make_index_sequence<N>{});
+	}
 
 	// For simple ops like &, |, +, - taking a left and right operand.
 #define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \
