@@ -4396,7 +4396,8 @@ fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, As
 fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node) {
 	using namespace simdjson;
 
-	auto& rigidBody = node.physicsRigidBody.emplace();
+	node.physicsRigidBody = std::make_unique<PhysicsRigidBody>();
+	auto& rigidBody = *node.physicsRigidBody;
 
 	dom::object motionObject;
 	if (auto error = khr_physics_rigid_bodies["motion"].get_object().get(motionObject); error == SUCCESS) {
@@ -5986,7 +5987,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 
 	    if (!it->instancingAttributes.empty() || it->lightIndex.has_value()
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-			|| it->physicsRigidBody.has_value()
+			|| it->physicsRigidBody
 #endif
 			) {
 			if (json.back() != '{') json += ',';
@@ -6007,7 +6008,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			}
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-			if (it->physicsRigidBody.has_value()) {
+			if (it->physicsRigidBody) {
 				if (json.back() != '{') json += ',';
 				json += R"("KHR_physics_rigid_body":{)";
 				if (it->physicsRigidBody->motion.has_value()) {

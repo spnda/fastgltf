@@ -601,7 +601,7 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 
 	const auto& node = asset->nodes.at(0);
 
-	REQUIRE(node.physicsRigidBody.has_value());
+	REQUIRE(node.physicsRigidBody);
 	REQUIRE(node.physicsRigidBody->motion.has_value());
 	REQUIRE(node.physicsRigidBody->motion->mass == 1);
 	REQUIRE(!node.physicsRigidBody->motion->inertialDiagonal.has_value());
@@ -620,7 +620,7 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 
 	const auto& node10 = asset->nodes.at(11);
 
-	REQUIRE(node10.physicsRigidBody.has_value());
+	REQUIRE(node10.physicsRigidBody);
 	REQUIRE(!node10.physicsRigidBody->motion.has_value());
 	REQUIRE(!node10.physicsRigidBody->collider.has_value());
 
@@ -721,7 +721,7 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 	REQUIRE(joint9.drives.size() == 0);
 
 	const auto& node10 = asset->nodes.at(10);
-	REQUIRE(node10.physicsRigidBody.has_value());
+	REQUIRE(node10.physicsRigidBody);
 	REQUIRE(!node10.physicsRigidBody->collider.has_value());
 	REQUIRE(!node10.physicsRigidBody->motion.has_value());
 	REQUIRE(!node10.physicsRigidBody->trigger.has_value());

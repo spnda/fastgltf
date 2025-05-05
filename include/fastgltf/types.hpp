@@ -557,11 +557,9 @@ namespace fastgltf {
 	[[nodiscard]] constexpr auto getDriveType(const std::string_view name) noexcept {
 		if (name[0] == 'l') {
 			return DriveType::Linear;
-		}
-		else if (name[0] == 'a') {
+		} else if (name[0] == 'a') {
 			return DriveType::Angular;
-		}
-		else {
+		} else {
 			return DriveType::Invalid;
 		}
 	}
@@ -2269,7 +2267,7 @@ namespace fastgltf {
         FASTGLTF_STD_PMR_NS::string name;
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		Optional<PhysicsRigidBody> physicsRigidBody;
+		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
 #endif
 
         [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
