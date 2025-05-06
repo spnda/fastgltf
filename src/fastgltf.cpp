@@ -665,6 +665,11 @@ bool fg::URI::isLocalPath() const noexcept {
 bool fg::URI::isDataUri() const noexcept {
 	return view.isDataUri();
 }
+
+bool fg::URI::operator==(const URI& other) const {
+	FASTGLTF_REQUIRE(view.string() == other.view.string());
+	return true;
+}
 #pragma endregion
 
 #pragma region glTF parsing
@@ -1012,6 +1017,8 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		if (animation.channels.empty())
 			return Error::InvalidGltf;
 		for (const auto& channel1 : animation.channels) {
+			if (!channel1.nodeIndex.has_value())
+				continue;
 			for (const auto& channel2 : animation.channels) {
 				if (&channel1 == &channel2)
 					continue;
@@ -2600,7 +2607,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
         if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) FASTGLTF_LIKELY {
             light.intensity = static_cast<num>(intensity);
         } else {
-            light.intensity = 0.0f;
+            light.intensity = 1.0f;
         }
 
         double range;
@@ -4968,7 +4975,9 @@ namespace fastgltf {
 	// replacement for std::to_string that uses simdjson's grisu2 implementation, which is
 	// (1) bidirectionally lossless (std::to_string is not)
 	// (2) quite a lot faster than std::to_chars and std::to_string.
-	std::string to_string_fp(const num& value) {
+	template<typename T>
+	std::string to_string_fp(const T& value) {
+		static_assert(std::is_floating_point_v<T>, "T must be a floating point type");
 		char buffer[30] = {};
 
 		// TODO: Include a own copy of grisu2 instead of accessing functions from simdjson's internal namespace?
@@ -4976,7 +4985,7 @@ namespace fastgltf {
 		return {std::begin(buffer), end};
 	}
 
-    std::string to_string(const math::fvec2 value) {
+	std::string to_string(const math::fvec2 value) {
 		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]);
 	}
 
@@ -5079,6 +5088,26 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
 		}
 
+		if (it->sparse.has_value())
+		{
+			json += R"(,"sparse":{)";
+			const auto& sparse = *it->sparse;
+			json += "\"count\":" + std::to_string(sparse.count) + ',';
+			json += "\"indices\":{";
+			json += "\"bufferView\":" + std::to_string(sparse.indicesBufferView) + ',';
+			if (sparse.indicesByteOffset != 0) {
+				json += "\"byteOffset\":" + std::to_string(sparse.indicesByteOffset) + ',';
+			}
+			json += "\"componentType\":" + std::to_string(getGLComponentType(sparse.indexComponentType));
+			json += "},";
+			json += "\"values\":{";
+			json += "\"bufferView\":" + std::to_string(sparse.valuesBufferView);
+			if (sparse.valuesByteOffset != 0) {
+				json += ",\"byteOffset\":" + std::to_string(sparse.valuesByteOffset);
+			}
+			json += "}}";
+		}
+
 		auto writeMinMax = [&](const std::optional<AccessorBoundsArray>& ref, const std::string_view name) {
 			if (!ref.has_value())
 				return; // This is valid, since min/max are only required on specific accessors.
@@ -5086,7 +5115,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 
 			for (std::size_t i = 0; i < ref->size(); ++i) {
 				if (ref->isType<double>()) {
-					json += to_string_fp(static_cast<num>(ref->get<double>(i)));
+					json += to_string_fp(ref->get<double>(i));
 				} else if (ref->isType<std::int64_t>()) {
 					json += std::to_string(ref->get<std::int64_t>(i));
 				}
@@ -5403,6 +5432,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 		json += ',';
 
 	json += "\"images\":[";
+	
 	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
 		json += '{';
 
@@ -5418,19 +5448,19 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
             },
             [&](const sources::Array& vector) {
                 auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+				imagePaths.emplace_back(path);
                 json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
-                imagePaths.emplace_back(path);
             },
 			[&](const sources::Vector& vector) {
-				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+                auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+				imagePaths.emplace_back(path);
 				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
-				imagePaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
@@ -5467,7 +5497,7 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 		json += '{';
 
 		// [1.0f, 1.0f, 1.0f] is the default.
-		if (it->color[0] != 1.0f && it->color[1] != 1.0f && it->color[2] != 1.0f) {
+		if (!(it->color[0] == 1.0f && it->color[1] == 1.0f && it->color[2] == 1.0f)) {
 			json += R"("color":[)";
 			json += to_string_fp(it->color[0]) + ',' + to_string_fp(it->color[1]) + ',' + to_string_fp(it->color[2]);
 			json += "],";
@@ -5745,6 +5775,42 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			}
 			json += '}';
 		}
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+		if (it->specularGlossiness)
+		{
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_pbrSpecularGlossiness":{)";
+			if (it->specularGlossiness->diffuseFactor != math::nvec4(1)) {
+				json += R"("diffuseFactor":[)" +
+						to_string_fp(it->specularGlossiness->diffuseFactor[0]) + ',' +
+						to_string_fp(it->specularGlossiness->diffuseFactor[1]) + ',' +
+						to_string_fp(it->specularGlossiness->diffuseFactor[2]) + ',' +
+						to_string_fp(it->specularGlossiness->diffuseFactor[3]) + ']';
+			}
+			if (it->specularGlossiness->diffuseTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"diffuseTexture\":";
+				writeTextureInfo(json, &it->specularGlossiness->diffuseTexture.value());
+			}
+			if (it->specularGlossiness->specularFactor != math::nvec3(1)) {
+				if (json.back() != '{') json += ',';
+				json += R"("specularFactor":[)" +
+						to_string_fp(it->specularGlossiness->specularFactor[0]) + ',' +
+						to_string_fp(it->specularGlossiness->specularFactor[1]) + ',' +
+						to_string_fp(it->specularGlossiness->specularFactor[2]) + ']';
+			}
+			if (it->specularGlossiness->glossinessFactor != 1.0) {
+				if (json.back() != '{') json += ',';
+				json += R"("glossinessFactor":)" + to_string_fp(it->specularGlossiness->glossinessFactor);
+			}
+			if (it->specularGlossiness->specularGlossinessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"specularGlossinessTexture\":";
+				writeTextureInfo(json, &it->specularGlossiness->specularGlossinessTexture.value());
+			}
+			json += '}';
+		}
+#endif
 
 		if (it->transmission) {
 			if (json.back() == '}') json += ',';
@@ -5799,7 +5865,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 
 		if (it->packedOcclusionRoughnessMetallicTextures) {
 			if (json.back() == '}') json += ',';
-			json += R"("MSFT_packing_normalRoughnessMetallic":{)";
+			json += R"("MSFT_packing_occlusionRoughnessMetallic":{)";
 			if (it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.has_value()) {
 				json += R"("occlusionRoughnessMetallicTexture":)";
 				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.value());
@@ -5871,12 +5937,33 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                     json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
                 }
 
+            	if (!itp->targets.empty())
+            	{
+            		json  += R"(,"targets":[)";
+            		for (auto itt = itp->targets.begin(); itt != itp->targets.end(); ++itt) {
+						json += '{';
+						for (auto ita = itt->begin(); ita != itt->end(); ++ita) {
+							json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
+							if (uabs(std::distance(itt->begin(), ita)) + 1 < itt->size())
+								json += ',';
+						}
+						json += '}';
+						if (uabs(std::distance(itp->targets.begin(), itt)) + 1 < itp->targets.size())
+							json += ',';
+					}
+            		json += ']';
+            	}
+
                 if (itp->type != PrimitiveType::Triangles) {
                     json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
                 }
 
+            	const bool has_extensions = !itp->mappings.empty() || itp->dracoCompression;
+            	if (has_extensions) {
+            		json += R"(,"extensions":{)";
+            	}
 				if (!itp->mappings.empty()) {
-					json += R"(,"extensions":{"KHR_materials_variants":{"mappings":[)";
+					json += R"("KHR_materials_variants":{"mappings":[)";
 					// TODO: We should optimise to avoid writing multiple objects for the same material index
 					for (std::size_t i = 0; i < asset.materialVariants.size(); ++i) {
 						if (!itp->mappings[i].has_value())
@@ -5885,8 +5972,28 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 							json += ',';
 						json += "{\"material\":" + std::to_string(itp->mappings[i].value()) + ",\"variants\":[" + std::to_string(i) + "]}";
 					}
-					json += "]}}";
+					json += "]}";
 				}
+            	if (itp->dracoCompression)
+            	{
+            		if (!itp->mappings.empty())
+						json += ',';
+            		
+            		json += R"("KHR_draco_mesh_compression":{)";
+            		json += R"("bufferView":)" + std::to_string(itp->dracoCompression->bufferView) + ',';
+            		json += R"("attributes":{)";
+            		for (auto ita = itp->dracoCompression->attributes.begin(); ita != itp->dracoCompression->attributes.end(); ++ita) {
+						json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
+						if (uabs(std::distance(itp->dracoCompression->attributes.begin(), ita)) + 1 < itp->dracoCompression->attributes.size())
+							json += ',';
+					}
+            		json += "}}";
+            	}
+            	if (has_extensions)
+            	{
+            		json += "}";
+            	}
+
 
                 json += '}';
                 ++itp;
@@ -6687,14 +6794,16 @@ void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& js
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-	if (json.back() == ']' || json.back() == '}') {
-		json += ',';
-	}
-	json += R"("KHR_physics_rigid_bodies":{)";
-	writePhysicsMaterials(asset, json);
-	writeCollisionFilters(asset, json);
-    writePhysicsJoints(asset, json);
-	json += '}';
+	if (!asset.physicsMaterials.empty() || !asset.collisionFilters.empty() || !asset.physicsJoints.empty()) {
+		if (json.back() == ']' || json.back() == '}') {
+			json += ',';
+		}
+        json += R"("KHR_physics_rigid_bodies":{)";
+        writePhysicsMaterials(asset, json);
+        writeCollisionFilters(asset, json);
+        writePhysicsJoints(asset, json);
+        json += '}';
+    }
 #endif
 
 	if (!asset.materialVariants.empty()) {
@@ -6744,10 +6853,30 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
     }
 
     const auto& imageName = asset.images[index].name;
+	fs::path p;
 	if (imageName.empty()) {
-		return imageFolder / ("image" + std::to_string(index) + std::string(extension));
+		p = imageFolder / ("image" + std::to_string(index) + std::string(extension));
+	} else {
+		p = imageFolder / (std::string(imageName) + std::string(extension));
 	}
-	return imageFolder / (std::string(imageName) + std::string(extension));
+	std::string p_stem = p.parent_path() / p.stem();
+	// Ensure the file name is unique
+	std::size_t counter = 1;
+	while (true) {
+		bool found = false;
+		for (auto& imagePath : imagePaths) {
+			if (imagePath.has_value() && *imagePath == p) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			break;
+		}
+		p = p_stem + "-" + std::to_string(counter) + std::string(extension);
+		counter++;
+	}
+	return p;
 }
 
 std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
