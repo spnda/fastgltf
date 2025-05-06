@@ -102,6 +102,152 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
 	REQUIRE(std::filesystem::exists(exportedFolder / "image1.bin"));
 }
 
+static bool run_official_gltf_validator(const std::filesystem::path &model_path) {
+	static constexpr const char * path_to_validator = "/Users/nikita/Downloads/gltf_validator-2.0.0-dev.3.10-macos64/gltf_validator";
+
+	// run the validator on the model
+	std::string command = std::string(path_to_validator) + " -m " + model_path.string();
+	auto result = std::system(command.c_str());
+	if (result != 0) {
+		return false;
+	}
+	return true;
+}
+
+static void inline test_glb_rewrite(const std::filesystem::path &model_parent_dir, const std::filesystem::path &model_file) {
+	if (!run_official_gltf_validator(sampleModels / model_parent_dir / model_file)) {
+		auto report = std::string( "Failed to validate the model: " + (model_parent_dir / model_file).string());
+		SKIP(report.c_str());
+		return;
+	}
+	
+	auto cubePath = sampleModels / model_parent_dir;
+	fastgltf::GltfFileStream cubeJson(cubePath / model_file);
+	REQUIRE(cubeJson.isOpen());
+	static constexpr auto requiredExtensions = fastgltf::Extensions::KHR_texture_transform |
+				fastgltf::Extensions::KHR_texture_basisu |
+				fastgltf::Extensions::MSFT_texture_dds |
+				fastgltf::Extensions::KHR_mesh_quantization |
+				fastgltf::Extensions::EXT_meshopt_compression |
+				fastgltf::Extensions::KHR_lights_punctual |
+				fastgltf::Extensions::EXT_texture_webp |
+				fastgltf::Extensions::KHR_materials_specular |
+				fastgltf::Extensions::KHR_materials_ior |
+				fastgltf::Extensions::KHR_materials_iridescence |
+				fastgltf::Extensions::KHR_materials_volume |
+				fastgltf::Extensions::KHR_materials_transmission |
+				fastgltf::Extensions::KHR_materials_clearcoat |
+				fastgltf::Extensions::KHR_materials_emissive_strength |
+				fastgltf::Extensions::KHR_materials_sheen |
+				fastgltf::Extensions::KHR_materials_unlit |
+				fastgltf::Extensions::KHR_materials_anisotropy;
+		fastgltf::Parser parser(requiredExtensions);
+		auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages ;
+		fastgltf::Expected<fastgltf::Asset> asset = model_file.extension() == ".gltf" ?
+			parser.loadGltfJson(cubeJson, cubePath, options) :
+			parser.loadGltfBinary(cubeJson, cubePath, options);
+		REQUIRE(asset.error() == fastgltf::Error::None);
+
+	// Destroy the directory to make sure that the FileExporter correctly creates directories.
+	auto exportedFolder = path / "export_glb";
+
+	fastgltf::FileExporter exporter;
+	auto model_base_name = model_file.stem();
+	auto exportedGLTFPath = exportedFolder / "rewritten_gltf" / model_parent_dir / model_base_name += ".gltf";
+	auto exportedGLBPath = exportedFolder / "rewritten_glb" / model_parent_dir / model_base_name += ".glb";
+	// ensure dir
+	std::filesystem::create_directories(exportedGLBPath.parent_path());
+	auto error = exporter.writeGltfBinary(asset.get(), exportedGLBPath, fastgltf::ExportOptions::ValidateAsset);
+	REQUIRE(error == fastgltf::Error::None);
+	REQUIRE(std::filesystem::exists(exportedGLBPath));
+	// error = exporter.writeGltfJson(asset.get(), exportedGLTFPath, fastgltf::ExportOptions::PrettyPrintJson);
+
+
+	
+
+	// Make sure the GLB buffer is written
+	std::ifstream glb(exportedGLBPath, std::ios::binary);
+	REQUIRE(glb.is_open());
+
+	// Skip over the header
+	glb.seekg(sizeof(std::uint32_t) * 3, std::ifstream::beg);
+
+	// Read the chunk length
+	std::uint32_t chunkLength = 0;
+	glb.read(reinterpret_cast<char*>(&chunkLength), sizeof chunkLength);
+
+	// Skip over the chunk type + chunk
+	glb.seekg(sizeof(std::uint32_t) + fastgltf::alignUp(chunkLength, 4), std::ifstream::cur);
+
+	// Read binary chunk length
+	glb.read(reinterpret_cast<char*>(&chunkLength), sizeof chunkLength);
+	REQUIRE(chunkLength == asset->buffers.front().byteLength);
+
+	// Read & verify BIN chunk type id
+	std::array<std::uint8_t, 4> binType {};
+	glb.read(reinterpret_cast<char*>(binType.data()), sizeof binType);
+	REQUIRE(binType[0] == 'B');
+	REQUIRE(binType[1] == 'I');
+	REQUIRE(binType[2] == 'N');
+	REQUIRE(binType[3] == 0);
+
+	glb.close();
+	// Re-read the GLB
+	auto result = run_official_gltf_validator(exportedGLBPath);
+	REQUIRE(result);
+
+	fastgltf::GltfFileStream rewrittenGlb(exportedGLBPath);
+	REQUIRE(rewrittenGlb.isOpen());
+
+	auto rerwittenAsset = parser.loadGltfBinary(cubeJson, cubePath, options);
+	REQUIRE(rerwittenAsset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(rerwittenAsset.get()) == fastgltf::Error::None);
+}
+
+std::vector<std::filesystem::path> getSampleModels(const std::filesystem::path& dir, bool include_text = false, bool include_binary = false) {
+  std::vector<std::filesystem::path> models;
+	try {
+		for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+			if (entry.is_directory()) {
+				auto subModels = getSampleModels(entry.path(), include_text, include_binary);
+				models.insert(models.end(), subModels.begin(), subModels.end());
+			} else if (entry.is_regular_file()) {
+				auto ext = entry.path().extension();
+				if (include_text && ext == ".gltf") {
+					models.push_back(entry.path());
+				} else if (include_binary && ext == ".glb") {
+					models.push_back(entry.path());
+				}
+			}
+		}
+	} catch (const std::exception& e) {
+	}
+    return models;
+}
+
+TEST_CASE("Try writing a GLB with all buffers and images (ALL IN MODEL)", "[write-tests]") {
+	auto models = getSampleModels(sampleModels / "2.0", false, true);
+	// Destroy the directory to make sure that the FileExporter correctly creates directories.
+	// auto exportedFolder = path / "export_glb";
+	// if (std::filesystem::exists(exportedFolder)) {
+	// 	std::error_code ec;
+	// 	std::filesystem::remove_all(exportedFolder, ec);
+	// 	REQUIRE(!ec);
+	// }
+
+	for (const auto& model : models) {
+		SECTION(model.string()) {
+			// we want to get the relative directory to sampleModels
+			auto model_parent_path = std::filesystem::relative(model.parent_path(), sampleModels);
+			test_glb_rewrite(model_parent_path, model.filename());
+		}
+	}
+}
+
+TEST_CASE("Try writing a GLB with all buffers and images (DUCK)", "[write-tests]") {
+	test_glb_rewrite(std::filesystem::path("2.0") / "Duck" / "glTF-Binary", "Duck.glb");
+}
+
 TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
 
