@@ -2602,7 +2602,7 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
         if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) FASTGLTF_LIKELY {
             light.intensity = static_cast<num>(intensity);
         } else {
-            light.intensity = 0.0f;
+            light.intensity = 1.0f;
         }
 
         double range;
