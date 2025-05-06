@@ -5934,8 +5934,12 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                     json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
                 }
 
+				const bool hasExtensions = !itp->mappings.empty() || itp->dracoCompression;
+				if (hasExtensions) {
+					json += R"(,"extensions":{)";
+				}
 				if (!itp->mappings.empty()) {
-					json += R"(,"extensions":{"KHR_materials_variants":{"mappings":[)";
+					json += R"("KHR_materials_variants":{"mappings":[)";
 					// TODO: We should optimise to avoid writing multiple objects for the same material index
 					for (std::size_t i = 0; i < asset.materialVariants.size(); ++i) {
 						if (!itp->mappings[i].has_value())
@@ -5944,16 +5948,33 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 							json += ',';
 						json += "{\"material\":" + std::to_string(itp->mappings[i].value()) + ",\"variants\":[" + std::to_string(i) + "]}";
 					}
-					json += "]}}";
+					json += "]}";
+				}
+				if (itp->dracoCompression) {
+					if (!itp->mappings.empty())
+						json += ',';
+
+					json += R"("KHR_draco_mesh_compression":{)";
+					json += R"("bufferView":)" + std::to_string(itp->dracoCompression->bufferView) + ',';
+					json += R"("attributes":{)";
+					for (auto ita = itp->dracoCompression->attributes.begin(); ita != itp->dracoCompression->attributes.end(); ++ita) {
+						json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
+						if (uabs(std::distance(itp->dracoCompression->attributes.begin(), ita)) + 1 < itp->dracoCompression->attributes.size())
+							json += ',';
+					}
+					json += "}}";
+				}
+				if (hasExtensions) {
+					json += "}";
 				}
 
-                json += '}';
-                ++itp;
-                if (uabs(std::distance(it->primitives.begin(), itp)) < it->primitives.size())
-                    json += ',';
-            }
-            json += ']';
-        }
+				json += '}';
+				++itp;
+				if (uabs(std::distance(it->primitives.begin(), itp)) < it->primitives.size())
+					json += ',';
+			}
+			json += ']';
+		}
 
 		if (!it->weights.empty()) {
 			if (json.back() != '{')
