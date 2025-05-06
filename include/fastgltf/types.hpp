@@ -2238,10 +2238,20 @@ namespace fastgltf {
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 	FASTGLTF_EXPORT struct SphereShape {
 		num radius = 0.5;
+
+		bool operator==(const SphereShape& other) const {
+			FASTGLTF_REQUIRE(radius == other.radius);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct BoxShape {
 		math::fvec3 size = { 1, 1, 1 };
+
+		bool operator==(const BoxShape& other) const {
+			FASTGLTF_REQUIRE(size == other.size);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct CapsuleShape {
@@ -2250,6 +2260,13 @@ namespace fastgltf {
 		num radiusBottom = 0.25;
 
 		num radiusTop = 0.25;
+
+		bool operator==(const CapsuleShape& other) const {
+			FASTGLTF_REQUIRE(height == other.height);
+			FASTGLTF_REQUIRE(radiusBottom == other.radiusBottom);
+			FASTGLTF_REQUIRE(radiusTop == other.radiusTop);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct CylinderShape {
@@ -2258,6 +2275,13 @@ namespace fastgltf {
 		num radiusBottom = 0.25;
 
 		num radiusTop = 0.25;
+
+		bool operator==(const CylinderShape& other) const {
+			FASTGLTF_REQUIRE(height == other.height);
+			FASTGLTF_REQUIRE(radiusBottom == other.radiusBottom);
+			FASTGLTF_REQUIRE(radiusTop == other.radiusTop);
+			return true;
+		}
 	};
 
 	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape>;
@@ -2304,6 +2328,18 @@ namespace fastgltf {
          * A multiplier applied to the acceleration due to gravity
          */
         num gravityFactor = 1;
+
+		bool operator==(const Motion& other) const {
+			FASTGLTF_REQUIRE(isKinematic == other.isKinematic);
+			FASTGLTF_REQUIRE(mass == other.mass);
+			FASTGLTF_REQUIRE(centerOfMass == other.centerOfMass);
+			FASTGLTF_REQUIRE(inertialDiagonal == other.inertialDiagonal);
+			FASTGLTF_REQUIRE(inertialOrientation == other.inertialOrientation);
+			FASTGLTF_REQUIRE(linearVelocity == other.linearVelocity);
+			FASTGLTF_REQUIRE(angularVelocity == other.angularVelocity);
+			FASTGLTF_REQUIRE(gravityFactor == other.gravityFactor);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Geometry {
@@ -2321,6 +2357,13 @@ namespace fastgltf {
          * Flag to indicate that the geometry should be a convex hull.
          */
         bool convexHull;
+
+		bool operator==(const Geometry& other) const {
+			FASTGLTF_REQUIRE(shape == other.shape);
+			FASTGLTF_REQUIRE(node == other.node);
+			FASTGLTF_REQUIRE(convexHull == other.convexHull);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct PhysicsMaterial {
@@ -2333,6 +2376,15 @@ namespace fastgltf {
 		CombineMode frictionCombine;
 
 		CombineMode restitutionCombine;
+
+		bool operator==(const PhysicsMaterial& other) const {
+			FASTGLTF_REQUIRE(staticFriction == other.staticFriction);
+			FASTGLTF_REQUIRE(dynamicFriction == other.dynamicFriction);
+			FASTGLTF_REQUIRE(restitution == other.restitution);
+			FASTGLTF_REQUIRE(frictionCombine == other.frictionCombine);
+			FASTGLTF_REQUIRE(restitutionCombine == other.restitutionCombine);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct CollisionFilter {
@@ -2350,6 +2402,13 @@ namespace fastgltf {
          * An array of strings representing the systems which this node can collide with
          */
         FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collideWithSystems;
+
+		bool operator==(const CollisionFilter& other) const {
+			FASTGLTF_REQUIRE(collisionSystems == other.collisionSystems);
+			FASTGLTF_REQUIRE(notCollideWithSystems == other.notCollideWithSystems);
+			FASTGLTF_REQUIRE(collideWithSystems == other.collideWithSystems);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Collider {
@@ -2367,6 +2426,13 @@ namespace fastgltf {
          * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
          */
         Optional<std::size_t> collisionFilter;
+
+		bool operator==(const Collider& other) const {
+			FASTGLTF_REQUIRE(geometry == other.geometry);
+			FASTGLTF_REQUIRE(physicsMaterial == other.physicsMaterial);
+			FASTGLTF_REQUIRE(collisionFilter == other.collisionFilter);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct GeometryTrigger {
@@ -2379,6 +2445,12 @@ namespace fastgltf {
 		 * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
 		 */
 		Optional<std::size_t> collisionFilter;
+
+		bool operator==(const GeometryTrigger& other) const {
+			FASTGLTF_REQUIRE(geometry == other.geometry);
+			FASTGLTF_REQUIRE(collisionFilter == other.collisionFilter);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct NodeTrigger {
@@ -2387,6 +2459,11 @@ namespace fastgltf {
 		 * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
 		 */
 		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodes;
+
+		bool operator==(const NodeTrigger& other) const {
+			FASTGLTF_REQUIRE(nodes == other.nodes);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct JointLimit {
@@ -2419,6 +2496,16 @@ namespace fastgltf {
 		 * Optional spring damping applied when beyond the limits
 		 */
 		num damping = 0;
+
+		bool operator==(const JointLimit& other) const {
+			FASTGLTF_REQUIRE(linearAxes == other.linearAxes);
+			FASTGLTF_REQUIRE(angularAxes == other.angularAxes);
+			FASTGLTF_REQUIRE(min == other.min);
+			FASTGLTF_REQUIRE(max == other.max);
+			FASTGLTF_REQUIRE(stiffness == other.stiffness);
+			FASTGLTF_REQUIRE(damping == other.damping);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct JointDrive {
@@ -2461,6 +2548,18 @@ namespace fastgltf {
          * The damping factor applied to reach the velocity target
          */
         num damping = 0;
+
+		bool operator==(const JointDrive& other) const {
+			FASTGLTF_REQUIRE(type == other.type);
+			FASTGLTF_REQUIRE(mode == other.mode);
+			FASTGLTF_REQUIRE(axis == other.axis);
+			FASTGLTF_REQUIRE(maxForce == other.maxForce);
+			FASTGLTF_REQUIRE(positionTarget == other.positionTarget);
+			FASTGLTF_REQUIRE(velocityTarget == other.velocityTarget);
+			FASTGLTF_REQUIRE(stiffness == other.stiffness);
+			FASTGLTF_REQUIRE(damping == other.damping);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct PhysicsJoint {
@@ -2470,6 +2569,12 @@ namespace fastgltf {
          * Each drive specifies a force to apply along a single axis
          */
         FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointDrive> drives;
+
+		bool operator==(const PhysicsJoint& other) const {
+			FASTGLTF_REQUIRE(limits == other.limits);
+			FASTGLTF_REQUIRE(drives == other.drives);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Joint {
@@ -2478,6 +2583,13 @@ namespace fastgltf {
 		std::size_t joint;
 
 		bool enableCollision = false;
+
+		bool operator==(const Joint& other) const {
+			FASTGLTF_REQUIRE(connectedNode == other.connectedNode);
+			FASTGLTF_REQUIRE(joint == other.joint);
+			FASTGLTF_REQUIRE(enableCollision == other.enableCollision);
+			return true;
+		}
 	};
 
     FASTGLTF_EXPORT struct PhysicsRigidBody {
@@ -2488,6 +2600,14 @@ namespace fastgltf {
 		Optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
 
 		Optional<Joint> joint;
+
+		bool operator==(const PhysicsRigidBody& other) const {
+			FASTGLTF_REQUIRE(motion == other.motion);
+			FASTGLTF_REQUIRE(collider == other.collider);
+			FASTGLTF_REQUIRE(trigger == other.trigger);
+			FASTGLTF_REQUIRE(joint == other.joint);
+			return true;
+		}
 	};
 #endif
 
@@ -3306,6 +3426,7 @@ namespace fastgltf {
 #endif
 
 		bool nonBufferMembersEqual(const Asset& other) const {
+			FASTGLTF_REQUIRE(assetInfo == other.assetInfo);
 			FASTGLTF_REQUIRE(accessors == other.accessors);
 			FASTGLTF_REQUIRE(animations == other.animations);
 			FASTGLTF_REQUIRE(bufferViews == other.bufferViews);
@@ -3321,6 +3442,14 @@ namespace fastgltf {
 			FASTGLTF_REQUIRE(textures == other.textures);
 			FASTGLTF_REQUIRE(materialVariants == other.materialVariants);
 			FASTGLTF_REQUIRE(availableCategories == other.availableCategories);
+			FASTGLTF_REQUIRE(extensionsUsed == other.extensionsUsed);
+			FASTGLTF_REQUIRE(extensionsRequired == other.extensionsRequired);
+			FASTGLTF_REQUIRE(defaultScene == other.defaultScene);
+		#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			FASTGLTF_REQUIRE(physicsMaterials == other.physicsMaterials);
+			FASTGLTF_REQUIRE(physicsJoints == other.physicsJoints);
+			FASTGLTF_REQUIRE(collisionFilters == other.collisionFilters);
+		#endif
 			return true;
 		}
 
