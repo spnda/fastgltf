@@ -5833,6 +5833,23 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                     json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
                 }
 
+            	if (!itp->targets.empty())
+            	{
+            		json  += R"(,"targets":[)";
+            		for (auto itt = itp->targets.begin(); itt != itp->targets.end(); ++itt) {
+						json += '{';
+						for (auto ita = itt->begin(); ita != itt->end(); ++ita) {
+							json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
+							if (uabs(std::distance(itt->begin(), ita)) + 1 < itt->size())
+								json += ',';
+						}
+						json += '}';
+						if (uabs(std::distance(itp->targets.begin(), itt)) + 1 < itp->targets.size())
+							json += ',';
+					}
+            		json += ']';
+            	}
+
                 if (itp->type != PrimitiveType::Triangles) {
                     json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
                 }
