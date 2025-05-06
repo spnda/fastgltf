@@ -24,6 +24,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "fastgltf/types.hpp"
 #if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L)
 #error "fastgltf requires C++17"
 #endif
@@ -5097,6 +5098,27 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 
 		if (it->bufferViewIndex.has_value()) {
 			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
+		}
+
+		if (it->sparse.has_value())
+		{
+			json += R"(,"sparse":{)";
+			const auto& sparse = *it->sparse;
+			json += "\"count\":" + std::to_string(sparse.count) + ',';
+			json += "\"indices\":{";
+			json += "\"bufferView\":" + std::to_string(sparse.indicesBufferView) + ',';
+			if (sparse.indicesByteOffset != 0) {
+				json += "\"byteOffset\":" + std::to_string(sparse.indicesByteOffset) + ',';
+			}
+			// only get the lower 13 bits
+			json += "\"componentType\":" + std::to_string(getGLComponentType(sparse.indexComponentType));
+			json += "},";
+			json += "\"values\":{";
+			json += "\"bufferView\":" + std::to_string(sparse.valuesBufferView);
+			if (sparse.valuesByteOffset != 0) {
+				json += ",\"byteOffset\":" + std::to_string(sparse.valuesByteOffset);
+			}
+			json += "}}";
 		}
 
 		auto writeMinMax = [&](const std::optional<AccessorBoundsArray>& ref, const std::string_view name) {
