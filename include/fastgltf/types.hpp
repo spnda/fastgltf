@@ -1052,6 +1052,13 @@ namespace fastgltf {
             assert(!empty());
             return end()[-1];
         }
+
+		bool operator==(const SmallVector& other) const {
+			if (size() != other.size()) {
+				return false;
+			}
+			return std::equal(begin(), end(), other.begin(), other.end());
+		}
     };
 
 #if !FASTGLTF_MISSING_MEMORY_RESOURCE
@@ -1552,6 +1559,7 @@ namespace fastgltf {
 		URI& operator=(const URI& other);
 		URI& operator=(const URIView& other);
 		URI& operator=(URI&& other) noexcept;
+		bool operator==(const URI& other) const;
 
 		operator URIView() const noexcept;
 
@@ -1677,6 +1685,17 @@ namespace fastgltf {
 			return *this;
 		}
 
+		bool operator==(const AccessorBoundsArray& other) const {
+			if (len != other.len || dataType != other.dataType) {
+				return false;
+			}
+			if (dataType == BoundsType::int64) {
+				return std::equal(int64_buffer.get(), int64_buffer.get() + len, other.int64_buffer.get());
+			} else {
+				return std::equal(float64_buffer.get(), float64_buffer.get() + len, other.float64_buffer.get());
+			}
+		}
+
 		[[nodiscard]] BoundsType type() const noexcept {
 			return dataType;
 		}
@@ -1779,6 +1798,13 @@ namespace fastgltf {
 		constexpr span(const span& other) noexcept = default;
 		constexpr span& operator=(const span& other) = default;
 
+		constexpr bool operator==(const span& other) const {
+			if (_size != other._size) {
+				return false;
+			}
+			return std::equal(data(), data() + _size, other.data());
+		}
+
 		[[nodiscard]] constexpr iterator begin() const noexcept {
 			return data();
 		}
@@ -1857,36 +1883,62 @@ namespace fastgltf {
         FASTGLTF_EXPORT struct BufferView {
             std::size_t bufferViewIndex;
             MimeType mimeType = MimeType::None;
+			bool operator==(const BufferView& other) const {
+				return bufferViewIndex == other.bufferViewIndex &&
+						mimeType == other.mimeType;
+			}
         };
 
         FASTGLTF_EXPORT struct URI {
             std::size_t fileByteOffset;
             fastgltf::URI uri;
             MimeType mimeType = MimeType::None;
+			bool operator==(const URI& other) const {
+				return fileByteOffset == other.fileByteOffset &&
+						uri == other.uri &&
+						mimeType == other.mimeType;
+			}
         };
 
         FASTGLTF_EXPORT struct Array {
             StaticVector<std::byte> bytes;
             MimeType mimeType = MimeType::None;
+			bool operator==(const Array& other) const {
+				return bytes == other.bytes && mimeType == other.mimeType;
+			}
         };
 
 		/** @note This type is not used by the fastgltf parser and is only used for exporting. Use sources::Array instead when importing intead. */
 		FASTGLTF_EXPORT struct Vector {
 			std::vector<std::byte> bytes;
 			MimeType mimeType = MimeType::None;
+			bool operator==(const Vector& other) const {
+				return bytes == other.bytes && mimeType == other.mimeType;
+			}
 		};
 
         FASTGLTF_EXPORT struct CustomBuffer {
             CustomBufferId id;
             MimeType mimeType = MimeType::None;
+			bool operator==(const CustomBuffer& other) const {
+				return id == other.id && mimeType == other.mimeType;
+			}
         };
+		
 
         FASTGLTF_EXPORT struct ByteView {
             span<const std::byte> bytes;
             MimeType mimeType = MimeType::None;
+			bool operator==(const ByteView& other) const {
+				return bytes == other.bytes && mimeType == other.mimeType;
+			}
         };
 
-		FASTGLTF_EXPORT struct Fallback {};
+		FASTGLTF_EXPORT struct Fallback {
+			bool operator==(const Fallback& other) const {
+				return true;
+			}
+		};
     } // namespace sources
 
     /**
@@ -1901,16 +1953,142 @@ namespace fastgltf {
      */
     FASTGLTF_EXPORT using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Array, sources::Vector, sources::CustomBuffer, sources::ByteView, sources::Fallback>;
 
+	namespace {
+		template <typename T>
+		static bool isPaddedBufferEquivalent(const T& a, const T& b, bool check_padding = false) {
+			std::size_t minSize = a.size();
+			if (!check_padding) {
+				if (a.size() != b.size()) {
+					return false;
+				}
+			} else {
+				minSize = std::min(a.size(), b.size());
+				if (minSize > a.size() || minSize > b.size()) {
+					return false;
+				}
+			}
+			for (std::size_t i = 0; i < minSize; ++i) {
+				if (a[i] != b[i]) {
+					return false;
+				}
+			}
+			if (a.size() != b.size()) {
+				// if the sizes don't match, check the extra bytes of the bigger buffer to make sure they are all 0s
+				auto extraBytes = std::max(a.size(), b.size()) - minSize;
+				auto &biggerBuffer = a.size() > b.size() ? a : b;
+				for (std::size_t i = minSize; i < minSize + extraBytes; ++i) {
+					if (biggerBuffer[i] != std::byte(0)) {
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+	}
+
+	static bool compareDataSource(const fastgltf::DataSource &a,
+							const fastgltf::DataSource &b,
+							std::size_t minSize = -1) {
+		if (std::holds_alternative<std::monostate>(a)) {
+		if (!std::holds_alternative<std::monostate>(b)) {
+			return false;
+		}
+		return true;
+		} else if (std::holds_alternative<fastgltf::sources::BufferView>(a)) {
+		if (!std::holds_alternative<fastgltf::sources::BufferView>(b)) {
+			return false;
+		}
+		auto a_bv = std::get<fastgltf::sources::BufferView>(a);
+		auto b_bv = std::get<fastgltf::sources::BufferView>(b);
+		return a_bv.bufferViewIndex == b_bv.bufferViewIndex &&
+				a_bv.mimeType == b_bv.mimeType;
+		} else if (std::holds_alternative<fastgltf::sources::URI>(a)) {
+		if (!std::holds_alternative<fastgltf::sources::URI>(b)) {
+			return false;
+		}
+		auto a_uri = std::get<fastgltf::sources::URI>(a);
+		auto b_uri = std::get<fastgltf::sources::URI>(b);
+		return a_uri.uri.string() == b_uri.uri.string();
+		} else if (std::holds_alternative<fastgltf::sources::Array>(a)) {
+		if (!std::holds_alternative<fastgltf::sources::Array>(b)) {
+			return false;
+		}
+		auto a_array = std::get<fastgltf::sources::Array>(a);
+		auto b_array = std::get<fastgltf::sources::Array>(b);
+		return a_array.mimeType == b_array.mimeType &&
+				isPaddedBufferEquivalent(a_array.bytes, b_array.bytes, minSize);
+		} else if (std::holds_alternative<fastgltf::sources::Vector>(a)) {
+		if (!std::holds_alternative<fastgltf::sources::Vector>(b)) {
+			return false;
+		}
+		auto a_vector = std::get<fastgltf::sources::Vector>(a);
+		auto b_vector = std::get<fastgltf::sources::Vector>(b);
+		return a_vector.mimeType == b_vector.mimeType &&
+				isPaddedBufferEquivalent(a_vector.bytes, b_vector.bytes, minSize);
+		} else if (std::holds_alternative<fastgltf::sources::CustomBuffer>(a)) {
+		if (!std::holds_alternative<fastgltf::sources::CustomBuffer>(b)) {
+			return false;
+		}
+		auto a_custom_buffer = std::get<fastgltf::sources::CustomBuffer>(a);
+		auto b_custom_buffer = std::get<fastgltf::sources::CustomBuffer>(b);
+		return a_custom_buffer.mimeType == b_custom_buffer.mimeType &&
+				b_custom_buffer.id == a_custom_buffer.id;
+		} else if (std::holds_alternative<fastgltf::sources::ByteView>(a)) {
+		if (!std::holds_alternative<fastgltf::sources::ByteView>(b)) {
+			return false;
+		}
+		auto a_byte_view = std::get<fastgltf::sources::ByteView>(a);
+		auto b_byte_view = std::get<fastgltf::sources::ByteView>(b);
+		return a_byte_view.mimeType == b_byte_view.mimeType &&
+				isPaddedBufferEquivalent(a_byte_view.bytes, b_byte_view.bytes, minSize);
+		} else if (std::holds_alternative<fastgltf::sources::Fallback>(a)) {
+		if (!std::holds_alternative<fastgltf::sources::Fallback>(b)) {
+			return false;
+		}
+		return true;
+		}
+		return false;
+	}
+	// operator== for DataSource
+	inline bool operator==(const DataSource& a, const DataSource& b) {
+		return compareDataSource(a, b);
+	}
+	inline bool operator!=(const DataSource& a, const DataSource& b) {
+		return !(a == b);
+	}
+
+
+	template <typename T>
+	bool compareUniquePtr(const std::unique_ptr<T>& a, const std::unique_ptr<T>& b) {
+		if (!a && !b) {
+			return true;
+		}
+		if (!a || !b) {
+			return false;
+		}
+		return *a == *b;
+	}
+
     FASTGLTF_EXPORT struct AnimationChannel {
         std::size_t samplerIndex;
         Optional<std::size_t> nodeIndex;
         AnimationPath path;
+		bool operator==(const AnimationChannel& other) const {
+			return samplerIndex == other.samplerIndex &&
+					nodeIndex == other.nodeIndex &&
+					path == other.path;
+		}
     };
 
     FASTGLTF_EXPORT struct AnimationSampler {
         std::size_t inputAccessor;
         std::size_t outputAccessor;
         AnimationInterpolation interpolation = AnimationInterpolation::Linear;
+		bool operator==(const AnimationSampler& other) const {
+			return inputAccessor == other.inputAccessor &&
+					outputAccessor == other.outputAccessor &&
+					interpolation == other.interpolation;
+		}
     };
 
     FASTGLTF_EXPORT struct Animation {
@@ -1918,12 +2096,22 @@ namespace fastgltf {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationSampler> samplers;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Animation& other) const {
+			return channels == other.channels &&
+					samplers == other.samplers &&
+					name == other.name;
+		}
     };
 
     FASTGLTF_EXPORT struct AssetInfo {
         FASTGLTF_STD_PMR_NS::string gltfVersion;
         FASTGLTF_STD_PMR_NS::string copyright;
         FASTGLTF_STD_PMR_NS::string generator;
+		bool operator==(const AssetInfo& other) const {
+			return gltfVersion == other.gltfVersion &&
+					copyright == other.copyright &&
+					generator == other.generator;
+		}
     };
 
     FASTGLTF_EXPORT struct Camera {
@@ -1932,6 +2120,12 @@ namespace fastgltf {
             num ymag;
             num zfar;
             num znear;
+			bool operator==(const Orthographic& other) const {
+				return xmag == other.xmag &&
+						ymag == other.ymag &&
+						zfar == other.zfar &&
+						znear == other.znear;
+			}
         };
         struct Perspective {
             Optional<num> aspectRatio;
@@ -1939,6 +2133,12 @@ namespace fastgltf {
             // If omitted, use an infinite projection matrix.
             Optional<num> zfar;
             num znear;
+			bool operator==(const Perspective& other) const {
+				return aspectRatio == other.aspectRatio &&
+						yfov == other.yfov &&
+						zfar == other.zfar &&
+						znear == other.znear;
+			}
         };
 
         /**
@@ -1947,6 +2147,10 @@ namespace fastgltf {
          */
         std::variant<Perspective, Orthographic> camera;
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Camera& other) const {
+			return camera == other.camera &&
+					name == other.name;
+		}
     };
 
     FASTGLTF_EXPORT struct Skin {
@@ -1955,6 +2159,12 @@ namespace fastgltf {
         FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Skin& other) const {
+			return inverseBindMatrices == other.inverseBindMatrices &&
+					skeleton == other.skeleton &&
+					joints == other.joints &&
+					name == other.name;
+		}
     };
 
     FASTGLTF_EXPORT struct Sampler {
@@ -1964,23 +2174,43 @@ namespace fastgltf {
         Wrap wrapT = Wrap::Repeat;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Sampler& other) const {
+			return magFilter == other.magFilter &&
+					minFilter == other.minFilter &&
+					wrapS == other.wrapS &&
+					wrapT == other.wrapT &&
+					name == other.name;
+		}
     };
 
     FASTGLTF_EXPORT struct Scene {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodeIndices;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Scene& other) const {
+			return nodeIndices == other.nodeIndices &&
+					name == other.name;
+		}
     };
 
 	FASTGLTF_EXPORT struct TRS {
 		math::fvec3 translation = math::fvec3(0.f);
 		math::fquat rotation = math::fquat(0.f, 0.f, 0.f, 1.f);
 		math::fvec3 scale = math::fvec3(1.f);
+		bool operator==(const TRS& other) const {
+			return translation == other.translation &&
+					rotation == other.rotation &&
+					scale == other.scale;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Attribute {
 		FASTGLTF_STD_PMR_NS::string name;
 		std::size_t accessorIndex;
+		bool operator==(const Attribute& other) const {
+			return name == other.name &&
+					accessorIndex == other.accessorIndex;
+		}
 	};
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
@@ -2285,6 +2515,18 @@ namespace fastgltf {
             }
             return instancingAttributes.cend();
         }
+
+		bool operator==(const Node& other) const {
+			return meshIndex == other.meshIndex &&
+					skinIndex == other.skinIndex &&
+					cameraIndex == other.cameraIndex &&
+					lightIndex == other.lightIndex &&
+					children == other.children &&
+					weights == other.weights &&
+					transform == other.transform &&
+					instancingAttributes == other.instancingAttributes &&
+					name == other.name;
+		}
     };
 
 	struct DracoCompressedPrimitive {
@@ -2305,6 +2547,11 @@ namespace fastgltf {
 					return it;
 			}
 			return attributes.cend();
+		}
+
+		bool operator==(const DracoCompressedPrimitive& other) const {
+			return bufferView == other.bufferView &&
+					attributes == other.attributes;
 		}
 	};
 
@@ -2361,6 +2608,16 @@ namespace fastgltf {
 			}
 			return targetAttributes.cend();
 		}
+
+		bool operator==(const Primitive& other) const {
+			return attributes == other.attributes &&
+					type == other.type &&
+					targets == other.targets &&
+					indicesAccessor == other.indicesAccessor &&
+					materialIndex == other.materialIndex &&
+					mappings == other.mappings &&
+					compareUniquePtr(dracoCompression, other.dracoCompression);
+		}
 	};
 
     FASTGLTF_EXPORT struct Mesh {
@@ -2368,6 +2625,11 @@ namespace fastgltf {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Mesh& other) const {
+			return primitives == other.primitives &&
+					weights == other.weights &&
+					name == other.name;
+		}
     };
 
     /**
@@ -2393,6 +2655,12 @@ namespace fastgltf {
          * Overrides the textureInfo texCoord value if supplied.
          */
         Optional<std::size_t> texCoordIndex;
+
+		bool operator==(const TextureTransform& other) const {
+			return rotation == other.rotation &&
+					uvOffset == other.uvOffset &&
+					uvScale == other.uvScale;
+		}
     };
 
     FASTGLTF_EXPORT struct TextureInfo {
@@ -2403,14 +2671,30 @@ namespace fastgltf {
          * Data from KHR_texture_transform, and nullptr if the extension wasn't enabled or used.
          */
         std::unique_ptr<TextureTransform> transform;
+
+		bool operator==(const TextureInfo& other) const {
+			return textureIndex == other.textureIndex &&
+					texCoordIndex == other.texCoordIndex &&
+					compareUniquePtr(transform, other.transform);
+		}
     };
 
 	FASTGLTF_EXPORT struct NormalTextureInfo : TextureInfo {
 		num scale = 1.f;
+
+		bool operator==(const NormalTextureInfo& other) const {
+			return scale == other.scale &&
+					TextureInfo::operator==(other);
+		}
 	};
 
 	FASTGLTF_EXPORT struct OcclusionTextureInfo : TextureInfo {
 		num strength = 1.f;
+
+		bool operator==(const OcclusionTextureInfo& other) const {
+			return strength == other.strength &&
+					TextureInfo::operator==(other);
+		}
 	};
 
     FASTGLTF_EXPORT struct PBRData {
@@ -2431,12 +2715,26 @@ namespace fastgltf {
 
         Optional<TextureInfo> baseColorTexture;
         Optional<TextureInfo> metallicRoughnessTexture;
+
+		bool operator==(const PBRData& other) const {
+			return baseColorFactor == other.baseColorFactor &&
+					metallicFactor == other.metallicFactor &&
+					roughnessFactor == other.roughnessFactor &&
+					baseColorTexture == other.baseColorTexture &&
+					metallicRoughnessTexture == other.metallicRoughnessTexture;
+		}
     };
 
 	FASTGLTF_EXPORT struct MaterialAnisotropy {
 		num anisotropyStrength = 0.0f;
 		num anisotropyRotation = 0.0f;
 		Optional<TextureInfo> anisotropyTexture;
+
+		bool operator==(const MaterialAnisotropy& other) const {
+			return anisotropyStrength == other.anisotropyStrength &&
+					anisotropyRotation == other.anisotropyRotation &&
+					anisotropyTexture == other.anisotropyTexture;
+		}
 	};
 
     /**
@@ -2447,7 +2745,14 @@ namespace fastgltf {
         Optional<TextureInfo> specularTexture;
 		math::nvec3 specularColorFactor = math::nvec3(1);
         Optional<TextureInfo> specularColorTexture;
-    };
+
+		bool operator==(const MaterialSpecular& other) const {
+			return specularFactor == other.specularFactor &&
+					specularColorFactor == other.specularColorFactor &&
+					specularTexture == other.specularTexture &&
+					specularColorTexture == other.specularColorTexture;
+		}
+	};
 
     /**
      * Iridescence information from KHR_materials_iridescence
@@ -2459,6 +2764,15 @@ namespace fastgltf {
         num iridescenceThicknessMinimum = 100.0f;
         num iridescenceThicknessMaximum = 400.0f;
         Optional<TextureInfo> iridescenceThicknessTexture;
+
+		bool operator==(const MaterialIridescence& other) const {
+			return iridescenceFactor == other.iridescenceFactor &&
+					iridescenceIor == other.iridescenceIor &&
+					iridescenceThicknessMinimum == other.iridescenceThicknessMinimum &&
+					iridescenceThicknessMaximum == other.iridescenceThicknessMaximum &&
+					iridescenceTexture == other.iridescenceTexture &&
+					iridescenceThicknessTexture == other.iridescenceThicknessTexture;
+		}
     };
 
     /**
@@ -2469,11 +2783,23 @@ namespace fastgltf {
         Optional<TextureInfo> thicknessTexture;
         num attenuationDistance = std::numeric_limits<num>::infinity();
 		math::nvec3 attenuationColor = math::nvec3(1);
+
+		bool operator==(const MaterialVolume& other) const {
+			return thicknessFactor == other.thicknessFactor &&
+					attenuationColor == other.attenuationColor &&
+					thicknessTexture == other.thicknessTexture &&
+					attenuationDistance == other.attenuationDistance;
+		}
     };
 
     FASTGLTF_EXPORT struct MaterialTransmission {
         num transmissionFactor = 0.0f;
         Optional<TextureInfo> transmissionTexture;
+
+		bool operator==(const MaterialTransmission& other) const {
+			return transmissionFactor == other.transmissionFactor &&
+					transmissionTexture == other.transmissionTexture;
+		}
     };
 
     FASTGLTF_EXPORT struct MaterialClearcoat {
@@ -2482,13 +2808,28 @@ namespace fastgltf {
         num clearcoatRoughnessFactor = 0.0f;
         Optional<TextureInfo> clearcoatRoughnessTexture;
         Optional<NormalTextureInfo> clearcoatNormalTexture;
-    };
+
+		bool operator==(const MaterialClearcoat& other) const {
+			return clearcoatFactor == other.clearcoatFactor &&
+					clearcoatRoughnessFactor == other.clearcoatRoughnessFactor &&
+					clearcoatTexture == other.clearcoatTexture &&
+					clearcoatNormalTexture == other.clearcoatNormalTexture &&
+					clearcoatRoughnessTexture == other.clearcoatRoughnessTexture;
+		}
+	};
 
     FASTGLTF_EXPORT struct MaterialSheen {
 		math::nvec3 sheenColorFactor = math::nvec3(0);
         Optional<TextureInfo> sheenColorTexture;
         num sheenRoughnessFactor = 0.0f;
         Optional<TextureInfo> sheenRoughnessTexture;
+
+		bool operator==(const MaterialSheen& other) const {
+			return sheenColorFactor == other.sheenColorFactor &&
+					sheenColorTexture == other.sheenColorTexture &&
+					sheenRoughnessFactor == other.sheenRoughnessFactor &&
+					sheenRoughnessTexture == other.sheenRoughnessTexture;
+		}
     };
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
@@ -2501,6 +2842,13 @@ namespace fastgltf {
 		math::nvec3 specularFactor = math::nvec3(1);
         num glossinessFactor = 1.0f;
         Optional<TextureInfo> specularGlossinessTexture;
+
+		bool operator==(const MaterialSpecularGlossiness& other) const {
+			return diffuseFactor == other.diffuseFactor &&
+					diffuseTexture == other.diffuseTexture &&
+					specularFactor == other.specularFactor &&
+					glossinessFactor == other.glossinessFactor;
+		}
     };
 #endif
 
@@ -2508,6 +2856,12 @@ namespace fastgltf {
 		Optional<TextureInfo> occlusionRoughnessMetallicTexture;
 		Optional<TextureInfo> roughnessMetallicOcclusionTexture;
 		Optional<TextureInfo> normalTexture;
+
+		bool operator==(const MaterialPackedTextures& other) const {
+			return occlusionRoughnessMetallicTexture == other.occlusionRoughnessMetallicTexture &&
+					roughnessMetallicOcclusionTexture == other.roughnessMetallicOcclusionTexture &&
+					normalTexture == other.normalTexture;
+		}
 	};
 
     FASTGLTF_EXPORT struct Material {
@@ -2607,6 +2961,32 @@ namespace fastgltf {
 		std::unique_ptr<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Material& other) const {
+			// compare all members, using compareUniquePtr for unique_ptr members
+			return pbrData == other.pbrData &&
+					normalTexture == other.normalTexture &&
+					occlusionTexture == other.occlusionTexture &&
+					emissiveTexture == other.emissiveTexture &&
+					emissiveFactor == other.emissiveFactor &&
+					alphaMode == other.alphaMode &&
+					doubleSided == other.doubleSided &&
+					unlit == other.unlit &&
+					alphaCutoff == other.alphaCutoff &&
+					emissiveStrength == other.emissiveStrength &&
+					ior == other.ior &&
+					dispersion == other.dispersion &&
+					compareUniquePtr(anisotropy, other.anisotropy) &&
+					compareUniquePtr(clearcoat, other.clearcoat) &&
+					compareUniquePtr(iridescence, other.iridescence) &&
+					compareUniquePtr(sheen, other.sheen) &&
+					compareUniquePtr(specular, other.specular) &&
+					compareUniquePtr(transmission, other.transmission) &&
+					compareUniquePtr(volume, other.volume) &&
+					packedNormalMetallicRoughnessTexture == other.packedNormalMetallicRoughnessTexture &&
+					compareUniquePtr(packedOcclusionRoughnessMetallicTextures, other.packedOcclusionRoughnessMetallicTextures) &&
+					name == other.name;
+		}
     };
 
     FASTGLTF_EXPORT struct Texture {
@@ -2638,12 +3018,26 @@ namespace fastgltf {
 		Optional<std::size_t> webpImageIndex;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Texture& other) const {
+			return samplerIndex == other.samplerIndex &&
+					imageIndex == other.imageIndex &&
+					basisuImageIndex == other.basisuImageIndex &&
+					ddsImageIndex == other.ddsImageIndex &&
+					webpImageIndex == other.webpImageIndex &&
+					name == other.name;
+		}
     };
 
     FASTGLTF_EXPORT struct Image {
         DataSource data;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Image& other) const {
+			return data == other.data &&
+					name == other.name;
+		}
     };
 
     FASTGLTF_EXPORT struct SparseAccessor {
@@ -2653,6 +3047,14 @@ namespace fastgltf {
         std::size_t valuesBufferView;
         std::size_t valuesByteOffset = 0;
         ComponentType indexComponentType;
+
+		bool operator==(const SparseAccessor& other) const {
+			return count == other.count &&
+					indicesBufferView == other.indicesBufferView &&
+					indicesByteOffset == other.indicesByteOffset &&
+					valuesBufferView == other.valuesBufferView &&
+					valuesByteOffset == other.valuesByteOffset;
+		}
     };
 
 	FASTGLTF_EXPORT struct Accessor {
@@ -2716,6 +3118,19 @@ namespace fastgltf {
 					min->set<T>(i, value[i]);
 			}
 		}
+
+		bool operator==(const Accessor& other) const {
+			return byteOffset == other.byteOffset &&
+					count == other.count &&
+					type == other.type &&
+					componentType == other.componentType &&
+					normalized == other.normalized &&
+					max == other.max &&
+					min == other.min &&
+					bufferViewIndex == other.bufferViewIndex &&
+					sparse == other.sparse &&
+					name == other.name;
+		}
 	};
 
     FASTGLTF_EXPORT struct CompressedBufferView {
@@ -2727,6 +3142,17 @@ namespace fastgltf {
         MeshoptCompressionFilter filter;
 
         std::size_t byteStride;
+
+		bool operator==(const CompressedBufferView& other) const {
+			return bufferIndex == other.bufferIndex &&
+				   byteOffset == other.byteOffset &&
+				   byteLength == other.byteLength &&
+				   count == other.count &&
+				   mode == other.mode &&
+				   filter == other.filter &&
+				   byteStride == other.byteStride;
+		}
+		
     };
 
     FASTGLTF_EXPORT struct BufferView {
@@ -2743,6 +3169,22 @@ namespace fastgltf {
         std::unique_ptr<CompressedBufferView> meshoptCompression;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const BufferView& other) const {
+			bool eq = bufferIndex == other.bufferIndex &&
+				   byteOffset == other.byteOffset &&
+				   byteLength == other.byteLength &&
+				   byteStride == other.byteStride &&
+				   target == other.target &&
+				   !meshoptCompression == !other.meshoptCompression;
+			if (!eq) {
+				return false;
+			}
+			if (!meshoptCompression) {
+				return true;
+			}
+			return *meshoptCompression == *other.meshoptCompression;
+		}
     };
 
     FASTGLTF_EXPORT struct Buffer {
@@ -2751,6 +3193,31 @@ namespace fastgltf {
         DataSource data;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Buffer& other) const {
+			return byteLength == other.byteLength &&
+				   data == other.data &&
+				   name == other.name;
+		}
+
+		// This is for the tests; rewritting a GLB file can change the length because of alignment padding
+		bool equivalent(const Buffer& other) const {
+			if ((fastgltf::alignUp(byteLength, 4) != fastgltf::alignUp(other.byteLength, 4)) || name != other.name) {
+				return false;
+			}
+			auto minSize = std::min(byteLength, other.byteLength);
+			if (!fastgltf::compareDataSource(data, other.data, minSize)){
+				return false;
+			}
+			// if the sizes don't match, check the extra bytes of the bigger buffer to make sure they are all 0s
+			if (byteLength != other.byteLength) {
+				auto extraBytes = std::max(byteLength, other.byteLength) - minSize;
+				auto extraBytes2 = std::max(byteLength, other.byteLength) - minSize;
+				// return std::all_of(data.begin() + minSize, data.begin() + minSize + extraBytes, [](std::byte b) { return b == 0; });
+			}
+			return true;
+		}
+
     };
 
     FASTGLTF_EXPORT struct Light {
@@ -2768,6 +3235,15 @@ namespace fastgltf {
         Optional<num> outerConeAngle;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Light& other) const {
+			return type == other.type &&
+					color == other.color &&
+					range == other.range &&
+					innerConeAngle == other.innerConeAngle &&
+					outerConeAngle == other.outerConeAngle &&
+					name == other.name;
+		}
     };
 
 	class ChunkMemoryResource;
@@ -2781,6 +3257,24 @@ namespace fastgltf {
 		// alive until the end.
 		std::shared_ptr<std::pmr::monotonic_buffer_resource> memoryResource;
 #endif
+
+	bool nonBufferMembersEqual(const Asset& other) const {
+		return accessors == other.accessors &&
+		animations == other.animations &&
+		bufferViews == other.bufferViews &&
+		cameras == other.cameras &&
+		images == other.images &&
+		lights == other.lights &&
+		materials == other.materials &&
+		meshes == other.meshes &&
+		nodes == other.nodes &&
+		samplers == other.samplers &&
+		scenes == other.scenes &&
+		skins == other.skins &&	
+		textures == other.textures &&
+		materialVariants == other.materialVariants &&
+		availableCategories == other.availableCategories;
+	}
 
 	public:
         /**
@@ -2891,6 +3385,28 @@ namespace fastgltf {
 			memoryResource = std::move(other.memoryResource);
 #endif
 			return *this;
+		}
+
+
+		bool operator==(const Asset& other) const {
+			// in order, every member
+			return nonBufferMembersEqual(other) &&
+					buffers == other.buffers;
+		}
+
+		bool equivalent(const Asset& other) const {
+			if (!nonBufferMembersEqual(other)) {
+				return false;
+			}
+			if (buffers.size() != other.buffers.size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < buffers.size(); ++i) {
+				if (!buffers[i].equivalent(other.buffers[i])) {
+					return false;
+				}
+			}
+			return true;
 		}
     };
 #pragma endregion
