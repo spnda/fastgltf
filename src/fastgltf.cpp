@@ -665,6 +665,11 @@ bool fg::URI::isLocalPath() const noexcept {
 bool fg::URI::isDataUri() const noexcept {
 	return view.isDataUri();
 }
+
+bool fg::URI::operator==(const URI& other) const {
+	FASTGLTF_REQUIRE(view.string() == other.view.string());
+	return true;
+}
 #pragma endregion
 
 #pragma region glTF parsing
