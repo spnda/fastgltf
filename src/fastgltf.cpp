@@ -24,7 +24,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "fastgltf/types.hpp"
 #if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L)
 #error "fastgltf requires C++17"
 #endif
@@ -4936,21 +4935,17 @@ namespace fastgltf {
 	// replacement for std::to_string that uses simdjson's grisu2 implementation, which is
 	// (1) bidirectionally lossless (std::to_string is not)
 	// (2) quite a lot faster than std::to_chars and std::to_string.
-	std::string to_string_fp(const num& value) {
+	template<typename T>
+	std::string to_string_fp(const T& value) {
+		static_assert(std::is_floating_point_v<T>, "T must be a floating point type");
 		char buffer[30] = {};
 
 		// TODO: Include a own copy of grisu2 instead of accessing functions from simdjson's internal namespace?
 		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), value);
 		return {std::begin(buffer), end};
 	}
-	
-	std::string to_string_fp_double(const double& value) {
-		char buffer[30] = {};
-		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), value);
-		return {std::begin(buffer), end};
-	}
 
-    std::string to_string(const math::fvec2 value) {
+	std::string to_string(const math::fvec2 value) {
 		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]);
 	}
 
@@ -5063,9 +5058,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 			if (sparse.indicesByteOffset != 0) {
 				json += "\"byteOffset\":" + std::to_string(sparse.indicesByteOffset) + ',';
 			}
-			// only get the lower 13 bits
-			uint16_t componentType = static_cast<uint16_t>(sparse.indexComponentType) & 0x1FFF;
-			json += "\"componentType\":" + std::to_string(componentType);
+			json += "\"componentType\":" + std::to_string(getGLComponentType(sparse.indexComponentType));
 			json += "},";
 			json += "\"values\":{";
 			json += "\"bufferView\":" + std::to_string(sparse.valuesBufferView);
@@ -5082,7 +5075,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 
 			for (std::size_t i = 0; i < ref->size(); ++i) {
 				if (ref->isType<double>()) {
-					json += to_string_fp_double(ref->get<double>(i));
+					json += to_string_fp(ref->get<double>(i));
 				} else if (ref->isType<std::int64_t>()) {
 					json += std::to_string(ref->get<std::int64_t>(i));
 				}
@@ -5399,28 +5392,6 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 		json += ',';
 
 	json += "\"images\":[";
-
-	auto imagePathsHasPath = [&] (const std::filesystem::path &path) {
-		for (auto& imagePath : imagePaths) {
-			if (imagePath.has_value() && *imagePath == path) {
-				return true;
-			}
-		}
-		return false;
-	};
-
-	auto addPath = [&] (const std::filesystem::path &path) {
-		// while it's still present, add "-1", "-2", "-3", etc. to the path
-		// e.g. RoughnessGrid.png -> RoughnessGrid-1.png
-		auto newPath = path;
-		int i = 1;
-		while (imagePathsHasPath(newPath)) {
-			newPath = path.parent_path() / (path.stem().string() + "-" + std::to_string(i) + path.extension().string());
-			++i;
-		}
-		imagePaths.emplace_back(newPath);
-		return newPath;
-	};
 	
 	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
 		json += '{';
@@ -5436,14 +5407,16 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
                 imagePaths.emplace_back(std::nullopt);
             },
             [&](const sources::Array& vector) {
-                auto path = addPath(getImageFilePath(asset, imageIdx, vector.mimeType));
+                auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+				imagePaths.emplace_back(path);
                 json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
             },
 			[&](const sources::Vector& vector) {
-				auto path = addPath(getImageFilePath(asset, imageIdx, vector.mimeType));
+                auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+				imagePaths.emplace_back(path);
 				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
@@ -6838,10 +6811,30 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
     }
 
     const auto& imageName = asset.images[index].name;
+	fs::path p;
 	if (imageName.empty()) {
-		return imageFolder / ("image" + std::to_string(index) + std::string(extension));
+		p = imageFolder / ("image" + std::to_string(index) + std::string(extension));
+	} else {
+		p = imageFolder / (std::string(imageName) + std::string(extension));
 	}
-	return imageFolder / (std::string(imageName) + std::string(extension));
+	std::string p_stem = p.parent_path() / p.stem();
+	// Ensure the file name is unique
+	std::size_t counter = 1;
+	while (true) {
+		bool found = false;
+		for (auto& imagePath : imagePaths) {
+			if (imagePath.has_value() && *imagePath == p) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			break;
+		}
+		p = p_stem + "-" + std::to_string(counter) + std::string(extension);
+		counter++;
+	}
+	return p;
 }
 
 std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {

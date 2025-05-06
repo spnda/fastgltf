@@ -38,8 +38,6 @@ tests/gltf_loaders/
 tests/gltf/export/
 tests/gltf/export_glb/
 tests/gltf/export_gltf/
-tests/gltf/glTF-new-assets/
-tests/gltf/OMI_*/
 tests/gltf/gltf_validator
 
 # gltf Rust wrapper

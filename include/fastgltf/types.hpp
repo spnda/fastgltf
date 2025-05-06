@@ -704,14 +704,15 @@ namespace fastgltf {
 
         bool operator==(const StaticVector<value_type>& other) const {
         	FASTGLTF_REQUIRE(other.size() == size());
-        	FASTGLTF_REQUIRE(std::memcmp(data(), other.data(), size_bytes()) == 0);
+        	// FASTGLTF_REQUIRE(std::memcmp(data(), other.data(), size_bytes()) == 0);
+			FASTGLTF_REQUIRE(std::equal(begin(), end(), other.begin()));
         	return true;
         }
 
         // This is mostly just here for compatibility and the tests
         bool operator==(const std::vector<value_type>& other) const {
             FASTGLTF_REQUIRE(other.size() == size());
-            FASTGLTF_REQUIRE(std::memcmp(data(), other.data(), size_bytes()) == 0);
+			FASTGLTF_REQUIRE(std::equal(begin(), end(), other.begin()));
         	return true;
         }
     };
@@ -1066,10 +1067,9 @@ namespace fastgltf {
         }
 
 		bool operator==(const SmallVector& other) const {
-			if (size() != other.size()) {
-				return false;
-			}
-			return std::equal(begin(), end(), other.begin(), other.end());
+			FASTGLTF_REQUIRE(size() == other.size());
+			FASTGLTF_REQUIRE(std::equal(begin(), end(), other.begin(), other.end()));
+			return true;
 		}
     };
 
@@ -1701,13 +1701,9 @@ namespace fastgltf {
 			FASTGLTF_REQUIRE(dataType == other.dataType);
 			FASTGLTF_REQUIRE(len == other.len);
 			if (dataType == BoundsType::int64) {
-				for (std::size_t i = 0; i < len; ++i) {
-					FASTGLTF_REQUIRE(int64_buffer.get()[i] == other.int64_buffer.get()[i]);
-				}
+				FASTGLTF_REQUIRE(std::equal(int64_buffer.get(), int64_buffer.get() + len, other.int64_buffer.get()));
 			} else {
-				for (std::size_t i = 0; i < len; ++i) {
-					FASTGLTF_REQUIRE(float64_buffer.get()[i] == other.float64_buffer.get()[i]);
-				}
+				FASTGLTF_REQUIRE(std::equal(float64_buffer.get(), float64_buffer.get() + len, other.float64_buffer.get()));
 			}
 			return true;
 		}
@@ -1814,13 +1810,6 @@ namespace fastgltf {
 		constexpr span(const span& other) noexcept = default;
 		constexpr span& operator=(const span& other) = default;
 
-		constexpr bool operator==(const span& other) const {
-			if (_size != other._size) {
-				return false;
-			}
-			return std::equal(data(), data() + _size, other.data());
-		}
-
 		[[nodiscard]] constexpr iterator begin() const noexcept {
 			return data();
 		}
@@ -1892,6 +1881,15 @@ namespace fastgltf {
 
     FASTGLTF_EXPORT using CustomBufferId = std::uint64_t;
 
+	template <typename T>
+	constexpr bool span_equals(const span<T>& first, const span<T>& other) {
+		if (first.size() != other.size()) {
+			return false;
+		}
+		return std::equal(first.data(), first.data() + first.size(), other.data());
+	}
+
+
     /**
      * Namespace for structs that describe individual sources of data for images and/or buffers.
      */
@@ -1954,7 +1952,7 @@ namespace fastgltf {
             span<const std::byte> bytes;
             MimeType mimeType = MimeType::None;
 			bool operator==(const ByteView& other) const {
-				FASTGLTF_REQUIRE(bytes == other.bytes);
+				FASTGLTF_REQUIRE(span_equals(bytes, other.bytes));
 				FASTGLTF_REQUIRE(mimeType == other.mimeType);
 				return true;
 			}
@@ -3307,24 +3305,24 @@ namespace fastgltf {
 		std::shared_ptr<std::pmr::monotonic_buffer_resource> memoryResource;
 #endif
 
-	bool nonBufferMembersEqual(const Asset& other) const {
-		FASTGLTF_REQUIRE(accessors == other.accessors);
-		FASTGLTF_REQUIRE(animations == other.animations);
-		FASTGLTF_REQUIRE(bufferViews == other.bufferViews);
-		FASTGLTF_REQUIRE(cameras == other.cameras);
-		FASTGLTF_REQUIRE(images == other.images);
-		FASTGLTF_REQUIRE(lights == other.lights);
-		FASTGLTF_REQUIRE(materials == other.materials);
-		FASTGLTF_REQUIRE(meshes == other.meshes);
-		FASTGLTF_REQUIRE(nodes == other.nodes);
-		FASTGLTF_REQUIRE(samplers == other.samplers);
-		FASTGLTF_REQUIRE(scenes == other.scenes);
-		FASTGLTF_REQUIRE(skins == other.skins);	
-		FASTGLTF_REQUIRE(textures == other.textures);
-		FASTGLTF_REQUIRE(materialVariants == other.materialVariants);
-		FASTGLTF_REQUIRE(availableCategories == other.availableCategories);
-		return true;
-	}
+		bool nonBufferMembersEqual(const Asset& other) const {
+			FASTGLTF_REQUIRE(accessors == other.accessors);
+			FASTGLTF_REQUIRE(animations == other.animations);
+			FASTGLTF_REQUIRE(bufferViews == other.bufferViews);
+			FASTGLTF_REQUIRE(cameras == other.cameras);
+			FASTGLTF_REQUIRE(images == other.images);
+			FASTGLTF_REQUIRE(lights == other.lights);
+			FASTGLTF_REQUIRE(materials == other.materials);
+			FASTGLTF_REQUIRE(meshes == other.meshes);
+			FASTGLTF_REQUIRE(nodes == other.nodes);
+			FASTGLTF_REQUIRE(samplers == other.samplers);
+			FASTGLTF_REQUIRE(scenes == other.scenes);
+			FASTGLTF_REQUIRE(skins == other.skins);	
+			FASTGLTF_REQUIRE(textures == other.textures);
+			FASTGLTF_REQUIRE(materialVariants == other.materialVariants);
+			FASTGLTF_REQUIRE(availableCategories == other.availableCategories);
+			return true;
+		}
 
 	public:
         /**
