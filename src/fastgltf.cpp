@@ -5787,6 +5787,42 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 			}
 			json += '}';
 		}
+#if FASTGLTF_ENABLE_DEPRECATED_EXT
+		if (it->specularGlossiness)
+		{
+			if (json.back() == '}') json += ',';
+			json += R"("KHR_materials_pbrSpecularGlossiness":{)";
+			if (it->specularGlossiness->diffuseFactor != math::nvec4(1)) {
+				json += R"("diffuseFactor":[)" +
+						to_string_fp(it->specularGlossiness->diffuseFactor[0]) + ',' +
+						to_string_fp(it->specularGlossiness->diffuseFactor[1]) + ',' +
+						to_string_fp(it->specularGlossiness->diffuseFactor[2]) + ',' +
+						to_string_fp(it->specularGlossiness->diffuseFactor[3]) + ']';
+			}
+			if (it->specularGlossiness->diffuseTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"diffuseTexture\":";
+				writeTextureInfo(json, &it->specularGlossiness->diffuseTexture.value());
+			}
+			if (it->specularGlossiness->specularFactor != math::nvec3(1)) {
+				if (json.back() != '{') json += ',';
+				json += R"("specularFactor":[)" +
+						to_string_fp(it->specularGlossiness->specularFactor[0]) + ',' +
+						to_string_fp(it->specularGlossiness->specularFactor[1]) + ',' +
+						to_string_fp(it->specularGlossiness->specularFactor[2]) + ']';
+			}
+			if (it->specularGlossiness->glossinessFactor != 1.0) {
+				if (json.back() != '{') json += ',';
+				json += R"("glossinessFactor":)" + to_string_fp(it->specularGlossiness->glossinessFactor);
+			}
+			if (it->specularGlossiness->specularGlossinessTexture.has_value()) {
+				if (json.back() != '{') json += ',';
+				json += "\"specularGlossinessTexture\":";
+				writeTextureInfo(json, &it->specularGlossiness->specularGlossinessTexture.value());
+			}
+			json += '}';
+		}
+#endif
 
 		if (it->transmission) {
 			if (json.back() == '}') json += ',';
