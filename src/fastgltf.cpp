@@ -6746,14 +6746,16 @@ void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& js
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-	if (json.back() == ']' || json.back() == '}') {
-		json += ',';
-	}
-	json += R"("KHR_physics_rigid_bodies":{)";
-	writePhysicsMaterials(asset, json);
-	writeCollisionFilters(asset, json);
-    writePhysicsJoints(asset, json);
-	json += '}';
+	if (!asset.physicsMaterials.empty() || !asset.collisionFilters.empty() || !asset.physicsJoints.empty()) {
+		if (json.back() == ']' || json.back() == '}') {
+			json += ',';
+		}
+        json += R"("KHR_physics_rigid_bodies":{)";
+        writePhysicsMaterials(asset, json);
+        writeCollisionFilters(asset, json);
+        writePhysicsJoints(asset, json);
+        json += '}';
+    }
 #endif
 
 	if (!asset.materialVariants.empty()) {
