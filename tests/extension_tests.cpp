@@ -481,6 +481,70 @@ TEST_CASE("Extension KHR_materials_variant", "[gltf-loader]") {
 	REQUIRE(primitive.mappings[4] == 6U);
 }
 
+TEST_CASE("Extension GODOT_single_root", "[gltf-loader]") {
+	fastgltf::Parser parser(fastgltf::Extensions::GODOT_single_root);
+	auto godotSingleRootValid = path / "godot_single_root_valid.gltf";
+	fastgltf::GltfFileStream jsonData(godotSingleRootValid);
+	REQUIRE(jsonData.isOpen());
+	auto asset = parser.loadGltfJson(jsonData, godotSingleRootValid, fastgltf::Options::DecomposeNodeMatrices);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	SECTION("Valid") {
+		REQUIRE(asset->extensionsUsed.size() == 1);
+		REQUIRE(asset->extensionsUsed[0] == "GODOT_single_root");
+		REQUIRE(asset->scenes.size() == 1);
+		REQUIRE(asset->defaultScene == 0);
+		REQUIRE(asset->scenes[0].nodeIndices.size() == 1);
+		REQUIRE(asset->scenes[0].nodeIndices[0] == 0);
+		REQUIRE(std::holds_alternative<fastgltf::TRS>(asset->nodes[0].transform));
+		fastgltf::TRS trs = std::get<fastgltf::TRS>(asset->nodes[0].transform);
+		fastgltf::TRS defaultTRS;
+		REQUIRE(trs.rotation == defaultTRS.rotation);
+		REQUIRE(trs.scale == defaultTRS.scale);
+		REQUIRE(trs.translation == defaultTRS.translation);
+	}
+	SECTION("Invalid - multiple scenes")
+	{
+		asset->scenes.push_back({{1}, "Another Scene"});
+		REQUIRE(asset->scenes.size() == 2);
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::InvalidGltf);
+		asset->scenes.pop_back();
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	}
+	SECTION("Invalid - DefaultScene is non-zero")
+	{
+		asset->defaultScene = 1;
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::InvalidGltf);
+		asset->defaultScene = 0;
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	}
+	SECTION("Invalid - scene with non-zero nodeIndex")
+	{
+		asset->scenes[0].nodeIndices[0] = 1;
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::InvalidGltf);
+		asset->scenes[0].nodeIndices[0] = 0;
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	}
+	SECTION("Invalid - scene with multiple root nodes")
+	{
+		asset->scenes[0].nodeIndices.push_back(1);
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::InvalidGltf);
+		asset->scenes[0].nodeIndices.pop_back();
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	}
+	SECTION("Invalid - root node with non-default transform")
+	{
+		asset->nodes[0].transform = fastgltf::TRS{
+			fastgltf::math::fvec3(1.0f),
+			fastgltf::math::fquat(1.0f, 1.0f, 1.0f, 1.0f),
+			fastgltf::math::fvec3(0.5f)
+		};
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::InvalidGltf);
+		asset->nodes[0].transform = fastgltf::TRS{};
+		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	}
+}
+
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
