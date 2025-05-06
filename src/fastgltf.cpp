@@ -1012,6 +1012,8 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 		if (animation.channels.empty())
 			return Error::InvalidGltf;
 		for (const auto& channel1 : animation.channels) {
+			if (!channel1.nodeIndex.has_value())
+				continue;
 			for (const auto& channel2 : animation.channels) {
 				if (&channel1 == &channel2)
 					continue;
