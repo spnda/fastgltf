@@ -4937,6 +4937,12 @@ namespace fastgltf {
 		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), value);
 		return {std::begin(buffer), end};
 	}
+	
+	std::string to_string_fp_double(const double& value) {
+		char buffer[30] = {};
+		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), value);
+		return {std::begin(buffer), end};
+	}
 
     std::string to_string(const math::fvec2 value) {
 		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]);
@@ -5048,7 +5054,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 
 			for (std::size_t i = 0; i < ref->size(); ++i) {
 				if (ref->isType<double>()) {
-					json += to_string_fp(static_cast<num>(ref->get<double>(i)));
+					json += to_string_fp_double(ref->get<double>(i));
 				} else if (ref->isType<std::int64_t>()) {
 					json += std::to_string(ref->get<std::int64_t>(i));
 				}
