@@ -228,6 +228,9 @@ namespace fastgltf {
 #endif
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Vendor/GODOT_single_root
 		GODOT_single_root = 1 << 29,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_diffuse_transmission
+		KHR_materials_diffuse_transmission = 1 << 30,
     };
     // clang-format on
 
@@ -351,6 +354,7 @@ namespace fastgltf {
 	    constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
 	    constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
         constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
+		constexpr std::string_view KHR_materials_diffuse_transmission = "KHR_materials_diffuse_transmission";
 		constexpr std::string_view GODOT_single_root = "GODOT_single_root";
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
@@ -395,6 +399,7 @@ namespace fastgltf {
 		{ extensions::MSFT_packing_normalRoughnessMetallic,     Extensions::MSFT_packing_normalRoughnessMetallic },
 		{ extensions::MSFT_packing_occlusionRoughnessMetallic,  Extensions::MSFT_packing_occlusionRoughnessMetallic },
 		{ extensions::MSFT_texture_dds,                         Extensions::MSFT_texture_dds },
+		{ extensions::KHR_materials_diffuse_transmission,       Extensions::KHR_materials_diffuse_transmission },
 		{ extensions::GODOT_single_root,                        Extensions::GODOT_single_root },
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT

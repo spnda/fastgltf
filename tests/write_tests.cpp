@@ -1,8 +1,6 @@
-#include <algorithm>
 #include <cinttypes>
 #include <cstdint>
 #include <fstream>
-
 #include <catch2/catch_test_macros.hpp>
 
 #include <simdjson.h>
@@ -102,6 +100,125 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
 	REQUIRE(std::filesystem::exists(exportedFolder / "image1.bin"));
 }
 
+bool run_official_gltf_validator(const std::filesystem::path &model_path) {
+	if (!std::filesystem::exists(gltfValidator)) {
+		return false;
+	}
+	// run the validator on the model
+	std::string command = std::string(gltfValidator) + " -m " + model_path.string();
+	auto result = std::system(command.c_str());
+	if (result != 0) {
+		return false;
+	}
+	return true;
+}
+
+void test_glb_rewrite(const std::filesystem::path &model_parent_dir, const std::filesystem::path &model_file, bool skip_official_validator = false) {
+	if (!skip_official_validator && !std::filesystem::exists(gltfValidator)) {
+		SKIP("Failed to find the official glTF validator (download and unzip to tests/gltf/gltf_validator)");
+		return;
+	}
+
+	if (!skip_official_validator && !run_official_gltf_validator(sampleAssets / model_parent_dir / model_file)) {
+		auto report = std::string( "Failed to validate the model: " + (model_parent_dir / model_file).string());
+		SKIP(report.c_str());
+		return;
+	}
+	
+	auto sampleDir = sampleAssets / model_parent_dir;
+	auto samplePath = sampleDir / model_file;
+	fastgltf::GltfFileStream sampleFileStream(samplePath);
+	REQUIRE(sampleFileStream.isOpen());
+	static constexpr auto requiredExtensions = static_cast<fastgltf::Extensions>(~0U);
+
+
+	//std hashset
+	for (const auto& [name, value] : fastgltf::extensionStrings) {
+		REQUIRE((requiredExtensions & value) == value);
+	}
+	fastgltf::Parser parser(requiredExtensions);
+	auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages ;
+	fastgltf::Expected<fastgltf::Asset> asset = model_file.extension() == ".gltf" ?
+		parser.loadGltfJson(sampleFileStream, sampleDir, options) :
+		parser.loadGltfBinary(sampleFileStream, sampleDir, options);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	// Destroy the directory to make sure that the FileExporter correctly creates directories.
+	auto exportedFolder = path / "export_glb";
+
+	fastgltf::FileExporter exporter;
+	auto model_base_name = model_file.stem();
+	auto exportedGLTFDir = exportedFolder / "rewritten_gltf" / model_parent_dir;
+	auto exportedGLBDir = exportedFolder / "rewritten_glb" / model_parent_dir;
+	auto exportedGLTFPath = exportedGLTFDir / model_base_name += ".gltf";
+	auto exportedGLBPath = exportedGLBDir / model_base_name += ".glb";
+	if (std::filesystem::exists(exportedGLBPath.parent_path())) {
+		// rimraf
+		std::error_code ec;
+		std::filesystem::remove_all(exportedGLBDir, ec);
+		REQUIRE(!ec);
+	}
+	// ensure dir
+	std::filesystem::create_directories(exportedGLBPath.parent_path());
+	auto error = exporter.writeGltfBinary(asset.get(), exportedGLBPath, fastgltf::ExportOptions::ValidateAsset);
+	REQUIRE(error == fastgltf::Error::None);
+	REQUIRE(std::filesystem::exists(exportedGLBPath));
+
+	// Re-read the GLB
+	if (!skip_official_validator) {
+		auto result = run_official_gltf_validator(exportedGLBPath);
+		REQUIRE(result);
+	}
+	fastgltf::Parser new_parser(requiredExtensions);
+	fastgltf::GltfFileStream rewrittenGlb(exportedGLBPath);
+	REQUIRE(rewrittenGlb.isOpen());
+	fastgltf::Expected<fastgltf::Asset> rewrittenAsset = new_parser.loadGltfBinary(rewrittenGlb, exportedGLBPath.parent_path(), options);
+	REQUIRE(rewrittenAsset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(rewrittenAsset.get()) == fastgltf::Error::None);
+	// Test that the rewritten asset is equivalent to the original asset
+	REQUIRE(asset.get().equivalent(rewrittenAsset.get()));
+}
+
+std::vector<std::filesystem::path> getSampleAssets(const std::filesystem::path& dir, bool include_text = false, bool include_binary = false) {
+  std::vector<std::filesystem::path> models;
+	for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+		if (entry.is_directory()) {
+			auto subModels = getSampleAssets(entry.path(), include_text, include_binary);
+			models.insert(models.end(), subModels.begin(), subModels.end());
+		} else if (entry.is_regular_file()) {
+			auto ext = entry.path().extension();
+			if (include_text && ext == ".gltf") {
+				models.push_back(entry.path());
+			} else if (include_binary && ext == ".glb") {
+				models.push_back(entry.path());
+			}
+		}
+	}
+    return models;
+}
+
+TEST_CASE("Try writing a GLB with all buffers and images (ALL MODELS)", "[write-tests]") {
+	auto models = getSampleAssets(sampleAssets / "Models", false, true);
+
+	for (const auto& model : models) {
+		// get the directory relative to sampleAssets
+		auto rel_dir = std::filesystem::relative(model, sampleAssets);
+		SECTION(rel_dir.string()) {
+			// we want to get the relative directory to sampleAssets
+			auto model_parent_path = std::filesystem::relative(model.parent_path(), sampleAssets);
+			test_glb_rewrite(model_parent_path, model.filename(), true);
+		}
+	}
+}
+
+
+TEST_CASE("Try writing a GLB with all buffers and images with official validator (DUCK)", "[write-tests]")
+{
+	test_glb_rewrite(std::filesystem::path("Models") / "Duck" / "glTF-Binary", "Duck.glb", false);
+}
+
+
 TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
 
@@ -170,13 +287,18 @@ TEST_CASE("Test pretty-print", "[write-tests]") {
 TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 	// Enable all extensions
 	static constexpr auto requiredExtensions = static_cast<fastgltf::Extensions>(~0U);
+	const auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages
+	#if FASTGLTF_PARSE_EXTRAS_AND_ADDITIONAL_EXTENSIONS
+		| fastgltf::Options::ParseAdditionalExtensionsAndExtras
+	#endif
+	;
 	fastgltf::Parser parser(requiredExtensions);
 
-	static std::filesystem::path folderPath = "";
+	static auto folderPath = sampleAssets / "Models";
 	if (folderPath.empty()) {
 		SKIP();
 	}
-
+	static auto exportedFolder = path / "export_gltf";
 	std::uint64_t testedAssets = 0;
 	for (const auto& entry : std::filesystem::recursive_directory_iterator(folderPath)) {
 		if (!entry.is_regular_file())
@@ -186,35 +308,60 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 			continue;
 		if (epath.extension() != ".gltf" && epath.extension() != ".glb")
 			continue;
+		const auto rel = std::filesystem::relative(epath, folderPath);
+		SECTION(rel.string())
+		{
+			auto modelParentDir = rel.parent_path();
+			auto modelBaseName = rel.filename().stem();
+			auto exportedGLTFPath = exportedFolder / "rewritten_gltf" / modelParentDir / modelBaseName += ".gltf";
+			auto exportedDir = exportedGLTFPath.parent_path();
+			if (std::filesystem::exists(exportedDir)) {
+				std::error_code ec;
+				std::filesystem::remove_all(exportedDir, ec);
+				REQUIRE(!ec);
+			}
+			if (!std::filesystem::exists(exportedDir)) {
+				std::filesystem::create_directories(exportedDir);
+			}
+			
+			// Parse the glTF
+			fastgltf::GltfFileStream gltfData(epath);
+			auto model = parser.loadGltf(gltfData, epath.parent_path(), options);
+			if (model.error() == fastgltf::Error::UnsupportedVersion || model.error() == fastgltf::Error::UnknownRequiredExtension || model.error() == fastgltf::Error::InvalidOrMissingAssetField)
+				continue; // Skip any glTF 1.0 or 0.x files or glTFs with unsupported extensions.
 
-		// Parse the glTF
-		fastgltf::GltfFileStream gltfData(epath);
-		auto model = parser.loadGltf(gltfData, epath.parent_path());
-		if (model.error() == fastgltf::Error::UnsupportedVersion || model.error() == fastgltf::Error::UnknownRequiredExtension || model.error() == fastgltf::Error::InvalidOrMissingAssetField)
-			continue; // Skip any glTF 1.0 or 0.x files or glTFs with unsupported extensions.
+			REQUIRE(model.error() == fastgltf::Error::None);
+			REQUIRE(fastgltf::validate(model.get()) == fastgltf::Error::None);
 
-		REQUIRE(model.error() == fastgltf::Error::None);
-		REQUIRE(fastgltf::validate(model.get()) == fastgltf::Error::None);
+			fastgltf::ExportOptions exportOptions = fastgltf::ExportOptions::None;
+			// Don't pretty print the performance tests, it takes forever
+			if (modelBaseName.string().find("Performance") == std::string::npos) {
+				exportOptions |= fastgltf::ExportOptions::PrettyPrintJson;
+			}
+			{
+				fastgltf::Exporter exporter;
+				auto exported = exporter.writeGltfJson(model.get());
+				REQUIRE(exported.error() == fastgltf::Error::None);
+			
+				// UTF-8 validation on the exported JSON string
+				auto& exportedJson = exported.get().output;
+				REQUIRE(simdjson::validate_utf8(exportedJson));
+			}
+			fastgltf::FileExporter exporter;
+			auto error = exporter.writeGltfJson(model.get(), exportedGLTFPath, exportOptions);
+			REQUIRE(error == fastgltf::Error::None);
+			REQUIRE(std::filesystem::exists(exportedGLTFPath));
 
-		// Re-export the glTF as an in-memory JSON
-		fastgltf::Exporter exporter;
-		auto exported = exporter.writeGltfJson(model.get());
-		REQUIRE(exported.error() == fastgltf::Error::None);
-
-		// UTF-8 validation on the exported JSON string
-		auto& exportedJson = exported.get().output;
-		REQUIRE(simdjson::validate_utf8(exportedJson));
-
-		// Parse the re-generated glTF and validate
-		auto regeneratedJson = fastgltf::GltfDataBuffer::FromBytes(
-				reinterpret_cast<const std::byte*>(exportedJson.data()), exportedJson.size());
-		REQUIRE(regeneratedJson.error() == fastgltf::Error::None);
-		auto regeneratedModel = parser.loadGltf(regeneratedJson.get(), epath.parent_path());
-		REQUIRE(regeneratedModel.error() == fastgltf::Error::None);
-
-		REQUIRE(fastgltf::validate(regeneratedModel.get()) == fastgltf::Error::None);
-
-		++testedAssets;
+			// load it
+			fastgltf::GltfFileStream regeneratedData(exportedGLTFPath);
+			REQUIRE(regeneratedData.isOpen());
+			auto regeneratedModel = parser.loadGltfJson(regeneratedData, exportedGLTFPath.parent_path(), options);
+			REQUIRE(regeneratedModel.error() == fastgltf::Error::None);
+			REQUIRE(fastgltf::validate(regeneratedModel.get()) == fastgltf::Error::None);
+			// Test that the rewritten asset is equivalent to the original asset
+			REQUIRE(model.get().equivalent(regeneratedModel.get()));
+			++testedAssets;
+		}
 	}
 	printf("Successfully tested fastgltf exporter on %" PRIu64 " assets.", testedAssets);
 }

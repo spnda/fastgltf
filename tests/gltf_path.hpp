@@ -6,5 +6,6 @@
 inline auto path = std::filesystem::path { __FILE__ }.parent_path() / "gltf";
 inline auto sampleAssets = std::filesystem::path { __FILE__ }.parent_path() / "gltf" / "glTF-Sample-Assets";
 inline auto physicsSampleAssets = std::filesystem::path{ __FILE__ }.parent_path() / "gltf" / "glTF_Physics";
+inline auto gltfValidator = std::filesystem::path { __FILE__ }.parent_path() / "gltf" / "gltf_validator" / "gltf_validator";
 inline auto intelSponza = std::filesystem::path { __FILE__ }.parent_path() / "gltf" / "intel_sponza";
 inline auto bistroPath = std::filesystem::path { __FILE__ }.parent_path() / "gltf" / "bistro";

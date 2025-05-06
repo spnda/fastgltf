@@ -99,6 +99,16 @@
 // fastgltf version string. Use FASTGLTF_QUOTE to stringify.
 #define FASTGLTF_VERSION 0.8.0
 
+// FASTGLTF_REQUIRE is a macro that is used to assert that a condition is true in tests.
+#if defined(REQUIRE) // if catch2 is used, use its REQUIRE macro
+#define FASTGLTF_REQUIRE(x) REQUIRE(x)
+#else // otherwise, just return false
+#define FASTGLTF_REQUIRE(x)                                                    \
+  if (!(x)) {                                                                  \
+    return false;                                                              \
+  }
+#endif
+
 namespace fastgltf {
 #if defined(FASTGLTF_USE_64BIT_FLOAT) && FASTGLTF_USE_64BIT_FLOAT
 	using num = double;
@@ -693,14 +703,17 @@ namespace fastgltf {
         }
 
         bool operator==(const StaticVector<value_type>& other) const {
-            if (other.size() != size()) return false;
-            return std::memcmp(data(), other.data(), size_bytes()) == 0;
+        	FASTGLTF_REQUIRE(other.size() == size());
+        	// FASTGLTF_REQUIRE(std::memcmp(data(), other.data(), size_bytes()) == 0);
+			FASTGLTF_REQUIRE(std::equal(begin(), end(), other.begin()));
+        	return true;
         }
 
         // This is mostly just here for compatibility and the tests
         bool operator==(const std::vector<value_type>& other) const {
-            if (other.size() != size()) return false;
-            return std::memcmp(data(), other.data(), size_bytes()) == 0;
+            FASTGLTF_REQUIRE(other.size() == size());
+			FASTGLTF_REQUIRE(std::equal(begin(), end(), other.begin()));
+        	return true;
         }
     };
 
@@ -1052,6 +1065,12 @@ namespace fastgltf {
             assert(!empty());
             return end()[-1];
         }
+
+		bool operator==(const SmallVector& other) const {
+			FASTGLTF_REQUIRE(size() == other.size());
+			FASTGLTF_REQUIRE(std::equal(begin(), end(), other.begin(), other.end()));
+			return true;
+		}
     };
 
 #if !FASTGLTF_MISSING_MEMORY_RESOURCE
@@ -1421,7 +1440,7 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	bool operator==(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
-		return bool(lhs) == bool(rhs) && !bool(lhs) && *lhs == *rhs;
+		return bool(lhs) == bool(rhs) && (!bool(lhs) || *lhs == *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
@@ -1552,6 +1571,7 @@ namespace fastgltf {
 		URI& operator=(const URI& other);
 		URI& operator=(const URIView& other);
 		URI& operator=(URI&& other) noexcept;
+		bool operator==(const URI& other) const;
 
 		operator URIView() const noexcept;
 
@@ -1675,6 +1695,17 @@ namespace fastgltf {
 					FASTGLTF_UNREACHABLE
 			}
 			return *this;
+		}
+
+		bool operator==(const AccessorBoundsArray& other) const {
+			FASTGLTF_REQUIRE(dataType == other.dataType);
+			FASTGLTF_REQUIRE(len == other.len);
+			if (dataType == BoundsType::int64) {
+				FASTGLTF_REQUIRE(std::equal(int64_buffer.get(), int64_buffer.get() + len, other.int64_buffer.get()));
+			} else {
+				FASTGLTF_REQUIRE(std::equal(float64_buffer.get(), float64_buffer.get() + len, other.float64_buffer.get()));
+			}
+			return true;
 		}
 
 		[[nodiscard]] BoundsType type() const noexcept {
@@ -1850,6 +1881,15 @@ namespace fastgltf {
 
     FASTGLTF_EXPORT using CustomBufferId = std::uint64_t;
 
+	template <typename T>
+	constexpr bool span_equals(const span<T>& first, const span<T>& other) {
+		if (first.size() != other.size()) {
+			return false;
+		}
+		return std::equal(first.data(), first.data() + first.size(), other.data());
+	}
+
+
     /**
      * Namespace for structs that describe individual sources of data for images and/or buffers.
      */
@@ -1857,36 +1897,72 @@ namespace fastgltf {
         FASTGLTF_EXPORT struct BufferView {
             std::size_t bufferViewIndex;
             MimeType mimeType = MimeType::None;
+			bool operator==(const BufferView& other) const {
+				FASTGLTF_REQUIRE(bufferViewIndex == other.bufferViewIndex);
+				FASTGLTF_REQUIRE(mimeType == other.mimeType);
+				return true;
+			}
         };
 
         FASTGLTF_EXPORT struct URI {
             std::size_t fileByteOffset;
             fastgltf::URI uri;
             MimeType mimeType = MimeType::None;
+			bool operator==(const URI& other) const {
+				FASTGLTF_REQUIRE(fileByteOffset == other.fileByteOffset);
+				FASTGLTF_REQUIRE(uri == other.uri);
+				FASTGLTF_REQUIRE(mimeType == other.mimeType);
+				return true;
+			}
         };
 
         FASTGLTF_EXPORT struct Array {
             StaticVector<std::byte> bytes;
             MimeType mimeType = MimeType::None;
+			bool operator==(const Array& other) const {
+				FASTGLTF_REQUIRE(mimeType == other.mimeType);
+				FASTGLTF_REQUIRE(bytes == other.bytes);
+				return true;
+			}
         };
 
 		/** @note This type is not used by the fastgltf parser and is only used for exporting. Use sources::Array instead when importing intead. */
 		FASTGLTF_EXPORT struct Vector {
 			std::vector<std::byte> bytes;
 			MimeType mimeType = MimeType::None;
+			bool operator==(const Vector& other) const {
+				FASTGLTF_REQUIRE(bytes == other.bytes);
+				FASTGLTF_REQUIRE(mimeType == other.mimeType);
+				return true;
+			}
 		};
 
         FASTGLTF_EXPORT struct CustomBuffer {
             CustomBufferId id;
             MimeType mimeType = MimeType::None;
+			bool operator==(const CustomBuffer& other) const {
+				FASTGLTF_REQUIRE(id == other.id);
+				FASTGLTF_REQUIRE(mimeType == other.mimeType);
+				return true;
+			}
         };
+		
 
         FASTGLTF_EXPORT struct ByteView {
             span<const std::byte> bytes;
             MimeType mimeType = MimeType::None;
+			bool operator==(const ByteView& other) const {
+				FASTGLTF_REQUIRE(span_equals(bytes, other.bytes));
+				FASTGLTF_REQUIRE(mimeType == other.mimeType);
+				return true;
+			}
         };
 
-		FASTGLTF_EXPORT struct Fallback {};
+		FASTGLTF_EXPORT struct Fallback {
+			bool operator==(const Fallback& other) const {
+				return true;
+			}
+		};
     } // namespace sources
 
     /**
@@ -1901,16 +1977,130 @@ namespace fastgltf {
      */
     FASTGLTF_EXPORT using DataSource = std::variant<std::monostate, sources::BufferView, sources::URI, sources::Array, sources::Vector, sources::CustomBuffer, sources::ByteView, sources::Fallback>;
 
+	namespace {
+		template <typename T>
+		static bool isPaddedBufferEquivalent(const T& padded_buf, const T& unpadded_buf, std::size_t minSize = -1) {
+			bool check_padding = minSize != -1;
+			if (!check_padding) {
+				FASTGLTF_REQUIRE(padded_buf.size() == unpadded_buf.size());
+				minSize = padded_buf.size();
+			} else {
+				FASTGLTF_REQUIRE(minSize <= padded_buf.size());
+				FASTGLTF_REQUIRE(minSize <= unpadded_buf.size());
+			}
+			FASTGLTF_REQUIRE(std::equal(padded_buf.begin(), padded_buf.begin() + minSize, unpadded_buf.begin()));
+			// if (check_padding) {
+			// 	auto extra_bytes = padded_buf.size() - minSize;
+			// 	for (std::size_t i = minSize; i < minSize + extra_bytes; ++i) {
+			// 		// check if all the extra bytes are zero or equals padded_buf
+			// 		if (unpadded_buf.size() <= i || unpadded_buf[i] != padded_buf[i]) {
+			// 			FASTGLTF_REQUIRE(padded_buf[i] == std::byte(0));
+			// 		}
+			// 	}
+			// }
+			return true;
+		}
+	}
+
+	// This assumes that, if you're comparing two data sources with possible padding, the padded buffer is the first one
+	static bool compareDataSource(const fastgltf::DataSource &padded,
+							const fastgltf::DataSource &unpadded,
+							std::size_t minSize = -1, bool ignoreMimeType = false) {
+		if (std::holds_alternative<std::monostate>(padded)) {
+			FASTGLTF_REQUIRE(!std::holds_alternative<std::monostate>(unpadded));
+			return true;
+		} else if (std::holds_alternative<fastgltf::sources::BufferView>(padded)) {
+			FASTGLTF_REQUIRE(std::holds_alternative<fastgltf::sources::BufferView>(unpadded));
+			auto a_bv = std::get<fastgltf::sources::BufferView>(padded);
+			auto b_bv = std::get<fastgltf::sources::BufferView>(unpadded);
+			FASTGLTF_REQUIRE(a_bv == b_bv);
+			return true;
+		} else if (std::holds_alternative<fastgltf::sources::URI>(padded)) {
+			FASTGLTF_REQUIRE(std::holds_alternative<fastgltf::sources::URI>(unpadded));
+			auto a_uri = std::get<fastgltf::sources::URI>(padded);
+			auto b_uri = std::get<fastgltf::sources::URI>(unpadded);
+			FASTGLTF_REQUIRE(a_uri == b_uri);
+			return true;
+		} else if (std::holds_alternative<fastgltf::sources::Array>(padded)) {
+			FASTGLTF_REQUIRE(std::holds_alternative<fastgltf::sources::Array>(unpadded));
+			auto a_array = std::get<fastgltf::sources::Array>(padded);
+			auto b_array = std::get<fastgltf::sources::Array>(unpadded);
+			if (!ignoreMimeType) {
+				FASTGLTF_REQUIRE(a_array.mimeType == b_array.mimeType);
+			}
+			FASTGLTF_REQUIRE(isPaddedBufferEquivalent(a_array.bytes, b_array.bytes, minSize));
+			return true;
+		} else if (std::holds_alternative<fastgltf::sources::Vector>(padded)) {
+			FASTGLTF_REQUIRE(std::holds_alternative<fastgltf::sources::Vector>(unpadded));
+			auto a_vector = std::get<fastgltf::sources::Vector>(padded);
+			auto b_vector = std::get<fastgltf::sources::Vector>(unpadded);
+			if (!ignoreMimeType) {
+				FASTGLTF_REQUIRE(a_vector.mimeType == b_vector.mimeType);
+			}
+			FASTGLTF_REQUIRE(isPaddedBufferEquivalent(a_vector.bytes, b_vector.bytes, minSize));
+			return true;
+		} else if (std::holds_alternative<fastgltf::sources::CustomBuffer>(padded)) {
+			FASTGLTF_REQUIRE(std::holds_alternative<fastgltf::sources::CustomBuffer>(unpadded));
+			auto a_custom_buffer = std::get<fastgltf::sources::CustomBuffer>(padded);
+			auto b_custom_buffer = std::get<fastgltf::sources::CustomBuffer>(unpadded);
+			FASTGLTF_REQUIRE(a_custom_buffer == b_custom_buffer);
+			return true;
+		} else if (std::holds_alternative<fastgltf::sources::ByteView>(padded)) {
+			FASTGLTF_REQUIRE(std::holds_alternative<fastgltf::sources::ByteView>(unpadded));
+			auto a_byte_view = std::get<fastgltf::sources::ByteView>(padded);
+			auto b_byte_view = std::get<fastgltf::sources::ByteView>(unpadded);
+			if (!ignoreMimeType) {
+				FASTGLTF_REQUIRE(a_byte_view.mimeType == b_byte_view.mimeType);
+			}
+			FASTGLTF_REQUIRE(isPaddedBufferEquivalent(a_byte_view.bytes, b_byte_view.bytes, minSize));
+			return true;
+		} else if (std::holds_alternative<fastgltf::sources::Fallback>(padded)) {
+			FASTGLTF_REQUIRE(std::holds_alternative<fastgltf::sources::Fallback>(unpadded));
+			return true;
+		}
+		return false;
+	}
+	// operator== for DataSource
+	inline bool operator==(const DataSource& a, const DataSource& b) {
+		return compareDataSource(a, b);
+	}
+	inline bool operator!=(const DataSource& a, const DataSource& b) {
+		return !(a == b);
+	}
+
+
+	template <typename T>
+	bool compareUniquePtr(const std::unique_ptr<T>& a, const std::unique_ptr<T>& b) {
+		FASTGLTF_REQUIRE(!a == !b);
+		if (!a) {
+			return true;
+		}
+		FASTGLTF_REQUIRE(*a == *b);
+		return true;
+	}
+
     FASTGLTF_EXPORT struct AnimationChannel {
         std::size_t samplerIndex;
         Optional<std::size_t> nodeIndex;
         AnimationPath path;
+		bool operator==(const AnimationChannel& other) const {
+			FASTGLTF_REQUIRE(samplerIndex == other.samplerIndex);
+			FASTGLTF_REQUIRE(nodeIndex == other.nodeIndex);
+			FASTGLTF_REQUIRE(path == other.path);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct AnimationSampler {
         std::size_t inputAccessor;
         std::size_t outputAccessor;
         AnimationInterpolation interpolation = AnimationInterpolation::Linear;
+		bool operator==(const AnimationSampler& other) const {
+			FASTGLTF_REQUIRE(inputAccessor == other.inputAccessor);
+			FASTGLTF_REQUIRE(outputAccessor == other.outputAccessor);
+			FASTGLTF_REQUIRE(interpolation == other.interpolation);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Animation {
@@ -1918,12 +2108,24 @@ namespace fastgltf {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationSampler> samplers;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Animation& other) const {
+			FASTGLTF_REQUIRE(channels == other.channels);
+			FASTGLTF_REQUIRE(samplers == other.samplers);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct AssetInfo {
         FASTGLTF_STD_PMR_NS::string gltfVersion;
         FASTGLTF_STD_PMR_NS::string copyright;
         FASTGLTF_STD_PMR_NS::string generator;
+		bool operator==(const AssetInfo& other) const {
+			FASTGLTF_REQUIRE(gltfVersion == other.gltfVersion);
+			FASTGLTF_REQUIRE(copyright == other.copyright);
+			FASTGLTF_REQUIRE(generator == other.generator);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Camera {
@@ -1932,6 +2134,13 @@ namespace fastgltf {
             num ymag;
             num zfar;
             num znear;
+			bool operator==(const Orthographic& other) const {
+				FASTGLTF_REQUIRE(xmag == other.xmag);
+				FASTGLTF_REQUIRE(ymag == other.ymag);
+				FASTGLTF_REQUIRE(zfar == other.zfar);
+				FASTGLTF_REQUIRE(znear == other.znear);
+				return true;
+			}
         };
         struct Perspective {
             Optional<num> aspectRatio;
@@ -1939,6 +2148,13 @@ namespace fastgltf {
             // If omitted, use an infinite projection matrix.
             Optional<num> zfar;
             num znear;
+			bool operator==(const Perspective& other) const {
+				FASTGLTF_REQUIRE(aspectRatio == other.aspectRatio);
+				FASTGLTF_REQUIRE(yfov == other.yfov);
+				FASTGLTF_REQUIRE(zfar == other.zfar);
+				FASTGLTF_REQUIRE(znear == other.znear);
+				return true;
+			}
         };
 
         /**
@@ -1947,6 +2163,11 @@ namespace fastgltf {
          */
         std::variant<Perspective, Orthographic> camera;
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Camera& other) const {
+			FASTGLTF_REQUIRE(camera == other.camera);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Skin {
@@ -1955,6 +2176,13 @@ namespace fastgltf {
         FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Skin& other) const {
+			FASTGLTF_REQUIRE(inverseBindMatrices == other.inverseBindMatrices);
+			FASTGLTF_REQUIRE(skeleton == other.skeleton);
+			FASTGLTF_REQUIRE(joints == other.joints);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Sampler {
@@ -1964,32 +2192,66 @@ namespace fastgltf {
         Wrap wrapT = Wrap::Repeat;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Sampler& other) const {
+			FASTGLTF_REQUIRE(magFilter == other.magFilter);
+			FASTGLTF_REQUIRE(minFilter == other.minFilter);
+			FASTGLTF_REQUIRE(wrapS == other.wrapS);
+			FASTGLTF_REQUIRE(wrapT == other.wrapT);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Scene {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodeIndices;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Scene& other) const {
+			FASTGLTF_REQUIRE(nodeIndices == other.nodeIndices);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
 	FASTGLTF_EXPORT struct TRS {
 		math::fvec3 translation = math::fvec3(0.f);
 		math::fquat rotation = math::fquat(0.f, 0.f, 0.f, 1.f);
 		math::fvec3 scale = math::fvec3(1.f);
+		bool operator==(const TRS& other) const {
+			FASTGLTF_REQUIRE(translation == other.translation);
+			FASTGLTF_REQUIRE(rotation == other.rotation);
+			FASTGLTF_REQUIRE(scale == other.scale);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Attribute {
 		FASTGLTF_STD_PMR_NS::string name;
 		std::size_t accessorIndex;
+		bool operator==(const Attribute& other) const {
+			FASTGLTF_REQUIRE(name == other.name);
+			FASTGLTF_REQUIRE(accessorIndex == other.accessorIndex);
+			return true;
+		}
 	};
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 	FASTGLTF_EXPORT struct SphereShape {
 		num radius = 0.5;
+
+		bool operator==(const SphereShape& other) const {
+			FASTGLTF_REQUIRE(radius == other.radius);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct BoxShape {
 		math::fvec3 size = { 1, 1, 1 };
+
+		bool operator==(const BoxShape& other) const {
+			FASTGLTF_REQUIRE(size == other.size);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct CapsuleShape {
@@ -1998,6 +2260,13 @@ namespace fastgltf {
 		num radiusBottom = 0.25;
 
 		num radiusTop = 0.25;
+
+		bool operator==(const CapsuleShape& other) const {
+			FASTGLTF_REQUIRE(height == other.height);
+			FASTGLTF_REQUIRE(radiusBottom == other.radiusBottom);
+			FASTGLTF_REQUIRE(radiusTop == other.radiusTop);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct CylinderShape {
@@ -2006,6 +2275,13 @@ namespace fastgltf {
 		num radiusBottom = 0.25;
 
 		num radiusTop = 0.25;
+
+		bool operator==(const CylinderShape& other) const {
+			FASTGLTF_REQUIRE(height == other.height);
+			FASTGLTF_REQUIRE(radiusBottom == other.radiusBottom);
+			FASTGLTF_REQUIRE(radiusTop == other.radiusTop);
+			return true;
+		}
 	};
 
 	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape>;
@@ -2052,6 +2328,18 @@ namespace fastgltf {
          * A multiplier applied to the acceleration due to gravity
          */
         num gravityFactor = 1;
+
+		bool operator==(const Motion& other) const {
+			FASTGLTF_REQUIRE(isKinematic == other.isKinematic);
+			FASTGLTF_REQUIRE(mass == other.mass);
+			FASTGLTF_REQUIRE(centerOfMass == other.centerOfMass);
+			FASTGLTF_REQUIRE(inertialDiagonal == other.inertialDiagonal);
+			FASTGLTF_REQUIRE(inertialOrientation == other.inertialOrientation);
+			FASTGLTF_REQUIRE(linearVelocity == other.linearVelocity);
+			FASTGLTF_REQUIRE(angularVelocity == other.angularVelocity);
+			FASTGLTF_REQUIRE(gravityFactor == other.gravityFactor);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Geometry {
@@ -2069,6 +2357,13 @@ namespace fastgltf {
          * Flag to indicate that the geometry should be a convex hull.
          */
         bool convexHull;
+
+		bool operator==(const Geometry& other) const {
+			FASTGLTF_REQUIRE(shape == other.shape);
+			FASTGLTF_REQUIRE(node == other.node);
+			FASTGLTF_REQUIRE(convexHull == other.convexHull);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct PhysicsMaterial {
@@ -2081,6 +2376,15 @@ namespace fastgltf {
 		CombineMode frictionCombine;
 
 		CombineMode restitutionCombine;
+
+		bool operator==(const PhysicsMaterial& other) const {
+			FASTGLTF_REQUIRE(staticFriction == other.staticFriction);
+			FASTGLTF_REQUIRE(dynamicFriction == other.dynamicFriction);
+			FASTGLTF_REQUIRE(restitution == other.restitution);
+			FASTGLTF_REQUIRE(frictionCombine == other.frictionCombine);
+			FASTGLTF_REQUIRE(restitutionCombine == other.restitutionCombine);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct CollisionFilter {
@@ -2098,6 +2402,13 @@ namespace fastgltf {
          * An array of strings representing the systems which this node can collide with
          */
         FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collideWithSystems;
+
+		bool operator==(const CollisionFilter& other) const {
+			FASTGLTF_REQUIRE(collisionSystems == other.collisionSystems);
+			FASTGLTF_REQUIRE(notCollideWithSystems == other.notCollideWithSystems);
+			FASTGLTF_REQUIRE(collideWithSystems == other.collideWithSystems);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Collider {
@@ -2115,6 +2426,13 @@ namespace fastgltf {
          * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
          */
         Optional<std::size_t> collisionFilter;
+
+		bool operator==(const Collider& other) const {
+			FASTGLTF_REQUIRE(geometry == other.geometry);
+			FASTGLTF_REQUIRE(physicsMaterial == other.physicsMaterial);
+			FASTGLTF_REQUIRE(collisionFilter == other.collisionFilter);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct GeometryTrigger {
@@ -2127,6 +2445,12 @@ namespace fastgltf {
 		 * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
 		 */
 		Optional<std::size_t> collisionFilter;
+
+		bool operator==(const GeometryTrigger& other) const {
+			FASTGLTF_REQUIRE(geometry == other.geometry);
+			FASTGLTF_REQUIRE(collisionFilter == other.collisionFilter);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct NodeTrigger {
@@ -2135,6 +2459,11 @@ namespace fastgltf {
 		 * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
 		 */
 		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodes;
+
+		bool operator==(const NodeTrigger& other) const {
+			FASTGLTF_REQUIRE(nodes == other.nodes);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct JointLimit {
@@ -2167,6 +2496,16 @@ namespace fastgltf {
 		 * Optional spring damping applied when beyond the limits
 		 */
 		num damping = 0;
+
+		bool operator==(const JointLimit& other) const {
+			FASTGLTF_REQUIRE(linearAxes == other.linearAxes);
+			FASTGLTF_REQUIRE(angularAxes == other.angularAxes);
+			FASTGLTF_REQUIRE(min == other.min);
+			FASTGLTF_REQUIRE(max == other.max);
+			FASTGLTF_REQUIRE(stiffness == other.stiffness);
+			FASTGLTF_REQUIRE(damping == other.damping);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct JointDrive {
@@ -2209,6 +2548,18 @@ namespace fastgltf {
          * The damping factor applied to reach the velocity target
          */
         num damping = 0;
+
+		bool operator==(const JointDrive& other) const {
+			FASTGLTF_REQUIRE(type == other.type);
+			FASTGLTF_REQUIRE(mode == other.mode);
+			FASTGLTF_REQUIRE(axis == other.axis);
+			FASTGLTF_REQUIRE(maxForce == other.maxForce);
+			FASTGLTF_REQUIRE(positionTarget == other.positionTarget);
+			FASTGLTF_REQUIRE(velocityTarget == other.velocityTarget);
+			FASTGLTF_REQUIRE(stiffness == other.stiffness);
+			FASTGLTF_REQUIRE(damping == other.damping);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct PhysicsJoint {
@@ -2218,6 +2569,12 @@ namespace fastgltf {
          * Each drive specifies a force to apply along a single axis
          */
         FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointDrive> drives;
+
+		bool operator==(const PhysicsJoint& other) const {
+			FASTGLTF_REQUIRE(limits == other.limits);
+			FASTGLTF_REQUIRE(drives == other.drives);
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct Joint {
@@ -2226,6 +2583,13 @@ namespace fastgltf {
 		std::size_t joint;
 
 		bool enableCollision = false;
+
+		bool operator==(const Joint& other) const {
+			FASTGLTF_REQUIRE(connectedNode == other.connectedNode);
+			FASTGLTF_REQUIRE(joint == other.joint);
+			FASTGLTF_REQUIRE(enableCollision == other.enableCollision);
+			return true;
+		}
 	};
 
     FASTGLTF_EXPORT struct PhysicsRigidBody {
@@ -2236,6 +2600,14 @@ namespace fastgltf {
 		Optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
 
 		Optional<Joint> joint;
+
+		bool operator==(const PhysicsRigidBody& other) const {
+			FASTGLTF_REQUIRE(motion == other.motion);
+			FASTGLTF_REQUIRE(collider == other.collider);
+			FASTGLTF_REQUIRE(trigger == other.trigger);
+			FASTGLTF_REQUIRE(joint == other.joint);
+			return true;
+		}
 	};
 #endif
 
@@ -2285,6 +2657,19 @@ namespace fastgltf {
             }
             return instancingAttributes.cend();
         }
+
+		bool operator==(const Node& other) const {
+			FASTGLTF_REQUIRE(meshIndex == other.meshIndex);
+			FASTGLTF_REQUIRE(skinIndex == other.skinIndex);
+			FASTGLTF_REQUIRE(cameraIndex == other.cameraIndex);
+			FASTGLTF_REQUIRE(lightIndex == other.lightIndex);
+			FASTGLTF_REQUIRE(children == other.children);
+			FASTGLTF_REQUIRE(weights == other.weights);
+			FASTGLTF_REQUIRE(transform == other.transform);
+			FASTGLTF_REQUIRE(instancingAttributes == other.instancingAttributes);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
 	struct DracoCompressedPrimitive {
@@ -2305,6 +2690,12 @@ namespace fastgltf {
 					return it;
 			}
 			return attributes.cend();
+		}
+
+		bool operator==(const DracoCompressedPrimitive& other) const {
+			FASTGLTF_REQUIRE(bufferView == other.bufferView);
+			FASTGLTF_REQUIRE(attributes == other.attributes);
+			return true;
 		}
 	};
 
@@ -2361,6 +2752,17 @@ namespace fastgltf {
 			}
 			return targetAttributes.cend();
 		}
+
+		bool operator==(const Primitive& other) const {
+			FASTGLTF_REQUIRE(attributes == other.attributes);
+			FASTGLTF_REQUIRE(type == other.type);
+			FASTGLTF_REQUIRE(targets == other.targets);
+			FASTGLTF_REQUIRE(indicesAccessor == other.indicesAccessor);
+			FASTGLTF_REQUIRE(materialIndex == other.materialIndex);
+			FASTGLTF_REQUIRE(mappings == other.mappings);
+			FASTGLTF_REQUIRE(compareUniquePtr(dracoCompression, other.dracoCompression));
+			return true;
+		}
 	};
 
     FASTGLTF_EXPORT struct Mesh {
@@ -2368,6 +2770,12 @@ namespace fastgltf {
 	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
         FASTGLTF_STD_PMR_NS::string name;
+		bool operator==(const Mesh& other) const {
+			FASTGLTF_REQUIRE(primitives == other.primitives);
+			FASTGLTF_REQUIRE(weights == other.weights);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
     /**
@@ -2393,6 +2801,13 @@ namespace fastgltf {
          * Overrides the textureInfo texCoord value if supplied.
          */
         Optional<std::size_t> texCoordIndex;
+
+		bool operator==(const TextureTransform& other) const {
+			FASTGLTF_REQUIRE(rotation == other.rotation);
+			FASTGLTF_REQUIRE(uvOffset == other.uvOffset);
+			FASTGLTF_REQUIRE(uvScale == other.uvScale);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct TextureInfo {
@@ -2403,14 +2818,33 @@ namespace fastgltf {
          * Data from KHR_texture_transform, and nullptr if the extension wasn't enabled or used.
          */
         std::unique_ptr<TextureTransform> transform;
+
+		bool operator==(const TextureInfo& other) const {
+			FASTGLTF_REQUIRE(textureIndex == other.textureIndex);
+			FASTGLTF_REQUIRE(texCoordIndex == other.texCoordIndex);
+			FASTGLTF_REQUIRE(compareUniquePtr(transform, other.transform));
+			return true;
+		}
     };
 
 	FASTGLTF_EXPORT struct NormalTextureInfo : TextureInfo {
 		num scale = 1.f;
+
+		bool operator==(const NormalTextureInfo& other) const {
+			FASTGLTF_REQUIRE(scale == other.scale);
+			FASTGLTF_REQUIRE(TextureInfo::operator==(other));
+			return true;
+		}
 	};
 
 	FASTGLTF_EXPORT struct OcclusionTextureInfo : TextureInfo {
 		num strength = 1.f;
+
+		bool operator==(const OcclusionTextureInfo& other) const {
+			FASTGLTF_REQUIRE(strength == other.strength);
+			FASTGLTF_REQUIRE(TextureInfo::operator==(other));
+			return true;
+		}
 	};
 
     FASTGLTF_EXPORT struct PBRData {
@@ -2431,12 +2865,46 @@ namespace fastgltf {
 
         Optional<TextureInfo> baseColorTexture;
         Optional<TextureInfo> metallicRoughnessTexture;
+
+		bool operator==(const PBRData& other) const {
+			FASTGLTF_REQUIRE(baseColorFactor == other.baseColorFactor);
+			FASTGLTF_REQUIRE(metallicFactor == other.metallicFactor);
+			FASTGLTF_REQUIRE(roughnessFactor == other.roughnessFactor);
+			FASTGLTF_REQUIRE(baseColorTexture == other.baseColorTexture);
+			FASTGLTF_REQUIRE(metallicRoughnessTexture == other.metallicRoughnessTexture);
+			return true;
+		}
     };
 
 	FASTGLTF_EXPORT struct MaterialAnisotropy {
 		num anisotropyStrength = 0.0f;
 		num anisotropyRotation = 0.0f;
 		Optional<TextureInfo> anisotropyTexture;
+
+		bool operator==(const MaterialAnisotropy& other) const {
+			FASTGLTF_REQUIRE(anisotropyStrength == other.anisotropyStrength);
+			FASTGLTF_REQUIRE(anisotropyRotation == other.anisotropyRotation);
+			FASTGLTF_REQUIRE(anisotropyTexture == other.anisotropyTexture);
+			return true;
+		}
+	};
+
+	/**
+	 * Diffuse transmission information from KHR_materials_diffuse_transmission
+	 */
+	FASTGLTF_EXPORT struct MaterialDiffuseTransmission {
+		num diffuseTransmissionFactor = 0.0f;
+		Optional<TextureInfo> diffuseTransmissionTexture;
+		math::nvec3 diffuseTransmissionColorFactor = math::nvec3(1);
+		Optional<TextureInfo> diffuseTransmissionColorTexture;
+
+		bool operator==(const MaterialDiffuseTransmission& other) const {
+			FASTGLTF_REQUIRE(diffuseTransmissionFactor == other.diffuseTransmissionFactor);
+			FASTGLTF_REQUIRE(diffuseTransmissionTexture == other.diffuseTransmissionTexture);
+			FASTGLTF_REQUIRE(diffuseTransmissionColorFactor == other.diffuseTransmissionColorFactor);
+			FASTGLTF_REQUIRE(diffuseTransmissionColorTexture == other.diffuseTransmissionColorTexture);
+			return true;
+		}
 	};
 
     /**
@@ -2447,7 +2915,15 @@ namespace fastgltf {
         Optional<TextureInfo> specularTexture;
 		math::nvec3 specularColorFactor = math::nvec3(1);
         Optional<TextureInfo> specularColorTexture;
-    };
+
+		bool operator==(const MaterialSpecular& other) const {
+			FASTGLTF_REQUIRE(specularFactor == other.specularFactor);
+			FASTGLTF_REQUIRE(specularColorFactor == other.specularColorFactor);
+			FASTGLTF_REQUIRE(specularTexture == other.specularTexture);
+			FASTGLTF_REQUIRE(specularColorTexture == other.specularColorTexture);
+			return true;
+		}
+	};
 
     /**
      * Iridescence information from KHR_materials_iridescence
@@ -2459,6 +2935,16 @@ namespace fastgltf {
         num iridescenceThicknessMinimum = 100.0f;
         num iridescenceThicknessMaximum = 400.0f;
         Optional<TextureInfo> iridescenceThicknessTexture;
+
+		bool operator==(const MaterialIridescence& other) const {
+			FASTGLTF_REQUIRE(iridescenceFactor == other.iridescenceFactor);
+			FASTGLTF_REQUIRE(iridescenceIor == other.iridescenceIor);
+			FASTGLTF_REQUIRE(iridescenceThicknessMinimum == other.iridescenceThicknessMinimum);
+			FASTGLTF_REQUIRE(iridescenceThicknessMaximum == other.iridescenceThicknessMaximum);
+			FASTGLTF_REQUIRE(iridescenceTexture == other.iridescenceTexture);
+			FASTGLTF_REQUIRE(iridescenceThicknessTexture == other.iridescenceThicknessTexture);
+			return true;
+		}
     };
 
     /**
@@ -2469,11 +2955,25 @@ namespace fastgltf {
         Optional<TextureInfo> thicknessTexture;
         num attenuationDistance = std::numeric_limits<num>::infinity();
 		math::nvec3 attenuationColor = math::nvec3(1);
+
+		bool operator==(const MaterialVolume& other) const {
+			FASTGLTF_REQUIRE(thicknessFactor == other.thicknessFactor);
+			FASTGLTF_REQUIRE(attenuationColor == other.attenuationColor);
+			FASTGLTF_REQUIRE(thicknessTexture == other.thicknessTexture);
+			FASTGLTF_REQUIRE(attenuationDistance == other.attenuationDistance);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct MaterialTransmission {
         num transmissionFactor = 0.0f;
         Optional<TextureInfo> transmissionTexture;
+
+		bool operator==(const MaterialTransmission& other) const {
+			FASTGLTF_REQUIRE(transmissionFactor == other.transmissionFactor);
+			FASTGLTF_REQUIRE(transmissionTexture == other.transmissionTexture);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct MaterialClearcoat {
@@ -2482,13 +2982,30 @@ namespace fastgltf {
         num clearcoatRoughnessFactor = 0.0f;
         Optional<TextureInfo> clearcoatRoughnessTexture;
         Optional<NormalTextureInfo> clearcoatNormalTexture;
-    };
+
+		bool operator==(const MaterialClearcoat& other) const {
+			FASTGLTF_REQUIRE(clearcoatFactor == other.clearcoatFactor);
+			FASTGLTF_REQUIRE(clearcoatRoughnessFactor == other.clearcoatRoughnessFactor);
+			FASTGLTF_REQUIRE(clearcoatTexture == other.clearcoatTexture);
+			FASTGLTF_REQUIRE(clearcoatNormalTexture == other.clearcoatNormalTexture);
+			FASTGLTF_REQUIRE(clearcoatRoughnessTexture == other.clearcoatRoughnessTexture);
+			return true;
+		}
+	};
 
     FASTGLTF_EXPORT struct MaterialSheen {
 		math::nvec3 sheenColorFactor = math::nvec3(0);
         Optional<TextureInfo> sheenColorTexture;
         num sheenRoughnessFactor = 0.0f;
         Optional<TextureInfo> sheenRoughnessTexture;
+
+		bool operator==(const MaterialSheen& other) const {
+			FASTGLTF_REQUIRE(sheenColorFactor == other.sheenColorFactor);
+			FASTGLTF_REQUIRE(sheenColorTexture == other.sheenColorTexture);
+			FASTGLTF_REQUIRE(sheenRoughnessFactor == other.sheenRoughnessFactor);
+			FASTGLTF_REQUIRE(sheenRoughnessTexture == other.sheenRoughnessTexture);
+			return true;
+		}
     };
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
@@ -2501,6 +3018,15 @@ namespace fastgltf {
 		math::nvec3 specularFactor = math::nvec3(1);
         num glossinessFactor = 1.0f;
         Optional<TextureInfo> specularGlossinessTexture;
+
+		bool operator==(const MaterialSpecularGlossiness& other) const {
+			FASTGLTF_REQUIRE(diffuseFactor == other.diffuseFactor);
+			FASTGLTF_REQUIRE(diffuseTexture == other.diffuseTexture);
+			FASTGLTF_REQUIRE(specularFactor == other.specularFactor);
+			FASTGLTF_REQUIRE(glossinessFactor == other.glossinessFactor);
+			FASTGLTF_REQUIRE(specularGlossinessTexture == other.specularGlossinessTexture);
+			return true;
+		}
     };
 #endif
 
@@ -2508,6 +3034,13 @@ namespace fastgltf {
 		Optional<TextureInfo> occlusionRoughnessMetallicTexture;
 		Optional<TextureInfo> roughnessMetallicOcclusionTexture;
 		Optional<TextureInfo> normalTexture;
+
+		bool operator==(const MaterialPackedTextures& other) const {
+			FASTGLTF_REQUIRE(occlusionRoughnessMetallicTexture == other.occlusionRoughnessMetallicTexture);
+			FASTGLTF_REQUIRE(roughnessMetallicOcclusionTexture == other.roughnessMetallicOcclusionTexture);
+			FASTGLTF_REQUIRE(normalTexture == other.normalTexture);
+			return true;
+		}
 	};
 
     FASTGLTF_EXPORT struct Material {
@@ -2569,6 +3102,11 @@ namespace fastgltf {
 
         std::unique_ptr<MaterialClearcoat> clearcoat;
 
+		/**
+		 * Diffuse transmission information from KHR_materials_diffuse_transmission.
+		 */
+		std::unique_ptr<MaterialDiffuseTransmission> diffuseTransmission;
+
         /**
          * Iridescence information from KHR_materials_iridescence.
          */
@@ -2607,6 +3145,34 @@ namespace fastgltf {
 		std::unique_ptr<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Material& other) const {
+			// compare all members, using compareUniquePtr for unique_ptr members
+			FASTGLTF_REQUIRE(pbrData == other.pbrData);
+			FASTGLTF_REQUIRE(normalTexture == other.normalTexture);
+			FASTGLTF_REQUIRE(occlusionTexture == other.occlusionTexture);
+			FASTGLTF_REQUIRE(emissiveTexture == other.emissiveTexture);
+			FASTGLTF_REQUIRE(emissiveFactor == other.emissiveFactor);
+			FASTGLTF_REQUIRE(alphaMode == other.alphaMode);
+			FASTGLTF_REQUIRE(doubleSided == other.doubleSided);
+			FASTGLTF_REQUIRE(unlit == other.unlit);
+			FASTGLTF_REQUIRE(alphaCutoff == other.alphaCutoff);
+			FASTGLTF_REQUIRE(emissiveStrength == other.emissiveStrength);
+			FASTGLTF_REQUIRE(ior == other.ior);
+			FASTGLTF_REQUIRE(dispersion == other.dispersion);
+			FASTGLTF_REQUIRE(compareUniquePtr(anisotropy, other.anisotropy));
+			FASTGLTF_REQUIRE(compareUniquePtr(clearcoat, other.clearcoat));
+			FASTGLTF_REQUIRE(compareUniquePtr(diffuseTransmission, other.diffuseTransmission));
+			FASTGLTF_REQUIRE(compareUniquePtr(iridescence, other.iridescence));
+			FASTGLTF_REQUIRE(compareUniquePtr(sheen, other.sheen));
+			FASTGLTF_REQUIRE(compareUniquePtr(specular, other.specular));
+			FASTGLTF_REQUIRE(compareUniquePtr(transmission, other.transmission));
+			FASTGLTF_REQUIRE(compareUniquePtr(volume, other.volume));
+			FASTGLTF_REQUIRE(packedNormalMetallicRoughnessTexture == other.packedNormalMetallicRoughnessTexture);
+			FASTGLTF_REQUIRE(compareUniquePtr(packedOcclusionRoughnessMetallicTextures, other.packedOcclusionRoughnessMetallicTextures));
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Texture {
@@ -2638,12 +3204,35 @@ namespace fastgltf {
 		Optional<std::size_t> webpImageIndex;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Texture& other) const {
+			FASTGLTF_REQUIRE(samplerIndex == other.samplerIndex);
+			FASTGLTF_REQUIRE(imageIndex == other.imageIndex);
+			FASTGLTF_REQUIRE(basisuImageIndex == other.basisuImageIndex);
+			FASTGLTF_REQUIRE(ddsImageIndex == other.ddsImageIndex);
+			FASTGLTF_REQUIRE(webpImageIndex == other.webpImageIndex);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Image {
         DataSource data;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Image& other) const {
+			FASTGLTF_REQUIRE(data == other.data);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
+
+    	bool equivalent(const Image& other) const
+		{
+			FASTGLTF_REQUIRE(name == other.name);
+			FASTGLTF_REQUIRE(compareDataSource(	data, other.data, -1, true));
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct SparseAccessor {
@@ -2653,6 +3242,16 @@ namespace fastgltf {
         std::size_t valuesBufferView;
         std::size_t valuesByteOffset = 0;
         ComponentType indexComponentType;
+
+		bool operator==(const SparseAccessor& other) const {
+			FASTGLTF_REQUIRE(count == other.count);
+			FASTGLTF_REQUIRE(indicesBufferView == other.indicesBufferView);
+			FASTGLTF_REQUIRE(indicesByteOffset == other.indicesByteOffset);
+			FASTGLTF_REQUIRE(valuesBufferView == other.valuesBufferView);
+			FASTGLTF_REQUIRE(valuesByteOffset == other.valuesByteOffset);
+			FASTGLTF_REQUIRE(indexComponentType == other.indexComponentType);
+			return true;
+		}
     };
 
 	FASTGLTF_EXPORT struct Accessor {
@@ -2716,6 +3315,20 @@ namespace fastgltf {
 					min->set<T>(i, value[i]);
 			}
 		}
+
+		bool operator==(const Accessor& other) const {
+			FASTGLTF_REQUIRE(byteOffset == other.byteOffset);
+			FASTGLTF_REQUIRE(count == other.count);
+			FASTGLTF_REQUIRE(type == other.type);
+			FASTGLTF_REQUIRE(componentType == other.componentType);
+			FASTGLTF_REQUIRE(normalized == other.normalized);
+			FASTGLTF_REQUIRE(max == other.max);
+			FASTGLTF_REQUIRE(min == other.min);
+			FASTGLTF_REQUIRE(bufferViewIndex == other.bufferViewIndex);
+			FASTGLTF_REQUIRE(sparse == other.sparse);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
 	};
 
     FASTGLTF_EXPORT struct CompressedBufferView {
@@ -2727,6 +3340,18 @@ namespace fastgltf {
         MeshoptCompressionFilter filter;
 
         std::size_t byteStride;
+
+		bool operator==(const CompressedBufferView& other) const {
+			FASTGLTF_REQUIRE(bufferIndex == other.bufferIndex);
+			FASTGLTF_REQUIRE(byteOffset == other.byteOffset);
+			FASTGLTF_REQUIRE(byteLength == other.byteLength);
+			FASTGLTF_REQUIRE(count == other.count);
+			FASTGLTF_REQUIRE(mode == other.mode);
+			FASTGLTF_REQUIRE(filter == other.filter);
+			FASTGLTF_REQUIRE(byteStride == other.byteStride);
+			return true;
+		}
+		
     };
 
     FASTGLTF_EXPORT struct BufferView {
@@ -2743,6 +3368,16 @@ namespace fastgltf {
         std::unique_ptr<CompressedBufferView> meshoptCompression;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const BufferView& other) const {
+			FASTGLTF_REQUIRE(bufferIndex == other.bufferIndex);
+			FASTGLTF_REQUIRE(byteOffset == other.byteOffset);
+			FASTGLTF_REQUIRE(byteLength == other.byteLength);
+			FASTGLTF_REQUIRE(byteStride == other.byteStride);
+			FASTGLTF_REQUIRE(target == other.target);
+			FASTGLTF_REQUIRE(compareUniquePtr(meshoptCompression, other.meshoptCompression));
+			return true;
+		}
     };
 
     FASTGLTF_EXPORT struct Buffer {
@@ -2751,6 +3386,27 @@ namespace fastgltf {
         DataSource data;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Buffer& other) const {
+			FASTGLTF_REQUIRE(byteLength == other.byteLength);
+			FASTGLTF_REQUIRE(data == other.data);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
+
+		// This is for the tests; rewritting a GLB file can change the length because of alignment padding
+		bool equivalent(const Buffer& other) const {
+			FASTGLTF_REQUIRE(fastgltf::alignUp(byteLength, 4) == fastgltf::alignUp(other.byteLength, 4));
+			FASTGLTF_REQUIRE(name == other.name);
+			// auto minSize = byteLength == other.byteLength ? -1 : std::min(byteLength, other.byteLength);
+			auto minSize = std::min(byteLength, other.byteLength);
+
+			auto &paddedBuf = byteLength > other.byteLength ? data : other.data;
+			auto &unpaddedBuf = byteLength > other.byteLength ? other.data : data;
+			FASTGLTF_REQUIRE(fastgltf::compareDataSource(paddedBuf, unpaddedBuf, minSize, true));
+			return true;
+		}
+
     };
 
     FASTGLTF_EXPORT struct Light {
@@ -2768,6 +3424,17 @@ namespace fastgltf {
         Optional<num> outerConeAngle;
 
         FASTGLTF_STD_PMR_NS::string name;
+
+		bool operator==(const Light& other) const {
+			FASTGLTF_REQUIRE(type == other.type);
+			FASTGLTF_REQUIRE(color == other.color);
+			FASTGLTF_REQUIRE(intensity == other.intensity);
+			FASTGLTF_REQUIRE(range == other.range);
+			FASTGLTF_REQUIRE(innerConeAngle == other.innerConeAngle);
+			FASTGLTF_REQUIRE(outerConeAngle == other.outerConeAngle);
+			FASTGLTF_REQUIRE(name == other.name);
+			return true;
+		}
     };
 
 	class ChunkMemoryResource;
@@ -2781,6 +3448,34 @@ namespace fastgltf {
 		// alive until the end.
 		std::shared_ptr<std::pmr::monotonic_buffer_resource> memoryResource;
 #endif
+
+		bool nonBufferMembersEqual(const Asset& other) const {
+			FASTGLTF_REQUIRE(assetInfo == other.assetInfo);
+			FASTGLTF_REQUIRE(accessors == other.accessors);
+			FASTGLTF_REQUIRE(animations == other.animations);
+			FASTGLTF_REQUIRE(bufferViews == other.bufferViews);
+			FASTGLTF_REQUIRE(cameras == other.cameras);
+			FASTGLTF_REQUIRE(images == other.images);
+			FASTGLTF_REQUIRE(lights == other.lights);
+			FASTGLTF_REQUIRE(materials == other.materials);
+			FASTGLTF_REQUIRE(meshes == other.meshes);
+			FASTGLTF_REQUIRE(nodes == other.nodes);
+			FASTGLTF_REQUIRE(samplers == other.samplers);
+			FASTGLTF_REQUIRE(scenes == other.scenes);
+			FASTGLTF_REQUIRE(skins == other.skins);	
+			FASTGLTF_REQUIRE(textures == other.textures);
+			FASTGLTF_REQUIRE(materialVariants == other.materialVariants);
+			FASTGLTF_REQUIRE(availableCategories == other.availableCategories);
+			FASTGLTF_REQUIRE(extensionsUsed == other.extensionsUsed);
+			FASTGLTF_REQUIRE(extensionsRequired == other.extensionsRequired);
+			FASTGLTF_REQUIRE(defaultScene == other.defaultScene);
+		#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+			FASTGLTF_REQUIRE(physicsMaterials == other.physicsMaterials);
+			FASTGLTF_REQUIRE(physicsJoints == other.physicsJoints);
+			FASTGLTF_REQUIRE(collisionFilters == other.collisionFilters);
+		#endif
+			return true;
+		}
 
 	public:
         /**
@@ -2891,6 +3586,23 @@ namespace fastgltf {
 			memoryResource = std::move(other.memoryResource);
 #endif
 			return *this;
+		}
+
+
+		bool operator==(const Asset& other) const {
+			// in order, every member
+			FASTGLTF_REQUIRE(nonBufferMembersEqual(other));
+			FASTGLTF_REQUIRE(buffers == other.buffers);
+			return true;
+		}
+
+		bool equivalent(const Asset& other) const {
+			FASTGLTF_REQUIRE(nonBufferMembersEqual(other));
+			FASTGLTF_REQUIRE(buffers.size() == other.buffers.size());
+			for (std::size_t i = 0; i < buffers.size(); ++i) {
+				FASTGLTF_REQUIRE(buffers[i].equivalent(other.buffers[i]));
+			}
+			return true;
 		}
     };
 #pragma endregion
