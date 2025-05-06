@@ -5485,7 +5485,7 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 		json += '{';
 
 		// [1.0f, 1.0f, 1.0f] is the default.
-		if (it->color[0] != 1.0f && it->color[1] != 1.0f && it->color[2] != 1.0f) {
+		if (!(it->color[0] == 1.0f && it->color[1] == 1.0f && it->color[2] == 1.0f)) {
 			json += R"("color":[)";
 			json += to_string_fp(it->color[0]) + ',' + to_string_fp(it->color[1]) + ',' + to_string_fp(it->color[2]);
 			json += "],";
