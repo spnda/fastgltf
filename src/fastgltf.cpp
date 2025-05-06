@@ -5852,7 +5852,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
 
 		if (it->packedOcclusionRoughnessMetallicTextures) {
 			if (json.back() == '}') json += ',';
-			json += R"("MSFT_packing_normalRoughnessMetallic":{)";
+			json += R"("MSFT_packing_occlusionRoughnessMetallic":{)";
 			if (it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.has_value()) {
 				json += R"("occlusionRoughnessMetallicTexture":)";
 				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.value());
