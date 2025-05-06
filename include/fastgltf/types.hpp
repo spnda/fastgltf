@@ -1421,7 +1421,7 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	bool operator==(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
-		return bool(lhs) == bool(rhs) && !bool(lhs) && *lhs == *rhs;
+		return bool(lhs) == bool(rhs) && (!bool(lhs) || *lhs == *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
