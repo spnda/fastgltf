@@ -4986,11 +4986,13 @@ namespace fastgltf {
 	// replacement for std::to_string that uses simdjson's grisu2 implementation, which is
 	// (1) bidirectionally lossless (std::to_string is not)
 	// (2) quite a lot faster than std::to_chars and std::to_string.
-	std::string to_string_fp(const num& value) {
+	template <typename T>
+	std::string to_string_fp(const T& value) {
+		static_assert(std::is_floating_point_v<T>, "T needs to be a floating point type");
 		char buffer[30] = {};
 
 		// TODO: Include a own copy of grisu2 instead of accessing functions from simdjson's internal namespace?
-		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), value);
+		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), static_cast<double>(value));
 		return {std::begin(buffer), end};
 	}
 
@@ -5104,7 +5106,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 
 			for (std::size_t i = 0; i < ref->size(); ++i) {
 				if (ref->isType<double>()) {
-					json += to_string_fp(static_cast<num>(ref->get<double>(i)));
+					json += to_string_fp(ref->get<double>(i));
 				} else if (ref->isType<std::int64_t>()) {
 					json += std::to_string(ref->get<std::int64_t>(i));
 				}
