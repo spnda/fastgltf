@@ -481,6 +481,147 @@ TEST_CASE("Extension KHR_materials_variant", "[gltf-loader]") {
 	REQUIRE(primitive.mappings[4] == 6U);
 }
 
+TEST_CASE("KHR_materials_diffuse_transmission", "[gltf-loader]") {
+	auto diffuseTransmissionTest = sampleAssets / "Models" / "DiffuseTransmissionTest" / "glTF" / "DiffuseTransmissionTest.gltf";
+	fastgltf::GltfFileStream jsonData(diffuseTransmissionTest);
+	REQUIRE(jsonData.isOpen());
+
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_diffuse_transmission | fastgltf::Extensions::KHR_materials_unlit | fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, diffuseTransmissionTest);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	REQUIRE(asset->materials.size() == 29);
+	// only the first 20 have diffuseTransmission
+	fastgltf::MaterialDiffuseTransmission expectedMaterials[] = {
+		{
+			0.0f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			0.25f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			0.5f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			0.75f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			1.0f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			0.0f,
+			{},
+			fastgltf::math::nvec3(1.0f, 0.0f, 0.0f),
+			{}
+		},
+		{
+			0.25f,
+			{},
+			fastgltf::math::nvec3(1.0f, 0.0f, 0.0f),
+			{}
+		},
+		{
+			0.5f,
+			{},
+			fastgltf::math::nvec3(1.0f, 0.0f, 0.0f),
+			{}
+		},
+		{
+			0.75f,
+			{},
+			fastgltf::math::nvec3(1.0f, 0.0f, 0.0f),
+			{}
+		},
+		{
+			1.0f,
+			{},
+			fastgltf::math::nvec3(1.0f, 0.0f, 0.0f),
+			{}
+		},
+		{
+			0.0f,
+			{{0}},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			0.25f,
+			{{0}},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			0.5f,
+			{{0}},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			0.75f,
+			{{0}},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			1.0f,
+			{{0}},
+			fastgltf::math::nvec3(1.0f),
+			{}
+		},
+		{
+			1.0f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{{2}}
+		},
+		{
+			0.75f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{{2}}
+		},
+		{
+			0.5f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{{2}}
+		},
+		{
+			0.25f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{{2}}
+		},
+		{
+			0.0f,
+			{},
+			fastgltf::math::nvec3(1.0f),
+			{{2}}
+		},
+	};
+	static_assert(sizeof(expectedMaterials) / sizeof(fastgltf::MaterialDiffuseTransmission) == 20, "expectedMaterials size mismatch");
+	for (int i = 0; i < 20; i++) {
+		auto& material = asset->materials[i];
+		REQUIRE(material.diffuseTransmission != nullptr);
+		REQUIRE(*material.diffuseTransmission == expectedMaterials[i]);
+	};
+}
+
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
