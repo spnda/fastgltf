@@ -5376,6 +5376,29 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 		json += ',';
 
 	json += "\"images\":[";
+
+	auto imagePathsHasPath = [&] (const std::filesystem::path &path) {
+		for (auto& imagePath : imagePaths) {
+			if (imagePath.has_value() && *imagePath == path) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	auto addPath = [&] (const std::filesystem::path &path) {
+		// while it's still present, add "-1", "-2", "-3", etc. to the path
+		// e.g. RoughnessGrid.png -> RoughnessGrid-1.png
+		auto newPath = path;
+		int i = 1;
+		while (imagePathsHasPath(newPath)) {
+			newPath = path.parent_path() / (path.stem().string() + "-" + std::to_string(i) + path.extension().string());
+			++i;
+		}
+		imagePaths.emplace_back(newPath);
+		return newPath;
+	};
+	
 	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
 		json += '{';
 
@@ -5390,20 +5413,18 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
                 imagePaths.emplace_back(std::nullopt);
             },
             [&](const sources::Array& vector) {
-                auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+                auto path = addPath(getImageFilePath(asset, imageIdx, vector.mimeType));
                 json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
-                imagePaths.emplace_back(path);
             },
 			[&](const sources::Vector& vector) {
-				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+				auto path = addPath(getImageFilePath(asset, imageIdx, vector.mimeType));
 				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
-				imagePaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
