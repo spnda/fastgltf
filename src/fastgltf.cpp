@@ -4844,6 +4844,10 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 
 		// TODO: Somehow allow skipping the binary part in the future?
 		if (binaryChunk.chunkLength != 0) {
+			if (binaryChunk.chunkLength > data.totalSize() - data.bytesRead()) {
+				return Error::InvalidGLB;
+			}
+
 			if (config.mapCallback != nullptr) {
 				auto info = config.mapCallback(binaryChunk.chunkLength, config.userPointer);
 				if (info.mappedMemory != nullptr) {
