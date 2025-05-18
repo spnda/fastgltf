@@ -3597,12 +3597,15 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
         auto error = nodeObject["matrix"].get_array().get(array);
         if (error == SUCCESS) FASTGLTF_LIKELY {
+            if (array.size() != 16) FASTGLTF_UNLIKELY {
+                return Error::InvalidGltf;
+            }
             math::fmat4x4 transformMatrix;
             std::size_t i = 0, j = 0;
 			for (auto num : array) {
                 double val;
                 if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                    break;
+                    return Error::InvalidGltf;
                 }
 				transformMatrix.col(i)[j++] = static_cast<fastgltf::num>(val);
 				if (j == 4) {
@@ -3623,6 +3626,9 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
             // There's no matrix, let's see if there's scale, rotation, or rotation fields.
             if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) FASTGLTF_LIKELY {
+                if (array.size() != 3) FASTGLTF_UNLIKELY {
+                    return Error::InvalidGltf;
+                }
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -3637,6 +3643,9 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
             }
 
             if (auto translationError = nodeObject["translation"].get_array().get(array); translationError == SUCCESS) FASTGLTF_LIKELY {
+                if (array.size() != 3) FASTGLTF_UNLIKELY {
+                    return Error::InvalidGltf;
+                }
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
@@ -3651,6 +3660,9 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
             }
 
             if (auto rotationError = nodeObject["rotation"].get_array().get(array); rotationError == SUCCESS) FASTGLTF_LIKELY {
+                if (array.size() != 4) FASTGLTF_UNLIKELY {
+                    return Error::InvalidGltf;
+                }
                 auto i = 0U;
                 for (auto num : array) {
                     double val;
