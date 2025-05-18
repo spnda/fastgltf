@@ -4818,7 +4818,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
     //  1. JSON chunk
     //  2. BIN chunk (optional)
     auto jsonChunk = readBinaryChunk(data);
-    if (jsonChunk.chunkType != binaryGltfJsonChunkMagic) {
+    if (jsonChunk.chunkType != binaryGltfJsonChunkMagic || jsonChunk.chunkLength > data.totalSize() - sizeof(BinaryGltfHeader)) {
 	    return Error::InvalidGLB;
     }
 
