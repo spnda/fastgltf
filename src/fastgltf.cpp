@@ -1403,7 +1403,7 @@ fg::Error fg::validate(const fastgltf::Asset& asset) {
 			return Error::InvalidGltf;
 		}
 		// The document "scene" index MUST be set to 0, the index of the only scene in the "scenes" array.
-		if (asset.defaultScene != 0) {
+		if (asset.defaultScene != 0U) {
 			return Error::InvalidGltf;
 		}
 		// The scene MUST have exactly one node, the single root node.
@@ -1469,7 +1469,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 		const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
 		// std::uint32_t minor = version.substr(2, 3)[0] - '0';
-		if (major != 2) {
+		if (major != 2U) {
 			return Error::UnsupportedVersion;
 		}
 		info.gltfVersion = std::string { version };
