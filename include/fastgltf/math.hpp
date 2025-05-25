@@ -575,7 +575,7 @@ namespace fastgltf::math {
 
 		if (d < T(0)) {
 			a = -a;
-			b = -b;
+			d = -d;
 		}
 
 		if (d > T(0.9995)) // Simple linear interpolation when both quats are close to each other
