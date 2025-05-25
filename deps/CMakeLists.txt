@@ -83,6 +83,10 @@ if (FASTGLTF_ENABLE_TESTS)
         GIT_SHALLOW TRUE
     )
 
+    if (NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD STREQUAL "" OR CMAKE_CXX_STANDARD LESS 17)
+        set(CMAKE_CXX_STANDARD "17" CACHE STRING "C++ standard" FORCE)
+    endif ()
+
     # We can set Catch2 config options like this. We want all the C++17 features.
     option(CATCH_CONFIG_CPP17_UNCAUGHT_EXCEPTIONS "" ON)
     option(CATCH_CONFIG_CPP17_STRING_VIEW "" ON)
