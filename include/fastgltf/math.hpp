@@ -825,63 +825,28 @@ namespace fastgltf::math {
 			vec<T, 4>(l.x(), l.y(), l.z(), 1.f));
 	}
 
-	/** Inverts a 4x4 matrix, if possible. Returns true if success, false if failure.  A pointer to the input can also safely be used as the output */
+	/** Inverts a 4x4 matrix */
 	FASTGLTF_EXPORT template <typename T>
-	bool invert(const mat<T, 4, 4>& m, mat<T, 4, 4>* output) noexcept {
-		T a00 = m[0][0];
-		T a01 = m[0][1];
-		T a02 = m[0][2];
-		T a03 = m[0][3];
-		T a10 = m[1][0];
-		T a11 = m[1][1];
-		T a12 = m[1][2];
-		T a13 = m[1][3];
-		T a20 = m[2][0];
-		T a21 = m[2][1];
-		T a22 = m[2][2];
-		T a23 = m[2][3];
-		T a30 = m[3][0];
-		T a31 = m[3][1];
-		T a32 = m[3][2];
-		T a33 = m[3][3];
+	[[nodiscard]] auto invert(const mat<T, 4, 4>& m) noexcept {
+		const auto d = m.data();
+		T a00 = d[0], a10 = d[4], a20 = d[8],  a30 = d[12],
+		  a01 = d[1], a11 = d[5], a21 = d[9],  a31 = d[13],
+		  a02 = d[2], a12 = d[6], a22 = d[10], a32 = d[14],
+		  a03 = d[3], a13 = d[7], a23 = d[11], a33 = d[15];
 
-		T b00 = a00 * a11 - a01 * a10;
-		T b01 = a00 * a12 - a02 * a10;
-		T b02 = a00 * a13 - a03 * a10;
-		T b03 = a01 * a12 - a02 * a11;
-		T b04 = a01 * a13 - a03 * a11;
-		T b05 = a02 * a13 - a03 * a12;
-		T b06 = a20 * a31 - a21 * a30;
-		T b07 = a20 * a32 - a22 * a30;
-		T b08 = a20 * a33 - a23 * a30;
-		T b09 = a21 * a32 - a22 * a31;
-		T b10 = a21 * a33 - a23 * a31;
-		T b11 = a22 * a33 - a23 * a32;
+		T b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10, b02 = a00 * a13 - a03 * a10,
+		  b03 = a01 * a12 - a02 * a11, b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12,
+		  b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30, b08 = a20 * a33 - a23 * a30,
+		  b09 = a21 * a32 - a22 * a31, b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32;
 
 		// Calculate the determinant
 		T det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-		if (det == T(0)) {
-			// Can not invert this matrix
-			return false;
-		}
-		det = T(1) / det;
-		(*output)[0][0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
-		(*output)[0][1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
-		(*output)[0][2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
-		(*output)[0][3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
-		(*output)[1][0] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
-		(*output)[1][1] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
-		(*output)[1][2] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
-		(*output)[1][3] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
-		(*output)[2][0] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
-		(*output)[2][1] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
-		(*output)[2][2] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
-		(*output)[2][3] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
-		(*output)[3][0] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
-		(*output)[3][1] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
-		(*output)[3][2] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
-		(*output)[3][3] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
-		return true;
+
+		return det == T(0) ? mat<T, 4, 4>() : mat<T, 4, 4>(
+			a11 * b11 - a12 * b10 + a13 * b09, a02 * b10 - a01 * b11 - a03 * b09, a31 * b05 - a32 * b04 + a33 * b03, a22 * b04 - a21 * b05 - a23 * b03,
+			a12 * b08 - a10 * b11 - a13 * b07, a00 * b11 - a02 * b08 + a03 * b07, a32 * b02 - a30 * b05 - a33 * b01, a20 * b05 - a22 * b02 + a23 * b01,
+			a10 * b10 - a11 * b08 + a13 * b06, a01 * b08 - a00 * b10 - a03 * b06, a30 * b04 - a31 * b02 + a33 * b00, a21 * b02 - a20 * b04 - a23 * b00,
+			a11 * b07 - a10 * b09 - a12 * b06, a00 * b09 - a01 * b07 + a02 * b06, a31 * b01 - a30 * b03 - a32 * b00, a20 * b03 - a21 * b01 + a22 * b00 ) * ( T(1) / det );
 	}
 
 	/** Translates a given transform matrix by the world space translation vector */
