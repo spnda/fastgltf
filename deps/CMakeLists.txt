@@ -1,9 +1,51 @@
-set(FASTGLTF_DEPS_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
 include(FetchContent)
 
+# If the target already exists due to the parent script already including it as a dependency, just directly link it.
+if (NOT TARGET simdjson::simdjson)
+    # Try to find simdjson through a find_package call.
+    find_package(simdjson CONFIG)
+    if (simdjson_FOUND)
+        message(STATUS "fastgltf: Found simdjson config")
+    else ()
+        # Download and configure simdjson
+        set(SIMDJSON_TARGET_VERSION "3.12.3")
+        file(MAKE_DIRECTORY ${SIMDJSON_DL_DIR})
+
+        set(SIMDJSON_HEADER_FILE "${SIMDJSON_DL_DIR}/simdjson.h")
+        set(SIMDJSON_SOURCE_FILE "${SIMDJSON_DL_DIR}/simdjson.cpp")
+
+        macro(download_simdjson)
+            file(DOWNLOAD "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h" ${SIMDJSON_HEADER_FILE})
+            file(DOWNLOAD "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.cpp" ${SIMDJSON_SOURCE_FILE})
+        endmacro ()
+
+        if (EXISTS ${SIMDJSON_HEADER_FILE})
+            # Look for the SIMDJSON_VERSION define in the header to check the version.
+            file(STRINGS ${SIMDJSON_HEADER_FILE} SIMDJSON_HEADER_VERSION_LINE REGEX "^#define SIMDJSON_VERSION ")
+            string(REGEX MATCHALL "[0-9.]+" SIMDJSON_HEADER_VERSION "${SIMDJSON_HEADER_VERSION_LINE}")
+            message(STATUS "fastgltf: Found simdjson (Version ${SIMDJSON_HEADER_VERSION})")
+
+            if (SIMDJSON_HEADER_VERSION STREQUAL "")
+                message(FATAL_ERROR "fastgltf: Failed to download simdjson")
+            endif ()
+
+            if (SIMDJSON_HEADER_VERSION VERSION_LESS SIMDJSON_TARGET_VERSION)
+                message(STATUS "fastgltf: simdjson outdated, downloading...")
+                download_simdjson()
+            endif ()
+        else ()
+            message(STATUS "fastgltf: Did not find simdjson, downloading...")
+            download_simdjson()
+
+            if (NOT EXISTS "${SIMDJSON_HEADER_FILE}")
+                message(FATAL_ERROR "fastgltf: Failed to download simdjson.")
+            endif ()
+        endif ()
+    endif ()
+endif ()
+
 # glm
-if(FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
+if (FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
     message(STATUS "fastgltf: Fetching glm")
     FetchContent_Declare(
         glm
@@ -24,12 +66,12 @@ if(FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
     if (TARGET glm_static)
         set_target_properties(glm_static PROPERTIES EXCLUDE_FROM_ALL 1)
         add_library(glm::static ALIAS glm_static)
-    endif()
+    endif ()
     if (TARGET glm_shared)
         set_target_properties(glm_shared PROPERTIES EXCLUDE_FROM_ALL 1)
         add_library(glm::shared ALIAS glm_shared)
-    endif()
-endif()
+    endif ()
+endif ()
 
 # Catch2
 if (FASTGLTF_ENABLE_TESTS)
@@ -40,6 +82,10 @@ if (FASTGLTF_ENABLE_TESTS)
         GIT_TAG v3.7.0
         GIT_SHALLOW TRUE
     )
+
+    if (NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD STREQUAL "" OR CMAKE_CXX_STANDARD LESS 17)
+        set(CMAKE_CXX_STANDARD "17" CACHE STRING "C++ standard" FORCE)
+    endif ()
 
     # We can set Catch2 config options like this. We want all the C++17 features.
     option(CATCH_CONFIG_CPP17_UNCAUGHT_EXCEPTIONS "" ON)
@@ -54,10 +100,10 @@ if (FASTGLTF_ENABLE_TESTS)
 
     if (MSVC)
         option(CATCH_CONFIG_WINDOWS_CRTDBG "" ON)
-    endif()
+    endif ()
 
     FetchContent_MakeAvailable(catch2)
-endif()
+endif ()
 
 # corrosion
 if (FASTGLTF_ENABLE_GLTF_RS)
@@ -70,10 +116,10 @@ if (FASTGLTF_ENABLE_GLTF_RS)
     )
 
     FetchContent_MakeAvailable(corrosion)
-endif()
+endif ()
 
 # glfw. We emulate parts of glfw's CMakeLists but don't want to include any examples or tests.
-if(FASTGLTF_ENABLE_EXAMPLES)
+if (FASTGLTF_ENABLE_EXAMPLES)
     message(STATUS "fastgltf: Fetching glfw")
     FetchContent_Declare(
         glfw
@@ -94,7 +140,7 @@ if(FASTGLTF_ENABLE_EXAMPLES)
     set_target_properties(update_mappings PROPERTIES EXCLUDE_FROM_ALL 1)
 
     add_library(glfw::glfw ALIAS glfw)
-endif()
+endif ()
 
 # glad
 if (FASTGLTF_ENABLE_EXAMPLES)
@@ -111,7 +157,7 @@ if (FASTGLTF_ENABLE_EXAMPLES)
 
     # Let the glad script generate the glad headers
     glad_add_library(fg_glad_gl46 REPRODUCIBLE EXCLUDE_FROM_ALL LOADER API gl:core=4.6)
-endif()
+endif ()
 
 # imgui
 if (FASTGLTF_ENABLE_EXAMPLES)
@@ -125,7 +171,7 @@ if (FASTGLTF_ENABLE_EXAMPLES)
     )
 
     FetchContent_GetProperties(imgui)
-    if(NOT imgui_POPULATED)
+    if (NOT imgui_POPULATED)
         FetchContent_MakeAvailable(imgui)
 
         add_library(imgui)
@@ -144,11 +190,11 @@ if (FASTGLTF_ENABLE_EXAMPLES)
         target_sources(imgui PUBLIC "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h" "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp")
 
         target_link_libraries(imgui PUBLIC glfw::glfw)
-    endif()
-endif()
+    endif ()
+endif ()
 
 # stb
-if(FASTGLTF_ENABLE_EXAMPLES)
+if (FASTGLTF_ENABLE_EXAMPLES)
     message(STATUS "fastgltf: Fetching stb")
     FetchContent_Declare(
         stb
@@ -159,10 +205,10 @@ if(FASTGLTF_ENABLE_EXAMPLES)
     )
 
     FetchContent_GetProperties(stb)
-    if(NOT stb_POPULATED)
+    if (NOT stb_POPULATED)
         FetchContent_MakeAvailable(stb)
 
         add_library(stb INTERFACE)
         target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
-    endif()
-endif()
+    endif ()
+endif ()
