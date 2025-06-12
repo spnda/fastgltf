@@ -39,7 +39,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 
 
 set(SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
-add_subdirectory(deps)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies.cmake)
 
 
 # Create the library target
