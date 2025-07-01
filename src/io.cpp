@@ -100,7 +100,7 @@ void fg::GltfDataBuffer::read(void *ptr, std::size_t count) {
 	idx += count;
 }
 
-fg::span<std::byte> fg::GltfDataBuffer::read(std::size_t count, std::size_t padding) {
+fg::span<std::byte> fg::GltfDataBuffer::read(std::size_t count, [[maybe_unused]] std::size_t padding) {
 	span<std::byte> sub(buffer.get() + idx, count);
 	idx += count;
 	return sub;
@@ -294,7 +294,7 @@ void fg::MappedGltfFile::read(void *ptr, std::size_t count) {
 	idx += count;
 }
 
-fg::span<std::byte> fg::MappedGltfFile::read(std::size_t count, std::size_t padding) {
+fg::span<std::byte> fg::MappedGltfFile::read(std::size_t count, [[maybe_unused]] std::size_t padding) {
 	span<std::byte> sub(static_cast<std::byte*>(mappedFile) + idx, count);
 	idx += count;
 	return sub;
