@@ -1618,7 +1618,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 	}
 
-	return std::move(asset);
+	return asset;
 }
 
 fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& asset) {
@@ -7036,7 +7036,7 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const As
     result.output = std::move(outputString);
     result.bufferPaths = std::move(bufferPaths);
     result.imagePaths = std::move(imagePaths);
-    return std::move(result);
+    return result;
 }
 
 fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions _options) {
@@ -7133,7 +7133,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
         }
     }
 
-    return std::move(result);
+    return result;
 }
 
 namespace fastgltf {
