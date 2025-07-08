@@ -493,7 +493,7 @@ TEST_CASE("Extension GODOT_single_root", "[gltf-loader]") {
 		REQUIRE(asset->extensionsUsed.size() == 1);
 		REQUIRE(asset->extensionsUsed[0] == "GODOT_single_root");
 		REQUIRE(asset->scenes.size() == 1);
-		REQUIRE(asset->defaultScene == 0);
+		REQUIRE(asset->defaultScene == 0U);
 		REQUIRE(asset->scenes[0].nodeIndices.size() == 1);
 		REQUIRE(asset->scenes[0].nodeIndices[0] == 0);
 		REQUIRE(std::holds_alternative<fastgltf::TRS>(asset->nodes[0].transform));

@@ -128,7 +128,7 @@ bool fg::GltfFileStream::isOpen() const {
 
 void fg::GltfFileStream::read(void *ptr, std::size_t count) {
 	fileStream.read(
-			reinterpret_cast<char*>(ptr),
+			static_cast<char*>(ptr),
 			static_cast<std::streamsize>(count));
 }
 
@@ -450,7 +450,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 		auto info = config.mapCallback(static_cast<std::uint64_t>(length), config.userPointer);
 		if (info.mappedMemory != nullptr) {
 			const sources::CustomBuffer customBufferSource = { info.customId };
-			file.read(reinterpret_cast<char*>(info.mappedMemory), length);
+			file.read(static_cast<char*>(info.mappedMemory), length);
 			if (config.unmapCallback != nullptr) {
 				config.unmapCallback(&info, config.userPointer);
 			}

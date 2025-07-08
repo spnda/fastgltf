@@ -666,6 +666,8 @@ namespace fastgltf::math {
 				(*this).col(i) = vec<T, N>(other.col(i));
 		}
 
+		constexpr mat& operator=(const mat& other) = default;
+
 		[[nodiscard]] constexpr std::size_t columns() const noexcept {
 			return M;
 		}

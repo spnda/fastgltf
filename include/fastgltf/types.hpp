@@ -360,15 +360,15 @@ namespace fastgltf {
         switch (type) {
             case AccessorType::Mat2:
             case AccessorType::Vec2:
-                return std::size_t(2U);
+                return static_cast<std::size_t>(2U);
             case AccessorType::Mat3:
             case AccessorType::Vec3:
-                return std::size_t(3U);
+                return static_cast<std::size_t>(3U);
             case AccessorType::Mat4:
             case AccessorType::Vec4:
-                return std::size_t(4U);
+                return static_cast<std::size_t>(4U);
             default:
-                return std::size_t(1U);
+                return static_cast<std::size_t>(1U);
         }
     }
 
@@ -379,7 +379,7 @@ namespace fastgltf {
 	FASTGLTF_EXPORT constexpr auto getComponentByteSize(ComponentType componentType) noexcept {
 		static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint16_t>);
 		if (componentType == ComponentType::Invalid)
-			return std::size_t(0U);
+			return static_cast<std::size_t>(0U);
 		return static_cast<std::size_t>(to_underlying(componentType) >> 13U) + 1;
 	}
 
@@ -867,7 +867,7 @@ namespace fastgltf {
             }
 
             // We use geometric growth, similarly to std::vector.
-            newCapacity = std::size_t(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
+            newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
 
 			T* alloc = allocator.allocate(newCapacity);
 
@@ -1421,7 +1421,8 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	bool operator==(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
-		return bool(lhs) == bool(rhs) && (!bool(lhs) || *lhs == *rhs);
+		return static_cast<bool>(lhs) == static_cast<bool>(rhs) &&
+			(!static_cast<bool>(lhs) || *lhs == *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
@@ -2270,7 +2271,7 @@ namespace fastgltf {
 		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
 #endif
 
-        [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) noexcept {
+        [[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
                 if (it->name == attributeName)
                     return it;
@@ -2278,7 +2279,7 @@ namespace fastgltf {
             return instancingAttributes.end();
         }
 
-        [[nodiscard]] auto findInstancingAttribute(std::string_view attributeName) const noexcept {
+        [[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) const noexcept {
             for (auto it = instancingAttributes.cbegin(); it != instancingAttributes.cend(); ++it) {
                 if (it->name == attributeName)
                     return it;
@@ -2291,7 +2292,7 @@ namespace fastgltf {
 		std::size_t bufferView;
 		FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4> attributes;
 
-		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
+		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
 			for (auto* it = attributes.begin(); it != attributes.end(); ++it) {
 				if (it->name == name)
 					return it;
@@ -2299,7 +2300,7 @@ namespace fastgltf {
 			return attributes.end();
 		}
 
-		[[nodiscard]] auto findAttribute(std::string_view name) const noexcept {
+		[[nodiscard]] auto findAttribute(const std::string_view name) const noexcept {
 			for (const auto* it = attributes.cbegin(); it != attributes.cend(); ++it) {
 				if (it->name == name)
 					return it;

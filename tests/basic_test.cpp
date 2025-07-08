@@ -352,7 +352,8 @@ TEST_CASE("Test base64 decoding callbacks", "[gltf-loader]") {
 	REQUIRE(jsonData.isOpen());
 
     size_t decodeCounter = 0;
-    auto decodeCallback = [](std::string_view encodedData, uint8_t* outputData, size_t padding, size_t outputSize, void* userPointer) {
+    auto decodeCallback = [](const std::string_view encodedData, uint8_t* outputData,
+        const size_t padding, [[maybe_unused]] size_t outputSize, void* userPointer) {
         (*static_cast<size_t*>(userPointer))++;
         fastgltf::base64::decode_inplace(encodedData, outputData, padding);
     };

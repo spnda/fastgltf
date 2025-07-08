@@ -78,10 +78,10 @@ namespace fastgltf {
 	static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
 
 	constexpr void readUint32LE(std::uint32_t& x, std::byte* bytes) noexcept {
-		x = std::uint32_t(bytes[0])
-				| (std::uint32_t(bytes[1]) << 8)
-				| (std::uint32_t(bytes[2]) << 16)
-				| (std::uint32_t(bytes[3]) << 24);
+		x = static_cast<std::uint32_t>(bytes[0])
+				| (static_cast<std::uint32_t>(bytes[1]) << 8)
+				| (static_cast<std::uint32_t>(bytes[2]) << 16)
+				| (static_cast<std::uint32_t>(bytes[3]) << 24);
 	}
 
 	constexpr void writeUint32LE(std::uint32_t x, std::byte* buffer) noexcept {
@@ -254,10 +254,9 @@ namespace fastgltf {
 		return true;
 	}
 
-	[[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, simdjson::dom::object& extensions, Extensions extensionFlags) {
+	[[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
 		for (auto extension : extensions) {
-			auto hashedKey = crcStringFunction(extension.key);
-			switch (hashedKey) {
+			switch (crcStringFunction(extension.key)) {
 				case force_consteval<crc32c(extensions::KHR_texture_basisu)>: {
 					if (!hasBit(extensionFlags, Extensions::KHR_texture_basisu))
 						break;
@@ -306,7 +305,8 @@ namespace fastgltf {
 		OcclusionTexture = 2,
 	};
 
-	fg::Error parseTextureInfo(simdjson::dom::object& object, std::string_view key, TextureInfo* info, Extensions extensions, TextureInfoType type = TextureInfoType::Standard) noexcept {
+	Error parseTextureInfo(const simdjson::dom::object& object, const std::string_view key,
+		TextureInfo* info, const Extensions extensions, const TextureInfoType type = TextureInfoType::Standard) noexcept {
 		using namespace simdjson;
 
 		dom::object child;
@@ -323,7 +323,7 @@ namespace fastgltf {
 			return Error::InvalidGltf;
 		}
 
-		if (auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
+		if (const auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
 			info->texCoordIndex = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
             return Error::InvalidJson;
@@ -331,14 +331,14 @@ namespace fastgltf {
 
 		if (type == TextureInfoType::NormalTexture) {
             double scale;
-			if (auto error = child["scale"].get_double().get(scale); error == SUCCESS) FASTGLTF_LIKELY {
+			if (const auto error = child["scale"].get_double().get(scale); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<num>(scale);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
 			}
 		} else if (type == TextureInfoType::OcclusionTexture) {
 			double strength;
-			if (auto error = child["strength"].get_double().get(strength); error == SUCCESS) FASTGLTF_LIKELY {
+			if (const auto error = child["strength"].get_double().get(strength); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<num>(strength);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
                 return Error::InvalidGltf;
@@ -669,7 +669,7 @@ bool fg::URI::isDataUri() const noexcept {
 #pragma endregion
 
 #pragma region glTF parsing
-fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexcept {
+fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const noexcept {
     auto path = uri.path();
     auto mimeEnd = path.find(';');
     auto mime = path.substr(0, mimeEnd);
@@ -688,9 +688,9 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(URIView& uri) const noexc
         auto info = config.mapCallback(size, config.userPointer);
         if (info.mappedMemory != nullptr) {
             if (config.decodeCallback != nullptr) {
-                config.decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding, size, config.userPointer);
+                config.decodeCallback(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding, size, config.userPointer);
             } else {
-                base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(info.mappedMemory), padding);
+                base64::decode_inplace(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding);
             }
 
             if (config.unmapCallback != nullptr) {
@@ -750,8 +750,7 @@ void fg::Parser::fillCategories(Category& inputCategories) noexcept {
 }
 
 fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
-    const auto hash = crcStringFunction(mime);
-    switch (hash) {
+    switch (crcStringFunction(mime)) {
         case force_consteval<crc32c(mimeTypeJpeg)>: {
             return MimeType::JPEG;
         }
@@ -927,14 +926,11 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 	return Error::None;
 }
 
-fg::Error fg::validate(const fastgltf::Asset& asset) {
-	auto isExtensionUsed = [&used = asset.extensionsUsed](std::string_view extension) {
-		for (const auto& extensionUsed : used) {
-			if (extension == extensionUsed) {
-				return true;
-			}
-		}
-		return false;
+fg::Error fg::validate(const Asset& asset) {
+	auto isExtensionUsed = [&used = asset.extensionsUsed](const std::string_view extension) {
+		return std::any_of(used.begin(), used.end(), [&](auto& arg) {
+			return arg == extension;
+		});
 	};
 
 	// From the spec: extensionsRequired is a subset of extensionsUsed. All values in extensionsRequired MUST also exist in extensionsUsed.
@@ -1621,7 +1617,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	return asset;
 }
 
-fg::Error fg::Parser::parseAccessors(simdjson::dom::array& accessors, Asset& asset) {
+fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asset& asset) {
     using namespace simdjson;
 
 	asset.accessors.reserve(accessors.size());
@@ -2061,7 +2057,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseBufferViews(simdjson::dom::array& bufferViews, Asset& asset) {
+fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, Asset& asset) {
     using namespace simdjson;
 
 	asset.bufferViews.reserve(bufferViews.size());
@@ -2316,7 +2312,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, Asset& asset) {
+fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObject, Asset& asset) {
     using namespace simdjson;
 
     for (auto extensionValue : extensionsObject) {
@@ -2328,8 +2324,7 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
             return Error::InvalidGltf;
         }
 
-        auto hash = crcStringFunction(extensionValue.key);
-        switch (hash) {
+        switch (crcStringFunction(extensionValue.key)) {
             case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
                 if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
                     break;
@@ -2421,6 +2416,8 @@ fg::Error fg::Parser::parseExtensions(simdjson::dom::object& extensionsObject, A
 				break;
 			}
 #endif
+            default:
+                continue;
         }
     }
 
@@ -2523,7 +2520,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
+fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& asset) {
     using namespace simdjson;
 
     asset.lights.reserve(lights.size());
@@ -2624,13 +2621,11 @@ fg::Error fg::Parser::parseLights(simdjson::dom::array& lights, Asset& asset) {
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, fastgltf::Material &material) {
+fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Material &material) {
 	using namespace simdjson;
 
 	for (auto extensionField : object) {
-		auto hashedKey = crcStringFunction(extensionField.key);
-
-		switch (hashedKey) {
+		switch (crcStringFunction(extensionField.key)) {
 			case force_consteval<crc32c(extensions::KHR_materials_anisotropy)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_anisotropy))
 					break;
@@ -3391,13 +3386,11 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 	return Error::None;
 }
 
-fastgltf::Error fg::Parser::parsePrimitiveExtensions(simdjson::dom::object& object, Primitive& primitive) {
+fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object& object, Primitive& primitive) {
 	using namespace simdjson;
 
 	for (auto extension : object) {
-		auto keyHash = crcStringFunction(extension.key);
-
-		switch (keyHash) {
+		switch (crcStringFunction(extension.key)) {
 			case force_consteval<crc32c(extensions::KHR_materials_variants)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
 					break;
@@ -3804,7 +3797,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseSamplers(simdjson::dom::array& samplers, Asset& asset) {
+fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset& asset) {
     using namespace simdjson;
 
     std::uint64_t number;
@@ -3858,7 +3851,7 @@ fg::Error fg::Parser::parseSamplers(simdjson::dom::array& samplers, Asset& asset
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseScenes(simdjson::dom::array& scenes, Asset& asset) {
+fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& asset) {
     using namespace simdjson;
 
     asset.scenes.reserve(scenes.size());
@@ -3908,7 +3901,7 @@ fg::Error fg::Parser::parseScenes(simdjson::dom::array& scenes, Asset& asset) {
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseSkins(simdjson::dom::array& skins, Asset& asset) {
+fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset) {
     using namespace simdjson;
 
     asset.skins.reserve(skins.size());
@@ -3963,7 +3956,7 @@ fg::Error fg::Parser::parseSkins(simdjson::dom::array& skins, Asset& asset) {
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset) {
+fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset& asset) {
     using namespace simdjson;
 
     asset.textures.reserve(textures.size());
@@ -4020,7 +4013,7 @@ fg::Error fg::Parser::parseTextures(simdjson::dom::array& textures, Asset& asset
 }
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
+fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& asset) {
 	using namespace simdjson;
 
 	asset.shapes.reserve(shapes.size());
@@ -4165,7 +4158,7 @@ fg::Error fg::Parser::parseShapes(simdjson::dom::array& shapes, Asset& asset) {
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-fg::Error fg::Parser::parsePhysicsMaterials(simdjson::dom::array& physicsMaterials, Asset& asset) {
+fg::Error fg::Parser::parsePhysicsMaterials(const simdjson::dom::array& physicsMaterials, Asset& asset) {
 	using namespace simdjson;
 
 	asset.physicsMaterials.reserve(physicsMaterials.size());
@@ -4224,7 +4217,7 @@ fg::Error fg::Parser::parsePhysicsMaterials(simdjson::dom::array& physicsMateria
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilters, Asset& asset) {
+fg::Error fg::Parser::parseCollisionFilters(const simdjson::dom::array& collisionFilters, Asset& asset) {
 	using namespace simdjson;
 
 	asset.collisionFilters.reserve(collisionFilters.size());
@@ -4299,7 +4292,7 @@ fg::Error fg::Parser::parseCollisionFilters(simdjson::dom::array& collisionFilte
 	return Error::None;
 }
 
-fg::Error fg::Parser::parsePhysicsJoints(simdjson::dom::array& physicsJoints, Asset& asset) {
+fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoints, Asset& asset) {
 	using namespace simdjson; 
 
 	asset.physicsJoints.reserve(physicsJoints.size());
@@ -4794,9 +4787,9 @@ fg::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 	data.read(begin.data(), begin.size());
 	data.reset();
 	for (const auto& i : begin) {
-		if ((char)i == ' ')
+		if (static_cast<char>(i) == ' ')
 			continue;
-		if ((char)i == '{')
+		if (static_cast<char>(i) == '{')
 			return GltfType::glTF;
 	}
 
@@ -5012,17 +5005,19 @@ namespace fastgltf {
 		do {
 			switch (string[i]) {
 				case '\"': {
-					const std::string_view s = "\\\"";
+					constexpr std::string_view s = "\\\"";
 					string.replace(i, 1, s);
 					i += s.size();
 					break;
 				}
 				case '\\': {
-					const std::string_view s = "\\\\";
+					constexpr std::string_view s = "\\\\";
 					string.replace(i, 1, s);
 					i += s.size();
 					break;
 				}
+				default:
+					break;
 			}
 			++i;
 		} while (i < string.size());
@@ -5032,7 +5027,7 @@ namespace fastgltf {
 	 * Normalizes the path using lexically_normal, calls generic_string to always use forward slashes,
 	 * and escapes any necessary characters.
 	 */
-	static std::string normalizeAndFormatPath(fs::path& path) {
+	static std::string normalizeAndFormatPath(const fs::path& path) {
 		auto string = path.lexically_normal().generic_string();
 		escapeString(string);
 		return string;
@@ -6285,7 +6280,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 						},
 						[&](const NodeTrigger& node) {
 							json += R"("nodes":[)";
-							for(auto it = node.nodes.begin(); it != node.nodes.end(); ++it) {
+							for (auto it = node.nodes.begin(); it != node.nodes.end(); ++it) {
 								json += std::to_string(*it);
 								if (uabs(std::distance(node.nodes.begin(), it)) + 1 < node.nodes.size())
 									json += ',';
@@ -7183,7 +7178,7 @@ namespace fastgltf {
 	}
 
 	template<typename T>
-	bool writeFiles(const Asset& asset, ExportResult<T> &result, fs::path baseFolder) {
+	bool writeFiles(const Asset& asset, ExportResult<T> &result, const fs::path& baseFolder) {
 		for (std::size_t i = 0; i < asset.buffers.size(); ++i) {
 			auto& path = result.bufferPaths[i];
 			if (path.has_value()) {
@@ -7203,7 +7198,7 @@ namespace fastgltf {
 	}
 } // namespace fastgltf
 
-fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, fs::path target, ExportOptions _options) {
+fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, const fs::path& target, const ExportOptions _options) {
 	if (std::error_code ec; !fs::exists(target.parent_path(), ec) || ec) {
 		fs::create_directory(target.parent_path(), ec);
 		if (ec) {
@@ -7232,7 +7227,7 @@ fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, fs::path target, E
     return Error::None;
 }
 
-fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, fs::path target, ExportOptions _options) {
+fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, const fs::path& target, const ExportOptions _options) {
 	if (std::error_code ec; !fs::exists(target.parent_path(), ec) || ec) {
 		fs::create_directory(target.parent_path(), ec);
 		if (ec) {
@@ -7249,7 +7244,7 @@ fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, fs::path target,
 
     std::ofstream file(target, std::ios::out | std::ios::binary);
     if (!file.is_open()) {
-        return fg::Error::InvalidPath;
+        return Error::InvalidPath;
     }
 
     file.write(reinterpret_cast<const char*>(result.output.data()),

@@ -37,6 +37,8 @@ tests/gltf/bistro
 tests/gltf_loaders/
 tests/gltf/export/
 tests/gltf/export_glb/
+tests/gltf/export_gltf/
+tests/gltf_validator
 
 # gltf Rust wrapper
 tests/gltf-rs/target

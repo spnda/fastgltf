@@ -442,11 +442,12 @@ namespace fastgltf {
 	/**
 	 * Returns a list of extension names based on the given extension flags.
 	 */
-	FASTGLTF_EXPORT inline auto stringifyExtensionBits(Extensions extensions) -> decltype(Asset::extensionsRequired) {
+	FASTGLTF_EXPORT inline auto stringifyExtensionBits(const Extensions extensions) -> decltype(Asset::extensionsRequired) {
 		decltype(Asset::extensionsRequired) stringified;
 		for (std::uint8_t i = 0; i < std::numeric_limits<std::underlying_type_t<Extensions>>::digits; ++i) {
 			// The 1 has to be cast to the underlying type as uint8_t(1) << 9 will overflow and be effectively the same as uint8_t(1).
-			auto curExtension = static_cast<Extensions>(std::underlying_type_t<Extensions>(1) << i);
+			auto curExtension = static_cast<Extensions>(
+				static_cast<std::underlying_type_t<Extensions>>(1) << i);
 			if ((extensions & curExtension) == Extensions::None)
 				continue;
 
@@ -479,11 +480,11 @@ namespace fastgltf {
 		Expected(Error error) : err(error) {}
 		Expected(T&& value) : err(Error::None), value(std::forward<T>(value)) {}
 
-		Expected(const Expected<T>& other) = delete;
-		Expected(Expected<T>&& other) noexcept : err(other.err), value(std::move(other.value)) {}
+		Expected(const Expected& other) = delete;
+		Expected(Expected&& other) noexcept : err(other.err), value(std::move(other.value)) {}
 
-		Expected<T>& operator=(const Expected<T>& other) = delete;
-		Expected<T>& operator=(Expected<T>&& other) noexcept {
+		Expected& operator=(const Expected& other) = delete;
+		Expected& operator=(Expected&& other) noexcept {
 			err = other.err;
 			value = std::move(other.value);
 			return *this;
@@ -622,7 +623,7 @@ namespace fastgltf {
 
 		static Expected<GltfDataBuffer> FromPath(const std::filesystem::path& path) noexcept {
 			GltfDataBuffer buffer(path);
-			if (buffer.error != fastgltf::Error::None) {
+			if (buffer.error != Error::None) {
 				return buffer.error;
 			}
 			return buffer;
@@ -630,7 +631,7 @@ namespace fastgltf {
 
 		static Expected<GltfDataBuffer> FromBytes(const std::byte* bytes, std::size_t count) noexcept {
 			GltfDataBuffer buffer(bytes, count);
-			if (buffer.error != fastgltf::Error::None) {
+			if (buffer.error != Error::None) {
 				return buffer.error;
 			}
 			return buffer;
@@ -656,8 +657,8 @@ namespace fastgltf {
 
 		[[nodiscard]] std::size_t totalSize() override;
 
-		[[nodiscard]] explicit operator span<std::byte>() {
-			return span<std::byte>(buffer.get(), dataSize);
+		[[nodiscard]] explicit operator span<std::byte>() const {
+			return span(buffer.get(), dataSize);
 		}
 	};
 
@@ -697,7 +698,7 @@ namespace fastgltf {
 		/** Memory maps a file. If this fails, you can check std::strerror for a more exact error. */
 		static Expected<MappedGltfFile> FromPath(const std::filesystem::path& path) noexcept {
 			MappedGltfFile buffer(path);
-			if (buffer.error != fastgltf::Error::None) {
+			if (buffer.error != Error::None) {
 				return buffer.error;
 			}
 			return buffer;
@@ -713,8 +714,8 @@ namespace fastgltf {
 
 		[[nodiscard]] std::size_t totalSize() override;
 
-		[[nodiscard]] explicit operator span<std::byte>() {
-			return span<std::byte>(static_cast<std::byte*>(mappedFile), fileSize);
+		[[nodiscard]] explicit operator span<std::byte>() const {
+			return span(static_cast<std::byte*>(mappedFile), fileSize);
 		}
 	};
 #endif
@@ -834,7 +835,7 @@ namespace fastgltf {
 		template <typename T>
 		Error parseAttributes(simdjson::dom::object& object, T& attributes);
 
-		[[nodiscard]] auto decodeDataUri(URIView& uri) const noexcept -> Expected<DataSource>;
+		[[nodiscard]] auto decodeDataUri(const URIView& uri) const noexcept -> Expected<DataSource>;
 		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
 #if defined(__ANDROID__)
 		[[nodiscard]] auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> Expected<DataSource>;
@@ -842,30 +843,30 @@ namespace fastgltf {
 
 		Error generateMeshIndices(Asset& asset) const;
 
-		Error parseAccessors(simdjson::dom::array& array, Asset& asset);
+		Error parseAccessors(const simdjson::dom::array& array, Asset& asset);
 		Error parseAnimations(simdjson::dom::array& array, Asset& asset);
 		Error parseBuffers(simdjson::dom::array& array, Asset& asset);
-		Error parseBufferViews(simdjson::dom::array& array, Asset& asset);
+		Error parseBufferViews(const simdjson::dom::array& array, Asset& asset);
 		Error parseCameras(simdjson::dom::array& array, Asset& asset);
-		Error parseExtensions(simdjson::dom::object& extensionsObject, Asset& asset);
+		Error parseExtensions(const simdjson::dom::object& extensionsObject, Asset& asset);
 		Error parseImages(simdjson::dom::array& array, Asset& asset);
-		Error parseLights(simdjson::dom::array& array, Asset& asset);
+		Error parseLights(const simdjson::dom::array& array, Asset& asset);
 		Error parseMaterialExtensions(simdjson::dom::object& object, Material& material);
 		Error parseMaterials(simdjson::dom::array& array, Asset& asset);
-		Error parsePrimitiveExtensions(simdjson::dom::object& object, Primitive& primitive);
+		Error parsePrimitiveExtensions(const simdjson::dom::object& object, Primitive& primitive);
 		Error parseMeshes(simdjson::dom::array& array, Asset& asset);
 		Error parseNodes(simdjson::dom::array& array, Asset& asset);
-		Error parseSamplers(simdjson::dom::array& array, Asset& asset);
-		Error parseScenes(simdjson::dom::array& array, Asset& asset);
-		Error parseSkins(simdjson::dom::array& array, Asset& asset);
-		Error parseTextures(simdjson::dom::array& array, Asset& asset);
+		Error parseSamplers(const simdjson::dom::array& array, Asset& asset);
+		Error parseScenes(const simdjson::dom::array& array, Asset& asset);
+		Error parseSkins(const simdjson::dom::array& array, Asset& asset);
+		Error parseTextures(const simdjson::dom::array& array, Asset& asset);
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		Error parseShapes(simdjson::dom::array& shapes, Asset& asset);
+		Error parseShapes(const simdjson::dom::array& shapes, Asset& asset);
 #endif
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		Error parsePhysicsMaterials(simdjson::dom::array& physicsMaterials, Asset& asset);
-		Error parseCollisionFilters(simdjson::dom::array& collisionFilters, Asset& asset);
-		Error parsePhysicsJoints(simdjson::dom::array& physicsJoints, Asset& asset);
+		Error parsePhysicsMaterials(const simdjson::dom::array& physicsMaterials, Asset& asset);
+		Error parseCollisionFilters(const simdjson::dom::array& collisionFilters, Asset& asset);
+		Error parsePhysicsJoints(const simdjson::dom::array& physicsJoints, Asset& asset);
 
 		Error parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node);
 #endif
@@ -1054,7 +1055,7 @@ namespace fastgltf {
          * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
          * Exporter::setImagePath.
          */
-		Error writeGltfJson(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+		Error writeGltfJson(const Asset& asset, const std::filesystem::path& target, ExportOptions options = ExportOptions::None);
 
 		/**
 		 * Writes a glTF binary (GLB) blob from the given asset to the specified target file. This will also write
@@ -1066,7 +1067,7 @@ namespace fastgltf {
          *
 		 * \see Exporter::writeGltfBinary
 		 */
-        Error writeGltfBinary(const Asset& asset, std::filesystem::path target, ExportOptions options = ExportOptions::None);
+        Error writeGltfBinary(const Asset& asset, const std::filesystem::path& target, ExportOptions options = ExportOptions::None);
 	};
 } // namespace fastgltf
 
