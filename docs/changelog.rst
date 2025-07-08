@@ -6,6 +6,27 @@ Changelog
 
 To view the full changelogs for each release please see the `GitHub releases <https://github.com/spnda/fastgltf/releases>`_.
 
+0.9.0
+=====
+
+- An incredible amount of validation fixes, internal parsing/exporting fixes, and general code improvements
+- Add support for more extensions
+    - KHR_draco_mesh_compression (`#66 <https://github.com/spnda/fastgltf/issues/66>`_)
+    - KHR_physics_rigid_bodies (`#95 <https://github.com/spnda/fastgltf/pull/95>`_)
+    - GODOT_single_root (`#100 <https://github.com/spnda/fastgltf/pull/100>`_)
+    - KHR_materials_diffuse_transmission
+- Add: More support for DXMath vectors/matrices
+- Add: C++23 monadic operators on custom OptionalWithFlagValue
+- Add: ``IterableAccessor`` satisfies ``ranges::input_range``
+- Add: Custom accessor bound type for compile-time type checks
+- Fix: Guarantee floating point round-trip precision while parsing/exporting (`#88 <https://github.com/spnda/fastgltf/issues/88>`_)
+- Fix: Detect armv8 crc32 programmatically on Apple platforms
+- Fix: Use std::byte correctly in Android implementation
+- Fix: Make vectors and matrices trivially copyable
+- Fix: Validate GLB file/chunk byte length
+
+... and quite a few more various minor improvements and fixes!
+
 0.8.0
 =====
 
