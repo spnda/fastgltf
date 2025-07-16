@@ -84,33 +84,22 @@ jobs:
   build_linux:
     strategy:
       matrix:
-        c_compiler: [gcc-9, gcc-10, clang-13, clang-15]
-        os: [ubuntu-22.04]
+        c_compiler: [gcc-12, gcc-13, gcc-14, clang-16, clang-17, clang-18]
+        os: [ubuntu-24.04]
         cpp20: [NO, YES]
-        exclude:
-          # gcc 9 is too old to support C++20, and Clang 13/14 have an issue with the libstdc++ version on the runner images.
-          - c_compiler: gcc-9
-            cpp20: YES
-          - c_compiler: clang-13
-            cpp20: YES
         include:
-          - cxx_compiler: g++-9
-            c_compiler: gcc-9
-          - cxx_compiler: g++-10
-            c_compiler: gcc-10
-          - cxx_compiler: clang++-13
-            c_compiler: clang-13
-          - cxx_compiler: clang++-15
-            c_compiler: clang-15
-
-          # Add to configurations to test with GCC 14 and Clang 18 on Ubuntu 24.04,
-          # since we try to avoid explicitly installing any compilers in the runners.
-          - os: ubuntu-24.04
+          - cxx_compiler: g++-12
+            c_compiler: gcc-12
+          - cxx_compiler: g++-13
+            c_compiler: gcc-13
+          - cxx_compiler: g++-14
             c_compiler: gcc-14
-            cxx_compiler: g++-14
-          - os: ubuntu-24.04
+          - cxx_compiler: clang++-16
+            c_compiler: clang-16
+          - cxx_compiler: clang++-17
+            c_compiler: clang-17
+          - cxx_compiler: clang++-18
             c_compiler: clang-18
-            cxx_compiler: clang++-18
 
     runs-on: ${{ matrix.os }}
     env:
@@ -142,22 +131,21 @@ jobs:
   build_linux_deprecated_extensions:
     strategy:
       matrix:
-        c_compiler: [gcc-9, gcc-10, clang-13]
-        os: [ubuntu-22.04]
+        c_compiler: [gcc-12, gcc-13, gcc-14, clang-16, clang-17, clang-18]
+        os: [ubuntu-24.04]
         include:
-          - cxx_compiler: g++-9
-            c_compiler: gcc-9
-          - cxx_compiler: g++-10
-            c_compiler: gcc-10
-          - cxx_compiler: clang++-13
-            c_compiler: clang-13
-
-          - os: ubuntu-24.04
+          - cxx_compiler: g++-12
+            c_compiler: gcc-12
+          - cxx_compiler: g++-13
+            c_compiler: gcc-13
+          - cxx_compiler: g++-14
             c_compiler: gcc-14
-            cxx_compiler: g++-14
-          - os: ubuntu-24.04
+          - cxx_compiler: clang++-16
+            c_compiler: clang-16
+          - cxx_compiler: clang++-17
+            c_compiler: clang-17
+          - cxx_compiler: clang++-18
             c_compiler: clang-18
-            cxx_compiler: clang++-18
 
     runs-on: ${{ matrix.os }}
     env:
