@@ -375,7 +375,7 @@ namespace fastgltf {
 	// An array of pairs of string representations of extension identifiers and their respective enum
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
-	static constexpr auto extensionStrings = to_array<std::pair<std::string_view, Extensions>>({
+	static constexpr auto extensionStrings = std::to_array<std::pair<std::string_view, Extensions>>({
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
@@ -423,13 +423,7 @@ namespace fastgltf {
 	 * @note If \p extensions has more than one bit set (multiple extensions), this
 	 * will return the name of the first set bit.
 	 */
-	FASTGLTF_EXPORT
-#if FASTGLTF_CPP_20
-	constexpr
-#else
-	inline
-#endif
-	std::string_view stringifyExtension(Extensions extensions) {
+	FASTGLTF_EXPORT constexpr std::string_view stringifyExtension(Extensions extensions) {
 		// Remove everything but the rightmost bit
 		extensions = extensions - (extensions & (extensions - 1));
 
@@ -581,7 +575,7 @@ namespace fastgltf {
 		 * This padding is necessary for the simdjson parser, but can be initialized to anything.
 		 * The memory pointed to by the span only needs to live until the next call to read().
 		 */
-		[[nodiscard]] virtual span<std::byte> read(std::size_t count, std::size_t padding) = 0;
+		[[nodiscard]] virtual std::span<std::byte> read(std::size_t count, std::size_t padding) = 0;
 
 		/**
 		 * Reset is used to put the offset index back to the start of the buffer/file.
@@ -609,9 +603,7 @@ namespace fastgltf {
 
 		explicit GltfDataBuffer(const std::filesystem::path& path) noexcept;
 		explicit GltfDataBuffer(const std::byte* bytes, std::size_t count) noexcept;
-#if FASTGLTF_CPP_20
 		explicit GltfDataBuffer(std::span<std::byte> span) noexcept;
-#endif
 
 	public:
 		explicit GltfDataBuffer() noexcept = default;
@@ -637,19 +629,17 @@ namespace fastgltf {
 			return buffer;
 		}
 
-#if FASTGLTF_CPP_20
-		static Expected<GltfDataBuffer> FromSpan(std::span<std::byte> data) noexcept {
+		static Expected<GltfDataBuffer> FromSpan(const std::span<std::byte> data) noexcept {
 			GltfDataBuffer buffer(data);
-			if (buffer.buffer.get() == nullptr) {
+			if (buffer.buffer == nullptr) {
 				return buffer.error;
 			}
 			return buffer;
 		}
-#endif
 
 		void read(void* ptr, std::size_t count) override;
 
-		[[nodiscard]] span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) override;
 
 		void reset() override;
 
@@ -657,8 +647,8 @@ namespace fastgltf {
 
 		[[nodiscard]] std::size_t totalSize() override;
 
-		[[nodiscard]] explicit operator span<std::byte>() const {
-			return span(buffer.get(), dataSize);
+		[[nodiscard]] explicit operator std::span<std::byte>() const {
+			return std::span(buffer.get(), dataSize);
 		}
 	};
 
@@ -706,7 +696,7 @@ namespace fastgltf {
 
 		void read(void* ptr, std::size_t count) override;
 
-		[[nodiscard]] span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) override;
 
 		void reset() override;
 
@@ -714,8 +704,8 @@ namespace fastgltf {
 
 		[[nodiscard]] std::size_t totalSize() override;
 
-		[[nodiscard]] explicit operator span<std::byte>() const {
-			return span(static_cast<std::byte*>(mappedFile), fileSize);
+		[[nodiscard]] explicit operator std::span<std::byte>() const {
+			return std::span(static_cast<std::byte*>(mappedFile), fileSize);
 		}
 	};
 #endif
@@ -734,7 +724,7 @@ namespace fastgltf {
 
 		void read(void* ptr, std::size_t count) override;
 
-		[[nodiscard]] span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) override;
 
 		void reset() override;
 
