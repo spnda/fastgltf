@@ -1160,7 +1160,8 @@ namespace fastgltf {
 			reset();
 		}
 
-		template <typename U = T, std::enable_if_t<std::is_copy_constructible_v<T>, int> = 0>
+		template <typename U = T>
+		requires std::is_copy_constructible_v<T>
 		OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
 			if (other.has_value()) {
 				new (std::addressof(_value)) T(*other);
@@ -1169,7 +1170,8 @@ namespace fastgltf {
 			}
 		}
 
-		template <typename U = T, std::enable_if_t<std::is_move_constructible_v<T>, int> = 0>
+		template <typename U = T>
+		requires std::is_move_constructible_v<T>
 		OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
 			if (other.has_value()) {
 				new (std::addressof(_value)) T(std::move(*other));
@@ -1178,11 +1180,13 @@ namespace fastgltf {
 			}
 		}
 
-		template<typename... Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
+		template<typename... Args>
+		requires std::is_constructible_v<T, Args...>
 		explicit OptionalWithFlagValue(std::in_place_t, Args&& ... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
 			: _value(std::forward<Args>(args)...) {}
 
-		template <typename U = T, std::enable_if_t<std::is_constructible_v<T, U&&>, int> = 0>
+		template <typename U = T>
+		requires std::is_constructible_v<T, U&&>
 		OptionalWithFlagValue(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
 			new (std::addressof(_value)) T(std::forward<U>(_new));
 		}
@@ -1196,7 +1200,8 @@ namespace fastgltf {
 			return *this;
 		}
 
-		template<typename U = T, std::enable_if_t<std::is_constructible_v<T, U&&>, int> = 0>
+		template <typename U = T>
+		requires std::is_constructible_v<T, U&&>
 		OptionalWithFlagValue& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
 			if (has_value()) {
 				_value = std::forward<U>(_new);
@@ -1206,7 +1211,8 @@ namespace fastgltf {
 			return *this;
 		}
 
-		template <typename U, std::enable_if_t<std::conjunction_v<std::is_constructible<T, const U&>, std::is_assignable<T&, const U&>>, int> = 0>
+		template <typename U>
+		requires std::conjunction_v<std::is_constructible<T, const U&>, std::is_assignable<T&, const U&>>
 		OptionalWithFlagValue& operator=(const OptionalWithFlagValue<U>& other) {
 			if (other.has_value()) {
 				if (has_value()) {
@@ -1220,7 +1226,8 @@ namespace fastgltf {
 			return *this;
 		}
 
-		template <typename U, std::enable_if_t<std::conjunction_v<std::is_constructible<T, U>, std::is_assignable<T&, U>>, int> = 0>
+		template <typename U>
+		requires std::conjunction_v<std::is_constructible<T, U>, std::is_assignable<T&, U>>
 		OptionalWithFlagValue& operator=(OptionalWithFlagValue<U>&& other) noexcept(std::is_nothrow_assignable_v<T&, T> && std::is_nothrow_constructible_v<T, T>) {
 			if (other.has_value()) {
 				if (has_value()) {
@@ -1615,7 +1622,8 @@ namespace fastgltf {
 			}
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		static AccessorBoundsArray ForType(const std::size_t len) {
 			if constexpr (std::is_same_v<T, std::int64_t>) {
 				return AccessorBoundsArray(len, BoundsType::int64);
@@ -1684,7 +1692,8 @@ namespace fastgltf {
 			return dataType;
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] bool isType() const noexcept {
 			switch (dataType) {
 				case BoundsType::int64:
@@ -1700,7 +1709,8 @@ namespace fastgltf {
 			return len;
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] auto* data() noexcept {
 			assert(isType<T>());
 			if constexpr (std::is_same_v<T, std::int64_t>) {
@@ -1711,7 +1721,8 @@ namespace fastgltf {
 			FASTGLTF_UNREACHABLE
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] const auto* data() const noexcept {
 			assert(isType<T>());
 			if constexpr (std::is_same_v<T, std::int64_t>) {
@@ -1722,13 +1733,15 @@ namespace fastgltf {
 			FASTGLTF_UNREACHABLE
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] T get(const std::size_t pos) const {
 			assert(pos < len && isType<T>());
 			return data<T>()[pos];
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		void set(const std::size_t pos, const T value) {
 			assert(pos < len && isType<T>());
 			data<T>()[pos] = value;
@@ -2590,7 +2603,8 @@ namespace fastgltf {
 		/**
 		 * Helper function that updates the max/min variables dynamically.
 		 */
-		template <typename T, std::enable_if_t<AccessorBoundsArray::is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires AccessorBoundsArray::is_valid_type_v<T>
 		void updateBoundsToInclude(T value) {
 			if (!max)
 				max = AccessorBoundsArray::ForType<T>(1);
@@ -2612,7 +2626,8 @@ namespace fastgltf {
 		 * Helper function that updates the max/min variables dynamically. Note that the value passed in
 		 * needs to be a vector with the same size as max/min
 		 */
-		template <typename T, std::size_t N, std::enable_if_t<AccessorBoundsArray::is_valid_type_v<T>, bool> = true>
+		template <typename T, std::size_t N>
+		requires AccessorBoundsArray::is_valid_type_v<T>
 		void updateBoundsToInclude(math::vec<T, N> value) {
 			if (!max)
 				max = AccessorBoundsArray::ForType<T>(value.size());

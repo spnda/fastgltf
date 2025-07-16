@@ -84,7 +84,8 @@ namespace fastgltf::math {
 		}
 
 		/** Creates a new vector with N components from N values in the order X, Y, Z, W */
-		template <typename... Args, std::enable_if_t<sizeof...(Args) == N, bool> = true>
+		template <typename... Args>
+		requires (sizeof...(Args) == N)
 		constexpr explicit vec(Args... args) noexcept : _data { T(std::forward<Args>(args))... } {}
 
 		static constexpr auto fromPointer(T* ptr) noexcept {
@@ -97,37 +98,43 @@ namespace fastgltf::math {
 		constexpr vec(const vec&) noexcept = default;
 		constexpr vec& operator=(const vec& other) noexcept = default;
 
-		template <typename U, std::enable_if_t<!std::is_same_v<T, U>, bool> = true>
+		template <typename U>
+		requires (!std::is_same_v<T, U>)
 		constexpr explicit vec(const vec<U, N>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = static_cast<T>(other[i]);
 		}
-		template <typename U, std::enable_if_t<!std::is_same_v<T, U>, bool> = true>
-		constexpr vec<T, N>& operator=(const vec<U, N>& other) noexcept {
+		template <typename U>
+		requires (!std::is_same_v<T, U>)
+		constexpr vec& operator=(const vec<U, N>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = static_cast<T>(other[i]);
 			return *this;
 		}
 
-		template <std::size_t M, std::enable_if_t<M >= N, bool> = true>
+		template <std::size_t M>
+		requires (M >= N)
 		constexpr explicit vec(const vec<T, M>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = other[i];
 		}
-		template <std::size_t M, std::enable_if_t<M >= N, bool> = true>
-		constexpr vec<T, N>& operator=(const vec<T, M>& other) noexcept {
+		template <std::size_t M>
+		requires (M >= N)
+		constexpr vec& operator=(const vec<T, M>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = other[i];
 			return *this;
 		}
 
-		template <std::size_t M, std::enable_if_t<M < N, bool> = true>
+		template <std::size_t M>
+		requires (M < N)
 		constexpr explicit vec(const vec<T, M>& other) noexcept : vec(T(0)) {
 			for (std::size_t i = 0; i < M; ++i)
 				(*this)[i] = other[i];
 		}
-		template <std::size_t M, std::enable_if_t<M < N, bool> = true>
-		constexpr vec<T, N>& operator=(const vec<T, M>& other) noexcept {
+		template <std::size_t M>
+		requires (M < N)
+		constexpr vec& operator=(const vec<T, M>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = i < M ? other[i] : T(0);
 			return *this;
@@ -137,7 +144,7 @@ namespace fastgltf::math {
 			for (auto it = std::begin(list); it != std::end(list); ++it)
 				(*this)[std::distance(std::begin(list), it)] = *it;
 		}
-		constexpr vec<T, N>& operator=(std::initializer_list<T> list) noexcept {
+		constexpr vec& operator=(std::initializer_list<T> list) noexcept {
 			for (auto it = std::begin(list); it != std::end(list); ++it)
 				(*this)[std::distance(std::begin(list), it)] = *it;
 			return *this;
@@ -301,7 +308,8 @@ namespace fastgltf::math {
 			return ret;
 		}
 
-		template <std::size_t M, std::enable_if_t<M < N, bool> = true>
+		template <std::size_t M>
+		requires (M < N)
 		constexpr explicit operator vec<T, M>() const noexcept {
 			vec<T, M> ret;
 			for (std::size_t i = 0; i < M; ++i)
@@ -438,7 +446,8 @@ namespace fastgltf::math {
 		constexpr explicit quat() noexcept : _data {0.f, 0.f, 0.f, 1.f} {}
 
 		/** Creates a new quaternion from 4 floats in the order X, Y, Z, W */
-		template <typename... Args, std::enable_if_t<sizeof...(Args) == 4, bool> = true>
+		template <typename... Args>
+		requires (sizeof...(Args) == 4)
 		constexpr explicit quat(Args... args) noexcept : _data { std::forward<Args>(args)... } {}
 
 		static constexpr auto fromPointer(T* ptr) noexcept {
@@ -640,11 +649,13 @@ namespace fastgltf::math {
 		}
 
 		/** Creates a matrix from M vectors */
-		template <typename... Args, std::enable_if_t<sizeof...(Args) == M, bool> = true>
+		template <typename... Args>
+		requires (sizeof...(Args) == M)
 		constexpr explicit mat(Args... args) noexcept : _data { std::forward<Args>(args)... } {}
 
 		/** Creates a matrix from N * M floats */
-		template <typename... Args, std::enable_if_t<sizeof...(Args) == M * N, bool> = true>
+		template <typename... Args>
+		requires (sizeof...(Args) == M * N)
 		constexpr explicit mat(Args... args) noexcept {
 			const auto tuple = std::forward_as_tuple(args...);
 			copy_values(tuple, std::make_integer_sequence<std::size_t, sizeof...(Args)>());
@@ -653,14 +664,16 @@ namespace fastgltf::math {
 		constexpr mat(const mat& other) = default;
 
 		/** Truncates the matrix to a smaller one, discarding the additional rows and/or colums  */
-		template <std::size_t Q, std::size_t P, std::enable_if_t<N < Q && M < P, bool> = true>
+		template <std::size_t Q, std::size_t P>
+		requires (N < Q && M < P)
 		constexpr explicit mat(const mat<T, Q, P>& other) noexcept {
 			for (std::size_t i = 0; i < columns(); ++i)
 				(*this).col(i) = vec<T, N>(other.col(i));
 		}
 
 		/** Creates a larger matrix from a smaller one, while initializing the new components to identity  */
-		template <std::size_t Q, std::size_t P, std::enable_if_t<Q < N && P < M, bool> = true>
+		template <std::size_t Q, std::size_t P>
+		requires (Q < N && P < M)
 		constexpr explicit mat(const mat<T, Q, P>& other) noexcept : mat(T(1)) {
 			for (std::size_t i = 0; i < other.columns(); ++i)
 				(*this).col(i) = vec<T, N>(other.col(i));
@@ -753,7 +766,8 @@ namespace fastgltf::math {
 			return ret;
 		}
 
-		template <std::size_t P, std::size_t Q, std::enable_if_t<M == P, bool> = true>
+		template <std::size_t P, std::size_t Q>
+		requires (M == P)
 		constexpr auto operator*(const mat<T, P, Q>& other) const noexcept {
 			mat<T, N, Q> ret(0.f);
 			for (std::size_t i = 0; i < other.columns(); ++i)
