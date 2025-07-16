@@ -819,17 +819,19 @@ namespace fastgltf::math {
 	/** Computes the inverse of the 2x2 matrix */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto inverse(const mat<T, 2, 2>& m) noexcept {
-		return mat<T, 2, 2>(m.col(1).y(), -m.col(0).y(), -m.col(1).x(), m.col(0).x()) / determinant(m);
+		const auto inv_determinant = T(1) / determinant(m);
+		return mat<T, 2, 2>(m.col(1).y(), -m.col(0).y(), -m.col(1).x(), m.col(0).x()) * inv_determinant;
 	}
 
 	/** Computes the inverse of the 3x3 matrix */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto inverse(const mat<T, 3, 3>& m) noexcept {
+		const auto inv_determinant = T(1) / determinant(m);
 		auto inv = mat<T, 3, 3>(
 			m.col(1)[1] * m.col(2)[2] - m.col(2)[1] * m.col(1)[2], m.col(2)[1] * m.col(0)[2] - m.col(0)[1] * m.col(2)[2], m.col(0)[1] * m.col(1)[2] - m.col(1)[1] * m.col(0)[2],
 			m.col(2)[0] * m.col(1)[2] - m.col(1)[0] * m.col(2)[2], m.col(0)[0] * m.col(2)[2] - m.col(2)[0] * m.col(0)[2], m.col(1)[0] * m.col(0)[2] - m.col(0)[0] * m.col(1)[2],
 			m.col(1)[0] * m.col(2)[1] - m.col(2)[0] * m.col(1)[1], m.col(2)[0] * m.col(0)[1] - m.col(0)[0] * m.col(2)[1], m.col(0)[0] * m.col(1)[1] - m.col(1)[0] * m.col(0)[1]);
-		return inv / determinant(m);
+		return inv * inv_determinant;
 	}
 
 	/** Computes the affine inverse of a 4x4 matrix */
@@ -844,9 +846,9 @@ namespace fastgltf::math {
 			vec<T, 4>(l.x(), l.y(), l.z(), 1.f));
 	}
 
-	/** Inverts a 4x4 matrix */
+	/** Computes the inverse of a 4x4 matrix */
 	FASTGLTF_EXPORT template <typename T>
-	[[nodiscard]] auto invert(const mat<T, 4, 4>& m) noexcept {
+	[[nodiscard]] auto inverse(const mat<T, 4, 4>& m) noexcept {
 		const auto d = m.data();
 		T a00 = d[0], a10 = d[4], a20 = d[8],  a30 = d[12],
 		  a01 = d[1], a11 = d[5], a21 = d[9],  a31 = d[13],
@@ -861,11 +863,15 @@ namespace fastgltf::math {
 		// Calculate the determinant
 		T det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
 
-		return det == T(0) ? mat<T, 4, 4>() : mat<T, 4, 4>(
+		if (det == T(0))
+			return mat<T, 4, 4>();
+
+		const auto inv_determinant = T(1) / det;
+		return mat<T, 4, 4>(
 			a11 * b11 - a12 * b10 + a13 * b09, a02 * b10 - a01 * b11 - a03 * b09, a31 * b05 - a32 * b04 + a33 * b03, a22 * b04 - a21 * b05 - a23 * b03,
 			a12 * b08 - a10 * b11 - a13 * b07, a00 * b11 - a02 * b08 + a03 * b07, a32 * b02 - a30 * b05 - a33 * b01, a20 * b05 - a22 * b02 + a23 * b01,
 			a10 * b10 - a11 * b08 + a13 * b06, a01 * b08 - a00 * b10 - a03 * b06, a30 * b04 - a31 * b02 + a33 * b00, a21 * b02 - a20 * b04 - a23 * b00,
-			a11 * b07 - a10 * b09 - a12 * b06, a00 * b09 - a01 * b07 + a02 * b06, a31 * b01 - a30 * b03 - a32 * b00, a20 * b03 - a21 * b01 + a22 * b00 ) * ( T(1) / det );
+			a11 * b07 - a10 * b09 - a12 * b06, a00 * b09 - a01 * b07 + a02 * b06, a31 * b01 - a30 * b03 - a32 * b00, a20 * b03 - a21 * b01 + a22 * b00) * inv_determinant;
 	}
 
 	/** Translates a given transform matrix by the world space translation vector */
