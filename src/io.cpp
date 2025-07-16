@@ -99,7 +99,7 @@ void fg::GltfDataBuffer::read(void *ptr, std::size_t count) {
 }
 
 std::span<std::byte> fg::GltfDataBuffer::read(std::size_t count, [[maybe_unused]] std::size_t padding) {
-	std::span<std::byte> sub(buffer.get() + idx, count);
+	std::span sub(buffer.get() + idx, count);
 	idx += count;
 	return sub;
 }
