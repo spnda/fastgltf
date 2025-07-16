@@ -930,7 +930,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 
 fg::Error fg::validate(const Asset& asset) {
 	auto isExtensionUsed = [&used = asset.extensionsUsed](const std::string_view extension) {
-		return std::any_of(used.begin(), used.end(), [&](auto& arg) {
+		return std::ranges::any_of(used, [&](auto& arg) {
 			return arg == extension;
 		});
 	};
@@ -1517,7 +1517,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 	}
 
-	Category readCategories = Category::None;
+	auto readCategories = Category::None;
 	for (const auto object : root) {
 		auto hashedKey = crcStringFunction(object.key);
 		if (hashedKey == force_consteval<crc32c("scene")>) {
@@ -1555,7 +1555,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
                 readCategories |= Category::name;         \
                 break;
 
-		Error error = Error::None;
+		auto error = Error::None;
 		switch (hashedKey) {
 			KEY_SWITCH_CASE(Accessors, accessors)
 			KEY_SWITCH_CASE(Animations, animations)
@@ -2472,9 +2472,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 
             std::string_view mimeType;
             if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) [[likely]] {
-                std::visit([&](auto& arg) {
-                    using T = std::decay_t<decltype(arg)>;
-
+                std::visit([&]<typename T>(T& arg) {
                     // This is kinda cursed
                     if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>) {
                         arg.mimeType = getMimeTypeFromString(mimeType);

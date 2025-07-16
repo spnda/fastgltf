@@ -648,7 +648,7 @@ namespace fastgltf {
 		[[nodiscard]] std::size_t totalSize() override;
 
 		[[nodiscard]] explicit operator std::span<std::byte>() const {
-			return std::span(buffer.get(), dataSize);
+			return {buffer.get(), dataSize};
 		}
 	};
 
@@ -705,7 +705,7 @@ namespace fastgltf {
 		[[nodiscard]] std::size_t totalSize() override;
 
 		[[nodiscard]] explicit operator std::span<std::byte>() const {
-			return std::span(static_cast<std::byte*>(mappedFile), fileSize);
+			return {static_cast<std::byte*>(mappedFile), fileSize};
 		}
 	};
 #endif
