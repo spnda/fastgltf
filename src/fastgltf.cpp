@@ -25,8 +25,8 @@
  */
 
 #include "fastgltf/types.hpp"
-#if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L)
-#error "fastgltf requires C++17"
+#if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG < 202002L)
+#error "fastgltf requires C++20"
 #endif
 
 #include <fstream>
@@ -520,12 +520,8 @@ fs::path fg::URIView::fspath() const {
 	if (!isLocalPath())
 		return {};
 
-#if FASTGLTF_CPP_20 && __cpp_char8_t >= 201811L
 	const std::string_view charPath = path();
 	return { std::u8string_view { reinterpret_cast<const char8_t*>(charPath.data()), charPath.size() } };
-#else
-	return fs::u8path(path());
-#endif
 }
 
 bool fg::URIView::valid() const noexcept {
@@ -807,56 +803,62 @@ template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, FASTGLTF_
 template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, decltype(fastgltf::Primitive::attributes)&);
 
 namespace fastgltf {
-	template<typename T>
-	void writeIndices(PrimitiveType type, span<T> indices, std::size_t primitiveCount) {
-		// Generate the correct indices for every primitive topology
-		switch (type) {
-			case PrimitiveType::Points: {
-				for (std::size_t i = 0; i < primitiveCount; ++i)
-					indices[i] = static_cast<T>(i);
-				break;
-			}
-			case PrimitiveType::Lines:
-			case PrimitiveType::LineLoop:
-			case PrimitiveType::LineStrip: {
-				for (std::size_t i = 0; i < primitiveCount; ++i) {
-					indices[i * 2 + 0] = static_cast<T>(i * 2 + 0);
-					indices[i * 2 + 1] = static_cast<T>(i * 2 + 1);
-				}
-				break;
-			}
-			case PrimitiveType::Triangles:
-			case PrimitiveType::TriangleStrip:
-			case PrimitiveType::TriangleFan: {
-				for (std::size_t i = 0; i < primitiveCount; ++i) {
-					indices[i * 3 + 0] = static_cast<T>(i * 3 + 0);
-					indices[i * 3 + 1] = static_cast<T>(i * 3 + 1);
-					indices[i * 3 + 2] = static_cast<T>(i * 3 + 2);
-				}
-				break;
-			}
-			default: FASTGLTF_UNREACHABLE
+template<typename T>
+void writeIndices(StaticVector<std::byte>& generatedIndices,
+	const PrimitiveType type, const std::size_t primitiveCount) {
+
+	const std::span indices(reinterpret_cast<T*>(generatedIndices.data()),
+		generatedIndices.size() / sizeof(T));
+
+	// Generate the correct indices for every primitive topology
+	switch (type) {
+		case PrimitiveType::Points: {
+			for (std::size_t i = 0; i < primitiveCount; ++i)
+				indices[i] = static_cast<T>(i);
+			break;
 		}
+		case PrimitiveType::Lines:
+		case PrimitiveType::LineLoop:
+		case PrimitiveType::LineStrip: {
+			for (std::size_t i = 0; i < primitiveCount; ++i) {
+				indices[i * 2 + 0] = static_cast<T>(i * 2 + 0);
+				indices[i * 2 + 1] = static_cast<T>(i * 2 + 1);
+			}
+			break;
+		}
+		case PrimitiveType::Triangles:
+		case PrimitiveType::TriangleStrip:
+		case PrimitiveType::TriangleFan: {
+			for (std::size_t i = 0; i < primitiveCount; ++i) {
+				indices[i * 3 + 0] = static_cast<T>(i * 3 + 0);
+				indices[i * 3 + 1] = static_cast<T>(i * 3 + 1);
+				indices[i * 3 + 2] = static_cast<T>(i * 3 + 2);
+			}
+			break;
+		}
+		default: FASTGLTF_UNREACHABLE
+	}
+}
+
+std::pair<StaticVector<std::byte>, ComponentType> writeIndices(
+	const PrimitiveType type, const std::size_t indexCount, const std::size_t primitiveCount) {
+
+	if (indexCount < 255) {
+		StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint8_t));
+		writeIndices<std::uint8_t>(generatedIndices, type, primitiveCount);
+		return std::make_pair(generatedIndices, ComponentType::UnsignedByte);
 	}
 
-	std::pair<StaticVector<std::byte>, ComponentType> writeIndices(PrimitiveType type, std::size_t indexCount, std::size_t primitiveCount) {
-		if (indexCount < 255) {
-			StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint8_t));
-			span<std::uint8_t> indices(reinterpret_cast<std::uint8_t*>(generatedIndices.data()), generatedIndices.size() / sizeof(std::uint8_t));
-			writeIndices(type, indices, primitiveCount);
-			return std::make_pair(generatedIndices, ComponentType::UnsignedByte);
-		} else if (indexCount < 65535) {
-			StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint16_t));
-			span<std::uint16_t> indices(reinterpret_cast<std::uint16_t*>(generatedIndices.data()), generatedIndices.size() / sizeof(std::uint16_t));
-			writeIndices(type, indices, primitiveCount);
-			return std::make_pair(generatedIndices, ComponentType::UnsignedShort);
-		} else {
-			StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint32_t));
-			span<std::uint32_t> indices(reinterpret_cast<std::uint32_t*>(generatedIndices.data()), generatedIndices.size() / sizeof(std::uint32_t));
-			writeIndices(type, indices, primitiveCount);
-			return std::make_pair(generatedIndices, ComponentType::UnsignedInt);
-		}
+	if (indexCount < 65535) {
+		StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint16_t));
+		writeIndices<std::uint16_t>(generatedIndices, type, primitiveCount);
+		return std::make_pair(generatedIndices, ComponentType::UnsignedShort);
 	}
+
+	StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint32_t));
+	writeIndices<std::uint32_t>(generatedIndices, type, primitiveCount);
+	return std::make_pair(generatedIndices, ComponentType::UnsignedInt);
+}
 }
 
 fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {

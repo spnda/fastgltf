@@ -29,7 +29,9 @@
 
 #if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
 #include <array>
+#include <bit>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -45,41 +47,17 @@
 #endif
 
 // Macros to determine C++ standard version
-#if (!defined(_MSVC_LANG) && __cplusplus >= 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
-#define FASTGLTF_CPP_17 1
-#else
-#error "fastgltf requires C++17"
-#endif
-
 #if (!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #define FASTGLTF_CPP_20 1
 #include <version>
 #else
-#define FASTGLTF_CPP_20 0
+#error "fastgltf requires C++20"
 #endif
 
 #if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
 #define FASTGLTF_CPP_23 1
 #else
 #define FASTGLTF_CPP_23 0
-#endif
-
-#if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
-#define FASTGLTF_HAS_BIT 1
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
-#include <bit>
-#endif
-#else
-#define FASTGLTF_HAS_BIT 0
-#endif
-
-#if FASTGLTF_CPP_20 && defined(__cpp_concepts) && __cpp_concepts >= 201907L
-#define FASTGLTF_HAS_CONCEPTS 1
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
-#include <concepts>
-#endif
-#else
-#define FASTGLTF_HAS_CONCEPTS 0
 #endif
 
 #if FASTGLTF_CPP_23
@@ -114,7 +92,7 @@
 #define FASTGLTF_UNLIKELY
 #endif
 
-#if (_MSC_VER && !defined(__clang__)) || FASTGLTF_CPP_20 && __has_cpp_attribute(msvc::intrinsic)
+#if (_MSC_VER && !defined(__clang__)) || __has_cpp_attribute(msvc::intrinsic)
 #define FASTGLTF_INTRINSIC [[msvc::intrinsic]]
 #else
 #define FASTGLTF_INTRINSIC
@@ -138,26 +116,16 @@
 
 namespace fastgltf {
 	FASTGLTF_EXPORT template<typename T>
-#if FASTGLTF_HAS_CONCEPTS
 	requires std::is_enum_v<T>
-#endif
 	[[nodiscard]] FASTGLTF_INTRINSIC constexpr std::underlying_type_t<T> to_underlying(T t) noexcept {
-#if !FASTGLTF_HAS_CONCEPTS
-		static_assert(std::is_enum_v<T>, "to_underlying only works with enum types.");
-#endif
 		return static_cast<std::underlying_type_t<T>>(t);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-#if FASTGLTF_HAS_CONCEPTS
 	requires ((std::is_enum_v<T> && std::integral<std::underlying_type_t<T>>) || std::integral<T>) && requires (T t, U u) {
 		{ t & u } -> std::same_as<U>;
 	}
-#endif
 	[[nodiscard]] constexpr bool hasBit(T flags, U bit) {
-#if !FASTGLTF_HAS_CONCEPTS
-		static_assert((std::is_enum_v<T> && std::is_integral_v<std::underlying_type_t<T>>) || std::is_integral_v<T>);
-#endif
 		return (flags & bit) == bit;
 	}
 
@@ -173,21 +141,17 @@ namespace fastgltf {
 	}
 
 	FASTGLTF_EXPORT template <typename T>
-#if FASTGLTF_HAS_CONCEPTS
 	requires requires (T t) {
 		{ t > t } -> std::same_as<bool>;
 	}
-#endif
 	[[nodiscard]] constexpr const T& max(const T& a, const T& b) noexcept {
 		return (a > b) ? a : b;
 	}
 
 	FASTGLTF_EXPORT template <typename T>
-#if FASTGLTF_HAS_CONCEPTS
 	requires requires (T t) {
 		{ t < t } -> std::same_as<bool>;
 	}
-#endif
 	[[nodiscard]] constexpr const T& min(const T& a, const T& b) noexcept {
 		return (a < b) ? a : b;
 	}
@@ -285,14 +249,6 @@ namespace fastgltf {
 	template <typename T, typename... Ts>
 	constexpr bool is_any_of_v = is_any_of<T, Ts...>::value;
 
-	// Simple reimplementation of std::remove_cvref, which was only added in C++20.
-	template <typename T>
-	struct remove_cvref {
-		using type = std::remove_cv_t<std::remove_reference_t<T>>;
-	};
-	template <typename T>
-	using remove_cvref_t = typename remove_cvref<T>::type;
-
 	/**
 	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
 	 * std::visit
@@ -306,7 +262,7 @@ namespace fastgltf {
 
 	template <typename Visitor, typename Variant, std::size_t... i>
 	constexpr bool is_exhaustive_visitor(std::integer_sequence<std::size_t, i...>) noexcept {
-		return std::conjunction_v<std::is_invocable<Visitor, std::variant_alternative_t<i, remove_cvref_t<Variant>>>...>;
+		return std::conjunction_v<std::is_invocable<Visitor, std::variant_alternative_t<i, std::remove_cvref_t<Variant>>>...>;
 	}
 
 	/**
@@ -317,7 +273,7 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT template<typename Visitor, typename Variant>
 	constexpr decltype(auto) visit_exhaustive(Visitor&& visitor, Variant&& variant) {
-		static_assert(is_exhaustive_visitor<Visitor, Variant>(std::make_index_sequence<std::variant_size_v<remove_cvref_t<Variant>>>()),
+		static_assert(is_exhaustive_visitor<Visitor, Variant>(std::make_index_sequence<std::variant_size_v<std::remove_cvref_t<Variant>>>()),
 			"The visitor does not include all necessary overloads for the given variant");
 		return std::visit(std::forward<Visitor>(visitor), std::forward<Variant>(variant));
 	}
@@ -329,30 +285,6 @@ namespace fastgltf {
 			callback(t);
 		}
 	};
-
-	/** Allows the quick creation of a unique_ptr type that can take any function of the form void(T*) for its deleter */
-	template <typename T, auto callback>
-	using deletable_unique_ptr = std::unique_ptr<T, UniqueDeleter<callback>>;
-	namespace internal {
-		template <typename T, std::size_t N, std::size_t... I>
-		constexpr std::array<std::remove_cv_t<T>, N> to_array_impl(T (&a)[N], std::index_sequence<I...>) {
-			return {{ a[I]... }};
-		}
-		template <typename T, std::size_t N, std::size_t... I>
-		constexpr std::array<std::remove_cv_t<T>, N> to_array_impl(T (&&a)[N], std::index_sequence<I...>) {
-			return {{ std::move(a[I])... }};
-		}
-	} // namespace internal
-
-	// Basic reimplementation of std::to_array
-	template <typename T, std::size_t N>
-	constexpr decltype(auto) to_array(T (&a)[N]) {
-		return internal::to_array_impl(a, std::make_index_sequence<N>{});
-	}
-	template <typename T, std::size_t N>
-	constexpr decltype(auto) to_array(T (&&a)[N]) {
-		return internal::to_array_impl(a, std::make_index_sequence<N>{});
-	}
 
 	// For simple ops like &, |, +, - taking a left and right operand.
 #define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \
@@ -375,103 +307,11 @@ namespace fastgltf {
 		return static_cast<T>(op to_underlying(a)); \
 	}
 
-#if FASTGLTF_CPP_20 && defined(__cpp_lib_bit_cast) && __cpp_lib_bit_cast >= 201806L
-#define FASTGLTF_CONSTEXPR_BITCAST 1
-	template<typename To, typename From>
-	[[nodiscard]] constexpr To bit_cast(const From& from) noexcept {
-		return std::bit_cast<To>(from);
-	}
-#elif (defined(__clang__) || __clang_major__ >= 9) || (defined(__GNUC__) && __GNUC__ >= 11) || FASTGLTF_HAS_BUILTIN(__builtin_bit_cast)
-#define FASTGLTF_CONSTEXPR_BITCAST 1
-	template<typename To, typename From>
-	[[nodiscard]] constexpr To bit_cast(const From& from) noexcept {
-		// Available since Clang 9, GCC 11.1, and MSVC 16.6. Otherwise, this function could not be constexpr.
-		return __builtin_bit_cast(To, from);
-	}
-#else
-#define FASTGLTF_CONSTEXPR_BITCAST 0
-	template<typename To, typename From>
-	[[nodiscard]] To bit_cast(const From& from) noexcept {
-		static_assert(std::is_trivially_constructible_v<To>);
-		To dst;
-		std::memcpy(&dst, &from, sizeof(To));
-		return dst;
-	}
-#endif
-
-#if FASTGLTF_CPP_20 && defined(__cpp_lib_byteswap) && __cpp_lib_byteswap >= 202110L
-	template<class T>
-	constexpr T byteswap(T n) noexcept {
-		return std::byteswap(n);
-	}
-#else
-	template<typename T, std::enable_if_t<std::is_integral_v<T>, bool> = true> [[nodiscard]]
-#if FASTGLTF_CONSTEXPR_BITCAST
-	constexpr
-#endif
-	auto byteswap(T value) noexcept {
-		static_assert(std::has_unique_object_representations_v<T>, "T may not have padding bits");
-		auto bytes = bit_cast<std::array<std::byte, sizeof(T)>>(value);
-		bytes = decltype(bytes)(bytes.rbegin(), bytes.rend());
-		return bit_cast<T>(bytes);
-	}
-#endif
-
-	/**
-	 * Counts the leading zeros from starting the most significant bit. Returns a std::uint8_t as there
-	 * can only ever be 2^6 zeros with 64-bit types.
-	 */
-	template <typename T>
-#if FASTGLTF_HAS_CONCEPTS
-	requires std::integral<T>
-#endif
-	[[nodiscard, gnu::const]] constexpr auto clz(T value) {
-#if !FASTGLTF_HAS_CONCEPTS
-		static_assert(std::is_integral_v<T>);
-#endif
-#if FASTGLTF_HAS_BIT
-		return static_cast<std::uint_fast8_t>(std::countl_zero(value));
-#else
-		// Very naive but working implementation of counting zero bits. Any sane compiler will
-		// optimise this away, like instead use the bsr x86 instruction.
-		if (value == 0) return static_cast<std::uint_fast8_t>(sizeof(T) * 8);
-		std::uint_fast8_t count = 0;
-		for (auto i = std::numeric_limits<T>::digits - 1; i > 0; --i) {
-			if ((value >> i) == 1) {
-				return count;
-			}
-			++count;
-		}
-		return count;
-#endif
-	}
-
-	template <typename T>
-#if FASTGLTF_HAS_CONCEPTS
-	requires std::integral<T>
-#endif
-	[[nodiscard, gnu::const]] constexpr auto popcount(T value) {
-#if !FASTGLTF_HAS_CONCEPTS
-		static_assert(std::is_integral_v<T>);
-#endif
-#if FASTGLTF_HAS_BIT
-		return static_cast<std::uint_fast8_t>(std::popcount(value));
-#else
-		std::uint_fast8_t bits = 0;
-		while (value) {
-			if (value & 1)
-				++bits;
-			value >>= 1;
-		}
-		return bits;
-#endif
-	}
-
 	/**
 	 * Returns the absolute value of the given integer in its unsigned type.
 	 * This avoids the issue with two complementary signed integers not being able to represent INT_MIN.
 	 */
-	template <typename T>
+	template <std::integral T>
 	[[nodiscard]] constexpr std::make_unsigned_t<T> uabs(T val) {
 		if constexpr (std::is_signed_v<T>) {
 			using unsigned_t = std::make_unsigned_t<T>;

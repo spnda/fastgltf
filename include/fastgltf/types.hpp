@@ -31,6 +31,7 @@
 #include <cassert>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -81,12 +82,6 @@
 #define FASTGLTF_IF_PMR(expr) expr
 #endif
 
-#if FASTGLTF_CPP_20
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
-#include <span>
-#endif
-#endif
-
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -107,9 +102,9 @@ namespace fastgltf {
 #endif
 
 	namespace math {
-		FASTGLTF_EXPORT using nvec2 = math::vec<num, 2>;
-		FASTGLTF_EXPORT using nvec3 = math::vec<num, 3>;
-		FASTGLTF_EXPORT using nvec4 = math::vec<num, 4>;
+		FASTGLTF_EXPORT using nvec2 = vec<num, 2>;
+		FASTGLTF_EXPORT using nvec3 = vec<num, 3>;
+		FASTGLTF_EXPORT using nvec4 = vec<num, 4>;
 	}
 
 #pragma region Enums
@@ -414,7 +409,7 @@ namespace fastgltf {
      * Don't use this, use getComponentType instead.
      * This order matters as we assume that their glTF constant is ascending to index it.
      */
-    static constexpr std::array<ComponentType, 11> components = {
+    static constexpr std::array components = {
         ComponentType::Byte,
         ComponentType::UnsignedByte,
         ComponentType::Short,
@@ -437,7 +432,7 @@ namespace fastgltf {
     }
 
     // This order matters as we assume that their glTF constant is ascending to index it.
-    static constexpr std::array<AccessorType, 7> accessorTypes = {
+    static constexpr std::array accessorTypes = {
         AccessorType::Scalar,
         AccessorType::Vec2,
         AccessorType::Vec3,
@@ -612,8 +607,8 @@ namespace fastgltf {
         using iterator = pointer;
         using const_iterator = const_pointer;
 
-        explicit StaticVector(std::size_t size) : _size(size), _array(std::move(std::unique_ptr<array_t>(new std::remove_extent_t<array_t>[size]))) {}
-		explicit StaticVector(std::size_t size, const T& initialValue) : _size(size), _array(std::move(std::unique_ptr<array_t>(new std::remove_extent_t<array_t>[size]))) {
+        explicit StaticVector(std::size_t size) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {}
+		explicit StaticVector(std::size_t size, const T& initialValue) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {
 			for (auto& value : *this) {
 				value = initialValue;
 			}
@@ -644,8 +639,8 @@ namespace fastgltf {
 		/**
 		 * Copies the contents of the given vector into a new StaticVector.
 		 */
-		static StaticVector<T> fromVector(std::vector<T> vector) {
-			StaticVector<T> staticVector(vector.size());
+		static auto fromVector(const std::vector<T>& vector) {
+			StaticVector staticVector(vector.size());
 			if constexpr (std::is_trivially_copyable_v<T>) {
 				std::memcpy(staticVector.data(), vector.data(), vector.size());
 			} else {
@@ -692,7 +687,7 @@ namespace fastgltf {
             return begin()[idx];
         }
 
-        bool operator==(const StaticVector<value_type>& other) const {
+        bool operator==(const StaticVector& other) const {
             if (other.size() != size()) return false;
             return std::memcmp(data(), other.data(), size_bytes()) == 0;
         }
@@ -867,7 +862,7 @@ namespace fastgltf {
             }
 
             // We use geometric growth, similarly to std::vector.
-            newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
+            newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - std::countl_zero(newCapacity));
 
 			T* alloc = allocator.allocate(newCapacity);
 
@@ -1099,12 +1094,12 @@ namespace fastgltf {
 	struct OptionalFlagValue<float, std::enable_if_t<std::numeric_limits<float>::is_iec559>> {
 		// This float is a quiet NaN with a specific bit pattern to be able to differentiate
 		// between this flag value and any result from FP operations.
-		static constexpr auto missing_value = static_cast<float>(0x7fedb6db);
+		static constexpr auto missing_value = std::bit_cast<float>(0x7fedb6db);
 	};
 
 	template<>
 	struct OptionalFlagValue<double, std::enable_if_t<std::numeric_limits<double>::is_iec559>> {
-		static constexpr auto missing_value = static_cast<double>(0x7ffdb6db6db6db6d);
+		static constexpr auto missing_value = std::bit_cast<double>(0x7ffdb6db6db6db6d);
 	};
 
 	template<>
@@ -1238,6 +1233,11 @@ namespace fastgltf {
 		}
 
 		[[nodiscard]] bool has_value() const {
+			if constexpr (std::is_floating_point_v<T>) {
+				// NaNs are never equal to anything, not even themselves.
+				// Since the sentinels are special NaN values, we need to memcmp to check equality.
+				return std::memcmp(&_value, &OptionalFlagValue<T>::missing_value, sizeof(T)) != 0;
+			}
 			return this->_value != OptionalFlagValue<T>::missing_value;
 		}
 
@@ -1281,7 +1281,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func)& {
-			using U = remove_cvref_t<std::invoke_result_t<F, T&>>;
+			using U = std::remove_cvref_t<std::invoke_result_t<F, T&>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
@@ -1289,7 +1289,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func) const& {
-			using U = remove_cvref_t<std::invoke_result_t<F, const T&>>;
+			using U = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
@@ -1297,7 +1297,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func)&& {
-			using U = remove_cvref_t<std::invoke_result_t<F, T>>;
+			using U = std::remove_cvref_t<std::invoke_result_t<F, T>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
@@ -1305,7 +1305,7 @@ namespace fastgltf {
 
 		template <typename F>
 		[[nodiscard]] auto and_then(F&& func) const&& {
-			using U = remove_cvref_t<std::invoke_result_t<F, const T>>;
+			using U = std::remove_cvref_t<std::invoke_result_t<F, const T>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
@@ -1735,120 +1735,6 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 
-	/**
-	 * Custom span class imitating C++20's std::span for referencing bytes without owning the
-	 * allocation. Can also directly be converted to a std::span or used by itself.
-	 */
-	FASTGLTF_EXPORT template <typename T, std::size_t Extent = dynamic_extent>
-	class span {
-		using element_type = T;
-		using value_type = std::remove_cv_t<T>;
-		using size_type = std::size_t;
-		using difference_type = std::ptrdiff_t;
-		using pointer = T*;
-		using const_pointer = const T*;
-		using reference = T&;
-		using const_reference = const T&;
-
-		using iterator = pointer;
-		using reverse_iterator = std::reverse_iterator<iterator>;
-
-		pointer _ptr = nullptr;
-		size_type _size = 0;
-
-	public:
-		static constexpr std::size_t extent = Extent;
-
-		constexpr span() = default;
-
-		// std::span ctor (2)
-		template <typename Iterator>
-		explicit /*(Extent != dynamic_extent)*/ constexpr span(Iterator first, const size_type count) : _ptr(first), _size(count) {}
-
-		// std::span ctor (5)
-		template<typename U, std::size_t N>
-		constexpr span(std::array<U, N>& arr) noexcept : _ptr(arr.data()), _size(N) {}
-
-		// std::span ctor (6)
-		template<typename U, std::size_t N>
-		constexpr span(const std::array<U, N>& arr) noexcept : _ptr(arr.data()), _size(N) {}
-
-#if FASTGLTF_CPP_20
-		constexpr span(std::span<T> data) : _ptr(data.data()), _size(data.size()) {}
-#endif
-
-		constexpr span(const span& other) noexcept = default;
-		constexpr span& operator=(const span& other) = default;
-
-		[[nodiscard]] constexpr iterator begin() const noexcept {
-			return data();
-		}
-		[[nodiscard]] constexpr iterator end() const noexcept {
-			return data() + size();
-		}
-		[[nodiscard]] constexpr reverse_iterator rbegin() const noexcept {
-			return std::reverse_iterator(end());
-		}
-		[[nodiscard]] constexpr reverse_iterator rend() const noexcept {
-			return std::reverse_iterator(begin());
-		}
-
-		[[nodiscard]] constexpr reference front() const { return *begin(); }
-		[[nodiscard]] constexpr reference back() const { return *(end() - 1); }
-
-		[[nodiscard]] constexpr reference operator[](size_type idx) const {
-			return data()[idx];
-		}
-
-		[[nodiscard]] constexpr reference at(size_type idx) const {
-			return data()[idx];
-		}
-
-		[[nodiscard]] constexpr pointer data() const {
-			return _ptr;
-		}
-
-		[[nodiscard]] constexpr size_type size() const {
-			return _size;
-		}
-
-		[[nodiscard]] constexpr size_type size_bytes() const {
-			return size() * sizeof(element_type);
-		}
-
-		[[nodiscard]] constexpr bool empty() const {
-			return size() == 0;
-		}
-
-		[[nodiscard]] constexpr span first(size_type count) const {
-			return span(_ptr, count);
-		}
-
-		[[nodiscard]] constexpr span last(size_type count) const {
-			return span(&data()[size() - count], count);
-		}
-
-		[[nodiscard]] constexpr span subspan(size_type offset, size_type count = dynamic_extent) const {
-			return span(&data()[offset], count == dynamic_extent ? size() - offset : count);
-		}
-
-#if FASTGLTF_CPP_20
-		operator std::span<T, Extent == dynamic_extent ? std::dynamic_extent : Extent>() const {
-			return std::span<T, Extent == dynamic_extent ? std::dynamic_extent : Extent>(data(), size());
-		}
-#endif
-	};
-
-	FASTGLTF_EXPORT template <typename T>
-	span(T* data, std::size_t count) -> span<T>;
-
-	FASTGLTF_EXPORT template <typename T>
-	span(const T* data, std::size_t size) -> span<const T>;
-
-	// std::span deduction guide (4)
-	FASTGLTF_EXPORT template<class T, std::size_t N>
-	span(const std::array<T, N>&) -> span<const T, N>;
-
     FASTGLTF_EXPORT using CustomBufferId = std::uint64_t;
 
     /**
@@ -1883,7 +1769,7 @@ namespace fastgltf {
         };
 
         FASTGLTF_EXPORT struct ByteView {
-            span<const std::byte> bytes;
+            std::span<const std::byte> bytes;
             MimeType mimeType = MimeType::None;
         };
 

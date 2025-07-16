@@ -220,13 +220,8 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 }
 
 TEST_CASE("Test Unicode exporting", "[write-tests]") {
-#if FASTGLTF_CPP_20
 	auto unicodePath = sampleAssets / "Models" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf"));
-#else
-	auto unicodePath = sampleAssets / "Models" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
-	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf"));
-#endif
 	REQUIRE(jsonData.isOpen());
 
 	fastgltf::Parser parser;
@@ -257,13 +252,8 @@ TEST_CASE("Test Unicode exporting", "[write-tests]") {
 }
 
 TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
-#if FASTGLTF_CPP_20
 	auto unicodePath = sampleAssets / "Models" / std::filesystem::path(u8"Unicode❤♻Test") / "glTF";
 	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::path(u8"Unicode❤♻Test.gltf"));
-#else
-	auto unicodePath = sampleAssets / "Models" / std::filesystem::u8path(u8"Unicode❤♻Test") / "glTF";
-	fastgltf::GltfFileStream jsonData(unicodePath / std::filesystem::u8path(u8"Unicode❤♻Test.gltf"));
-#endif
 	REQUIRE(jsonData.isOpen());
 
 	fastgltf::Parser parser;
