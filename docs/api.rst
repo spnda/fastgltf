@@ -427,14 +427,6 @@ URI
    :undoc-members:
 
 
-span
-----
-
-.. doxygenclass:: fastgltf::span
-   :members:
-   :undoc-members:
-
-
 SmallVector
 -----------
 
