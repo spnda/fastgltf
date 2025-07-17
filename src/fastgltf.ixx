@@ -28,7 +28,7 @@ module;
 export module fastgltf;
 
 #ifndef FASTGLTF_USE_STD_MODULE
-#define FASTGLTF_USE_STD_MODULE 0
+#	define FASTGLTF_USE_STD_MODULE 0
 #endif
 
 #define FASTGLTF_EXPORT export
@@ -43,25 +43,27 @@ import std.compat;
 // The STL developers do the same exact thing.
 extern "C++" {
 #if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Winclude-angled-in-module-purview"
+#	pragma clang diagnostic push
+#	pragma clang diagnostic ignored "-Winclude-angled-in-module-purview"
 #elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 5244) // Including header in the purview of module 'fastgltf' appears erroneous.
+#	pragma warning(push)
+#	pragma warning(disable : 5244)  // Including header in the purview of module 'fastgltf' appears
+									 // erroneous.
 #endif
 
-//  When using the define we use import std instead of normal includes, which does not include any macros.
+//  When using the define we use import std instead of normal includes, which does not include any
+//  macros.
 #if FASTGLTF_USE_STD_MODULE
-#include <cassert>
+#	include <cassert>
 #endif
 
-#include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 
 #if defined(__clang__)
-#pragma clang diagnostic pop
+#	pragma clang diagnostic pop
 #elif defined(_MSC_VER)
-#pragma warning(pop)
+#	pragma warning(pop)
 #endif
 }
