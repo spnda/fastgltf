@@ -1,0 +1,24 @@
+Language: Cpp
+Standard: c++20
+BasedOnStyle: Google
+ColumnLimit: 100
+UseTab: ForContinuationAndIndentation
+IndentWidth: 4
+TabWidth: 4
+IndentCaseLabels: true
+LambdaBodyIndentation: OuterScope
+IndentPPDirectives: AfterHash
+AlwaysBreakTemplateDeclarations: Yes
+
+IndentRequiresClause: false
+RequiresClausePosition: OwnLine
+RequiresExpressionIndentation: OuterScope
+
+DerivePointerAlignment: false
+AllowShortCaseLabelsOnASingleLine: true
+QualifierAlignment: Left
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCaseColons: false
