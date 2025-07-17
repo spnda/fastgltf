@@ -24,18 +24,23 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 202002L) || \
+	(defined(_MSVC_LANG) && _MSVC_LANG < 202002L)
+#	error "fastgltf requires C++20"
+#endif
+
 #include <simdjson.h>
 
 #include <fastgltf/core.hpp>
 
 #if defined(__APPLE__) || defined(__linux__)
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/file.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
+#	include <fcntl.h>
+#	include <sys/file.h>
+#	include <sys/mman.h>
+#	include <sys/stat.h>
+#	include <unistd.h>
 #elif defined(_WIN32)
-#include <windows.h>
+#	include <windows.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -62,14 +67,15 @@ fg::GltfDataBuffer::GltfDataBuffer(const fs::path& path) noexcept {
 
 	if (buffer != nullptr) {
 		// Copy the data and fill the padding region with zeros.
-		file.read(reinterpret_cast<std::ifstream::char_type*>(buffer.get()), static_cast<std::streamsize>(dataSize));
+		file.read(reinterpret_cast<std::ifstream::char_type*>(buffer.get()),
+				  static_cast<std::streamsize>(dataSize));
 		std::memset(buffer.get() + dataSize, 0, allocatedSize - dataSize);
 	} else {
 		error = Error::FileBufferAllocationFailed;
 	}
 }
 
-fg::GltfDataBuffer::GltfDataBuffer(const std::byte *bytes, const std::size_t count) noexcept {
+fg::GltfDataBuffer::GltfDataBuffer(const std::byte* bytes, const std::size_t count) noexcept {
 	assert(bytes != nullptr && "Passing nullptr is not allowed.");
 	dataSize = count;
 	allocateAndCopy(bytes);
@@ -81,7 +87,7 @@ fg::GltfDataBuffer::GltfDataBuffer(const std::span<std::byte> span) noexcept {
 	allocateAndCopy(span.data());
 }
 
-void fg::GltfDataBuffer::allocateAndCopy(const std::byte *bytes) noexcept {
+void fg::GltfDataBuffer::allocateAndCopy(const std::byte* bytes) noexcept {
 	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
 	buffer = std::make_unique_for_overwrite<std::byte[]>(allocatedSize);
 
@@ -93,72 +99,55 @@ void fg::GltfDataBuffer::allocateAndCopy(const std::byte *bytes) noexcept {
 	}
 }
 
-void fg::GltfDataBuffer::read(void *ptr, std::size_t count) {
+void fg::GltfDataBuffer::read(void* ptr, std::size_t count) {
 	std::memcpy(ptr, buffer.get() + idx, count);
 	idx += count;
 }
 
-std::span<std::byte> fg::GltfDataBuffer::read(std::size_t count, [[maybe_unused]] std::size_t padding) {
+std::span<std::byte> fg::GltfDataBuffer::read(std::size_t count,
+											  [[maybe_unused]] std::size_t padding) {
 	std::span sub(buffer.get() + idx, count);
 	idx += count;
 	return sub;
 }
 
-void fg::GltfDataBuffer::reset() {
-	idx = 0;
-}
+void fg::GltfDataBuffer::reset() { idx = 0; }
 
-std::size_t fg::GltfDataBuffer::bytesRead() {
-	return idx;
-}
+std::size_t fg::GltfDataBuffer::bytesRead() { return idx; }
 
-std::size_t fg::GltfDataBuffer::totalSize() {
-	return dataSize;
-}
+std::size_t fg::GltfDataBuffer::totalSize() { return dataSize; }
 
 fg::GltfFileStream::GltfFileStream(const fs::path& path) : fileStream(path, std::ios::binary) {
 	fileSize = fs::file_size(path);
 }
 
-bool fg::GltfFileStream::isOpen() const {
-	return fileStream.is_open();
-}
+bool fg::GltfFileStream::isOpen() const { return fileStream.is_open(); }
 
-void fg::GltfFileStream::read(void *ptr, std::size_t count) {
-	fileStream.read(
-			static_cast<char*>(ptr),
-			static_cast<std::streamsize>(count));
+void fg::GltfFileStream::read(void* ptr, std::size_t count) {
+	fileStream.read(static_cast<char*>(ptr), static_cast<std::streamsize>(count));
 }
 
 std::span<std::byte> fg::GltfFileStream::read(std::size_t count, std::size_t padding) {
 	static_assert(sizeof(decltype(buf)::value_type) == sizeof(std::byte));
 
 	buf.resize(count + padding);
-	fileStream.read(
-			reinterpret_cast<char*>(buf.data()),
-			static_cast<std::streamsize>(count));
+	fileStream.read(reinterpret_cast<char*>(buf.data()), static_cast<std::streamsize>(count));
 
 	return {reinterpret_cast<std::byte*>(buf.data()), buf.size()};
 }
 
-void fg::GltfFileStream::reset() {
-	fileStream.seekg(0, std::ifstream::beg);
-}
+void fg::GltfFileStream::reset() { fileStream.seekg(0, std::ifstream::beg); }
 
-std::size_t fg::GltfFileStream::bytesRead() {
-	return fileStream.tellg();
-}
+std::size_t fg::GltfFileStream::bytesRead() { return fileStream.tellg(); }
 
-std::size_t fg::GltfFileStream::totalSize() {
-	return fileSize;
-}
+std::size_t fg::GltfFileStream::totalSize() { return fileSize; }
 
 #if defined(FASTGLTF_HAS_MEMORY_MAPPED_FILE)
-#if defined(_WIN32)
+#	if defined(_WIN32)
 fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 	// Create file with FILE_FLAG_SEQUENTIAL_SCAN flag, to match the Parser behaviour.
-	auto* file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
-							 OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+	auto* file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+							 FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
 	if (file == nullptr) {
 		error = Error::InvalidPath;
 		return;
@@ -170,11 +159,11 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 		error = Error::InvalidPath;
 		return;
 	}
-	fileSize = static_cast<std::uint64_t>(result.QuadPart);;
+	fileSize = static_cast<std::uint64_t>(result.QuadPart);
+	;
 
 	// Create the file mapping
-	auto* mapping = CreateFileMapping(fileHandle, nullptr, PAGE_READONLY,
-									  0, 0, nullptr);
+	auto* mapping = CreateFileMapping(fileHandle, nullptr, PAGE_READONLY, 0, 0, nullptr);
 	if (mapping == nullptr) {
 		error = Error::FileBufferAllocationFailed;
 		return;
@@ -182,14 +171,13 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 	fileMapping = mapping;
 
 	// Map the view
-	auto* map = MapViewOfFile(fileMapping, FILE_MAP_READ,
-							 0, 0, fileSize);
+	auto* map = MapViewOfFile(fileMapping, FILE_MAP_READ, 0, 0, fileSize);
 	if (map == nullptr) {
 		error = Error::FileBufferAllocationFailed;
 		return;
 	}
 	mappedFile = map;
-#else
+#	else
 fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept : mappedFile(MAP_FAILED) {
 	// Open the file
 	int fd = open(path.c_str(), O_RDONLY, 0);
@@ -200,19 +188,14 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept : mappedFile(M
 	}
 
 	// Get the file size
-	struct stat statInfo {};
+	struct stat statInfo{};
 	if (fstat(fd, &statInfo) != 0) {
 		error = Error::InvalidPath;
 		return;
 	}
 
 	// Map the file
-	mappedFile = mmap(nullptr,
-					  statInfo.st_size,
-					  PROT_READ,
-					  MAP_PRIVATE,
-					  fd,
-					  0);
+	mappedFile = mmap(nullptr, statInfo.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (mappedFile != MAP_FAILED) {
 		fileSize = static_cast<std::uint64_t>(statInfo.st_size);
 
@@ -224,25 +207,25 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept : mappedFile(M
 
 	// The file descriptor is not used for the memory mapped and is not required anymore.
 	close(fd);
-#endif
+#	endif
 }
 
-fg::MappedGltfFile::MappedGltfFile(fastgltf::MappedGltfFile &&other) noexcept {
-#if defined(_WIN32)
+fg::MappedGltfFile::MappedGltfFile(fastgltf::MappedGltfFile&& other) noexcept {
+#	if defined(_WIN32)
 	mappedFile = std::exchange(other.mappedFile, nullptr);
 	fileMapping = std::exchange(other.fileMapping, nullptr);
 	fileHandle = std::exchange(other.fileHandle, nullptr);
-#else
+#	else
 	// Make sure that munmap is never called when other gets destructed.
 	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
-#endif
+#	endif
 	fileSize = other.fileSize;
 	idx = other.idx;
 	error = other.error;
 }
 
-fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&other) noexcept {
-#if defined(_WIN32)
+fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile&& other) noexcept {
+#	if defined(_WIN32)
 	if (mappedFile != nullptr) {
 		UnmapViewOfFile(mappedFile);
 	}
@@ -257,12 +240,12 @@ fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&oth
 		CloseHandle(fileHandle);
 	}
 	fileHandle = std::exchange(other.fileHandle, nullptr);
-#else
+#	else
 	if (mappedFile != MAP_FAILED) {
 		munmap(mappedFile, fileSize);
 	}
 	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
-#endif
+#	endif
 	fileSize = other.fileSize;
 	idx = other.idx;
 	error = other.error;
@@ -270,7 +253,7 @@ fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&oth
 }
 
 fg::MappedGltfFile::~MappedGltfFile() noexcept {
-#if defined(_WIN32)
+#	if defined(_WIN32)
 	if (mappedFile != nullptr) {
 		UnmapViewOfFile(mappedFile);
 	}
@@ -280,54 +263,50 @@ fg::MappedGltfFile::~MappedGltfFile() noexcept {
 	if (fileHandle != nullptr) {
 		CloseHandle(fileHandle);
 	}
-#else
+#	else
 	if (mappedFile != MAP_FAILED) {
 		munmap(mappedFile, fileSize);
 	}
-#endif
+#	endif
 }
 
-void fg::MappedGltfFile::read(void *ptr, std::size_t count) {
+void fg::MappedGltfFile::read(void* ptr, std::size_t count) {
 	std::memcpy(ptr, static_cast<std::byte*>(mappedFile) + idx, count);
 	idx += count;
 }
 
-std::span<std::byte> fg::MappedGltfFile::read(const std::size_t count, [[maybe_unused]] std::size_t padding) {
+std::span<std::byte> fg::MappedGltfFile::read(const std::size_t count,
+											  [[maybe_unused]] std::size_t padding) {
 	const std::span sub(static_cast<std::byte*>(mappedFile) + idx, count);
 	idx += count;
 	return sub;
 }
 
-void fg::MappedGltfFile::reset() {
-	idx = 0;
-}
+void fg::MappedGltfFile::reset() { idx = 0; }
 
-std::size_t fg::MappedGltfFile::bytesRead() {
-	return idx;
-}
+std::size_t fg::MappedGltfFile::bytesRead() { return idx; }
 
-std::size_t fg::MappedGltfFile::totalSize() {
-	return fileSize;
-}
-#endif // FASTGLTF_HAS_MEMORY_MAPPED_FILE
+std::size_t fg::MappedGltfFile::totalSize() { return fileSize; }
+#endif  // FASTGLTF_HAS_MEMORY_MAPPED_FILE
 
 #pragma region AndroidGltfDataBuffer
 #if defined(__ANDROID__)
-#include <android/asset_manager.h>
+#	include <android/asset_manager.h>
 
 namespace fastgltf {
-	/**
-	 * Global asset manager that can be accessed freely.
-	 * The value of this global should only be set by fastgltf::setAndroidAssetManager.
-	 */
-	static AAssetManager* androidAssetManager = nullptr;
-}
+/**
+ * Global asset manager that can be accessed freely.
+ * The value of this global should only be set by fastgltf::setAndroidAssetManager.
+ */
+static AAssetManager* androidAssetManager = nullptr;
+}  // namespace fastgltf
 
 void fg::setAndroidAssetManager(AAssetManager* assetManager) noexcept {
 	androidAssetManager = assetManager;
 }
 
-fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(const fs::path& path, std::uint64_t byteOffset) noexcept {
+fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(const fs::path& path,
+												 std::uint64_t byteOffset) noexcept {
 	if (androidAssetManager == nullptr) {
 		error = Error::InvalidPath;
 		return;
@@ -354,8 +333,7 @@ fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(const fs::path& path, std::uint
 	if (buffer == nullptr) {
 		error = Error::FileBufferAllocationFailed;
 	} else {
-		if (byteOffset > 0)
-			AAsset_seek64(file.get(), byteOffset, SEEK_SET);
+		if (byteOffset > 0) AAsset_seek64(file.get(), byteOffset, SEEK_SET);
 
 		// Copy the data and fill the padding region with zeros.
 		AAsset_read(file.get(), buffer.get(), dataSize);
@@ -383,55 +361,57 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 	if (config.mapCallback != nullptr) {
 		auto info = config.mapCallback(static_cast<std::uint64_t>(length), config.userPointer);
 		if (info.mappedMemory != nullptr) {
-			const sources::CustomBuffer customBufferSource = { info.customId, MimeType::None };
+			const sources::CustomBuffer customBufferSource = {info.customId, MimeType::None};
 			AAsset_read(file.get(), info.mappedMemory, length);
 			if (config.unmapCallback != nullptr) {
 				config.unmapCallback(&info, config.userPointer);
 			}
 
-			return { customBufferSource };
+			return {customBufferSource};
 		}
 	}
 
 	StaticVector<std::byte> data(static_cast<std::size_t>(length));
 	AAsset_read(file.get(), data.data(), length);
-	sources::Array arraySource {
+	sources::Array arraySource{
 		std::move(data),
 	};
-	return { std::move(arraySource) };
+	return {std::move(arraySource)};
 }
 #endif
 
 fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noexcept {
-	URI decodedUri(uri.path()); // Re-allocate so we can decode potential characters.
+	URI decodedUri(uri.path());  // Re-allocate so we can decode potential characters.
 	// JSON strings are always in UTF-8, so we can safely always use u8path here.
 	// Since u8path is deprecated with C++20 and newer, u8path is deprecated.
 	// As there is no other proper solution that doesn't do something illegal,
 	// we'll just disable related warnings here.
 #if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)
+#	pragma warning(push)
+#	pragma warning(disable : 4996)
 #endif
 	auto path = directory / fs::u8path(decodedUri.path());
 #if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
+#	pragma GCC diagnostic pop
 #elif defined(_MSC_VER)
-#pragma warning(pop)
+#	pragma warning(pop)
 #endif
 
 #if defined(__ANDROID__)
 	if (androidAssetManager != nullptr) {
-		// Try to load external buffers from the APK. If they're not there, fall through to the file case
+		// Try to load external buffers from the APK. If they're not there, fall through to the file
+		// case
 		if (auto androidResult = loadFileFromApk(path); androidResult.error() == Error::None) {
 			return std::move(androidResult.get());
 		}
 	}
 #endif
 
-	// If we were instructed to load external buffers and the files don't exist, we'll return an error.
+	// If we were instructed to load external buffers and the files don't exist, we'll return an
+	// error.
 	std::error_code error;
 	if (!fs::exists(path, error) || error) {
 		return Error::MissingExternalBuffer;
@@ -447,21 +427,21 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 	if (config.mapCallback != nullptr) {
 		auto info = config.mapCallback(static_cast<std::uint64_t>(length), config.userPointer);
 		if (info.mappedMemory != nullptr) {
-			const sources::CustomBuffer customBufferSource = { info.customId };
+			const sources::CustomBuffer customBufferSource = {info.customId};
 			file.read(static_cast<char*>(info.mappedMemory), length);
 			if (config.unmapCallback != nullptr) {
 				config.unmapCallback(&info, config.userPointer);
 			}
 
-			return { customBufferSource };
+			return {customBufferSource};
 		}
 	}
 
 	StaticVector<std::byte> data(static_cast<std::size_t>(length));
 	file.read(reinterpret_cast<char*>(data.data()), length);
-	sources::Array arraySource {
+	sources::Array arraySource{
 		std::move(data),
 	};
-	return { std::move(arraySource) };
+	return {std::move(arraySource)};
 }
 #pragma endregion
