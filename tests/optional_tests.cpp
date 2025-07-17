@@ -1,5 +1,4 @@
 #include <catch2/catch_test_macros.hpp>
-
 #include <fastgltf/types.hpp>
 
 TEST_CASE("Test basic Optional interface", "[optional-tests]") {
