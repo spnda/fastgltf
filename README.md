@@ -7,9 +7,9 @@
 [![Documentation Status](https://readthedocs.org/projects/fastgltf/badge/?version=latest)](https://fastgltf.readthedocs.io/latest/?badge=latest)
 
 
-**fastgltf** is a speed and usability focused glTF 2.0 library written in modern C++17 with minimal dependencies.
+**fastgltf** is a speed and usability focused glTF 2.0 library written in modern C++20 with minimal dependencies.
 It uses SIMD in various areas to decrease the time the application spends parsing and loading glTF data.
-By taking advantage of modern C++17 (and optionally C++20) it also provides easy and safe access to the properties and data.
+By taking advantage of modern C++20 it also provides easy and safe access to the properties and data.
 It is also available as a C++20 [named module](https://en.cppreference.com/w/cpp/language/modules).
 
 The library supports the entirety of glTF 2.0 specification, including many extensions.
@@ -18,6 +18,9 @@ However, it brings many additional features to ease working with the data,
 including accessor tools, the ability to directly write to mapped GPU buffers, and decomposing transform matrices.
 
 To learn more about fastgltf, its features, performance and API you can read [the docs](https://fastgltf.readthedocs.io/).
+
+> [!NOTE]  
+> For C++17 compatibility, please use v0.9.x. Later versions require C++20.
 
 ## Examples and real-world usage
 

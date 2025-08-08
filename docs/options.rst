@@ -40,13 +40,6 @@ This allocator allocates fixed-size blocks of memory as needed and divides them 
 All of this functionality can be disabled using this flag.
 All types will then be normal ``std`` containers and use standard heap allocation with new and malloc.
 
-``FASTGLTF_COMPILE_AS_CPP20``
------------------------------
-
-This ``BOOL`` option controls the C++ standard the library is compiled as. When ``NO`` fastgltf is always compiled as C++17.
-When ``YES`` fastgltf is compiled as C++20, including the tests. This might allow the compiler to perform certain optimisations,
-since fastgltf then uses some specialized stdlib functions instead.
-
 ``FASTGLTF_ENABLE_CPP_MODULES``
 -------------------------------
 
