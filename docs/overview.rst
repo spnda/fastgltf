@@ -4,9 +4,9 @@ Overview
 
 .. contents:: Table of Contents
 
-**fastgltf** is a speed and usability focused glTF 2.0 library written in modern C++17 with minimal dependencies.
+**fastgltf** is a speed and usability focused glTF 2.0 library written in modern C++20 with minimal dependencies.
 It uses SIMD in various areas to decrease the time the application spends parsing and loading glTF data.
-By taking advantage of modern C++17 (and optionally C++20) it also provides easy and safe access to the properties and data.
+By taking advantage of modern C++20 it also provides easy and safe access to the properties and data.
 It is also available as a C++20 `named module <https://en.cppreference.com/w/cpp/language/modules>`_.
 
 The library supports the entirety of glTF 2.0 specification, including many extensions.
@@ -14,6 +14,8 @@ By default, **fastgltf** will only do the absolute minimum to work with a glTF m
 However, it brings many additional features to ease working with the data,
 including accessor tools, the ability to directly write to mapped GPU buffers, and decomposing transform matrices.
 
+.. note::
+   For C++17 compatibility, please use v0.9.x. Later versions require C++20.
 
 .. _why:
 
@@ -110,7 +112,7 @@ Usage
 .. _vcpkg: https://github.com/microsoft/vcpkg
 .. _conan: https://conan.io/
 
-**fastgltf** is a pure C++17 library and only depends on simdjson.
+**fastgltf** is a C++20 library and only depends on simdjson.
 By using the included CMake 3.11 script, simdjson is automatically downloaded while configuring by default.
 The library is tested on GCC 9, GCC 10, Clang 13, and MSVC 14 (Visual Studio 2022) using CI.
 **fastgltf** is also available from vcpkg_ and conan_.
