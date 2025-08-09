@@ -1099,12 +1099,12 @@ namespace fastgltf {
 	struct OptionalFlagValue<float, std::enable_if_t<std::numeric_limits<float>::is_iec559>> {
 		// This float is a quiet NaN with a specific bit pattern to be able to differentiate
 		// between this flag value and any result from FP operations.
-		static constexpr auto missing_value = static_cast<float>(0x7fedb6db);
+		static constexpr auto missing_value = bit_cast<float, std::uint32_t>(0x7fedb6db);
 	};
 
 	template<>
 	struct OptionalFlagValue<double, std::enable_if_t<std::numeric_limits<double>::is_iec559>> {
-		static constexpr auto missing_value = static_cast<double>(0x7ffdb6db6db6db6d);
+		static constexpr auto missing_value = bit_cast<double, std::uint64_t>(0x7ffdb6db6db6db6d);
 	};
 
 	template<>
@@ -1238,6 +1238,11 @@ namespace fastgltf {
 		}
 
 		[[nodiscard]] bool has_value() const {
+			if constexpr (std::is_floating_point_v<T>) {
+				// NaNs are never equal to anything, not even themselves.
+				// Since the sentinels are special NaN values, we need to memcmp to check equality.
+				return std::memcmp(&_value, &OptionalFlagValue<T>::missing_value, sizeof(T)) != 0;
+			}
 			return this->_value != OptionalFlagValue<T>::missing_value;
 		}
 
