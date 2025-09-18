@@ -15,17 +15,12 @@ option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
 option(FASTGLTF_ENABLE_DEPRECATED_EXT "Enables support for deprecated extensions" OFF)
 option(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL "Disables the memory allocation algorithm based on polymorphic resources" OFF)
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
-option(FASTGLTF_COMPILE_AS_CPP20 "Have the library compile as C++20" OFF)
 option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which uses C++20 modules" OFF)
 option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
 option(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES "Enable support for the experimental KHR_implicit_shapes extension" OFF)
 option(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES "Enable support for the experimental KHR_physics_rigid_bodies extension" OFF)
 
-if (FASTGLTF_COMPILE_AS_CPP20)
-    set(FASTGLTF_COMPILE_TARGET cxx_std_20)
-else ()
-    set(FASTGLTF_COMPILE_TARGET cxx_std_17)
-endif ()
+set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
 # physics rigid bodies depends on implicit shapes
 if (FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES)

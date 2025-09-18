@@ -1,11 +1,9 @@
+#include <catch2/catch_test_macros.hpp>
+#include <fastgltf/util.hpp>
 #include <limits>
 #include <random>
 #include <string>
 #include <type_traits>
-
-#include <catch2/catch_test_macros.hpp>
-
-#include <fastgltf/util.hpp>
 
 TEST_CASE("Test all variants of CRC32-C hashing", "[gltf-loader]") {
 	// TODO: Determine SSE4.2 support here.
@@ -18,10 +16,10 @@ TEST_CASE("Test all variants of CRC32-C hashing", "[gltf-loader]") {
 		static std::mt19937 rng(std::random_device{}());
 		static std::uniform_int_distribution<std::string::size_type> pick(0, chars.size() - 1);
 		std::string str(i, '\0');
-		for (std::size_t j = 0; j < i; ++j)
-			str[j] = chars[pick(rng)];
+		for (std::size_t j = 0; j < i; ++j) str[j] = chars[pick(rng)];
 
-		// We'll try and test if the hardware accelerated version generates the same, correct results.
+		// We'll try and test if the hardware accelerated version generates the same, correct
+		// results.
 #if defined(FASTGLTF_IS_X86)
 		REQUIRE(fastgltf::crc32c(str) == fastgltf::sse_crc32c(str));
 #elif defined(FASTGLTF_IS_A64)
