@@ -14,10 +14,30 @@ if (NOT TARGET simdjson::simdjson)
         set(SIMDJSON_HEADER_FILE "${SIMDJSON_DL_DIR}/simdjson.h")
         set(SIMDJSON_SOURCE_FILE "${SIMDJSON_DL_DIR}/simdjson.cpp")
 
+        macro(download_and_check_for_errors URL DEST_FILE)
+            file(DOWNLOAD "${URL}" "${DEST_FILE}" STATUS DOWNLOAD_STATUS)
+            
+            list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
+            list(GET DOWNLOAD_STATUS 1 ERROR_MESSAGE)
+            
+            if(NOT STATUS_CODE EQUAL 0)
+                message(FATAL_ERROR "Error downloading ${URL}: ${ERROR_MESSAGE}")
+            else()
+                message(STATUS "Successfully downloaded: ${DEST_FILE}")
+            endif()
+        endmacro()
+        
         macro(download_simdjson)
-            file(DOWNLOAD "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h" ${SIMDJSON_HEADER_FILE})
-            file(DOWNLOAD "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.cpp" ${SIMDJSON_SOURCE_FILE})
-        endmacro ()
+            download_and_check_for_errors(
+                "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h"
+                ${SIMDJSON_HEADER_FILE}
+            )
+            
+            download_and_check_for_errors(
+                "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.cpp"
+                ${SIMDJSON_SOURCE_FILE}
+            )
+        endmacro()
 
         if (EXISTS ${SIMDJSON_HEADER_FILE})
             # Look for the SIMDJSON_VERSION define in the header to check the version.
