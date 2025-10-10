@@ -7,7 +7,12 @@ add_executable(fastgltf_tests EXCLUDE_FROM_ALL "main.cpp"
     "base64_tests.cpp" "basic_test.cpp" "benchmarks.cpp" "glb_tests.cpp" "gltf_path.hpp" "util_tests.cpp"
     "vector_tests.cpp" "uri_tests.cpp" "extension_tests.cpp" "accessor_tests.cpp" "write_tests.cpp" "math_tests.cpp")
 target_compile_features(fastgltf_tests PRIVATE ${FASTGLTF_COMPILE_TARGET})
-target_link_libraries(fastgltf_tests PRIVATE fastgltf::fastgltf simdjson::simdjson)
+if (TARGET simdjson::simdjson)
+    # TODO: If the target exists, fastgltf will link it privately, and will not add it to it's public include directories.
+    #       The entire simdjson inclusion system should probably be reworked, since having fixes like this everywhere is bad.
+    target_link_libraries(fastgltf_tests PRIVATE simdjson::simdjson)
+endif ()
+target_link_libraries(fastgltf_tests PRIVATE fastgltf::fastgltf)
 target_link_libraries(fastgltf_tests PRIVATE glm::glm Catch2::Catch2)
 fastgltf_compiler_flags(fastgltf_tests)
 
