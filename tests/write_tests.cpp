@@ -85,6 +85,9 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
 
+	// The following code assumes that only a single image is written to a file
+	REQUIRE(cube->images.size() == 1);
+
 	// Destroy the directory to make sure that the FileExporter correctly creates directories.
 	auto exportedFolder = path / "export";
 	if (std::filesystem::is_directory(exportedFolder)) {
@@ -99,7 +102,6 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
     REQUIRE(error == fastgltf::Error::None);
 	REQUIRE(std::filesystem::exists(exportedFolder / "buffer0.bin"));
 	REQUIRE(std::filesystem::exists(exportedFolder / "image0.bin"));
-	REQUIRE(std::filesystem::exists(exportedFolder / "image1.bin"));
 }
 
 TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
@@ -112,6 +114,9 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
     auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
     REQUIRE(cube.error() == fastgltf::Error::None);
+
+	// The following code assumes that only a single image is written to a file
+	REQUIRE(cube->images.size() == 1);
 
 	// Destroy the directory to make sure that the FileExporter correctly creates directories.
 	auto exportedFolder = path / "export_glb";
@@ -126,7 +131,6 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
     auto error = exporter.writeGltfBinary(cube.get(), exportedPath);
     REQUIRE(error == fastgltf::Error::None);
 	REQUIRE(std::filesystem::exists(exportedFolder / "image0.bin"));
-	REQUIRE(std::filesystem::exists(exportedFolder / "image1.bin"));
 
 	// Make sure the GLB buffer is written
 	std::ifstream glb(exportedPath, std::ios::binary);

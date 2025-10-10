@@ -168,8 +168,8 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
         REQUIRE(material.name == "Cube");
         REQUIRE(material.pbrData.baseColorTexture.has_value());
         REQUIRE(material.pbrData.baseColorTexture->textureIndex == 0);
-        REQUIRE(material.pbrData.metallicRoughnessTexture.has_value());
-        REQUIRE(material.pbrData.metallicRoughnessTexture->textureIndex == 1);
+		REQUIRE(material.pbrData.metallicFactor == 0.);
+		REQUIRE(material.pbrData.roughnessFactor == fastgltf::num(0.079));
         REQUIRE(!material.normalTexture.has_value());
         REQUIRE(!material.emissiveTexture.has_value());
         REQUIRE(!material.occlusionTexture.has_value());
