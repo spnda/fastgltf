@@ -822,3 +822,48 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 	REQUIRE(joint.enableCollision == false);
 }
 #endif
+
+TEST_CASE("Extension KHR_node_visibility", "[gltf-loader]") {
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_node_visibility);
+	auto khrNodeVisibilityValid = path / "khr_node_visibility_valid.gltf";
+	fastgltf::GltfFileStream jsonData(khrNodeVisibilityValid);
+	REQUIRE(jsonData.isOpen());
+	auto asset = parser.loadGltfJson(jsonData, khrNodeVisibilityValid);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->nodes.size() == 3);
+	REQUIRE(asset->nodes[0].visible); // If KHR_node_visibility extension is not present, nodes are visible by default.
+	REQUIRE(asset->nodes[1].visible);
+	REQUIRE(!asset->nodes[2].visible);
+}
+
+TEST_CASE("Extension KHR_node_selectability", "[gltf-loader]") {
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_node_selectability);
+	auto khrNodeSelectabilityValid = path / "khr_node_selectability_valid.gltf";
+	fastgltf::GltfFileStream jsonData(khrNodeSelectabilityValid);
+	REQUIRE(jsonData.isOpen());
+	auto asset = parser.loadGltfJson(jsonData, khrNodeSelectabilityValid);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->nodes.size() == 3);
+	REQUIRE(asset->nodes[0].selectable); // If KHR_node_selectability extension is not present, nodes are selectable by default.
+	REQUIRE(asset->nodes[1].selectable);
+	REQUIRE(!asset->nodes[2].selectable);
+}
+
+TEST_CASE("Extension KHR_node_hoverability", "[gltf-loader]") {
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_node_hoverability);
+	auto khrNodeHoverabilityValid = path / "khr_node_hoverability_valid.gltf";
+	fastgltf::GltfFileStream jsonData(khrNodeHoverabilityValid);
+	REQUIRE(jsonData.isOpen());
+	auto asset = parser.loadGltfJson(jsonData, khrNodeHoverabilityValid);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->nodes.size() == 3);
+	REQUIRE(asset->nodes[0].hoverable); // If KHR_node_hoverability extension is not present, nodes are hoverable by default.
+	REQUIRE(asset->nodes[1].hoverable);
+	REQUIRE(!asset->nodes[2].hoverable);
+}

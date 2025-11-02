@@ -2271,6 +2271,10 @@ namespace fastgltf {
 		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
 #endif
 
+    	bool visible = true;
+    	bool selectable = true;
+    	bool hoverable = true;
+
         [[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
                 if (it->name == attributeName)
