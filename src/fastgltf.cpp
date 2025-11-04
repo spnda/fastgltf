@@ -1353,6 +1353,16 @@ fg::Error fg::validate(const Asset& asset) {
 					return Error::InvalidGltf;
 			}
 		}
+
+		if (!node.visible && !isExtensionUsed(extensions::KHR_node_visibility)) {
+			return Error::InvalidGltf;
+		}
+		if (!node.selectable && !isExtensionUsed(extensions::KHR_node_selectability)) {
+			return Error::InvalidGltf;
+		}
+		if (!node.hoverable && !isExtensionUsed(extensions::KHR_node_hoverability)) {
+			return Error::InvalidGltf;
+		}
 	}
 
 	for (const auto& sampler : asset.samplers) {
@@ -3775,6 +3785,39 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			    }
 			}
 #endif
+
+        	if (hasBit(config.extensions, Extensions::KHR_node_visibility)) {
+        		dom::object nodeVisibilityObject;
+        		if (auto nodeVisibilityError = extensionsObject[extensions::KHR_node_visibility].get_object().get(nodeVisibilityObject); nodeVisibilityError == SUCCESS) {
+        			if (nodeVisibilityObject["visible"].get_bool().get(node.visible) != SUCCESS) {
+        				return Error::InvalidGltf;
+        			}
+        		} else if (nodeVisibilityError != NO_SUCH_FIELD) {
+        			return Error::InvalidGltf;
+        		}
+        	}
+
+        	if (hasBit(config.extensions, Extensions::KHR_node_selectability)) {
+        		dom::object nodeSelectabilityObject;
+        		if (auto nodeSelectabilityError = extensionsObject[extensions::KHR_node_selectability].get_object().get(nodeSelectabilityObject); nodeSelectabilityError == SUCCESS) {
+        			if (nodeSelectabilityObject["selectable"].get_bool().get(node.selectable) != SUCCESS) {
+        				return Error::InvalidGltf;
+        			}
+        		} else if (nodeSelectabilityError != NO_SUCH_FIELD) {
+        			return Error::InvalidGltf;
+        		}
+        	}
+
+        	if (hasBit(config.extensions, Extensions::KHR_node_hoverability)) {
+        		dom::object nodeHoverabilityObject;
+        		if (auto nodeHoverabilityError = extensionsObject[extensions::KHR_node_hoverability].get_object().get(nodeHoverabilityObject); nodeHoverabilityError == SUCCESS) {
+        			if (nodeHoverabilityObject["hoverable"].get_bool().get(node.hoverable) != SUCCESS) {
+        				return Error::InvalidGltf;
+        			}
+        		} else if (nodeHoverabilityError != NO_SUCH_FIELD) {
+        			return Error::InvalidGltf;
+        		}
+        	}
         }
 
 		if (config.extrasCallback != nullptr) {
@@ -6220,6 +6263,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			|| it->physicsRigidBody
 #endif
+			|| !it->visible || !it->selectable || !it->hoverable
 			) {
 			if (json.back() != '{') json += ',';
 			json += R"("extensions":{)";
@@ -6322,6 +6366,21 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 				}
 			}
 #endif
+
+			if (!it->visible) {
+				if (json.back() != '{') json += ',';
+				json += R"("KHR_node_visibility":{"visible":false})";
+			}
+
+	    	if (!it->selectable) {
+	    		if (json.back() != '{') json += ',';
+	    		json += R"("KHR_node_selectability":{"selectable":false})";
+	    	}
+
+	    	if (!it->hoverable) {
+	    		if (json.back() != '{') json += ',';
+	    		json += R"("KHR_node_hoverability":{"hoverable":false})";
+	    	}
 
 			json += "}";
 		}
