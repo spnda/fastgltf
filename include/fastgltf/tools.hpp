@@ -893,17 +893,24 @@ void copyComponentsFromAccessor(const Asset& asset, const Accessor& accessor, vo
 }
 
 /**
+ * Returns the local transform matrix for a given node, computing it from TRS components if necessary
+ */
+FASTGLTF_EXPORT inline auto getLocalTransformMatrix(const Node& node) {
+	return visit_exhaustive(visitor {
+		[&](const math::fmat4x4& matrix) {
+			return matrix;
+		},
+		[&](const TRS& trs) {
+			return translate(rotate(scale(math::fmat4x4(), trs.scale), trs.rotation), trs.translation);
+		}
+	}, node.transform);
+}
+
+/**
  * Computes the transform matrix for a given node, and multiplies the given base with that matrix.
  */
 FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
-	return visit_exhaustive(visitor {
-		[&](const math::fmat4x4& matrix) {
-			return base * matrix;
-		},
-		[&](const TRS& trs) {
-			return translate(rotate(scale(base, trs.scale), trs.rotation), trs.translation);
-		}
-	}, node.transform);
+	return base * getLocalTransformMatrix(node);
 }
 
 /**
