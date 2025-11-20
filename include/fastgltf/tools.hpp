@@ -901,7 +901,12 @@ FASTGLTF_EXPORT inline auto getLocalTransformMatrix(const Node& node) {
 			return matrix;
 		},
 		[&](const TRS& trs) {
-			return translate(rotate(scale(math::fmat4x4(), trs.scale), trs.rotation), trs.translation);
+			/* Note: these operations happen 'in-place', they are not post-multiplied.
+			 * For that reason, they need called in opposite order, translate first, 
+			 * then rotate, then scale.  That sounds backwards, and it is, but it works
+			 * here because of how those operations are applied to the source matrix.
+			 */
+			return scale(rotate(translate(math::fmat4x4(), trs.translation), trs.rotation), trs.scale);
 		}
 	}, node.transform);
 }
