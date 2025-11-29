@@ -901,7 +901,7 @@ FASTGLTF_EXPORT inline auto getLocalTransformMatrix(const Node& node) {
 			return matrix;
 		},
 		[&](const TRS& trs) {
-			return translate(rotate(scale(math::fmat4x4(), trs.scale), trs.rotation), trs.translation);
+			return scale(rotate(translate(math::fmat4x4(), trs.translation), trs.rotation), trs.scale);
 		}
 	}, node.transform);
 }
