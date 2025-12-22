@@ -616,8 +616,8 @@ namespace fastgltf::math {
 	/**
 	 * A matrix stored in column major order.
 	 *
-	 * @param N Number of rows, or the length of a single column.
-	 * @param M Number of columns, or the length of a single row.
+	 * @tparam N Number of rows, or the length of a single column.
+	 * @tparam M Number of columns, or the length of a single row.
 	 */
 	template <typename T, std::size_t N, std::size_t M>
 	class mat {
