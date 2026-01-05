@@ -1,5 +1,5 @@
 project = 'fastgltf'
-copyright = '2024, spnda'
+copyright = '2024 - 2026, Sean Apeler'
 author = 'spnda'
 release = '@PROJECT_VERSION@'
 
