@@ -82,6 +82,20 @@ if (SIMDJSON_TARGET_VERSION)
     target_compile_definitions(fastgltf PRIVATE SIMDJSON_TARGET_VERSION="${SIMDJSON_TARGET_VERSION}")
 endif ()
 
+# Old versions of GCC and Clang require linking with the standard filesystem library
+# See https://en.cppreference.com/w/cpp/filesystem.html#Notes
+set(FILESYSTEM_LIB "")
+
+if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.1)
+    set(FILESYSTEM_LIB stdc++fs)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
+    set(FILESYSTEM_LIB c++fs)
+endif()
+
+if(FILESYSTEM_LIB)
+    target_link_libraries(fastgltf PRIVATE ${FILESYSTEM_LIB})
+endif()
+
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_DEPRECATED_EXT=$<BOOL:${FASTGLTF_ENABLE_DEPRECATED_EXT}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL=$<BOOL:${FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL}>")
