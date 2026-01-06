@@ -193,7 +193,7 @@ namespace fastgltf {
 	}
 
 	template<typename T, typename... A>
-	[[noreturn]] constexpr void raise(A&&... args) {
+	[[noreturn]] constexpr void raise([[maybe_unused]] A&&... args) {
 #ifdef __cpp_exceptions
 		throw T(std::forward<A>(args)...);
 #else
