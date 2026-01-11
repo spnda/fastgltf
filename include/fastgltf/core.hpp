@@ -358,7 +358,7 @@ namespace fastgltf {
         constexpr std::string_view KHR_materials_specular = "KHR_materials_specular";
         constexpr std::string_view KHR_materials_transmission = "KHR_materials_transmission";
         constexpr std::string_view KHR_materials_unlit = "KHR_materials_unlit";
-		constexpr std::string_view KHR_materials_variants = "KHR_materials_variants";
+        constexpr std::string_view KHR_materials_variants = "KHR_materials_variants";
         constexpr std::string_view KHR_materials_volume = "KHR_materials_volume";
         constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";
         constexpr std::string_view KHR_node_visibility = "KHR_node_visibility";
@@ -366,8 +366,8 @@ namespace fastgltf {
         constexpr std::string_view KHR_node_hoverability = "KHR_node_hoverability";
         constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
         constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
-	    constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
-	    constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
+        constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
+        constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
         constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
 
 #if FASTGLTF_ENABLE_DEPRECATED_EXT
@@ -375,7 +375,7 @@ namespace fastgltf {
 #endif
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
+        constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES

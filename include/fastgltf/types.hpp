@@ -322,23 +322,23 @@ namespace fastgltf {
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	FASTGLTF_EXPORT enum class CombineMode : std::uint8_t {
-        Average,
+		Average,
 		Minimum,
 		Maximum,
 		Multiply,
 		Invalid,
-    };
+	};
 
 	FASTGLTF_EXPORT enum class DriveType : std::uint8_t {
-	    Linear,
+		Linear,
 		Angular,
 		Invalid
 	};
 
 	FASTGLTF_EXPORT enum class DriveMode : std::uint8_t {
-	    Force,
+		Force,
 		Acceleration,
-	    Invalid
+		Invalid
 	};
 #endif
 #pragma endregion
@@ -349,7 +349,7 @@ namespace fastgltf {
      * a Vec3 accessor type this will return 3, as a Vec3 contains 3 components.
      */
     FASTGLTF_EXPORT constexpr auto getNumComponents(AccessorType type) noexcept {
-    	static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
+        static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
         return static_cast<std::size_t>(to_underlying(type) >> 3U);
     }
 
@@ -406,7 +406,7 @@ namespace fastgltf {
      * For example, getGLComponentType(ComponentType::Float) will return GL_FLOAT (0x1406).
      */
     FASTGLTF_EXPORT constexpr auto getGLComponentType(ComponentType type) noexcept {
-    	static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint16_t>);
+        static_assert(std::is_same_v<std::underlying_type_t<ComponentType>, std::uint16_t>);
         return static_cast<std::uint32_t>(to_underlying(type) & 0x1FFF); // 2^13 - 1 in hex, to mask the lower 13 bits.
     }
 
@@ -468,8 +468,8 @@ namespace fastgltf {
                 }
                 return accessorTypes[componentCount + 4];
             }
-        	default:
-        		return AccessorType::Invalid;
+            default:
+                return AccessorType::Invalid;
         }
     }
 
@@ -484,7 +484,7 @@ namespace fastgltf {
 	};
 
 	constexpr std::string_view getAccessorTypeName(AccessorType type) noexcept {
-    	static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
+		static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
 		if (type == AccessorType::Invalid)
 			return "";
 		auto idx = to_underlying(type) & 0x7;
@@ -523,18 +523,18 @@ namespace fastgltf {
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	[[nodiscard]] constexpr auto getCombineMode(const std::string_view name) noexcept {
 		assert(!name.empty());
-	    if(name[0] == 'a') {
+		if(name[0] == 'a') {
 			return CombineMode::Average;
-	    }
+		}
 
 		switch(name[1]) {
-	    case 'i':
+		case 'i':
 			return CombineMode::Minimum;
 
-	    case 'a':
+		case 'a':
 			return CombineMode::Maximum;
 
-	    case 'u':
+		case 'u':
 			return CombineMode::Multiply;
 		}
 
@@ -565,13 +565,13 @@ namespace fastgltf {
 	}
 
 	[[nodiscard]] constexpr auto getDriveMode(const std::string_view name) noexcept {
-	    if (name[0] == 'f') {
+		if (name[0] == 'f') {
 			return DriveMode::Force;
-	    } else if (name[0] == 'a') {
+		} else if (name[0] == 'a') {
 			return DriveMode::Acceleration;
-	    } else {
+		} else {
 			return DriveMode::Invalid;
-	    }
+		}
 	}
 #endif
 #pragma endregion
@@ -783,13 +783,13 @@ namespace fastgltf {
         }
 
         SmallVector& operator=(const SmallVector& other) {
-            if (std::addressof(other) != this) {
-                if (!isUsingStack() && _data) {
-	                std::destroy(begin(), end());
+			if (std::addressof(other) != this) {
+				if (!isUsingStack() && _data) {
+					std::destroy(begin(), end());
 					allocator.deallocate(_data, _capacity);
-                    _data = reinterpret_cast<T*>(storage.data());
-                    _size = _capacity = 0;
-                }
+					_data = reinterpret_cast<T*>(storage.data());
+					_size = _capacity = 0;
+				}
 
                 resize(other.size());
                 copy(other.begin(), other.size(), begin());
@@ -817,21 +817,21 @@ namespace fastgltf {
         }
 
         ~SmallVector() {
-			// As we use an array of std::byte for the stack storage, we have to destruct those manually too.
-			std::destroy(begin(), end());
+            // As we use an array of std::byte for the stack storage, we have to destruct those manually too.
+            std::destroy(begin(), end());
 
             if (!isUsingStack() && _data) {
                 // Not using the stack, we'll have to free.
-	            allocator.deallocate(_data, _capacity);
+                allocator.deallocate(_data, _capacity);
             }
         }
 
-	    [[nodiscard]] iterator begin() noexcept { return _data; }
+        [[nodiscard]] iterator begin() noexcept { return _data; }
         [[nodiscard]] const_iterator begin() const noexcept { return _data; }
-	    [[nodiscard]] const_iterator cbegin() const noexcept { return _data; }
-	    [[nodiscard]] iterator end() noexcept { return begin() + size(); }
-	    [[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
-	    [[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
+        [[nodiscard]] const_iterator cbegin() const noexcept { return _data; }
+        [[nodiscard]] iterator end() noexcept { return begin() + size(); }
+        [[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
+        [[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
 
         [[nodiscard]] std::reverse_iterator<T*> rbegin() { return end(); }
         [[nodiscard]] std::reverse_iterator<const T*> rbegin() const { return end(); }
@@ -850,7 +850,7 @@ namespace fastgltf {
         [[nodiscard]] bool isUsingStack() const noexcept { return data() == reinterpret_cast<const T*>(storage.data()); }
 
         void reserve(std::size_t newCapacity) {
-	        static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
+            static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
 
             // We don't want to reduce capacity with reserve, only with shrink_to_fit.
             if (newCapacity <= capacity()) {
@@ -1353,8 +1353,8 @@ namespace fastgltf {
 			return *this ? std::move(*this) : std::invoke(std::forward<F>(func));
 		}
 
-		void swap(OptionalWithFlagValue<T>& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
-		                                                    std::is_nothrow_swappable_v<T>) {
+	void swap(OptionalWithFlagValue<T>& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
+		std::is_nothrow_swappable_v<T>) {
 			static_assert(std::is_move_constructible_v<T>);
 			if (has_value() && other.has_value()) {
 				std::swap(_value, other._value);
@@ -1915,8 +1915,8 @@ namespace fastgltf {
     };
 
     FASTGLTF_EXPORT struct Animation {
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationChannel> channels;
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationSampler> samplers;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationChannel> channels;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationSampler> samplers;
 
         FASTGLTF_STD_PMR_NS::string name;
     };
@@ -1951,7 +1951,7 @@ namespace fastgltf {
     };
 
     FASTGLTF_EXPORT struct Skin {
-	    Optional<std::size_t> inverseBindMatrices;
+        Optional<std::size_t> inverseBindMatrices;
         Optional<std::size_t> skeleton;
         FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
 
@@ -1959,8 +1959,8 @@ namespace fastgltf {
     };
 
     FASTGLTF_EXPORT struct Sampler {
-	    Optional<Filter> magFilter;
-	    Optional<Filter> minFilter;
+        Optional<Filter> magFilter;
+        Optional<Filter> minFilter;
         Wrap wrapS = Wrap::Repeat;
         Wrap wrapT = Wrap::Repeat;
 
@@ -1968,7 +1968,7 @@ namespace fastgltf {
     };
 
     FASTGLTF_EXPORT struct Scene {
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodeIndices;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodeIndices;
 
         FASTGLTF_STD_PMR_NS::string name;
     };
@@ -2222,7 +2222,7 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Joint {
-	    std::size_t connectedNode;
+		std::size_t connectedNode;
 
 		std::size_t joint;
 
@@ -2242,16 +2242,16 @@ namespace fastgltf {
 
     FASTGLTF_EXPORT struct Node {
         Optional<std::size_t> meshIndex;
-	    Optional<std::size_t> skinIndex;
-	    Optional<std::size_t> cameraIndex;
+        Optional<std::size_t> skinIndex;
+        Optional<std::size_t> cameraIndex;
 
         /**
          * Only ever non-empty when KHR_lights_punctual is enabled and used by the asset.
          */
         Optional<std::size_t> lightIndex;
 
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> children;
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> children;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
         /**
          * Variant holding either the three TRS components; transform, rotation, and scale, or a
@@ -2271,9 +2271,9 @@ namespace fastgltf {
 		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
 #endif
 
-    	bool visible = true;
-    	bool selectable = true;
-    	bool hoverable = true;
+        bool visible = true;
+        bool selectable = true;
+        bool hoverable = true;
 
         [[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) noexcept {
             for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
@@ -2313,16 +2313,16 @@ namespace fastgltf {
 		}
 	};
 
-    FASTGLTF_EXPORT struct Primitive {
+	FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
 		FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4> attributes;
-        PrimitiveType type = PrimitiveType::Triangles;
+		PrimitiveType type = PrimitiveType::Triangles;
 
-        FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4>> targets;
+		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4>> targets;
 
-        Optional<std::size_t> indicesAccessor;
-        Optional<std::size_t> materialIndex;
+		Optional<std::size_t> indicesAccessor;
+		Optional<std::size_t> materialIndex;
 
 		/**
 		 * Represents the mappings data from KHR_material_variants.
@@ -2369,8 +2369,8 @@ namespace fastgltf {
 	};
 
     FASTGLTF_EXPORT struct Mesh {
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<Primitive, 2> primitives;
-	    FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<Primitive, 2> primitives;
+        FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
 
         FASTGLTF_STD_PMR_NS::string name;
     };
@@ -2826,16 +2826,16 @@ namespace fastgltf {
         std::vector<Skin> skins;
         std::vector<Texture> textures;
 
-		std::vector<std::string> materialVariants;
+        std::vector<std::string> materialVariants;
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		std::vector<Shape> shapes;
+        std::vector<Shape> shapes;
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		std::vector<PhysicsMaterial> physicsMaterials;
-	    std::vector<PhysicsJoint> physicsJoints;
-		std::vector<CollisionFilter> collisionFilters;
+        std::vector<PhysicsMaterial> physicsMaterials;
+        std::vector<PhysicsJoint> physicsJoints;
+        std::vector<CollisionFilter> collisionFilters;
 #endif
 
         // Keeps tracked of categories that were actually parsed.
@@ -2867,14 +2867,14 @@ namespace fastgltf {
 				textures(std::move(other.textures)),
 				materialVariants(std::move(other.materialVariants)),
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-			    shapes(std::move(other.shapes)),
+				shapes(std::move(other.shapes)),
 #endif
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-			    physicsMaterials(std::move(other.physicsMaterials)),
-			    physicsJoints(std::move(other.physicsJoints)),
-			    collisionFilters(std::move(other.collisionFilters)),
+				physicsMaterials(std::move(other.physicsMaterials)),
+				physicsJoints(std::move(other.physicsJoints)),
+				collisionFilters(std::move(other.collisionFilters)),
 #endif
-	            availableCategories(other.availableCategories) {}
+				availableCategories(other.availableCategories) {}
 
 		Asset& operator=(const Asset& other) = delete;
 		Asset& operator=(Asset&& other) noexcept {
