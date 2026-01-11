@@ -194,8 +194,8 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 #else
 fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept : mappedFile(MAP_FAILED) {
 	// Open the file
-	int fd = open(path.c_str(), O_RDONLY, 0);
-	if (fd == 0) {
+	const auto fd = open(path.c_str(), O_RDONLY, 0);
+	if (fd == -1) {
 		// TODO: Cover actual error messages using std::strerror(errno)?
 		error = Error::InvalidPath;
 		return;
