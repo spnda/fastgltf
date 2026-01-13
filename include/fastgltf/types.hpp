@@ -34,6 +34,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <any>
 #endif
 
 // Utils header already includes some headers, which we'll try and avoid including twice.
@@ -2270,6 +2271,11 @@ namespace fastgltf {
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
 #endif
+
+    	/**
+    	* User-defined data that can be attached to this node.
+    	*/
+    	std::any userData;
 
     	bool visible = true;
     	bool selectable = true;
