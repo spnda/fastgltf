@@ -221,12 +221,12 @@ namespace fastgltf {
      */
     void initialiseCrc() {
 #if defined(FASTGLTF_IS_X86)
-        const auto& impls = simdjson::get_available_implementations();
+        const auto& impls = simdjson::available_implementations;
         if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
             crcStringFunction = sse_crc32c;
         }
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
-		const auto& impls = simdjson::get_available_implementations();
+		const auto& impls = simdjson::available_implementations;
 		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
 #ifdef __APPLE__
 			std::int64_t ret = 0;
@@ -6088,7 +6088,11 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
                     json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
                 }
 
-				const bool hasExtensions = !itp->mappings.empty() || itp->dracoCompression;
+				const bool hasExtensions = !itp->mappings.empty() || itp->dracoCompression
+#if FASTGLTF_ENABLE_KHR_GAUSSIAN_SPLATTING
+					|| itp->gaussianSplat
+#endif
+					;
 				if (hasExtensions) {
 					json += R"(,"extensions":{)";
 				}
@@ -6118,6 +6122,23 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 					}
 					json += "}}";
 				}
+#if FASTGLTF_ENABLE_KHR_GAUSSIAN_SPLATTING
+				if (itp->gaussianSplat) {
+					if (!itp->mappings.empty() || itp->dracoCompression)
+						json += ',';
+					
+					json += R"("KHR_gaussian_splatting":{)";
+					
+					if (itp->gaussianSplat->spzCompression) {
+						json += R"("extensions":{)";
+						json += R"("KHR_gaussian_splatting_compression_spz_2":{)";
+						json += R"("bufferView":)" + std::to_string(itp->gaussianSplat->spzCompression->bufferView);
+						json += "}}";
+					}
+					
+					json += "}";
+				}
+#endif
 				if (hasExtensions) {
 					json += "}";
 				}
