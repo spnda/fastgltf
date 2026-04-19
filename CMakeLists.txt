@@ -20,6 +20,7 @@ option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which u
 option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
 option(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES "Enable support for the experimental KHR_implicit_shapes extension" OFF)
 option(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES "Enable support for the experimental KHR_physics_rigid_bodies extension" OFF)
+option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install(). Should be disabled when you want to use your own version of simdjson" ON)
 
 if (FASTGLTF_COMPILE_AS_CPP20)
     set(FASTGLTF_COMPILE_TARGET cxx_std_20)
@@ -142,31 +143,33 @@ write_basic_package_version_file(
     COMPATIBILITY SameMajorVersion
 )
 
-install(
-    FILES ${FASTGLTF_HEADERS}
-    DESTINATION include/fastgltf
-)
-
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
-)
-
-install(
-    TARGETS fastgltf
-    EXPORT fastgltf-targets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-install(
-    EXPORT fastgltf-targets
-    FILE fastgltfConfig.cmake
-    NAMESPACE fastgltf::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
-)
+if (FASTGLTF_ENABLE_INSTALL)
+    install(
+        FILES ${FASTGLTF_HEADERS}
+        DESTINATION include/fastgltf
+    )
+    
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
+    )
+    
+    install(
+        TARGETS fastgltf
+        EXPORT fastgltf-targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+    
+    install(
+        EXPORT fastgltf-targets
+        FILE fastgltfConfig.cmake
+        NAMESPACE fastgltf::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
+    )
+endif ()
 
 
 if (FASTGLTF_ENABLE_EXAMPLES)
