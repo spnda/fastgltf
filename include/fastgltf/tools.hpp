@@ -494,7 +494,7 @@ public:
 		if (accessor->accessor.sparse.has_value()) {
 			// Get the first sparse index.
 			nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(accessor->indexComponentType,
-			                                                                &accessor->indicesBytes[accessor->indexStride * sparseIdx]);
+																																			&accessor->indicesBytes[accessor->indexStride * sparseIdx]);
 		}
 	}
 
@@ -531,22 +531,22 @@ public:
 			if (idx == nextSparseIndex) {
 				// Get the sparse value for this index
 				auto value = internal::getAccessorElementAt<ElementType>(accessor->componentType,
-																		 &accessor->valuesBytes[accessor->valueStride * sparseIdx],
-																		 accessor->accessor.normalized);
+																																 &accessor->valuesBytes[accessor->valueStride * sparseIdx],
+																																 accessor->accessor.normalized);
 
 				// Find the next sparse index.
 				++sparseIdx;
 				if (sparseIdx < accessor->sparseCount) {
 					nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(accessor->indexComponentType,
-					                                                                &accessor->indicesBytes[accessor->indexStride * sparseIdx]);
+																																					&accessor->indicesBytes[accessor->indexStride * sparseIdx]);
 				}
 				return value;
 			}
 		}
 
 		return internal::getAccessorElementAt<ElementType>(accessor->componentType,
-														   &accessor->bufferBytes[idx * accessor->stride],
-														   accessor->accessor.normalized);
+																											 &accessor->bufferBytes[idx * accessor->stride],
+																											 accessor->accessor.normalized);
 	}
 };
 
