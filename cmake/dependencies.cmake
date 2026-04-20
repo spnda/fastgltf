@@ -8,11 +8,14 @@ if (NOT TARGET simdjson::simdjson)
         message(STATUS "fastgltf: Found simdjson config")
     else ()
         # Download and configure simdjson
-        set(SIMDJSON_TARGET_VERSION "3.12.3")
+        set(SIMDJSON_TARGET_VERSION "4.6.2")
         file(MAKE_DIRECTORY ${SIMDJSON_DL_DIR})
 
         set(SIMDJSON_HEADER_FILE "${SIMDJSON_DL_DIR}/simdjson.h")
         set(SIMDJSON_SOURCE_FILE "${SIMDJSON_DL_DIR}/simdjson.cpp")
+
+        set(SIMDJSON_LOCK_FILE "${SIMDJSON_DL_DIR}/simdjson_download.lock")
+        file(LOCK "${SIMDJSON_LOCK_FILE}" GUARD PROCESS TIMEOUT 30)
 
         macro(download_and_check_for_errors URL DEST_FILE)
             file(DOWNLOAD "${URL}" "${DEST_FILE}" STATUS DOWNLOAD_STATUS)
@@ -42,7 +45,8 @@ if (NOT TARGET simdjson::simdjson)
         if (EXISTS ${SIMDJSON_HEADER_FILE})
             # Look for the SIMDJSON_VERSION define in the header to check the version.
             file(STRINGS ${SIMDJSON_HEADER_FILE} SIMDJSON_HEADER_VERSION_LINE REGEX "^#define SIMDJSON_VERSION ")
-            string(REGEX MATCHALL "[0-9.]+" SIMDJSON_HEADER_VERSION "${SIMDJSON_HEADER_VERSION_LINE}")
+            string(REGEX MATCH "\"?([0-9]+\\.[0-9]+\\.[0-9]+)\"?" _ "${SIMDJSON_HEADER_VERSION_LINE}")
+            set(SIMDJSON_HEADER_VERSION "${CMAKE_MATCH_1}")
             message(STATUS "fastgltf: Found simdjson (Version ${SIMDJSON_HEADER_VERSION})")
 
             if (SIMDJSON_HEADER_VERSION STREQUAL "")
@@ -61,6 +65,8 @@ if (NOT TARGET simdjson::simdjson)
                 message(FATAL_ERROR "fastgltf: Failed to download simdjson.")
             endif ()
         endif ()
+
+        file(LOCK "${SIMDJSON_LOCK_FILE}" RELEASE)
     endif ()
 endif ()
 
