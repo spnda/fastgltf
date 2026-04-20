@@ -19,13 +19,6 @@ Instead of using a normal 32-bit ``float`` for all of the types the glTF spec re
 this option instead makes fastgltf use 64-bit ``double``.
 
 
-``FASTGLTF_ENABLE_DEPRECATED_EXT``
-----------------------------------
-
-Deprecated glTF extensions are by default disabled disabled with fastgltf.
-This option allows users to re-enable these extensions and use them like normally.
-
-
 ``FASTGLTF_USE_CUSTOM_SMALLVECTOR``
 -----------------------------------
 

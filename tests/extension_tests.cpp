@@ -394,7 +394,6 @@ TEST_CASE("Extension EXT_mesh_gpu_instancing", "[gltf-loader]") {
     REQUIRE(nodes[0].findInstancingAttribute("ROTATION") != nodes[0].instancingAttributes.cend());
 }
 
-#if FASTGLTF_ENABLE_DEPRECATED_EXT
 TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
     auto specularGlossinessTest = sampleAssets / "Models" / "SpecGlossVsMetalRough" / "glTF";
     fastgltf::GltfFileStream jsonData(specularGlossinessTest / "SpecGlossVsMetalRough.gltf");
@@ -424,7 +423,6 @@ TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
     REQUIRE(materials[3].specularGlossiness->diffuseTexture.has_value());
     REQUIRE(materials[3].specularGlossiness->diffuseTexture.value().textureIndex == 7);
 }
-#endif
 
 // TODO: Add tests for MSFT_packing_* extensions
 
