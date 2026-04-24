@@ -608,6 +608,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 		},
 		[](const fastgltf::CylinderShape& cylinder) {
 			REQUIRE(false);
+		},
+		[](const fastgltf::PlaneShape& plane) {
+			REQUIRE(false);
 		}
 		},
 		box0);
@@ -624,6 +627,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(false);
 		},
 		[](const fastgltf::CylinderShape& cylinder) {
+			REQUIRE(false);
+		},
+		[](const fastgltf::PlaneShape& plane) {
 			REQUIRE(false);
 		}
 		},
@@ -644,6 +650,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 		},
 		[](const fastgltf::CylinderShape& cylinder) {
 			REQUIRE(false);
+		},
+		[](const fastgltf::PlaneShape& plane) {
+			REQUIRE(false);
 		}
 		},
 		capsule6);
@@ -663,6 +672,9 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 			REQUIRE(cylinder.height == Catch::Approx(0.06662015616893768));
 			REQUIRE(cylinder.radiusBottom == Catch::Approx(0.15483441948890686));
 			REQUIRE(cylinder.radiusTop == Catch::Approx(0.15483441948890686));
+		},
+		[](const fastgltf::PlaneShape& plane) {
+			REQUIRE(false);
 		}
 		},
 		cylinder2);

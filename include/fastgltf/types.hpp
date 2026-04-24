@@ -2018,7 +2018,18 @@ namespace fastgltf {
 		num radiusTop = 0.25;
 	};
 
-	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape>;
+	/**
+	 * A plane centered at the origin in local space with normal along +Y. sizeX and sizeZ
+	 * give a finite extent along the respective axes; zero means infinite. A single-sided
+	 * plane collides only from the +Y side.
+	 */
+	FASTGLTF_EXPORT struct PlaneShape {
+		num sizeX = 0;
+		num sizeZ = 0;
+		bool doubleSided = false;
+	};
+
+	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape, PlaneShape>;
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
