@@ -1930,9 +1930,10 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct AssetInfo {
-		FASTGLTF_STD_PMR_NS::string gltfVersion;
 		FASTGLTF_STD_PMR_NS::string copyright;
 		FASTGLTF_STD_PMR_NS::string generator;
+		FASTGLTF_STD_PMR_NS::string gltfVersion;
+		FASTGLTF_STD_PMR_NS::string minVersion;
 	};
 
 	FASTGLTF_EXPORT struct Camera {
