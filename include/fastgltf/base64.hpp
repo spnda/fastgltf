@@ -31,6 +31,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #endif
 
@@ -82,6 +83,25 @@ namespace fastgltf::base64 {
 
 	[[nodiscard]] StaticVector<std::uint8_t> fallback_decode(std::string_view encoded);
 	FASTGLTF_EXPORT [[nodiscard]] StaticVector<std::uint8_t> decode(std::string_view encoded);
+
+	/**
+	 * Calculates the size of the base64-encoded string for a given input byte count.
+	 * Output is always a multiple of 4 (includes padding).
+	 */
+	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getEncodedSize(const std::size_t dataSize) noexcept {
+		return ((dataSize + 2) / 3) * 4;
+	}
+
+	/**
+	 * Encodes `size` bytes from `data` as base64 into `output`. Caller must ensure `output`
+	 * has at least getEncodedSize(size) bytes available. Pads with '=' to a multiple of 4.
+	 */
+	FASTGLTF_EXPORT void encode_into(const std::uint8_t* data, std::size_t size, char* output);
+
+	/**
+	 * Returns the base64-encoded form of the `size` bytes starting at `data`.
+	 */
+	FASTGLTF_EXPORT [[nodiscard]] std::string encode(const std::uint8_t* data, std::size_t size);
 } // namespace fastgltf::base64
 
 #ifdef _MSC_VER

@@ -436,6 +436,49 @@ fg::StaticVector<std::uint8_t> fg::base64::decode(std::string_view encoded) {
 	return DecodeFunctionGetter::get()->func(encoded);
 }
 
+// clang-format off
+// base64 value -> ASCII char LUT (RFC 4648 alphabet).
+static constexpr std::array<char, 64> base64EncodeLut = {
+	'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P',
+	'Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f',
+	'g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v',
+	'w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/',
+};
+// clang-format on
+
+namespace fastgltf::base64 {
+	FASTGLTF_FORCEINLINE void encode_block(const std::uint8_t* input, char* output) {
+		output[0] = base64EncodeLut[(input[0] & 0xfcU) >> 2U];
+		output[1] = base64EncodeLut[((input[0] & 0x03U) << 4U) | ((input[1] & 0xf0U) >> 4U)];
+		output[2] = base64EncodeLut[((input[1] & 0x0fU) << 2U) | ((input[2] & 0xc0U) >> 6U)];
+		output[3] = base64EncodeLut[input[2] & 0x3fU];
+	}
+} // namespace fastgltf::base64
+
+void fg::base64::encode_into(const std::uint8_t* data, std::size_t size, char* output) {
+	constexpr std::size_t blockSize = 3;
+	std::size_t pos = 0;
+	for (; pos + blockSize <= size; pos += blockSize) {
+		encode_block(data + pos, output);
+		output += 4;
+	}
+
+	// Encode the final partial block (1 or 2 bytes) with '=' padding.
+	const std::size_t remaining = size - pos;
+	if (remaining > 0) {
+		std::array<std::uint8_t, blockSize> tail {};
+		for (std::size_t i = 0; i < remaining; ++i) tail[i] = data[pos + i];
+		encode_block(tail.data(), output);
+		for (std::size_t i = remaining + 1; i < 4; ++i) output[i] = '=';
+	}
+}
+
+std::string fg::base64::encode(const std::uint8_t* data, std::size_t size) {
+	std::string out(getEncodedSize(size), '\0');
+	encode_into(data, size, out.data());
+	return out;
+}
+
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
