@@ -5599,6 +5599,9 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
+				if (uri.mimeType != MimeType::None) {
+					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(uri.mimeType)) + '"';
+				}
 				imagePaths.emplace_back(std::nullopt);
 			},
 		}, it->data);
