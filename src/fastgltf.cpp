@@ -6509,15 +6509,18 @@ void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
 	for (auto it = asset.scenes.begin(); it != asset.scenes.end(); ++it) {
 		json += '{';
 
-		json += R"("nodes":[)";
-		auto itn = it->nodeIndices.begin();
-		while (itn != it->nodeIndices.end()) {
-			json += std::to_string(*itn);
-			++itn;
-			if (uabs(std::distance(it->nodeIndices.begin(), itn)) < it->nodeIndices.size())
-				json += ',';
+		// scene.nodes is optional (minItems:1), so omit when empty.
+		if (!it->nodeIndices.empty()) {
+			json += R"("nodes":[)";
+			auto itn = it->nodeIndices.begin();
+			while (itn != it->nodeIndices.end()) {
+				json += std::to_string(*itn);
+				++itn;
+				if (uabs(std::distance(it->nodeIndices.begin(), itn)) < it->nodeIndices.size())
+					json += ',';
+			}
+			json += ']';
 		}
-		json += ']';
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.scenes.begin(), it)), fastgltf::Category::Scenes, userPointer);
@@ -6528,8 +6531,11 @@ void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+		if (!it->name.empty()) {
+			if (json.back() != '{')
+				json += ',';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
+		}
 		json += '}';
 		if (uabs(std::distance(asset.scenes.begin(), it)) + 1 <asset.scenes.size())
 			json += ',';

@@ -454,3 +454,28 @@ TEST_CASE("Test Accessor::updateBoundsToInclude", "[write-tests]") {
 		REQUIRE(accessor.min->get<std::int64_t>(2) == -4);
 	}
 }
+
+TEST_CASE("Test empty scene omits nodes array", "[write-tests]") {
+	// scene.nodes is optional (minItems:1), so omit when empty.
+	fastgltf::Asset asset;
+	asset.nodes.emplace_back();
+
+	fastgltf::Scene populated;
+	populated.nodeIndices.emplace_back(0);
+	asset.scenes.emplace_back(std::move(populated));
+
+	asset.scenes.emplace_back();
+
+	fastgltf::Scene named;
+	named.name = "Empty";
+	asset.scenes.emplace_back(std::move(named));
+
+	fastgltf::Exporter exporter;
+	auto result = exporter.writeGltfJson(asset);
+	REQUIRE(result.error() == fastgltf::Error::None);
+	const auto& json = result.get().output;
+
+	REQUIRE(json.find(R"("nodes":[0])") != std::string::npos);
+	REQUIRE(json.find(R"("nodes":[])") == std::string::npos);
+	REQUIRE(json.find(R"({"name":"Empty"})") != std::string::npos);
+}
