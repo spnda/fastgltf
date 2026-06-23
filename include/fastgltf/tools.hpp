@@ -849,7 +849,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		for (std::size_t i = 0; i < accessor.count; ++i) {
 			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
 			*pDest = internal::getAccessorElementAt<ElementType>(
-					accessor.componentType, &srcBytes[srcStride * i]);
+					accessor.componentType, &srcBytes[srcStride * i], accessor.normalized);
 		}
 	}
 }

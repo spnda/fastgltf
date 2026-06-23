@@ -44,6 +44,43 @@ TEST_CASE("Test data type conversion", "[gltf-tools]") {
 	}
 }
 
+TEST_CASE("Test normalized accessor data conversion", "[gltf-tools]") {
+	// copyFromAccessor has to denormalize a normalized accessor, just like iterateAccessor and getAccessorElement.
+	constexpr std::array<std::int16_t, 6> components {{ 32767, 0, -32767, -32767, 16384, 32767 }};
+
+	fastgltf::StaticVector<std::byte> bytes(sizeof(components));
+	std::memcpy(bytes.data(), components.data(), sizeof(components));
+
+	fastgltf::Buffer buffer = {};
+	buffer.byteLength = sizeof(components);
+	buffer.data = fastgltf::sources::Array { std::move(bytes) };
+
+	fastgltf::BufferView bufferView = {};
+	bufferView.bufferIndex = 0;
+	bufferView.byteLength = sizeof(components);
+
+	fastgltf::Accessor accessor = {};
+	accessor.bufferViewIndex = 0;
+	accessor.count = 2;
+	accessor.type = fastgltf::AccessorType::Vec3;
+	accessor.componentType = fastgltf::ComponentType::Short;
+	accessor.normalized = true;
+
+	fastgltf::Asset asset;
+	asset.buffers.emplace_back(std::move(buffer));
+	asset.bufferViews.emplace_back(std::move(bufferView));
+	asset.accessors.emplace_back(std::move(accessor));
+
+	auto dstCopy = std::make_unique<fastgltf::math::fvec3[]>(asset.accessors[0].count);
+	fastgltf::copyFromAccessor<fastgltf::math::fvec3>(asset, asset.accessors[0], dstCopy.get());
+
+	fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset, asset.accessors[0], [&](fastgltf::math::fvec3 element, std::size_t i) {
+		REQUIRE(dstCopy[i] == element);
+	});
+	REQUIRE(dstCopy[0].x() == Catch::Approx(1.0f));
+	REQUIRE(dstCopy[0].z() == Catch::Approx(-1.0f));
+}
+
 TEST_CASE("Test little-endian correctness", "[gltf-tools]") {
     // The test here is merely to verify that the internal deserialization functions correctly treat
     // the input bytes as little-endian, regardless of system endianness.
