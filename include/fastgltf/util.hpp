@@ -51,17 +51,21 @@
 #error "fastgltf requires C++17"
 #endif
 
-#if (!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
-#define FASTGLTF_CPP_20 1
-#include <version>
-#else
-#define FASTGLTF_CPP_20 0
+#ifndef FASTGLTF_CPP_20
+	#if (!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+	#define FASTGLTF_CPP_20 1
+	#include <version>
+	#else
+	#define FASTGLTF_CPP_20 0
+	#endif
 #endif
 
-#if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
-#define FASTGLTF_CPP_23 1
-#else
-#define FASTGLTF_CPP_23 0
+#ifndef FASTGLTF_CPP_23
+	#if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
+	#define FASTGLTF_CPP_23 1
+	#else
+	#define FASTGLTF_CPP_23 0
+	#endif
 #endif
 
 #if FASTGLTF_CPP_20 && defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
