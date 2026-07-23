@@ -730,14 +730,21 @@ namespace fastgltf {
 		std::size_t _size = 0, _capacity = N;
 
 		void copy(const T* first, std::size_t count, T* result) {
-			if (count > 0) {
-				if constexpr (std::is_trivially_copyable_v<T>) {
-					std::memcpy(result, first, count * sizeof(T));
-				} else {
-					*result++ = *first;
-					for (std::size_t i = 1; i < count; ++i) {
-						*result++ = *++first;
-					}
+			if constexpr (std::is_trivially_copyable_v<T>) {
+				std::memcpy(result, first, count * sizeof(T));
+			} else {
+				for (std::size_t i = 0; i < count; ++i) {
+					result[i] = first[i];
+				}
+			}
+		}
+
+		void move_elements(T* first, std::size_t count, T* result) {
+			if constexpr (std::is_trivially_copyable_v<T>) {
+				std::memcpy(result, first, count * sizeof(T));
+			} else {
+				for (std::size_t i = 0; i < count; ++i) {
+					result[i] = std::move(first[i]);
 				}
 			}
 		}
@@ -771,7 +778,7 @@ namespace fastgltf {
 			if (other.isUsingStack()) {
 				if (!other.empty()) {
 					resize(other.size());
-					copy(other.begin(), other.size(), begin());
+					move_elements(other.begin(), other.size(), begin());
 					other._data = reinterpret_cast<T*>(other.storage.data()); // Reset pointer
 					_size = std::exchange(other._size, 0);
 					_capacity = std::exchange(other._capacity, N);
@@ -803,7 +810,7 @@ namespace fastgltf {
 				if (other.isUsingStack()) {
 					if (!other.empty()) {
 						resize(other.size());
-						copy(other.begin(), other.size(), begin());
+						move_elements(other.begin(), other.size(), begin());
 						other._data = reinterpret_cast<T*>(other.storage.data()); // Reset pointer
 						_size = std::exchange(other._size, 0);
 						_capacity = std::exchange(other._capacity, N);
