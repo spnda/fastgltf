@@ -6773,6 +6773,7 @@ void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) 
 			+ R"(,"frictionCombine":)";
 		switch (material.frictionCombine) {
 		case CombineMode::Average:
+		case CombineMode::Invalid:
 			json += R"("average")";
 			break;
 		case CombineMode::Minimum:
@@ -6788,6 +6789,7 @@ void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) 
 		json += R"(,"restitutionCombine":)";
 		switch (material.restitutionCombine) {
 		case CombineMode::Average:
+		case CombineMode::Invalid:
 			json += R"("average")";
 			break;
 		case CombineMode::Minimum:
@@ -6979,6 +6981,7 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 				json += R"({"type":)";
 				switch(drive.type) {
 				case DriveType::Linear:
+				case DriveType::Invalid:
 					json += R"("linear")";
 					break;
 				case DriveType::Angular:
@@ -6989,6 +6992,7 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 				json += R"(,"mode":)";
 				switch (drive.mode) {
 				case DriveMode::Force:
+				case DriveMode::Invalid:
 					json += R"("force")";
 					break;
 				case DriveMode::Acceleration:
