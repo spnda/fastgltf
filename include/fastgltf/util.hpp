@@ -114,7 +114,7 @@
 #define FASTGLTF_UNLIKELY
 #endif
 
-#if (_MSC_VER && !defined(__clang__)) || FASTGLTF_CPP_20 && __has_cpp_attribute(msvc::intrinsic)
+#if (defined(_MSC_VER) && !defined(__clang__)) || FASTGLTF_CPP_20 && __has_cpp_attribute(msvc::intrinsic)
 #define FASTGLTF_INTRINSIC [[msvc::intrinsic]]
 #else
 #define FASTGLTF_INTRINSIC
@@ -381,7 +381,7 @@ namespace fastgltf {
 	[[nodiscard]] constexpr To bit_cast(const From& from) noexcept {
 		return std::bit_cast<To>(from);
 	}
-#elif (defined(__clang__) || __clang_major__ >= 9) || (defined(__GNUC__) && __GNUC__ >= 11) || FASTGLTF_HAS_BUILTIN(__builtin_bit_cast)
+#elif (defined(__clang__) && __clang_major__ >= 9) || (defined(__GNUC__) && __GNUC__ >= 11) || FASTGLTF_HAS_BUILTIN(__builtin_bit_cast)
 #define FASTGLTF_CONSTEXPR_BITCAST 1
 	template<typename To, typename From>
 	[[nodiscard]] constexpr To bit_cast(const From& from) noexcept {
