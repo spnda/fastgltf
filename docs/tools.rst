@@ -154,7 +154,7 @@ The following snippet illustrates how one could potentially load vertex position
    // Note that the glTF spec requires every primitive to have a POSITION,
    // so it's perfectly valid to assert that positionIt is never nullptr.
    auto* positionIt = primitive->findAttribute("POSITION");
-   auto& positionAccessor = asset.accessors[positionIt->second];
+   auto& positionAccessor = asset.accessors[positionIt->accessorIndex];
    if (!positionAccessor.bufferViewIndex.has_value())
       continue;
 
