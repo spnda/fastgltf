@@ -5626,12 +5626,18 @@ void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
 			json += R"(,"range":)" + to_string_fp(it->range.value());
 		}
 
-		if (it->type == LightType::Spot) {
-			if (it->innerConeAngle.has_value())
-				json += R"("innerConeAngle":)" + to_string_fp(it->innerConeAngle.value()) + ',';
-
+		// Spot cone angles live in a nested "spot" object per
+		// KHR_lights_punctual (the parser reads them from there too).
+		if (it->type == LightType::Spot && (it->innerConeAngle.has_value() || it->outerConeAngle.has_value())) {
+			json += R"(,"spot":{)";
+			if (it->innerConeAngle.has_value()) {
+				json += R"("innerConeAngle":)" + to_string_fp(it->innerConeAngle.value());
+				if (it->outerConeAngle.has_value())
+					json += ',';
+			}
 			if (it->outerConeAngle.has_value())
-				json += R"("outerConeAngle":)" + to_string_fp(it->outerConeAngle.value()) + ',';
+				json += R"("outerConeAngle":)" + to_string_fp(it->outerConeAngle.value());
+			json += '}';
 		}
 
 		if (!it->name.empty())
