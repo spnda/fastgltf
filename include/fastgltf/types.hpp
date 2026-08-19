@@ -264,6 +264,7 @@ namespace fastgltf {
 		Octahedral,
 		Quaternion,
 		Exponential,
+		Color,
 	};
 
 	FASTGLTF_EXPORT enum class LightType : std::uint8_t {
@@ -2753,7 +2754,7 @@ namespace fastgltf {
 		Optional<BufferTarget> target;
 
 		/**
-		 * Data from EXT_meshopt_compression, and nullptr if the extension was not enabled or used.
+		 * Data from EXT_meshopt_compression or KHR_meshopt_compression, and nullptr if the extension was not enabled or used.
 		 */
 		std::unique_ptr<CompressedBufferView> meshoptCompression;
 

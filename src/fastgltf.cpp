@@ -1072,7 +1072,8 @@ fg::Error fg::validate(const Asset& asset) {
 		if (bufferView.bufferIndex >= asset.buffers.size())
 			return Error::InvalidGltf;
 
-		if (bufferView.meshoptCompression != nullptr && !isExtensionUsed(extensions::EXT_meshopt_compression))
+		if (bufferView.meshoptCompression != nullptr &&
+			!(isExtensionUsed(extensions::EXT_meshopt_compression) || isExtensionUsed(extensions::KHR_meshopt_compression)))
 			return Error::InvalidGltf;
 
 		if (bufferView.meshoptCompression) {
@@ -1995,7 +1996,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 		// However, to make the actual use of these buffers clear, we'll use an empty fallback type.
 		bool meshoptCompressionRequired = false;
 		for (const auto& extension : asset.extensionsRequired) {
-			if (extension == extensions::EXT_meshopt_compression) {
+			if (extension == extensions::EXT_meshopt_compression || extension == extensions::KHR_meshopt_compression) {
 				meshoptCompressionRequired = true;
 			}
 		}
@@ -2114,19 +2115,17 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 
 		dom::object extensionObject;
 		if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) FASTGLTF_LIKELY {
-			dom::object meshoptCompression;
-			if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) FASTGLTF_LIKELY {
-				auto compression = std::make_unique<CompressedBufferView>();
-
+			constexpr auto parseMeshoptCompression = [](CompressedBufferView& compression, const dom::object& meshoptCompression) {
+				std::uint64_t number;
 				if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
-				compression->bufferIndex = static_cast<std::size_t>(number);
+				compression.bufferIndex = static_cast<std::size_t>(number);
 
 				if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-					compression->byteOffset = static_cast<std::size_t>(number);
+					compression.byteOffset = static_cast<std::size_t>(number);
 				} else if (error == NO_SUCH_FIELD) {
-					compression->byteOffset = 0;
+					compression.byteOffset = 0;
 				} else {
 					return Error::InvalidJson;
 				}
@@ -2134,32 +2133,33 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 				if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
-				compression->byteLength = static_cast<std::size_t>(number);
+				compression.byteLength = static_cast<std::size_t>(number);
 
 				if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
-				compression->byteStride = static_cast<std::size_t>(number);
+				compression.byteStride = static_cast<std::size_t>(number);
 
 				if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
-				compression->count = number;
+				compression.count = number;
 
+				std::string_view string;
 				if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) FASTGLTF_UNLIKELY {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
 				switch (crcStringFunction(string)) {
 					case force_consteval<crc32c("ATTRIBUTES")>: {
-						compression->mode = MeshoptCompressionMode::Attributes;
+						compression.mode = MeshoptCompressionMode::Attributes;
 						break;
 					}
 					case force_consteval<crc32c("TRIANGLES")>: {
-						compression->mode = MeshoptCompressionMode::Triangles;
+						compression.mode = MeshoptCompressionMode::Triangles;
 						break;
 					}
 					case force_consteval<crc32c("INDICES")>: {
-						compression->mode = MeshoptCompressionMode::Indices;
+						compression.mode = MeshoptCompressionMode::Indices;
 						break;
 					}
 					default: {
@@ -2170,19 +2170,23 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 				if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) FASTGLTF_LIKELY {
 					switch (crcStringFunction(string)) {
 						case force_consteval<crc32c("NONE")>: {
-							compression->filter = MeshoptCompressionFilter::None;
+							compression.filter = MeshoptCompressionFilter::None;
 							break;
 						}
 						case force_consteval<crc32c("OCTAHEDRAL")>: {
-							compression->filter = MeshoptCompressionFilter::Octahedral;
+							compression.filter = MeshoptCompressionFilter::Octahedral;
 							break;
 						}
 						case force_consteval<crc32c("QUATERNION")>: {
-							compression->filter = MeshoptCompressionFilter::Quaternion;
+							compression.filter = MeshoptCompressionFilter::Quaternion;
 							break;
 						}
 						case force_consteval<crc32c("EXPONENTIAL")>: {
-							compression->filter = MeshoptCompressionFilter::Exponential;
+							compression.filter = MeshoptCompressionFilter::Exponential;
+							break;
+						}
+						case force_consteval<crc32c("COLOR")>: {
+							compression.filter = MeshoptCompressionFilter::Color;
 							break;
 						}
 						default: {
@@ -2190,11 +2194,30 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 						}
 					}
 				} else if (error == NO_SUCH_FIELD) {
-					compression->filter = MeshoptCompressionFilter::None;
+					compression.filter = MeshoptCompressionFilter::None;
 				} else {
 					return Error::InvalidJson;
 				}
 
+				return Error::None;
+			};
+
+			dom::object meshoptCompression;
+			if (hasBit(config.extensions, Extensions::KHR_meshopt_compression) &&
+				extensionObject[extensions::KHR_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
+
+				auto compression = std::make_unique<CompressedBufferView>();
+				if (const auto error = parseMeshoptCompression(*compression, meshoptCompression); error != Error::None) FASTGLTF_UNLIKELY {
+					return error;
+				}
+				view.meshoptCompression = std::move(compression);
+			} else if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) &&
+				extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
+
+				auto compression = std::make_unique<CompressedBufferView>();
+				if (const auto error = parseMeshoptCompression(*compression, meshoptCompression); error != Error::None) FASTGLTF_UNLIKELY {
+					return error;
+				}
 				view.meshoptCompression = std::move(compression);
 			}
 		}

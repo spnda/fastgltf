@@ -239,6 +239,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/pull/2426
 		KHR_node_hoverability = 1ULL << 33,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_meshopt_compression/README.md
+		KHR_meshopt_compression = 1ULL << 34,
 	};
 	// clang-format on
 
@@ -352,12 +355,14 @@ namespace fastgltf {
 		constexpr std::string_view KHR_materials_emissive_strength = "KHR_materials_emissive_strength";
 		constexpr std::string_view KHR_materials_ior = "KHR_materials_ior";
 		constexpr std::string_view KHR_materials_iridescence = "KHR_materials_iridescence";
+		constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
 		constexpr std::string_view KHR_materials_sheen = "KHR_materials_sheen";
 		constexpr std::string_view KHR_materials_specular = "KHR_materials_specular";
 		constexpr std::string_view KHR_materials_transmission = "KHR_materials_transmission";
 		constexpr std::string_view KHR_materials_unlit = "KHR_materials_unlit";
 		constexpr std::string_view KHR_materials_variants = "KHR_materials_variants";
 		constexpr std::string_view KHR_materials_volume = "KHR_materials_volume";
+		constexpr std::string_view KHR_meshopt_compression = "KHR_meshopt_compression";
 		constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";
 		constexpr std::string_view KHR_node_visibility = "KHR_node_visibility";
 		constexpr std::string_view KHR_node_selectability = "KHR_node_selectability";
@@ -367,7 +372,6 @@ namespace fastgltf {
 		constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
 		constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
 		constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
-		constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 		constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
@@ -397,12 +401,14 @@ namespace fastgltf {
 		{ extensions::KHR_materials_emissive_strength,          Extensions::KHR_materials_emissive_strength },
 		{ extensions::KHR_materials_ior,                        Extensions::KHR_materials_ior },
 		{ extensions::KHR_materials_iridescence,                Extensions::KHR_materials_iridescence },
+		{ extensions::KHR_materials_pbrSpecularGlossiness,      Extensions::KHR_materials_pbrSpecularGlossiness },
 		{ extensions::KHR_materials_sheen,                      Extensions::KHR_materials_sheen },
 		{ extensions::KHR_materials_specular,                   Extensions::KHR_materials_specular },
 		{ extensions::KHR_materials_transmission,               Extensions::KHR_materials_transmission },
 		{ extensions::KHR_materials_unlit,                      Extensions::KHR_materials_unlit },
 		{ extensions::KHR_materials_variants,                   Extensions::KHR_materials_variants },
 		{ extensions::KHR_materials_volume,                     Extensions::KHR_materials_volume },
+		{ extensions::KHR_meshopt_compression,                  Extensions::KHR_meshopt_compression },
 		{ extensions::KHR_mesh_quantization,                    Extensions::KHR_mesh_quantization },
 		{ extensions::KHR_node_visibility,                      Extensions::KHR_node_visibility },
 		{ extensions::KHR_node_selectability,                   Extensions::KHR_node_selectability },
@@ -412,7 +418,6 @@ namespace fastgltf {
 		{ extensions::MSFT_packing_normalRoughnessMetallic,     Extensions::MSFT_packing_normalRoughnessMetallic },
 		{ extensions::MSFT_packing_occlusionRoughnessMetallic,  Extensions::MSFT_packing_occlusionRoughnessMetallic },
 		{ extensions::MSFT_texture_dds,                         Extensions::MSFT_texture_dds },
-		{ extensions::KHR_materials_pbrSpecularGlossiness,      Extensions::KHR_materials_pbrSpecularGlossiness },
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 		{extensions::KHR_implicit_shapes,						Extensions::KHR_implicit_shapes},

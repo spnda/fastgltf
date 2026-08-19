@@ -66,12 +66,12 @@ TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
 
 // TODO: Add tests for MSFT_texture_dds, KHR_mesh_quantization extension
 
-TEST_CASE("Extension EXT_meshopt_compression", "[gltf-loader]") {
+TEST_CASE("Extension KHR_meshopt_compression", "[gltf-loader]") {
 	auto brainStem = sampleAssets / "Models" / "BrainStem" / "glTF-Meshopt";
 	fastgltf::GltfFileStream jsonData(brainStem / "BrainStem.gltf");
 	REQUIRE(jsonData.isOpen());
 
-	fastgltf::Parser parser(fastgltf::Extensions::EXT_meshopt_compression | fastgltf::Extensions::KHR_mesh_quantization);
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_meshopt_compression | fastgltf::Extensions::KHR_mesh_quantization);
 	auto asset = parser.loadGltfJson(jsonData, brainStem, fastgltf::Options::None);
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
@@ -84,7 +84,7 @@ TEST_CASE("Extension EXT_meshopt_compression", "[gltf-loader]") {
 		auto& mc = *asset->bufferViews[0].meshoptCompression;
 		REQUIRE(mc.bufferIndex == 0);
 		REQUIRE(mc.byteOffset == 0);
-		REQUIRE(mc.byteLength == 2646);
+		REQUIRE(mc.byteLength == 686);
 		REQUIRE(mc.byteStride == 4);
 		REQUIRE(mc.mode == fastgltf::MeshoptCompressionMode::Attributes);
 		REQUIRE(mc.count == 34084);
@@ -92,11 +92,21 @@ TEST_CASE("Extension EXT_meshopt_compression", "[gltf-loader]") {
 	{
 		auto& mc = *asset->bufferViews[1].meshoptCompression;
 		REQUIRE(mc.bufferIndex == 0);
-		REQUIRE(mc.byteOffset == 2648);
-		REQUIRE(mc.byteLength == 68972);
+		REQUIRE(mc.byteOffset == 688);
+		REQUIRE(mc.byteLength == 67060);
 		REQUIRE(mc.byteStride == 4);
 		REQUIRE(mc.mode == fastgltf::MeshoptCompressionMode::Attributes);
 		REQUIRE(mc.filter == fastgltf::MeshoptCompressionFilter::Octahedral);
+		REQUIRE(mc.count == 34084);
+	}
+	{
+		auto& mc = *asset->bufferViews[2].meshoptCompression;
+		REQUIRE(mc.bufferIndex == 0);
+		REQUIRE(mc.byteOffset == 67748);
+		REQUIRE(mc.byteLength == 138908);
+		REQUIRE(mc.byteStride == 12);
+		REQUIRE(mc.mode == fastgltf::MeshoptCompressionMode::Attributes);
+		REQUIRE(mc.filter == fastgltf::MeshoptCompressionFilter::Exponential);
 		REQUIRE(mc.count == 34084);
 	}
 }
