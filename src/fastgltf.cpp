@@ -65,16 +65,16 @@ namespace fg = fastgltf;
 namespace fs = std::filesystem;
 
 namespace fastgltf {
-    constexpr std::uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
-    constexpr std::uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
-    constexpr std::uint32_t binaryGltfDataChunkMagic = 0x004E4942;
+	constexpr std::uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
+	constexpr std::uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
+	constexpr std::uint32_t binaryGltfDataChunkMagic = 0x004E4942;
 
-    struct BinaryGltfHeader {
-        std::uint32_t magic;
-        std::uint32_t version;
-        std::uint32_t length;
-    };
-    static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
+	struct BinaryGltfHeader {
+		std::uint32_t magic;
+		std::uint32_t version;
+		std::uint32_t length;
+	};
+	static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
 	static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
 
 	constexpr void readUint32LE(std::uint32_t& x, std::byte* bytes) noexcept {
@@ -111,10 +111,10 @@ namespace fastgltf {
 		return bytes;
 	}
 
-    struct BinaryGltfChunk {
-        std::uint32_t chunkLength;
-        std::uint32_t chunkType;
-    };
+	struct BinaryGltfChunk {
+		std::uint32_t chunkLength;
+		std::uint32_t chunkType;
+	};
 	static_assert(std::is_trivially_copyable_v<BinaryGltfChunk>);
 
 	[[nodiscard, gnu::always_inline]] inline auto readBinaryChunk(GltfDataGetter& getter) noexcept {
@@ -137,36 +137,36 @@ namespace fastgltf {
 	using CRCStringFunction = std::uint32_t(*)(std::string_view str);
 
 #if defined(FASTGLTF_IS_X86)
-    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(std::string_view str) noexcept {
-        return sse_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
-    }
+	[[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(std::string_view str) noexcept {
+		return sse_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
+	}
 
-    [[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
-        std::uint32_t crc = 0;
+	[[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
+		std::uint32_t crc = 0;
 
-        // Ddecode as much as possible using 4 byte steps.
-        // We specifically don't use the 8 byte instruction here because it uses a 64-bit output integer.
-        auto length = static_cast<std::int64_t>(len);
-        while ((length -= sizeof(std::uint32_t)) >= 0) {
-            std::uint32_t v;
-            std::memcpy(&v, d, sizeof v);
-            crc = _mm_crc32_u32(crc, v);
-            d += sizeof v;
-        }
+		// Ddecode as much as possible using 4 byte steps.
+		// We specifically don't use the 8 byte instruction here because it uses a 64-bit output integer.
+		auto length = static_cast<std::int64_t>(len);
+		while ((length -= sizeof(std::uint32_t)) >= 0) {
+			std::uint32_t v;
+			std::memcpy(&v, d, sizeof v);
+			crc = _mm_crc32_u32(crc, v);
+			d += sizeof v;
+		}
 
-        if (length & sizeof(std::uint16_t)) {
-            std::uint16_t v;
-            std::memcpy(&v, d, sizeof v);
-            crc = _mm_crc32_u16(crc, v);
-            d += sizeof v;
-        }
+		if (length & sizeof(std::uint16_t)) {
+			std::uint16_t v;
+			std::memcpy(&v, d, sizeof v);
+			crc = _mm_crc32_u16(crc, v);
+			d += sizeof v;
+		}
 
-        if (length & sizeof(std::uint8_t)) {
-            crc = _mm_crc32_u8(crc, *d);
-        }
+		if (length & sizeof(std::uint8_t)) {
+			crc = _mm_crc32_u8(crc, *d);
+		}
 
-        return crc;
-    }
+		return crc;
+	}
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 	[[gnu::hot, gnu::const, gnu::target("+crc")]] std::uint32_t armv8_crc32c(std::string_view str) noexcept {
 		return armv8_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
@@ -207,24 +207,24 @@ namespace fastgltf {
 	}
 #endif
 
-    /**
-     * Points to the most 'optimal' CRC32-C encoding function. After initialiseCrc has been called,
-     * this might also point to sse_crc32c or armv8_crc32c. We only use this for runtime evaluation of hashes, and is
-     * intended to work for any length of data.
-     */
-    static CRCStringFunction crcStringFunction = crc32c;
+	/**
+	 * Points to the most 'optimal' CRC32-C encoding function. After initialiseCrc has been called,
+	 * this might also point to sse_crc32c or armv8_crc32c. We only use this for runtime evaluation of hashes, and is
+	 * intended to work for any length of data.
+	 */
+	static CRCStringFunction crcStringFunction = crc32c;
 
-    std::once_flag crcInitialisation;
+	std::once_flag crcInitialisation;
 
-    /**
-     * Checks if SSE4.2 is available to try and use the hardware accelerated version.
-     */
-    void initialiseCrc() {
+	/**
+	 * Checks if SSE4.2 is available to try and use the hardware accelerated version.
+	 */
+	void initialiseCrc() {
 #if defined(FASTGLTF_IS_X86)
-        const auto& impls = simdjson::get_available_implementations();
-        if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
-            crcStringFunction = sse_crc32c;
-        }
+		const auto& impls = simdjson::get_available_implementations();
+		if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
+			crcStringFunction = sse_crc32c;
+		}
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 		const auto& impls = simdjson::get_available_implementations();
 		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
@@ -236,7 +236,7 @@ namespace fastgltf {
 			crcStringFunction = armv8_crc32c;
 		}
 #endif
-    }
+	}
 
 	[[nodiscard, gnu::always_inline]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, Optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
@@ -326,23 +326,23 @@ namespace fastgltf {
 		if (const auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
 			info->texCoordIndex = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidJson;
+			return Error::InvalidJson;
 		}
 
 		if (type == TextureInfoType::NormalTexture) {
-            double scale;
+			double scale;
 			if (const auto error = child["scale"].get_double().get(scale); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<num>(scale);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
+				return Error::InvalidGltf;
 			}
 		} else if (type == TextureInfoType::OcclusionTexture) {
 			double strength;
 			if (const auto error = child["strength"].get_double().get(strength); error == SUCCESS) FASTGLTF_LIKELY {
 				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<num>(strength);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+				return Error::InvalidGltf;
+			}
 		}
 
 		dom::object extensionsObject;
@@ -670,39 +670,39 @@ bool fg::URI::isDataUri() const noexcept {
 
 #pragma region glTF parsing
 fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const noexcept {
-    auto path = uri.path();
-    auto mimeEnd = path.find(';');
-    auto mime = path.substr(0, mimeEnd);
+	auto path = uri.path();
+	auto mimeEnd = path.find(';');
+	auto mime = path.substr(0, mimeEnd);
 
-    auto encodingEnd = path.find(',');
-    auto encoding = path.substr(mimeEnd + 1, encodingEnd - mimeEnd - 1);
-    if (encoding != "base64") {
+	auto encodingEnd = path.find(',');
+	auto encoding = path.substr(mimeEnd + 1, encodingEnd - mimeEnd - 1);
+	if (encoding != "base64") {
 		return Error::InvalidURI;
-    }
+	}
 
-    auto encodedData = path.substr(encodingEnd + 1);
-    if (config.mapCallback != nullptr) {
-        // If a map callback is specified, we use a pointer to memory specified by it.
-        auto padding = base64::getPadding(encodedData);
-        auto size = base64::getOutputSize(encodedData.size(), padding);
-        auto info = config.mapCallback(size, config.userPointer);
-        if (info.mappedMemory != nullptr) {
-            if (config.decodeCallback != nullptr) {
-                config.decodeCallback(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding, size, config.userPointer);
-            } else {
-                base64::decode_inplace(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding);
-            }
+	auto encodedData = path.substr(encodingEnd + 1);
+	if (config.mapCallback != nullptr) {
+		// If a map callback is specified, we use a pointer to memory specified by it.
+		auto padding = base64::getPadding(encodedData);
+		auto size = base64::getOutputSize(encodedData.size(), padding);
+		auto info = config.mapCallback(size, config.userPointer);
+		if (info.mappedMemory != nullptr) {
+			if (config.decodeCallback != nullptr) {
+				config.decodeCallback(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding, size, config.userPointer);
+			} else {
+				base64::decode_inplace(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding);
+			}
 
-            if (config.unmapCallback != nullptr) {
-                config.unmapCallback(&info, config.userPointer);
-            }
+			if (config.unmapCallback != nullptr) {
+				config.unmapCallback(&info, config.userPointer);
+			}
 
-            sources::CustomBuffer source = {};
-            source.id = info.customId;
-            source.mimeType = getMimeTypeFromString(mime);
+			sources::CustomBuffer source = {};
+			source.id = info.customId;
+			source.mimeType = getMimeTypeFromString(mime);
 			return { source };
-        }
-    }
+		}
+	}
 
 	// Decode the base64 data into a traditional vector
 	auto padding = base64::getPadding(encodedData);
@@ -721,61 +721,61 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 }
 
 void fg::Parser::fillCategories(Category& inputCategories) noexcept {
-    if (inputCategories == Category::All)
-        return;
+	if (inputCategories == Category::All)
+		return;
 
-    // The Category enum used to already OR values together so that e.g. Scenes would also implicitly
-    // have the Nodes bit set. This, however, caused some issues within the parse function as it tries
-    // to bail out when all requested categories have been parsed, as now something that hasn't been
-    // parsed could still be set. So, this has to exist...
-    if (hasBit(inputCategories, Category::Scenes))
-        inputCategories |= Category::Nodes;
-    if (hasBit(inputCategories, Category::Nodes))
-        inputCategories |= Category::Cameras | Category::Meshes | Category::Skins;
-    if (hasBit(inputCategories, Category::Skins))
-        // Skins needs nodes, nodes needs skins. To counter this circular dep we just redefine what we just wrote above.
-        inputCategories |= Category::Accessors | (Category::Nodes | Category::Cameras | Category::Meshes | Category::Skins);
-    if (hasBit(inputCategories, Category::Meshes))
-        inputCategories |= Category::Accessors | Category::Materials;
-    if (hasBit(inputCategories, Category::Materials))
-        inputCategories |= Category::Textures;
-    if (hasBit(inputCategories, Category::Animations))
-        inputCategories |= Category::Accessors;
-    if (hasBit(inputCategories, Category::Textures))
-        inputCategories |= Category::Images | Category::Samplers;
-    if (hasBit(inputCategories, Category::Images) || hasBit(inputCategories, Category::Accessors))
-        inputCategories |= Category::BufferViews;
-    if (hasBit(inputCategories, Category::BufferViews))
-        inputCategories |= Category::Buffers;
+	// The Category enum used to already OR values together so that e.g. Scenes would also implicitly
+	// have the Nodes bit set. This, however, caused some issues within the parse function as it tries
+	// to bail out when all requested categories have been parsed, as now something that hasn't been
+	// parsed could still be set. So, this has to exist...
+	if (hasBit(inputCategories, Category::Scenes))
+		inputCategories |= Category::Nodes;
+	if (hasBit(inputCategories, Category::Nodes))
+		inputCategories |= Category::Cameras | Category::Meshes | Category::Skins;
+	if (hasBit(inputCategories, Category::Skins))
+		// Skins needs nodes, nodes needs skins. To counter this circular dep we just redefine what we just wrote above.
+		inputCategories |= Category::Accessors | (Category::Nodes | Category::Cameras | Category::Meshes | Category::Skins);
+	if (hasBit(inputCategories, Category::Meshes))
+		inputCategories |= Category::Accessors | Category::Materials;
+	if (hasBit(inputCategories, Category::Materials))
+		inputCategories |= Category::Textures;
+	if (hasBit(inputCategories, Category::Animations))
+		inputCategories |= Category::Accessors;
+	if (hasBit(inputCategories, Category::Textures))
+		inputCategories |= Category::Images | Category::Samplers;
+	if (hasBit(inputCategories, Category::Images) || hasBit(inputCategories, Category::Accessors))
+		inputCategories |= Category::BufferViews;
+	if (hasBit(inputCategories, Category::BufferViews))
+		inputCategories |= Category::Buffers;
 }
 
 fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
-    switch (crcStringFunction(mime)) {
-        case force_consteval<crc32c(mimeTypeJpeg)>: {
-            return MimeType::JPEG;
-        }
-        case force_consteval<crc32c(mimeTypePng)>: {
-            return MimeType::PNG;
-        }
-        case force_consteval<crc32c(mimeTypeKtx)>: {
-            return MimeType::KTX2;
-        }
-        case force_consteval<crc32c(mimeTypeDds)>: {
-            return MimeType::DDS;
-        }
-        case force_consteval<crc32c(mimeTypeGltfBuffer)>: {
-            return MimeType::GltfBuffer;
-        }
-        case force_consteval<crc32c(mimeTypeOctetStream)>: {
-            return MimeType::OctetStream;
-        }
-        case force_consteval<crc32c(mimeTypeWebp)>: {
-            return MimeType::WEBP;
-        }
-        default: {
-            return MimeType::None;
-        }
-    }
+	switch (crcStringFunction(mime)) {
+		case force_consteval<crc32c(mimeTypeJpeg)>: {
+			return MimeType::JPEG;
+		}
+		case force_consteval<crc32c(mimeTypePng)>: {
+			return MimeType::PNG;
+		}
+		case force_consteval<crc32c(mimeTypeKtx)>: {
+			return MimeType::KTX2;
+		}
+		case force_consteval<crc32c(mimeTypeDds)>: {
+			return MimeType::DDS;
+		}
+		case force_consteval<crc32c(mimeTypeGltfBuffer)>: {
+			return MimeType::GltfBuffer;
+		}
+		case force_consteval<crc32c(mimeTypeOctetStream)>: {
+			return MimeType::OctetStream;
+		}
+		case force_consteval<crc32c(mimeTypeWebp)>: {
+			return MimeType::WEBP;
+		}
+		default: {
+			return MimeType::None;
+		}
+	}
 }
 
 template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::object& object, T& attributes) {
@@ -955,7 +955,7 @@ fg::Error fg::validate(const Asset& asset) {
 		if (accessor.count < 1)
 			return Error::InvalidGltf;
 		if (accessor.bufferViewIndex.has_value() &&
-		    accessor.bufferViewIndex.value() >= asset.bufferViews.size())
+			accessor.bufferViewIndex.value() >= asset.bufferViews.size())
 			return Error::InvalidGltf;
 		if (accessor.byteOffset != 0) {
 			// The offset of an accessor into a bufferView (i.e., accessor.byteOffset)
@@ -1151,10 +1151,10 @@ fg::Error fg::validate(const Asset& asset) {
 		if (material.occlusionTexture.has_value() && isInvalidTexture(material.occlusionTexture->textureIndex))
 			return Error::InvalidGltf;
 		if (material.pbrData.baseColorTexture.has_value() &&
-		    isInvalidTexture(material.pbrData.baseColorTexture->textureIndex))
+			isInvalidTexture(material.pbrData.baseColorTexture->textureIndex))
 			return Error::InvalidGltf;
 		if (material.pbrData.metallicRoughnessTexture.has_value() &&
-		    isInvalidTexture(material.pbrData.metallicRoughnessTexture->textureIndex))
+			isInvalidTexture(material.pbrData.metallicRoughnessTexture->textureIndex))
 			return Error::InvalidGltf;
 
 		// Validate that for every additional material field from an extension the correct extension is marked as used by the asset.
@@ -1224,8 +1224,8 @@ fg::Error fg::validate(const Asset& asset) {
 				// custom attributes have to start with an underscore. We'll enforce this.
 				if (!startsWith(name, "_")) {
 					if (name != "POSITION" && name != "NORMAL" && name != "TANGENT" &&
-					    !startsWith(name, "TEXCOORD_") && !startsWith(name, "COLOR_") &&
-					    !startsWith(name, "JOINTS_") && !startsWith(name, "WEIGHTS_")) {
+						!startsWith(name, "TEXCOORD_") && !startsWith(name, "COLOR_") &&
+						!startsWith(name, "JOINTS_") && !startsWith(name, "WEIGHTS_")) {
 						return Error::InvalidGltf;
 					}
 				}
@@ -1253,8 +1253,8 @@ fg::Error fg::validate(const Asset& asset) {
 							return Error::InvalidGltf;
 					} else {
 						if (accessor.componentType != ComponentType::Float &&
-						    accessor.componentType != ComponentType::Short &&
-						    accessor.componentType != ComponentType::Byte)
+							accessor.componentType != ComponentType::Short &&
+							accessor.componentType != ComponentType::Byte)
 							return Error::InvalidGltf;
 					}
 				} else if (name == "TANGENT") {
@@ -1265,8 +1265,8 @@ fg::Error fg::validate(const Asset& asset) {
 							return Error::InvalidGltf;
 					} else {
 						if (accessor.componentType != ComponentType::Float &&
-						    accessor.componentType != ComponentType::Short &&
-						    accessor.componentType != ComponentType::Byte)
+							accessor.componentType != ComponentType::Short &&
+							accessor.componentType != ComponentType::Byte)
 							return Error::InvalidGltf;
 					}
 				} else if (startsWith(name, "TEXCOORD_")) {
@@ -1274,13 +1274,13 @@ fg::Error fg::validate(const Asset& asset) {
 						return Error::InvalidGltf;
 					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
 						if (accessor.componentType != ComponentType::Float &&
-						    accessor.componentType != ComponentType::UnsignedByte &&
-						    accessor.componentType != ComponentType::UnsignedShort) {
+							accessor.componentType != ComponentType::UnsignedByte &&
+							accessor.componentType != ComponentType::UnsignedShort) {
 							return Error::InvalidGltf;
 						}
 					} else {
 						if (accessor.componentType == ComponentType::Double ||
-						    accessor.componentType == ComponentType::UnsignedInt) {
+							accessor.componentType == ComponentType::UnsignedInt) {
 							return Error::InvalidGltf;
 						}
 					}
@@ -1288,23 +1288,23 @@ fg::Error fg::validate(const Asset& asset) {
 					if (accessor.type != AccessorType::Vec3 && accessor.type != AccessorType::Vec4)
 						return Error::InvalidGltf;
 					if (accessor.componentType != ComponentType::Float &&
-					    accessor.componentType != ComponentType::UnsignedByte &&
-					    accessor.componentType != ComponentType::UnsignedShort) {
+						accessor.componentType != ComponentType::UnsignedByte &&
+						accessor.componentType != ComponentType::UnsignedShort) {
 						return Error::InvalidGltf;
 					}
 				} else if (startsWith(name, "JOINTS_")) {
 					if (accessor.type != AccessorType::Vec4)
 						return Error::InvalidGltf;
 					if (accessor.componentType != ComponentType::UnsignedByte &&
-					    accessor.componentType != ComponentType::UnsignedShort) {
+						accessor.componentType != ComponentType::UnsignedShort) {
 						return Error::InvalidGltf;
 					}
 				} else if (startsWith(name, "WEIGHTS_")) {
 					if (accessor.type != AccessorType::Vec4)
 						return Error::InvalidGltf;
 					if (accessor.componentType != ComponentType::Float &&
-					    accessor.componentType != ComponentType::UnsignedByte &&
-					    accessor.componentType != ComponentType::UnsignedShort) {
+						accessor.componentType != ComponentType::UnsignedByte &&
+						accessor.componentType != ComponentType::UnsignedShort) {
 						return Error::InvalidGltf;
 					}
 				} else if (startsWith(name, "_")) {
@@ -1556,10 +1556,10 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 
 #define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>:       \
-                if (hasBit(categories, Category::name))   \
-                    error = parse##name(array, asset);                     \
-                readCategories |= Category::name;         \
-                break;
+				if (hasBit(categories, Category::name))   \
+					error = parse##name(array, asset);                     \
+				readCategories |= Category::name;         \
+				break;
 
 		Error error = Error::None;
 		switch (hashedKey) {
@@ -1626,51 +1626,51 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 }
 
 fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	asset.accessors.reserve(accessors.size());
-    for (auto accessorValue : accessors) {
-        // Required fields: "componentType", "count"
-        Accessor accessor = {};
-        dom::object accessorObject;
-        if (accessorValue.get_object().get(accessorObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+	for (auto accessorValue : accessors) {
+		// Required fields: "componentType", "count"
+		Accessor accessor = {};
+		dom::object accessorObject;
+		if (accessorValue.get_object().get(accessorObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        std::uint64_t componentType;
-        if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		std::uint64_t componentType;
+		if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 		accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
-        if (accessor.componentType == ComponentType::Double && (!hasBit(options, Options::AllowDouble) || !hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
-            return Error::InvalidGltf;
-        }
+		if (accessor.componentType == ComponentType::Double && (!hasBit(options, Options::AllowDouble) || !hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
+			return Error::InvalidGltf;
+		}
 
-        std::string_view accessorType;
-        if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		std::string_view accessorType;
+		if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 		accessor.type = getAccessorType(accessorType);
 
-        std::uint64_t accessorCount;
-        if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		std::uint64_t accessorCount;
+		if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 		accessor.count = static_cast<std::size_t>(accessorCount);
 
 
-        std::uint64_t bufferView;
-        if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) FASTGLTF_LIKELY {
-            accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
-        }
+		std::uint64_t bufferView;
+		if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) FASTGLTF_LIKELY {
+			accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
+		}
 
-        // byteOffset is optional, but defaults to 0
-        std::uint64_t byteOffset;
-        if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) FASTGLTF_LIKELY {
-            accessor.byteOffset = static_cast<std::size_t>(byteOffset);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		// byteOffset is optional, but defaults to 0
+		std::uint64_t byteOffset;
+		if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) FASTGLTF_LIKELY {
+			accessor.byteOffset = static_cast<std::size_t>(byteOffset);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
 		// Type of min and max should always be the same.
 		auto parseMinMax = [&](const std::string_view key, std::optional<AccessorBoundsArray>& ref) -> Error {
@@ -1758,64 +1758,64 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			return error;
 		}
 
-        if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
 		// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
 		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || accessor.componentType == ComponentType::Float)) {
 			return Error::InvalidGltf;
 		}
 
-        dom::object sparseAccessorObject;
-        if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) FASTGLTF_LIKELY {
-            SparseAccessor sparse = {};
-            std::uint64_t value;
-            dom::object child;
-            if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            sparse.count = static_cast<std::size_t>(value);
+		dom::object sparseAccessorObject;
+		if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) FASTGLTF_LIKELY {
+			SparseAccessor sparse = {};
+			std::uint64_t value;
+			dom::object child;
+			if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			sparse.count = static_cast<std::size_t>(value);
 
-            // Accessor Sparce Indices
-            if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+			// Accessor Sparce Indices
+			if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            sparse.indicesBufferView = static_cast<std::size_t>(value);
+			if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			sparse.indicesBufferView = static_cast<std::size_t>(value);
 
-            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
-                sparse.indicesByteOffset = static_cast<std::size_t>(value);
-            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
+				sparse.indicesByteOffset = static_cast<std::size_t>(value);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            if (child["componentType"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            sparse.indexComponentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
+			if (child["componentType"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			sparse.indexComponentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
 
-            // Accessor Sparse Values
-            if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+			// Accessor Sparse Values
+			if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            sparse.valuesBufferView = static_cast<std::size_t>(value);
+			if (child["bufferView"].get_uint64().get(value) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			sparse.valuesBufferView = static_cast<std::size_t>(value);
 
-            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
-                sparse.valuesByteOffset = static_cast<std::size_t>(value);
-            } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) FASTGLTF_LIKELY {
+				sparse.valuesByteOffset = static_cast<std::size_t>(value);
+			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            accessor.sparse = sparse;
-        }
+			accessor.sparse = sparse;
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -1827,53 +1827,53 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		}
 
 		std::string_view name;
-        if (accessorObject["name"].get_string().get(name) == SUCCESS) {
-	        accessor.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(accessor.name), resourceAllocator.get(), name);
-        }
+		if (accessorObject["name"].get_string().get(name) == SUCCESS) {
+			accessor.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(accessor.name), resourceAllocator.get(), name);
+		}
 
-	    asset.accessors.emplace_back(std::move(accessor));
-    }
+		asset.accessors.emplace_back(std::move(accessor));
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	asset.animations.reserve(animations.size());
-    for (auto animationValue : animations) {
-        dom::object animationObject;
-        Animation animation = {};
-        if (animationValue.get_object().get(animationObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+	for (auto animationValue : animations) {
+		dom::object animationObject;
+		Animation animation = {};
+		if (animationValue.get_object().get(animationObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        dom::array channels;
-        auto channelError = getJsonArray(animationObject, "channels", &channels);
-        if (channelError != Error::None) {
-            return Error::InvalidGltf;
-        }
+		dom::array channels;
+		auto channelError = getJsonArray(animationObject, "channels", &channels);
+		if (channelError != Error::None) {
+			return Error::InvalidGltf;
+		}
 
-	    animation.channels = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.channels), resourceAllocator.get(), 0);
-        animation.channels.reserve(channels.size());
-        for (auto channelValue : channels) {
-            dom::object channelObject;
-            AnimationChannel channel = {};
-            if (channelValue.get_object().get(channelObject) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+		animation.channels = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.channels), resourceAllocator.get(), 0);
+		animation.channels.reserve(channels.size());
+		for (auto channelValue : channels) {
+			dom::object channelObject;
+			AnimationChannel channel = {};
+			if (channelValue.get_object().get(channelObject) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            std::uint64_t sampler;
-            if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            channel.samplerIndex = static_cast<std::size_t>(sampler);
+			std::uint64_t sampler;
+			if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			channel.samplerIndex = static_cast<std::size_t>(sampler);
 
-            dom::object targetObject;
-            if (channelObject["target"].get_object().get(targetObject) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            } else {
-                std::uint64_t node;
+			dom::object targetObject;
+			if (channelObject["target"].get_object().get(targetObject) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			} else {
+				std::uint64_t node;
 				if (auto error = targetObject["node"].get_uint64().get(node); error == SUCCESS) FASTGLTF_LIKELY {
 					channel.nodeIndex = static_cast<std::size_t>(node);
 				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
@@ -1883,69 +1883,69 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 					return Error::InvalidGltf;
 				}
 
-                std::string_view path;
-                if (targetObject["path"].get_string().get(path) != SUCCESS) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
+				std::string_view path;
+				if (targetObject["path"].get_string().get(path) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
 
-                if (path == "translation") {
-                    channel.path = AnimationPath::Translation;
-                } else if (path == "rotation") {
-                    channel.path = AnimationPath::Rotation;
-                } else if (path == "scale") {
-                    channel.path = AnimationPath::Scale;
-                } else if (path == "weights") {
-                    channel.path = AnimationPath::Weights;
-                }
-            }
+				if (path == "translation") {
+					channel.path = AnimationPath::Translation;
+				} else if (path == "rotation") {
+					channel.path = AnimationPath::Rotation;
+				} else if (path == "scale") {
+					channel.path = AnimationPath::Scale;
+				} else if (path == "weights") {
+					channel.path = AnimationPath::Weights;
+				}
+			}
 
-            animation.channels.emplace_back(channel);
-        }
+			animation.channels.emplace_back(channel);
+		}
 
-        dom::array samplers;
-        auto samplerError = getJsonArray(animationObject, "samplers", &samplers);
-        if (samplerError != Error::None) {
-            return Error::InvalidGltf;
-        }
+		dom::array samplers;
+		auto samplerError = getJsonArray(animationObject, "samplers", &samplers);
+		if (samplerError != Error::None) {
+			return Error::InvalidGltf;
+		}
 
-	    animation.samplers = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.samplers), resourceAllocator.get(), 0);
-        animation.samplers.reserve(samplers.size());
-        for (auto samplerValue : samplers) {
-            dom::object samplerObject;
-            AnimationSampler sampler = {};
-            if (samplerValue.get_object().get(samplerObject) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+		animation.samplers = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.samplers), resourceAllocator.get(), 0);
+		animation.samplers.reserve(samplers.size());
+		for (auto samplerValue : samplers) {
+			dom::object samplerObject;
+			AnimationSampler sampler = {};
+			if (samplerValue.get_object().get(samplerObject) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            std::uint64_t input;
-            if (samplerObject["input"].get_uint64().get(input) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            sampler.inputAccessor = static_cast<std::size_t>(input);
+			std::uint64_t input;
+			if (samplerObject["input"].get_uint64().get(input) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			sampler.inputAccessor = static_cast<std::size_t>(input);
 
-            std::uint64_t output;
-            if (samplerObject["output"].get_uint64().get(output) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            sampler.outputAccessor = static_cast<std::size_t>(output);
+			std::uint64_t output;
+			if (samplerObject["output"].get_uint64().get(output) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			sampler.outputAccessor = static_cast<std::size_t>(output);
 
-            std::string_view interpolation;
-            if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) FASTGLTF_UNLIKELY {
-                sampler.interpolation = AnimationInterpolation::Linear;
-            } else {
-                if (interpolation == "LINEAR") {
-                    sampler.interpolation = AnimationInterpolation::Linear;
-                } else if (interpolation == "STEP") {
-                    sampler.interpolation = AnimationInterpolation::Step;
-                } else if (interpolation == "CUBICSPLINE") {
-                    sampler.interpolation = AnimationInterpolation::CubicSpline;
-                } else {
-                    return Error::InvalidGltf;
-                }
-            }
+			std::string_view interpolation;
+			if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) FASTGLTF_UNLIKELY {
+				sampler.interpolation = AnimationInterpolation::Linear;
+			} else {
+				if (interpolation == "LINEAR") {
+					sampler.interpolation = AnimationInterpolation::Linear;
+				} else if (interpolation == "STEP") {
+					sampler.interpolation = AnimationInterpolation::Step;
+				} else if (interpolation == "CUBICSPLINE") {
+					sampler.interpolation = AnimationInterpolation::CubicSpline;
+				} else {
+					return Error::InvalidGltf;
+				}
+			}
 
-            animation.samplers.emplace_back(sampler);
-        }
+			animation.samplers.emplace_back(sampler);
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -1958,33 +1958,33 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 
 
 		std::string_view name;
-        if (animationObject["name"].get_string().get(name) == SUCCESS) {
-	        animation.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.name), resourceAllocator.get(), name);
-        }
+		if (animationObject["name"].get_string().get(name) == SUCCESS) {
+			animation.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.name), resourceAllocator.get(), name);
+		}
 
-	    asset.animations.emplace_back(std::move(animation));
-    }
+		asset.animations.emplace_back(std::move(animation));
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	asset.buffers.reserve(buffers.size());
-    std::size_t bufferIndex = 0;
-    for (auto bufferValue : buffers) {
-        // Required fields: "byteLength"
-        Buffer buffer = {};
-        dom::object bufferObject;
-        if (bufferValue.get_object().get(bufferObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+	std::size_t bufferIndex = 0;
+	for (auto bufferValue : buffers) {
+		// Required fields: "byteLength"
+		Buffer buffer = {};
+		dom::object bufferObject;
+		if (bufferValue.get_object().get(bufferObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        std::uint64_t byteLength;
-        if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		std::uint64_t byteLength;
+		if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 		buffer.byteLength = static_cast<std::size_t>(byteLength);
 
 		// The spec for EXT_meshopt_compression allows so-called 'fallback buffers' which only exist to
@@ -2000,49 +2000,49 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 			}
 		}
 
-        // When parsing GLB, there's a buffer object that will point to the BUF chunk in the
-        // file. Otherwise, data must be specified in the "uri" field.
-        std::string_view uriString;
-        if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) FASTGLTF_LIKELY {
+		// When parsing GLB, there's a buffer object that will point to the BUF chunk in the
+		// file. Otherwise, data must be specified in the "uri" field.
+		std::string_view uriString;
+		if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) FASTGLTF_LIKELY {
 			URIView uriView(uriString);
 
-            if (!uriView.valid()) {
-                return Error::InvalidURI;
-            }
+			if (!uriView.valid()) {
+				return Error::InvalidURI;
+			}
 
-            if (uriView.isDataUri()) {
-                auto [error, source] = decodeDataUri(uriView);
-                if (error != Error::None) {
-                    return error;
-                }
+			if (uriView.isDataUri()) {
+				auto [error, source] = decodeDataUri(uriView);
+				if (error != Error::None) {
+					return error;
+				}
 
-                buffer.data = std::move(source);
-            } else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
-	            auto [error, source] = loadFileFromUri(uriView);
-                if (error != Error::None) {
-                    return error;
-                }
+				buffer.data = std::move(source);
+			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
+				auto [error, source] = loadFileFromUri(uriView);
+				if (error != Error::None) {
+					return error;
+				}
 
-                buffer.data = std::move(source);
-            } else {
-                sources::URI filePath;
-                filePath.fileByteOffset = 0;
-                filePath.uri = uriView;
-                buffer.data = std::move(filePath);
-            }
-        } else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
-            buffer.data = std::move(glbBuffer);
-        } else if (meshoptCompressionRequired) {
+				buffer.data = std::move(source);
+			} else {
+				sources::URI filePath;
+				filePath.fileByteOffset = 0;
+				filePath.uri = uriView;
+				buffer.data = std::move(filePath);
+			}
+		} else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
+			buffer.data = std::move(glbBuffer);
+		} else if (meshoptCompressionRequired) {
 			// This buffer is not a GLB buffer and has no URI source and is therefore a fallback.
 			buffer.data = sources::Fallback();
 		} else {
-            // All other buffers have to contain an uri field.
-            return Error::InvalidGltf;
-        }
+			// All other buffers have to contain an uri field.
+			return Error::InvalidGltf;
+		}
 
-        if (std::holds_alternative<std::monostate>(buffer.data)) {
-            return Error::InvalidGltf;
-        }
+		if (std::holds_alternative<std::monostate>(buffer.data)) {
+			return Error::InvalidGltf;
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -2054,150 +2054,150 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 		}
 
 		std::string_view name;
-        if (bufferObject["name"].get_string().get(name) == SUCCESS) {
-	        buffer.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(buffer.name), resourceAllocator.get(), name);
-        }
+		if (bufferObject["name"].get_string().get(name) == SUCCESS) {
+			buffer.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(buffer.name), resourceAllocator.get(), name);
+		}
 
-        ++bufferIndex;
-	    asset.buffers.emplace_back(std::move(buffer));
-    }
+		++bufferIndex;
+		asset.buffers.emplace_back(std::move(buffer));
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	asset.bufferViews.reserve(bufferViews.size());
-    for (auto bufferViewValue : bufferViews) {
-        dom::object bufferViewObject;
-        if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+	for (auto bufferViewValue : bufferViews) {
+		dom::object bufferViewObject;
+		if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        std::uint64_t number;
-        BufferView view;
-        if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
-            return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-        }
-        view.bufferIndex = static_cast<std::size_t>(number);
+		std::uint64_t number;
+		BufferView view;
+		if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
+		}
+		view.bufferIndex = static_cast<std::size_t>(number);
 
-        if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-            view.byteOffset = static_cast<std::size_t>(number);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidJson;
-        }
+		if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+			view.byteOffset = static_cast<std::size_t>(number);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidJson;
+		}
 
-        if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
-            return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-        }
-        view.byteLength = static_cast<std::size_t>(number);
+		if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
+		}
+		view.byteLength = static_cast<std::size_t>(number);
 
-        if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-            view.byteStride = static_cast<std::size_t>(number);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidJson;
-        }
+		if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+			view.byteStride = static_cast<std::size_t>(number);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidJson;
+		}
 
-        if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-            view.target = static_cast<BufferTarget>(number);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidJson;
-        }
+		if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+			view.target = static_cast<BufferTarget>(number);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidJson;
+		}
 
-        std::string_view string;
-        if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
-	        view.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(view.name), resourceAllocator.get(), string);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidJson;
-        }
+		std::string_view string;
+		if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
+			view.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(view.name), resourceAllocator.get(), string);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidJson;
+		}
 
-        dom::object extensionObject;
-        if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) FASTGLTF_LIKELY {
-            dom::object meshoptCompression;
-            if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) FASTGLTF_LIKELY {
-                auto compression = std::make_unique<CompressedBufferView>();
+		dom::object extensionObject;
+		if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) FASTGLTF_LIKELY {
+			dom::object meshoptCompression;
+			if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) && extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) FASTGLTF_LIKELY {
+				auto compression = std::make_unique<CompressedBufferView>();
 
-                if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
-                    return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-                }
-                compression->bufferIndex = static_cast<std::size_t>(number);
+				if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
+				}
+				compression->bufferIndex = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-                    compression->byteOffset = static_cast<std::size_t>(number);
-                } else if (error == NO_SUCH_FIELD) {
-                    compression->byteOffset = 0;
-                } else {
-                    return Error::InvalidJson;
-                }
+				if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+					compression->byteOffset = static_cast<std::size_t>(number);
+				} else if (error == NO_SUCH_FIELD) {
+					compression->byteOffset = 0;
+				} else {
+					return Error::InvalidJson;
+				}
 
-                if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
-                    return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-                }
-                compression->byteLength = static_cast<std::size_t>(number);
+				if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
+				}
+				compression->byteLength = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
-                    return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-                }
-                compression->byteStride = static_cast<std::size_t>(number);
+				if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
+				}
+				compression->byteStride = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
-                    return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-                }
-                compression->count = number;
+				if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) FASTGLTF_UNLIKELY {
+					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
+				}
+				compression->count = number;
 
-                if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) FASTGLTF_UNLIKELY {
-                    return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-                }
-                switch (crcStringFunction(string)) {
-                    case force_consteval<crc32c("ATTRIBUTES")>: {
-                        compression->mode = MeshoptCompressionMode::Attributes;
-                        break;
-                    }
-                    case force_consteval<crc32c("TRIANGLES")>: {
-                        compression->mode = MeshoptCompressionMode::Triangles;
-                        break;
-                    }
-                    case force_consteval<crc32c("INDICES")>: {
-                        compression->mode = MeshoptCompressionMode::Indices;
-                        break;
-                    }
-                    default: {
-                        return Error::InvalidGltf;
-                    }
-                }
+				if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) FASTGLTF_UNLIKELY {
+					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
+				}
+				switch (crcStringFunction(string)) {
+					case force_consteval<crc32c("ATTRIBUTES")>: {
+						compression->mode = MeshoptCompressionMode::Attributes;
+						break;
+					}
+					case force_consteval<crc32c("TRIANGLES")>: {
+						compression->mode = MeshoptCompressionMode::Triangles;
+						break;
+					}
+					case force_consteval<crc32c("INDICES")>: {
+						compression->mode = MeshoptCompressionMode::Indices;
+						break;
+					}
+					default: {
+						return Error::InvalidGltf;
+					}
+				}
 
-                if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) FASTGLTF_LIKELY {
-                    switch (crcStringFunction(string)) {
-                        case force_consteval<crc32c("NONE")>: {
-                            compression->filter = MeshoptCompressionFilter::None;
-                            break;
-                        }
-                        case force_consteval<crc32c("OCTAHEDRAL")>: {
-                            compression->filter = MeshoptCompressionFilter::Octahedral;
-                            break;
-                        }
-                        case force_consteval<crc32c("QUATERNION")>: {
-                            compression->filter = MeshoptCompressionFilter::Quaternion;
-                            break;
-                        }
-                        case force_consteval<crc32c("EXPONENTIAL")>: {
-                            compression->filter = MeshoptCompressionFilter::Exponential;
-                            break;
-                        }
-                        default: {
-                            return Error::InvalidGltf;
-                        }
-                    }
-                } else if (error == NO_SUCH_FIELD) {
-                    compression->filter = MeshoptCompressionFilter::None;
-                } else {
-                    return Error::InvalidJson;
-                }
+				if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) FASTGLTF_LIKELY {
+					switch (crcStringFunction(string)) {
+						case force_consteval<crc32c("NONE")>: {
+							compression->filter = MeshoptCompressionFilter::None;
+							break;
+						}
+						case force_consteval<crc32c("OCTAHEDRAL")>: {
+							compression->filter = MeshoptCompressionFilter::Octahedral;
+							break;
+						}
+						case force_consteval<crc32c("QUATERNION")>: {
+							compression->filter = MeshoptCompressionFilter::Quaternion;
+							break;
+						}
+						case force_consteval<crc32c("EXPONENTIAL")>: {
+							compression->filter = MeshoptCompressionFilter::Exponential;
+							break;
+						}
+						default: {
+							return Error::InvalidGltf;
+						}
+					}
+				} else if (error == NO_SUCH_FIELD) {
+					compression->filter = MeshoptCompressionFilter::None;
+				} else {
+					return Error::InvalidJson;
+				}
 
-                view.meshoptCompression = std::move(compression);
-            }
-        }
+				view.meshoptCompression = std::move(compression);
+			}
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -2209,101 +2209,101 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 		}
 
 		asset.bufferViews.emplace_back(std::move(view));
-    }
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	asset.cameras.reserve(cameras.size());
-    for (auto cameraValue : cameras) {
-        Camera camera = {};
-        dom::object cameraObject;
-        if (cameraValue.get_object().get(cameraObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+	for (auto cameraValue : cameras) {
+		Camera camera = {};
+		dom::object cameraObject;
+		if (cameraValue.get_object().get(cameraObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        std::string_view name;
-        if (cameraObject["name"].get_string().get(name) == SUCCESS) {
-	        camera.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(camera.name), resourceAllocator.get(), name);
-        }
+		std::string_view name;
+		if (cameraObject["name"].get_string().get(name) == SUCCESS) {
+			camera.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(camera.name), resourceAllocator.get(), name);
+		}
 
-        std::string_view type;
-        if (cameraObject["type"].get_string().get(type) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		std::string_view type;
+		if (cameraObject["type"].get_string().get(type) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        if (type == "perspective") {
-            dom::object perspectiveCamera;
-            if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-
-            Camera::Perspective perspective = {};
-            double value;
-            if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) FASTGLTF_LIKELY {
-                perspective.aspectRatio = static_cast<num>(value);
-            } else if (error != NO_SUCH_FIELD) {
+		if (type == "perspective") {
+			dom::object perspectiveCamera;
+			if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
 
-            if (auto error = perspectiveCamera["zfar"].get_double().get(value); error == SUCCESS) FASTGLTF_LIKELY {
-                perspective.zfar = static_cast<num>(value);
-            } else if (error != NO_SUCH_FIELD) {
+			Camera::Perspective perspective = {};
+			double value;
+			if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) FASTGLTF_LIKELY {
+				perspective.aspectRatio = static_cast<num>(value);
+			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
-            if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
-                perspective.yfov = static_cast<num>(value);
-            } else {
-                return Error::InvalidGltf;
-            }
+			if (auto error = perspectiveCamera["zfar"].get_double().get(value); error == SUCCESS) FASTGLTF_LIKELY {
+				perspective.zfar = static_cast<num>(value);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
 
-            if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
-                perspective.znear = static_cast<num>(value);
-            } else {
-                return Error::InvalidGltf;
-            }
+			if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
+				perspective.yfov = static_cast<num>(value);
+			} else {
+				return Error::InvalidGltf;
+			}
 
-            camera.camera = perspective;
-        } else if (type == "orthographic") {
-            dom::object orthographicCamera;
-            if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+			if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
+				perspective.znear = static_cast<num>(value);
+			} else {
+				return Error::InvalidGltf;
+			}
 
-            Camera::Orthographic orthographic = {};
-            double value;
-            if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
-                orthographic.xmag = static_cast<num>(value);
-            } else {
-                return Error::InvalidGltf;
-            }
+			camera.camera = perspective;
+		} else if (type == "orthographic") {
+			dom::object orthographicCamera;
+			if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
-                orthographic.ymag = static_cast<num>(value);
-            } else {
-                return Error::InvalidGltf;
-            }
+			Camera::Orthographic orthographic = {};
+			double value;
+			if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
+				orthographic.xmag = static_cast<num>(value);
+			} else {
+				return Error::InvalidGltf;
+			}
 
-            if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
-                orthographic.zfar = static_cast<num>(value);
-            } else {
-                return Error::InvalidGltf;
-            }
+			if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
+				orthographic.ymag = static_cast<num>(value);
+			} else {
+				return Error::InvalidGltf;
+			}
 
-            if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
-                orthographic.znear = static_cast<num>(value);
-            } else {
-                return Error::InvalidGltf;
-            }
+			if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
+				orthographic.zfar = static_cast<num>(value);
+			} else {
+				return Error::InvalidGltf;
+			}
 
-            camera.camera = orthographic;
-        } else {
-            return Error::InvalidGltf;
-        }
+			if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) FASTGLTF_LIKELY {
+				orthographic.znear = static_cast<num>(value);
+			} else {
+				return Error::InvalidGltf;
+			}
+
+			camera.camera = orthographic;
+		} else {
+			return Error::InvalidGltf;
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -2315,37 +2315,37 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 		}
 
 		asset.cameras.emplace_back(std::move(camera));
-    }
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObject, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    for (auto extensionValue : extensionsObject) {
-        dom::object extensionObject;
-        if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) FASTGLTF_UNLIKELY {
-            if (error == INCORRECT_TYPE) {
-                continue; // We want to ignore
-            }
-            return Error::InvalidGltf;
-        }
+	for (auto extensionValue : extensionsObject) {
+		dom::object extensionObject;
+		if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) FASTGLTF_UNLIKELY {
+			if (error == INCORRECT_TYPE) {
+				continue; // We want to ignore
+			}
+			return Error::InvalidGltf;
+		}
 
-        switch (crcStringFunction(extensionValue.key)) {
-            case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
-                if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
-                    break;
+		switch (crcStringFunction(extensionValue.key)) {
+			case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
+				if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
+					break;
 
-                dom::array lightsArray;
-                if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) FASTGLTF_LIKELY {
-                    if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
+				dom::array lightsArray;
+				if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) FASTGLTF_LIKELY {
+					if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
 						return lightsError;
-                } else if (error != NO_SUCH_FIELD) {
-                    return Error::InvalidGltf;
-                }
-                break;
-            }
+				} else if (error != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+				break;
+			}
 			case force_consteval<crc32c(extensions::KHR_materials_variants)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
 					break;
@@ -2386,7 +2386,7 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 					return Error::InvalidGltf;
 				}
 				break;
-            }
+			}
 #endif
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			case force_consteval<crc32c(extensions::KHR_physics_rigid_bodies)>: {
@@ -2424,88 +2424,88 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 				break;
 			}
 #endif
-            default:
-                continue;
-        }
-    }
+			default:
+				continue;
+		}
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	asset.images.reserve(images.size());
-    for (auto imageValue : images) {
-        Image image = {};
-        dom::object imageObject;
-        if (imageValue.get_object().get(imageObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+	for (auto imageValue : images) {
+		Image image = {};
+		dom::object imageObject;
+		if (imageValue.get_object().get(imageObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        std::string_view uriString;
-        if (imageObject["uri"].get_string().get(uriString) == SUCCESS) FASTGLTF_LIKELY {
-            if (imageObject["bufferView"].error() == SUCCESS) FASTGLTF_LIKELY {
-                // If uri is declared, bufferView cannot be declared.
-                return Error::InvalidGltf;
-            }
+		std::string_view uriString;
+		if (imageObject["uri"].get_string().get(uriString) == SUCCESS) FASTGLTF_LIKELY {
+			if (imageObject["bufferView"].error() == SUCCESS) FASTGLTF_LIKELY {
+				// If uri is declared, bufferView cannot be declared.
+				return Error::InvalidGltf;
+			}
 
-            URIView uriView(uriString);
-            if (!uriView.valid()) {
-                return Error::InvalidURI;
-            }
+			URIView uriView(uriString);
+			if (!uriView.valid()) {
+				return Error::InvalidURI;
+			}
 
-            if (uriView.isDataUri()) {
-                auto [error, source] = decodeDataUri(uriView);
-                if (error != Error::None) {
-                    return error;
-                }
+			if (uriView.isDataUri()) {
+				auto [error, source] = decodeDataUri(uriView);
+				if (error != Error::None) {
+					return error;
+				}
 
-                image.data = std::move(source);
-            } else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
-	            auto [error, source] = loadFileFromUri(uriView);
-                if (error != Error::None) {
-                    return error;
-                }
+				image.data = std::move(source);
+			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
+				auto [error, source] = loadFileFromUri(uriView);
+				if (error != Error::None) {
+					return error;
+				}
 
-                image.data = std::move(source);
-            } else {
-                sources::URI filePath;
-                filePath.fileByteOffset = 0;
-                filePath.uri = uriView;
-                image.data = std::move(filePath);
-            }
+				image.data = std::move(source);
+			} else {
+				sources::URI filePath;
+				filePath.fileByteOffset = 0;
+				filePath.uri = uriView;
+				image.data = std::move(filePath);
+			}
 
-            std::string_view mimeType;
-            if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) FASTGLTF_LIKELY {
-                std::visit([&](auto& arg) {
-                    using T = std::decay_t<decltype(arg)>;
+			std::string_view mimeType;
+			if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) FASTGLTF_LIKELY {
+				std::visit([&](auto& arg) {
+					using T = std::decay_t<decltype(arg)>;
 
-                    // This is kinda cursed
-                    if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>) {
-                        arg.mimeType = getMimeTypeFromString(mimeType);
-                    }
-                }, image.data);
-            }
-        }
+					// This is kinda cursed
+					if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>) {
+						arg.mimeType = getMimeTypeFromString(mimeType);
+					}
+				}, image.data);
+			}
+		}
 
-        std::uint64_t bufferViewIndex;
-        if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) FASTGLTF_LIKELY {
-            std::string_view mimeType;
-            if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) FASTGLTF_UNLIKELY {
-                // If bufferView is defined, mimeType needs to also be defined.
-                return Error::InvalidGltf;
-            }
+		std::uint64_t bufferViewIndex;
+		if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) FASTGLTF_LIKELY {
+			std::string_view mimeType;
+			if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) FASTGLTF_UNLIKELY {
+				// If bufferView is defined, mimeType needs to also be defined.
+				return Error::InvalidGltf;
+			}
 
-            image.data = sources::BufferView {
-                static_cast<std::size_t>(bufferViewIndex),
-                getMimeTypeFromString(mimeType),
-            };
-        }
+			image.data = sources::BufferView {
+				static_cast<std::size_t>(bufferViewIndex),
+				getMimeTypeFromString(mimeType),
+			};
+		}
 
-        if (std::holds_alternative<std::monostate>(image.data)) {
-            return Error::InvalidGltf;
-        }
+		if (std::holds_alternative<std::monostate>(image.data)) {
+			return Error::InvalidGltf;
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -2517,114 +2517,114 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 		}
 
 		// name is optional.
-        std::string_view name;
-        if (imageObject["name"].get_string().get(name) == SUCCESS) {
-	        image.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(image.name), resourceAllocator.get(), name);
-        }
+		std::string_view name;
+		if (imageObject["name"].get_string().get(name) == SUCCESS) {
+			image.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(image.name), resourceAllocator.get(), name);
+		}
 
-        asset.images.emplace_back(std::move(image));
-    }
+		asset.images.emplace_back(std::move(image));
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    asset.lights.reserve(lights.size());
-    for (auto lightValue : lights) {
-        dom::object lightObject;
-        if (lightValue.get_object().get(lightObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-        Light light = {};
+	asset.lights.reserve(lights.size());
+	for (auto lightValue : lights) {
+		dom::object lightObject;
+		if (lightValue.get_object().get(lightObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		Light light = {};
 
-        std::string_view type;
-        if (lightObject["type"].get_string().get(type) == SUCCESS) FASTGLTF_LIKELY {
-            switch (crcStringFunction(type.data())) {
-                case force_consteval<crc32c("directional")>: {
-                    light.type = LightType::Directional;
-                    break;
-                }
-                case force_consteval<crc32c("spot")>: {
-                    light.type = LightType::Spot;
-                    break;
-                }
-                case force_consteval<crc32c("point")>: {
-                    light.type = LightType::Point;
-                    break;
-                }
-                default: {
-                    return Error::InvalidGltf;
-                }
-            }
-        } else {
-            return Error::InvalidGltf;
-        }
+		std::string_view type;
+		if (lightObject["type"].get_string().get(type) == SUCCESS) FASTGLTF_LIKELY {
+			switch (crcStringFunction(type.data())) {
+				case force_consteval<crc32c("directional")>: {
+					light.type = LightType::Directional;
+					break;
+				}
+				case force_consteval<crc32c("spot")>: {
+					light.type = LightType::Spot;
+					break;
+				}
+				case force_consteval<crc32c("point")>: {
+					light.type = LightType::Point;
+					break;
+				}
+				default: {
+					return Error::InvalidGltf;
+				}
+			}
+		} else {
+			return Error::InvalidGltf;
+		}
 
-        if (light.type == LightType::Spot) {
-            dom::object spotObject;
-            if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+		if (light.type == LightType::Spot) {
+			dom::object spotObject;
+			if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            double innerConeAngle;
-            if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
-                light.innerConeAngle = static_cast<num>(innerConeAngle);
-            } else if (error == NO_SUCH_FIELD) {
-                light.innerConeAngle = 0.0f;
-            } else {
-                return Error::InvalidGltf;
-            }
+			double innerConeAngle;
+			if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
+				light.innerConeAngle = static_cast<num>(innerConeAngle);
+			} else if (error == NO_SUCH_FIELD) {
+				light.innerConeAngle = 0.0f;
+			} else {
+				return Error::InvalidGltf;
+			}
 
-            double outerConeAngle;
-            if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
-                light.outerConeAngle = static_cast<num>(outerConeAngle);
-            } else if (error == NO_SUCH_FIELD) {
-                light.outerConeAngle = static_cast<num>(math::pi / 4.0);
-            } else {
-                return Error::InvalidGltf;
-            }
-        }
+			double outerConeAngle;
+			if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) FASTGLTF_LIKELY {
+				light.outerConeAngle = static_cast<num>(outerConeAngle);
+			} else if (error == NO_SUCH_FIELD) {
+				light.outerConeAngle = static_cast<num>(math::pi / 4.0);
+			} else {
+				return Error::InvalidGltf;
+			}
+		}
 
-        dom::array colorArray;
-        if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) FASTGLTF_LIKELY {
-            if (colorArray.size() != 3U) {
-                return Error::InvalidGltf;
-            }
-            for (std::size_t i = 0U; i < colorArray.size(); ++i) {
-                double color;
-                if (colorArray.at(i).get_double().get(color) == SUCCESS) FASTGLTF_LIKELY {
-                    light.color[i] = static_cast<num>(color);
-                } else {
-                    return Error::InvalidGltf;
-                }
-            }
-        } else if (error == NO_SUCH_FIELD) {
+		dom::array colorArray;
+		if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) FASTGLTF_LIKELY {
+			if (colorArray.size() != 3U) {
+				return Error::InvalidGltf;
+			}
+			for (std::size_t i = 0U; i < colorArray.size(); ++i) {
+				double color;
+				if (colorArray.at(i).get_double().get(color) == SUCCESS) FASTGLTF_LIKELY {
+					light.color[i] = static_cast<num>(color);
+				} else {
+					return Error::InvalidGltf;
+				}
+			}
+		} else if (error == NO_SUCH_FIELD) {
 			light.color = math::nvec3(1);
-        } else {
-            return Error::InvalidGltf;
-        }
+		} else {
+			return Error::InvalidGltf;
+		}
 
-        double intensity;
-        if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) FASTGLTF_LIKELY {
-            light.intensity = static_cast<num>(intensity);
-        } else {
-            light.intensity = 1.0f;
-        }
+		double intensity;
+		if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) FASTGLTF_LIKELY {
+			light.intensity = static_cast<num>(intensity);
+		} else {
+			light.intensity = 1.0f;
+		}
 
-        double range;
-        if (lightObject["range"].get_double().get(range) == SUCCESS) FASTGLTF_LIKELY {
-            light.range = static_cast<num>(range);
-        }
+		double range;
+		if (lightObject["range"].get_double().get(range) == SUCCESS) FASTGLTF_LIKELY {
+			light.range = static_cast<num>(range);
+		}
 
 		std::string_view name;
-        if (lightObject["name"].get_string().get(name) == SUCCESS) {
-	        light.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(light.name), resourceAllocator.get(), name);
-        }
+		if (lightObject["name"].get_string().get(name) == SUCCESS) {
+			light.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(light.name), resourceAllocator.get(), name);
+		}
 
-        asset.lights.emplace_back(std::move(light));
-    }
+		asset.lights.emplace_back(std::move(light));
+	}
 
 	return Error::None;
 }
@@ -3240,142 +3240,142 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 }
 
 fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    asset.materials.reserve(materials.size());
-    for (auto materialValue : materials) {
-        dom::object materialObject;
-        if (materialValue.get_object().get(materialObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-        Material material = {};
+	asset.materials.reserve(materials.size());
+	for (auto materialValue : materials) {
+		dom::object materialObject;
+		if (materialValue.get_object().get(materialObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		Material material = {};
 
-        dom::array emissiveFactor;
-        if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) FASTGLTF_LIKELY {
-            if (emissiveFactor.size() != 3) {
-                return Error::InvalidGltf;
-            }
-            for (auto i = 0U; i < 3; ++i) {
-                double val;
-                if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
-                material.emissiveFactor[i] = static_cast<num>(val);
-            }
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		dom::array emissiveFactor;
+		if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) FASTGLTF_LIKELY {
+			if (emissiveFactor.size() != 3) {
+				return Error::InvalidGltf;
+			}
+			for (auto i = 0U; i < 3; ++i) {
+				double val;
+				if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				material.emissiveFactor[i] = static_cast<num>(val);
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-	    {
-		    NormalTextureInfo normalTextureInfo = {};
-		    if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) FASTGLTF_LIKELY {
-			    material.normalTexture = std::move(normalTextureInfo);
-		    } else if (error != Error::MissingField) {
-			    return error;
-		    }
-	    }
+		{
+			NormalTextureInfo normalTextureInfo = {};
+			if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) FASTGLTF_LIKELY {
+				material.normalTexture = std::move(normalTextureInfo);
+			} else if (error != Error::MissingField) {
+				return error;
+			}
+		}
 
-	    {
+		{
 			OcclusionTextureInfo occlusionTextureInfo = {};
-	        if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) FASTGLTF_LIKELY {
-	            material.occlusionTexture = std::move(occlusionTextureInfo);
-	        } else if (error != Error::MissingField) {
-	            return error;
-	        }
-	    }
-
-	    {
-		    TextureInfo textureInfo = {};
-	        if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
-	            material.emissiveTexture = std::move(textureInfo);
-	        } else if (error != Error::MissingField) {
-	            return error;
-	        }
-	    }
-
-        dom::object pbrMetallicRoughness;
-        if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) FASTGLTF_LIKELY {
-            PBRData pbr = {};
-
-            dom::array baseColorFactor;
-            if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) FASTGLTF_LIKELY {
-                for (auto i = 0U; i < 4; ++i) {
-                    double val;
-                    if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                        return Error::InvalidGltf;
-                    }
-                    pbr.baseColorFactor[i] = static_cast<num>(val);
-                }
-            }
-
-            double factor;
-            if (auto error = pbrMetallicRoughness["metallicFactor"].get_double().get(factor); error == SUCCESS) FASTGLTF_LIKELY {
-                pbr.metallicFactor = static_cast<num>(factor);
-            } else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
+			if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) FASTGLTF_LIKELY {
+				material.occlusionTexture = std::move(occlusionTextureInfo);
+			} else if (error != Error::MissingField) {
+				return error;
 			}
-            if (auto error = pbrMetallicRoughness["roughnessFactor"].get_double().get(factor); error == SUCCESS) FASTGLTF_LIKELY {
-                pbr.roughnessFactor = static_cast<num>(factor);
-            } else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
+		}
+
+		{
+			TextureInfo textureInfo = {};
+			if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
+				material.emissiveTexture = std::move(textureInfo);
+			} else if (error != Error::MissingField) {
+				return error;
+			}
+		}
+
+		dom::object pbrMetallicRoughness;
+		if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) FASTGLTF_LIKELY {
+			PBRData pbr = {};
+
+			dom::array baseColorFactor;
+			if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) FASTGLTF_LIKELY {
+				for (auto i = 0U; i < 4; ++i) {
+					double val;
+					if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					pbr.baseColorFactor[i] = static_cast<num>(val);
+				}
 			}
 
-	        TextureInfo textureInfo;
-            if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
-                pbr.baseColorTexture = std::move(textureInfo);
-            } else if (error != Error::MissingField) {
-                return error;
-            }
+			double factor;
+			if (auto error = pbrMetallicRoughness["metallicFactor"].get_double().get(factor); error == SUCCESS) FASTGLTF_LIKELY {
+				pbr.metallicFactor = static_cast<num>(factor);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
+			if (auto error = pbrMetallicRoughness["roughnessFactor"].get_double().get(factor); error == SUCCESS) FASTGLTF_LIKELY {
+				pbr.roughnessFactor = static_cast<num>(factor);
+			} else if (error != NO_SUCH_FIELD) {
+				return Error::InvalidGltf;
+			}
 
-            if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
-                pbr.metallicRoughnessTexture = std::move(textureInfo);
-            } else if (error != Error::MissingField) {
-                return error;
-            }
+			TextureInfo textureInfo;
+			if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
+				pbr.baseColorTexture = std::move(textureInfo);
+			} else if (error != Error::MissingField) {
+				return error;
+			}
 
-            material.pbrData = std::move(pbr);
-        }
+			if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) FASTGLTF_LIKELY {
+				pbr.metallicRoughnessTexture = std::move(textureInfo);
+			} else if (error != Error::MissingField) {
+				return error;
+			}
 
-        std::string_view alphaMode;
-        if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) FASTGLTF_LIKELY {
-            if (alphaMode == "OPAQUE") {
-                material.alphaMode = AlphaMode::Opaque;
-            } else if (alphaMode == "MASK") {
-                material.alphaMode = AlphaMode::Mask;
-            } else if (alphaMode == "BLEND") {
-                material.alphaMode = AlphaMode::Blend;
-            } else {
-                return Error::InvalidGltf;
-            }
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+			material.pbrData = std::move(pbr);
+		}
 
-        double alphaCutoff;
-        if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) FASTGLTF_LIKELY {
-            material.alphaCutoff = static_cast<num>(alphaCutoff);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		std::string_view alphaMode;
+		if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) FASTGLTF_LIKELY {
+			if (alphaMode == "OPAQUE") {
+				material.alphaMode = AlphaMode::Opaque;
+			} else if (alphaMode == "MASK") {
+				material.alphaMode = AlphaMode::Mask;
+			} else if (alphaMode == "BLEND") {
+				material.alphaMode = AlphaMode::Blend;
+			} else {
+				return Error::InvalidGltf;
+			}
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        bool doubleSided;
-        if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) FASTGLTF_LIKELY {
-            material.doubleSided = doubleSided;
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		double alphaCutoff;
+		if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) FASTGLTF_LIKELY {
+			material.alphaCutoff = static_cast<num>(alphaCutoff);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        std::string_view name;
-        if (materialObject["name"].get_string().get(name) == SUCCESS) {
-	        material.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(material.name), resourceAllocator.get(), name);
-        }
+		bool doubleSided;
+		if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) FASTGLTF_LIKELY {
+			material.doubleSided = doubleSided;
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        dom::object extensionsObject;
-        if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
+		std::string_view name;
+		if (materialObject["name"].get_string().get(name) == SUCCESS) {
+			material.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(material.name), resourceAllocator.get(), name);
+		}
+
+		dom::object extensionsObject;
+		if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
 			parseMaterialExtensions(extensionsObject, material);
-        } else if (extensionError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidJson;
-        }
+		} else if (extensionError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidJson;
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -3387,7 +3387,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 		}
 
 		asset.materials.emplace_back(std::move(material));
-    }
+	}
 
 	return Error::None;
 }
@@ -3474,19 +3474,19 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 }
 
 fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    asset.meshes.reserve(meshes.size());
-    for (auto meshValue : meshes) {
-        // Required fields: "primitives"
-        dom::object meshObject;
-        if (meshValue.get_object().get(meshObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-        Mesh mesh = {};
+	asset.meshes.reserve(meshes.size());
+	for (auto meshValue : meshes) {
+		// Required fields: "primitives"
+		dom::object meshObject;
+		if (meshValue.get_object().get(meshObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		Mesh mesh = {};
 
-        dom::array array;
-        auto meshError = getJsonArray(meshObject, "primitives", &array);
+		dom::array array;
+		auto meshError = getJsonArray(meshObject, "primitives", &array);
 		if (meshError != Error::None) {
 			return meshError == Error::MissingField ? Error::InvalidGltf : meshError;
 		}
@@ -3556,19 +3556,19 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 			mesh.primitives.emplace_back(std::move(primitive));
 		}
 
-        if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) FASTGLTF_LIKELY {
-	        mesh.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.weights), resourceAllocator.get(), 0);
-            mesh.weights.reserve(array.size());
-            for (auto weightValue : array) {
-                double val;
-                if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
-                mesh.weights.emplace_back(static_cast<num>(val));
-            }
-        } else if (meshError != Error::MissingField && meshError != Error::None) {
-            return Error::InvalidGltf;
-        }
+		if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) FASTGLTF_LIKELY {
+			mesh.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.weights), resourceAllocator.get(), 0);
+			mesh.weights.reserve(array.size());
+			for (auto weightValue : array) {
+				double val;
+				if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				mesh.weights.emplace_back(static_cast<num>(val));
+			}
+		} else if (meshError != Error::MissingField && meshError != Error::None) {
+			return Error::InvalidGltf;
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -3580,163 +3580,163 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 		}
 
 		std::string_view name;
-        if (meshObject["name"].get_string().get(name) == SUCCESS) {
-	        mesh.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.name), resourceAllocator.get(), name);
-        }
+		if (meshObject["name"].get_string().get(name) == SUCCESS) {
+			mesh.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.name), resourceAllocator.get(), name);
+		}
 
-        asset.meshes.emplace_back(std::move(mesh));
-    }
+		asset.meshes.emplace_back(std::move(mesh));
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    asset.nodes.reserve(nodes.size());
-    for (auto nodeValue : nodes) {
-        Node node = {};
-        dom::object nodeObject;
-        if (nodeValue.get_object().get(nodeObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-
-        std::uint64_t index;
-        if (auto error = nodeObject["mesh"].get_uint64().get(index); error == SUCCESS) {
-            node.meshIndex = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-			return Error::InvalidGltf;
-		}
-        if (auto error = nodeObject["skin"].get_uint64().get(index); error == SUCCESS) {
-            node.skinIndex = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-			return Error::InvalidGltf;
-		}
-        if (auto error = nodeObject["camera"].get_uint64().get(index); error == SUCCESS) {
-            node.cameraIndex = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+	asset.nodes.reserve(nodes.size());
+	for (auto nodeValue : nodes) {
+		Node node = {};
+		dom::object nodeObject;
+		if (nodeValue.get_object().get(nodeObject) != SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
-        dom::array array;
-        auto childError = getJsonArray(nodeObject, "children", &array);
-        if (childError == Error::None) FASTGLTF_LIKELY {
-	        node.children = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.children), resourceAllocator.get(), 0);
+		std::uint64_t index;
+		if (auto error = nodeObject["mesh"].get_uint64().get(index); error == SUCCESS) {
+			node.meshIndex = static_cast<std::size_t>(index);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		if (auto error = nodeObject["skin"].get_uint64().get(index); error == SUCCESS) {
+			node.skinIndex = static_cast<std::size_t>(index);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		if (auto error = nodeObject["camera"].get_uint64().get(index); error == SUCCESS) {
+			node.cameraIndex = static_cast<std::size_t>(index);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		dom::array array;
+		auto childError = getJsonArray(nodeObject, "children", &array);
+		if (childError == Error::None) FASTGLTF_LIKELY {
+			node.children = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.children), resourceAllocator.get(), 0);
 			node.children.reserve(array.size());
-            for (auto childValue : array) {
-                if (childValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
+			for (auto childValue : array) {
+				if (childValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
 
-                node.children.emplace_back(static_cast<std::size_t>(index));
-            }
-        } else if (childError != Error::MissingField) {
-            return childError;
-        }
+				node.children.emplace_back(static_cast<std::size_t>(index));
+			}
+		} else if (childError != Error::MissingField) {
+			return childError;
+		}
 
-        auto weightsError = getJsonArray(nodeObject, "weights", &array);
-        if (weightsError != Error::MissingField) {
-            if (weightsError != Error::None) {
-	            node.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.weights), resourceAllocator.get(), 0);
-                node.weights.reserve(array.size());
-                for (auto weightValue : array) {
-                    double val;
-                    if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                        return Error::InvalidGltf;
-                    }
-                    node.weights.emplace_back(static_cast<num>(val));
-                }
-            } else {
-                return Error::InvalidGltf;
-            }
-        }
+		auto weightsError = getJsonArray(nodeObject, "weights", &array);
+		if (weightsError != Error::MissingField) {
+			if (weightsError != Error::None) {
+				node.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.weights), resourceAllocator.get(), 0);
+				node.weights.reserve(array.size());
+				for (auto weightValue : array) {
+					double val;
+					if (weightValue.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					node.weights.emplace_back(static_cast<num>(val));
+				}
+			} else {
+				return Error::InvalidGltf;
+			}
+		}
 
-        auto error = nodeObject["matrix"].get_array().get(array);
-        if (error == SUCCESS) FASTGLTF_LIKELY {
-            if (array.size() != 16) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            math::fmat4x4 transformMatrix;
-            std::size_t i = 0, j = 0;
+		auto error = nodeObject["matrix"].get_array().get(array);
+		if (error == SUCCESS) FASTGLTF_LIKELY {
+			if (array.size() != 16) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			math::fmat4x4 transformMatrix;
+			std::size_t i = 0, j = 0;
 			for (auto num : array) {
-                double val;
-                if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
+				double val;
+				if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
 				transformMatrix.col(i)[j++] = static_cast<fastgltf::num>(val);
 				if (j == 4) {
 					j = 0;
 					++i;
 				}
-            }
+			}
 
-            if (hasBit(options, Options::DecomposeNodeMatrices)) {
-                TRS trs = {};
-                math::decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
-                node.transform = trs;
-            } else {
-                node.transform = transformMatrix;
-            }
-        } else if (error == NO_SUCH_FIELD) {
-            TRS trs = {};
+			if (hasBit(options, Options::DecomposeNodeMatrices)) {
+				TRS trs = {};
+				math::decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
+				node.transform = trs;
+			} else {
+				node.transform = transformMatrix;
+			}
+		} else if (error == NO_SUCH_FIELD) {
+			TRS trs = {};
 
-            // There's no matrix, let's see if there's scale, rotation, or rotation fields.
-            if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) FASTGLTF_LIKELY {
-                if (array.size() != 3) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
-                auto i = 0U;
-                for (auto num : array) {
-                    double val;
-                    if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                        return Error::InvalidGltf;
-                    }
-                    trs.scale[i] = static_cast<fastgltf::num>(val);
-                    ++i;
-                }
-            } else if (scaleError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-                return Error::InvalidJson;
-            }
+			// There's no matrix, let's see if there's scale, rotation, or rotation fields.
+			if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) FASTGLTF_LIKELY {
+				if (array.size() != 3) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				auto i = 0U;
+				for (auto num : array) {
+					double val;
+					if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					trs.scale[i] = static_cast<fastgltf::num>(val);
+					++i;
+				}
+			} else if (scaleError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidJson;
+			}
 
-            if (auto translationError = nodeObject["translation"].get_array().get(array); translationError == SUCCESS) FASTGLTF_LIKELY {
-                if (array.size() != 3) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
-                auto i = 0U;
-                for (auto num : array) {
-                    double val;
-                    if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                        return Error::InvalidGltf;
-                    }
-                    trs.translation[i] = static_cast<fastgltf::num>(val);
-                    ++i;
-                }
-            } else if (translationError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+			if (auto translationError = nodeObject["translation"].get_array().get(array); translationError == SUCCESS) FASTGLTF_LIKELY {
+				if (array.size() != 3) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				auto i = 0U;
+				for (auto num : array) {
+					double val;
+					if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					trs.translation[i] = static_cast<fastgltf::num>(val);
+					++i;
+				}
+			} else if (translationError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            if (auto rotationError = nodeObject["rotation"].get_array().get(array); rotationError == SUCCESS) FASTGLTF_LIKELY {
-                if (array.size() != 4) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
-                auto i = 0U;
-                for (auto num : array) {
-                    double val;
-                    if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
-                        return Error::InvalidGltf;
-                    }
-                    trs.rotation[i] = static_cast<fastgltf::num>(val);
-                    ++i;
-                }
-            } else if (rotationError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
+			if (auto rotationError = nodeObject["rotation"].get_array().get(array); rotationError == SUCCESS) FASTGLTF_LIKELY {
+				if (array.size() != 4) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
+				auto i = 0U;
+				for (auto num : array) {
+					double val;
+					if (num.get_double().get(val) != SUCCESS) FASTGLTF_UNLIKELY {
+						return Error::InvalidGltf;
+					}
+					trs.rotation[i] = static_cast<fastgltf::num>(val);
+					++i;
+				}
+			} else if (rotationError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
 
-            node.transform = trs;
-        }
+			node.transform = trs;
+		}
 
-        dom::object extensionsObject;
-        if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) FASTGLTF_LIKELY {
+		dom::object extensionsObject;
+		if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) FASTGLTF_LIKELY {
 			if (hasBit(config.extensions, Extensions::KHR_lights_punctual)) {
 				dom::object lightsObject;
 				if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) FASTGLTF_LIKELY {
@@ -3776,45 +3776,45 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					if (rigidBodyError != Error::None) {
 						return rigidBodyError;
 					}
-			    } else if (rigidBodiesError != NO_SUCH_FIELD) {
+				} else if (rigidBodiesError != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
-			    }
+				}
 			}
 #endif
 
-        	if (hasBit(config.extensions, Extensions::KHR_node_visibility)) {
-        		dom::object nodeVisibilityObject;
-        		if (auto nodeVisibilityError = extensionsObject[extensions::KHR_node_visibility].get_object().get(nodeVisibilityObject); nodeVisibilityError == SUCCESS) {
-        			if (nodeVisibilityObject["visible"].get_bool().get(node.visible) != SUCCESS) {
-        				return Error::InvalidGltf;
-        			}
-        		} else if (nodeVisibilityError != NO_SUCH_FIELD) {
-        			return Error::InvalidGltf;
-        		}
-        	}
+			if (hasBit(config.extensions, Extensions::KHR_node_visibility)) {
+				dom::object nodeVisibilityObject;
+				if (auto nodeVisibilityError = extensionsObject[extensions::KHR_node_visibility].get_object().get(nodeVisibilityObject); nodeVisibilityError == SUCCESS) {
+					if (nodeVisibilityObject["visible"].get_bool().get(node.visible) != SUCCESS) {
+						return Error::InvalidGltf;
+					}
+				} else if (nodeVisibilityError != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+			}
 
-        	if (hasBit(config.extensions, Extensions::KHR_node_selectability)) {
-        		dom::object nodeSelectabilityObject;
-        		if (auto nodeSelectabilityError = extensionsObject[extensions::KHR_node_selectability].get_object().get(nodeSelectabilityObject); nodeSelectabilityError == SUCCESS) {
-        			if (nodeSelectabilityObject["selectable"].get_bool().get(node.selectable) != SUCCESS) {
-        				return Error::InvalidGltf;
-        			}
-        		} else if (nodeSelectabilityError != NO_SUCH_FIELD) {
-        			return Error::InvalidGltf;
-        		}
-        	}
+			if (hasBit(config.extensions, Extensions::KHR_node_selectability)) {
+				dom::object nodeSelectabilityObject;
+				if (auto nodeSelectabilityError = extensionsObject[extensions::KHR_node_selectability].get_object().get(nodeSelectabilityObject); nodeSelectabilityError == SUCCESS) {
+					if (nodeSelectabilityObject["selectable"].get_bool().get(node.selectable) != SUCCESS) {
+						return Error::InvalidGltf;
+					}
+				} else if (nodeSelectabilityError != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+			}
 
-        	if (hasBit(config.extensions, Extensions::KHR_node_hoverability)) {
-        		dom::object nodeHoverabilityObject;
-        		if (auto nodeHoverabilityError = extensionsObject[extensions::KHR_node_hoverability].get_object().get(nodeHoverabilityObject); nodeHoverabilityError == SUCCESS) {
-        			if (nodeHoverabilityObject["hoverable"].get_bool().get(node.hoverable) != SUCCESS) {
-        				return Error::InvalidGltf;
-        			}
-        		} else if (nodeHoverabilityError != NO_SUCH_FIELD) {
-        			return Error::InvalidGltf;
-        		}
-        	}
-        }
+			if (hasBit(config.extensions, Extensions::KHR_node_hoverability)) {
+				dom::object nodeHoverabilityObject;
+				if (auto nodeHoverabilityError = extensionsObject[extensions::KHR_node_hoverability].get_object().get(nodeHoverabilityObject); nodeHoverabilityError == SUCCESS) {
+					if (nodeHoverabilityObject["hoverable"].get_bool().get(node.hoverable) != SUCCESS) {
+						return Error::InvalidGltf;
+					}
+				} else if (nodeHoverabilityError != NO_SUCH_FIELD) {
+					return Error::InvalidGltf;
+				}
+			}
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -3825,50 +3825,50 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			}
 		}
 
-        std::string_view name;
-        if (nodeObject["name"].get_string().get(name) == SUCCESS) {
-	        node.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.name), resourceAllocator.get(), name);
-        }
+		std::string_view name;
+		if (nodeObject["name"].get_string().get(name) == SUCCESS) {
+			node.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.name), resourceAllocator.get(), name);
+		}
 
-        asset.nodes.emplace_back(std::move(node));
-    }
+		asset.nodes.emplace_back(std::move(node));
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    std::uint64_t number;
-    asset.samplers.reserve(samplers.size());
-    for (auto samplerValue : samplers) {
-        Sampler sampler = {};
-        dom::object samplerObject;
-        if (samplerValue.get_object().get(samplerObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-
-        if (auto error = samplerObject["magFilter"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-            sampler.magFilter = static_cast<Filter>(number);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-			return Error::InvalidGltf;
-		}
-        if (auto error = samplerObject["minFilter"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-            sampler.minFilter = static_cast<Filter>(number);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+	std::uint64_t number;
+	asset.samplers.reserve(samplers.size());
+	for (auto samplerValue : samplers) {
+		Sampler sampler = {};
+		dom::object samplerObject;
+		if (samplerValue.get_object().get(samplerObject) != SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
-        if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-            sampler.wrapS = static_cast<Wrap>(number);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-        if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
-            sampler.wrapT = static_cast<Wrap>(number);
-        } else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		if (auto error = samplerObject["magFilter"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+			sampler.magFilter = static_cast<Filter>(number);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		if (auto error = samplerObject["minFilter"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+			sampler.minFilter = static_cast<Filter>(number);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+
+		if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+			sampler.wrapS = static_cast<Wrap>(number);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
+		if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) FASTGLTF_LIKELY {
+			sampler.wrapT = static_cast<Wrap>(number);
+		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -3885,27 +3885,27 @@ fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset&
 		}
 
 		asset.samplers.emplace_back(std::move(sampler));
-    }
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    asset.scenes.reserve(scenes.size());
-    for (auto sceneValue : scenes) {
-        // The scene object can be completely empty
-        Scene scene = {};
-        dom::object sceneObject;
-        if (sceneValue.get_object().get(sceneObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+	asset.scenes.reserve(scenes.size());
+	for (auto sceneValue : scenes) {
+		// The scene object can be completely empty
+		Scene scene = {};
+		dom::object sceneObject;
+		if (sceneValue.get_object().get(sceneObject) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 
-        std::string_view name;
-        if (sceneObject["name"].get_string().get(name) == SUCCESS) {
-	        scene.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.name), resourceAllocator.get(), name);
-        }
+		std::string_view name;
+		if (sceneObject["name"].get_string().get(name) == SUCCESS) {
+			scene.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.name), resourceAllocator.get(), name);
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -3917,64 +3917,64 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 		}
 
 		// Parse the array of nodes.
-        dom::array nodes;
-        auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
-        if (nodeError == Error::None) FASTGLTF_LIKELY {
-	        scene.nodeIndices = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.nodeIndices), resourceAllocator.get(), 0);
+		dom::array nodes;
+		auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
+		if (nodeError == Error::None) FASTGLTF_LIKELY {
+			scene.nodeIndices = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.nodeIndices), resourceAllocator.get(), 0);
 			scene.nodeIndices.reserve(nodes.size());
-            for (auto nodeValue : nodes) {
-                std::uint64_t index;
-                if (nodeValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
-                    return Error::InvalidGltf;
-                }
+			for (auto nodeValue : nodes) {
+				std::uint64_t index;
+				if (nodeValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
+					return Error::InvalidGltf;
+				}
 
-                scene.nodeIndices.emplace_back(static_cast<std::size_t>(index));
-            }
+				scene.nodeIndices.emplace_back(static_cast<std::size_t>(index));
+			}
 
-            asset.scenes.emplace_back(std::move(scene));
-        } else if (nodeError != Error::MissingField) {
-            return nodeError;
-        }
-    }
+			asset.scenes.emplace_back(std::move(scene));
+		} else if (nodeError != Error::MissingField) {
+			return nodeError;
+		}
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    asset.skins.reserve(skins.size());
-    for (auto skinValue : skins) {
-        Skin skin = {};
-        dom::object skinObject;
-        if (skinValue.get_object().get(skinObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-
-        std::uint64_t index;
-        if (auto error = skinObject["inverseBindMatrices"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
-            skin.inverseBindMatrices = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) {
-			return Error::InvalidGltf;
-		}
-        if (auto error = skinObject["skeleton"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
-            skin.skeleton = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) {
+	asset.skins.reserve(skins.size());
+	for (auto skinValue : skins) {
+		Skin skin = {};
+		dom::object skinObject;
+		if (skinValue.get_object().get(skinObject) != SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
-        dom::array jointsArray;
-        if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
+		std::uint64_t index;
+		if (auto error = skinObject["inverseBindMatrices"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
+			skin.inverseBindMatrices = static_cast<std::size_t>(index);
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+		if (auto error = skinObject["skeleton"].get_uint64().get(index); error == SUCCESS) FASTGLTF_LIKELY {
+			skin.skeleton = static_cast<std::size_t>(index);
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::array jointsArray;
+		if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) FASTGLTF_UNLIKELY {
+			return Error::InvalidGltf;
+		}
 		skin.joints = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.joints), resourceAllocator.get(), 0);
-        skin.joints.reserve(jointsArray.size());
-        for (auto jointValue : jointsArray) {
-            if (jointValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
-                return Error::InvalidGltf;
-            }
-            skin.joints.emplace_back(index);
-        }
+		skin.joints.reserve(jointsArray.size());
+		for (auto jointValue : jointsArray) {
+			if (jointValue.get_uint64().get(index) != SUCCESS) FASTGLTF_UNLIKELY {
+				return Error::InvalidGltf;
+			}
+			skin.joints.emplace_back(index);
+		}
 
 		if (config.extrasCallback != nullptr) {
 			dom::object extrasObject;
@@ -3986,48 +3986,48 @@ fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset
 		}
 
 		std::string_view name;
-        if (skinObject["name"].get_string().get(name) == SUCCESS) {
-	        skin.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.name), resourceAllocator.get(), name);
-        }
-        asset.skins.emplace_back(std::move(skin));
-    }
+		if (skinObject["name"].get_string().get(name) == SUCCESS) {
+			skin.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.name), resourceAllocator.get(), name);
+		}
+		asset.skins.emplace_back(std::move(skin));
+	}
 
 	return Error::None;
 }
 
 fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset& asset) {
-    using namespace simdjson;
+	using namespace simdjson;
 
-    asset.textures.reserve(textures.size());
-    for (auto textureValue : textures) {
-        Texture texture;
-        dom::object textureObject;
-        if (textureValue.get_object().get(textureObject) != SUCCESS) FASTGLTF_UNLIKELY {
-            return Error::InvalidGltf;
-        }
-
-        std::uint64_t sourceIndex;
-        if (auto error = textureObject["source"].get_uint64().get(sourceIndex); error == SUCCESS) FASTGLTF_LIKELY {
-            texture.imageIndex = static_cast<std::size_t>(sourceIndex);
-        } else if (error != NO_SUCH_FIELD) {
+	asset.textures.reserve(textures.size());
+	for (auto textureValue : textures) {
+		Texture texture;
+		dom::object textureObject;
+		if (textureValue.get_object().get(textureObject) != SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
 
-        dom::object extensionsObject;
-        if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) FASTGLTF_LIKELY {
+		std::uint64_t sourceIndex;
+		if (auto error = textureObject["source"].get_uint64().get(sourceIndex); error == SUCCESS) FASTGLTF_LIKELY {
+			texture.imageIndex = static_cast<std::size_t>(sourceIndex);
+		} else if (error != NO_SUCH_FIELD) {
+			return Error::InvalidGltf;
+		}
+
+		dom::object extensionsObject;
+		if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) FASTGLTF_LIKELY {
 			if (!parseTextureExtensions(texture, extensionsObject, config.extensions)) {
 				return Error::InvalidGltf;
 			}
-        } else if (error != NO_SUCH_FIELD) {
+		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
-        // The index of the sampler used by this texture. When undefined, a sampler with
-        // repeat wrapping and auto filtering SHOULD be used.
-        std::uint64_t samplerIndex;
-        if (auto error = textureObject["sampler"].get_uint64().get(samplerIndex); error == SUCCESS) FASTGLTF_LIKELY {
-            texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
-        } else if (error != NO_SUCH_FIELD) {
+		// The index of the sampler used by this texture. When undefined, a sampler with
+		// repeat wrapping and auto filtering SHOULD be used.
+		std::uint64_t samplerIndex;
+		if (auto error = textureObject["sampler"].get_uint64().get(samplerIndex); error == SUCCESS) FASTGLTF_LIKELY {
+			texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
+		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
@@ -4041,12 +4041,12 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 		}
 
 		std::string_view name;
-        if (textureObject["name"].get_string().get(name) == SUCCESS) {
+		if (textureObject["name"].get_string().get(name) == SUCCESS) {
 			texture.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(texture.name), resourceAllocator.get(), name);
-        }
+		}
 
-        asset.textures.emplace_back(std::move(texture));
-    }
+		asset.textures.emplace_back(std::move(texture));
+	}
 
 	return Error::None;
 }
@@ -4061,7 +4061,7 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 
 		dom::object shapeObject;
 		if (shapeValue.get_object().get(shapeObject) != SUCCESS) FASTGLTF_UNLIKELY {
-		    return Error::InvalidGltf;
+			return Error::InvalidGltf;
 		}
 
 		std::string_view shapeTypeName;
@@ -4089,13 +4089,13 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 		if (auto error = shapeObject["box"].get_object().get(boxObject); error == SUCCESS) {
 			if (shapeTypeName != "box") FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
-		    }
+			}
 
 			dom::array sizeArray;
 			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
-			    if (sizeArray.size() != 3) {
+				if (sizeArray.size() != 3) {
 					return Error::InvalidGltf;
-			    }
+				}
 
 				auto& box = shape.emplace<BoxShape>();
 				auto curIndex = 0;
@@ -4110,7 +4110,7 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 					curIndex++;
 				}
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-			    return Error::InvalidGltf;
+				return Error::InvalidGltf;
 			}
 		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
@@ -4283,7 +4283,7 @@ fg::Error fg::Parser::parseCollisionFilters(const simdjson::dom::array& collisio
 			return Error::InvalidGltf;
 		}
 
-	    // A glTF isn't allowed to have both
+		// A glTF isn't allowed to have both
 		if (collisionFilterObject["collideWithSystems"].error() == SUCCESS && collisionFilterObject["notCollideWithSystems"].error() == SUCCESS) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
@@ -4336,7 +4336,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 	asset.physicsJoints.reserve(physicsJoints.size());
 	for (auto physicsJointValue : physicsJoints) {
-	    auto& physicsJoint = asset.physicsJoints.emplace_back();
+		auto& physicsJoint = asset.physicsJoints.emplace_back();
 
 		dom::object physicsJointObject;
 		if (physicsJointValue.get_object().get(physicsJointObject) != SUCCESS) FASTGLTF_UNLIKELY {
@@ -4346,15 +4346,15 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 		dom::array limitsArray;
 		if (physicsJointValue["limits"].get_array().get(limitsArray) == SUCCESS) {
 			physicsJoint.limits.reserve(limitsArray.size());
-            for (auto limitValue : limitsArray) {
+			for (auto limitValue : limitsArray) {
 				auto& limit = physicsJoint.limits.emplace_back();
 				dom::object limitObject;
 				if (limitValue.get_object().get(limitObject) != SUCCESS) FASTGLTF_UNLIKELY {
-			        return Error::InvalidGltf;
+					return Error::InvalidGltf;
 				}
 
 				if(limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) FASTGLTF_UNLIKELY {
-				    // A limit may only have one of these
+					// A limit may only have one of these
 					return Error::InvalidGltf;
 				}
 
@@ -4367,7 +4367,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 				if (auto error = limitObject["min"].get_double().get(limitMin); error == SUCCESS) {
 					limit.min = static_cast<num>(limitMin);
 				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-				    return Error::InvalidGltf;
+					return Error::InvalidGltf;
 				}
 
 				double limitMax;
@@ -4388,7 +4388,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 				if (auto error = limitObject["damping"].get_double().get(damping); error == SUCCESS) {
 					limit.damping = static_cast<num>(damping);
 				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-				    return Error::InvalidGltf;
+					return Error::InvalidGltf;
 				}
 
 				dom::array linearAxesArray;
@@ -4420,14 +4420,14 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
-            }
+			}
 		}
 
 		dom::array driveArray;
 		if (auto error = physicsJointValue["drives"].get_array().get(driveArray); error == SUCCESS) {
 			physicsJoint.drives.reserve(driveArray.size());
 			for (auto driveValue : driveArray) {
-			    auto& drive = physicsJoint.drives.emplace_back();
+				auto& drive = physicsJoint.drives.emplace_back();
 				dom::object driveObject;
 				if (driveValue.get_object().get(driveObject) != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
@@ -4450,18 +4450,18 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 					drive.mode = getDriveMode(mode);
 					if (drive.mode == DriveMode::Invalid) FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
-				    }
+					}
 				} else {
 					return Error::InvalidGltf;
 				}
 
 				uint64_t axis;
 				if (driveValue["axis"].get_uint64().get(axis) == SUCCESS) FASTGLTF_LIKELY {
-				    if (axis < 3) {
+					if (axis < 3) {
 						drive.axis = static_cast<uint8_t>(axis);
-				    } else FASTGLTF_UNLIKELY {
+					} else FASTGLTF_UNLIKELY {
 						return Error::InvalidGltf;
-				    }
+					}
 				} else {
 					return Error::InvalidGltf;
 				}
@@ -4484,7 +4484,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				double positionTarget;
 				if (error = driveValue["positionTarget"].get_double().get(positionTarget); error == SUCCESS) {
-				    drive.positionTarget = static_cast<num>(positionTarget);
+					drive.positionTarget = static_cast<num>(positionTarget);
 				} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
 				}
@@ -4518,7 +4518,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 				}
 			}
 		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
-    		return Error::InvalidGltf;
+			return Error::InvalidGltf;
 		}
 
 		if (config.extrasCallback != nullptr) {
@@ -4776,7 +4776,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
-	    
+		
 	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
@@ -4801,7 +4801,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
-	    
+		
 	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
@@ -4836,46 +4836,46 @@ fg::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 }
 
 fg::Parser::Parser(Extensions extensionsToLoad) noexcept {
-    std::call_once(crcInitialisation, initialiseCrc);
-    jsonParser = std::make_unique<simdjson::dom::parser>();
-    config.extensions = extensionsToLoad;
+	std::call_once(crcInitialisation, initialiseCrc);
+	jsonParser = std::make_unique<simdjson::dom::parser>();
+	config.extensions = extensionsToLoad;
 }
 
 fg::Parser::Parser(Parser&& other) noexcept : jsonParser(std::move(other.jsonParser)), config(other.config) {}
 
 fg::Parser& fg::Parser::operator=(Parser&& other) noexcept {
-    jsonParser = std::move(other.jsonParser);
-    config = other.config;
-    return *this;
+	jsonParser = std::move(other.jsonParser);
+	config = other.config;
+	return *this;
 }
 
 fg::Parser::~Parser() = default;
 
 fg::Expected<fg::Asset> fg::Parser::loadGltf(GltfDataGetter& data, fs::path _directory, Options _options, Category categories) {
-    auto type = fastgltf::determineGltfFileType(data);
+	auto type = fastgltf::determineGltfFileType(data);
 
-    if (type == fastgltf::GltfType::glTF) {
-        return loadGltfJson(data, std::move(_directory), _options, categories);
-    }
+	if (type == fastgltf::GltfType::glTF) {
+		return loadGltfJson(data, std::move(_directory), _options, categories);
+	}
 
-    if (type == fastgltf::GltfType::GLB) {
-        return loadGltfBinary(data, std::move(_directory), _options, categories);
-    }
+	if (type == fastgltf::GltfType::GLB) {
+		return loadGltfBinary(data, std::move(_directory), _options, categories);
+	}
 
-    return Error::InvalidFileData;
+	return Error::InvalidFileData;
 }
 
 fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path _directory, Options _options, Category categories) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	options = _options;
 	directory = std::move(_directory);
 
 #if !defined(__ANDROID__)
-    // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
-    if (std::error_code ec; hasBit(_options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
-        return Error::InvalidPath;
-    }
+	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
+	if (std::error_code ec; hasBit(_options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
+		return Error::InvalidPath;
+	}
 #endif
 
 	data.reset();
@@ -4884,64 +4884,64 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path 
 									  data.totalSize(),
 									  data.totalSize() + SIMDJSON_PADDING);
 	dom::object root;
-    if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) FASTGLTF_UNLIKELY {
-	    return Error::InvalidJson;
-    }
+	if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) FASTGLTF_UNLIKELY {
+		return Error::InvalidJson;
+	}
 
 	return parse(root, categories);
 }
 
 fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::path _directory, Options _options, Category categories) {
-    using namespace simdjson;
+	using namespace simdjson;
 
 	options = _options;
 	directory = std::move(_directory);
 
-    // If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
-    if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
-	    return Error::InvalidPath;
-    }
+	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
+	if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
+		return Error::InvalidPath;
+	}
 
 	data.reset();
 
-    auto header = readBinaryHeader(data);
-    if (header.magic != binaryGltfHeaderMagic) {
-	    return Error::InvalidGLB;
-    }
+	auto header = readBinaryHeader(data);
+	if (header.magic != binaryGltfHeaderMagic) {
+		return Error::InvalidGLB;
+	}
 	if (header.version != 2) {
 		return Error::UnsupportedVersion;
 	}
-    if (header.length > data.totalSize()) {
-	    return Error::InvalidGLB;
-    }
+	if (header.length > data.totalSize()) {
+		return Error::InvalidGLB;
+	}
 
-    // The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
-    //  1. JSON chunk
-    //  2. BIN chunk (optional)
-    auto jsonChunk = readBinaryChunk(data);
-    if (jsonChunk.chunkType != binaryGltfJsonChunkMagic || jsonChunk.chunkLength > data.totalSize() - sizeof(BinaryGltfHeader)) {
-	    return Error::InvalidGLB;
-    }
+	// The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
+	//  1. JSON chunk
+	//  2. BIN chunk (optional)
+	auto jsonChunk = readBinaryChunk(data);
+	if (jsonChunk.chunkType != binaryGltfJsonChunkMagic || jsonChunk.chunkLength > data.totalSize() - sizeof(BinaryGltfHeader)) {
+		return Error::InvalidGLB;
+	}
 
-    // Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
-    // says the padding can be initialised to anything, apparently. Therefore, this should work.
+	// Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
+	// says the padding can be initialised to anything, apparently. Therefore, this should work.
 	auto jsonSpan = data.read(jsonChunk.chunkLength, SIMDJSON_PADDING);
-    simdjson::padded_string_view jsonChunkView(reinterpret_cast<const std::uint8_t*>(jsonSpan.data()),
-                                               jsonChunk.chunkLength,
-                                               jsonChunk.chunkLength + SIMDJSON_PADDING);
+	simdjson::padded_string_view jsonChunkView(reinterpret_cast<const std::uint8_t*>(jsonSpan.data()),
+											   jsonChunk.chunkLength,
+											   jsonChunk.chunkLength + SIMDJSON_PADDING);
 
 	simdjson::dom::object root;
-    if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) FASTGLTF_UNLIKELY {
-	    return Error::InvalidJson;
-    }
+	if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) FASTGLTF_UNLIKELY {
+		return Error::InvalidJson;
+	}
 
-    // Is there enough room for another chunk header?
-    if (header.length > (data.bytesRead() + sizeof(BinaryGltfChunk))) {
-        auto binaryChunk = readBinaryChunk(data);
+	// Is there enough room for another chunk header?
+	if (header.length > (data.bytesRead() + sizeof(BinaryGltfChunk))) {
+		auto binaryChunk = readBinaryChunk(data);
 
-        if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
-	        return Error::InvalidGLB;
-        }
+		if (binaryChunk.chunkType != binaryGltfDataChunkMagic) {
+			return Error::InvalidGLB;
+		}
 
 		// TODO: Somehow allow skipping the binary part in the future?
 		if (binaryChunk.chunkLength != 0) {
@@ -4969,7 +4969,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 				glbBuffer = std::move(vectorData);
 			}
 		}
-    }
+	}
 
 	return parse(root, categories);
 }
@@ -4982,7 +4982,7 @@ void fg::Parser::setBufferAllocationCallback(BufferMapCallback* mapCallback, Buf
 }
 
 void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept {
-    config.decodeCallback = decodeCallback;
+	config.decodeCallback = decodeCallback;
 }
 
 void fg::Parser::setExtrasParseCallback(ExtrasParseCallback *extrasCallback) noexcept {
@@ -4990,52 +4990,52 @@ void fg::Parser::setExtrasParseCallback(ExtrasParseCallback *extrasCallback) noe
 }
 
 void fg::Parser::setUserPointer(void* pointer) noexcept {
-    config.userPointer = pointer;
+	config.userPointer = pointer;
 }
 #pragma endregion
 
 #pragma region Exporter
 void fg::prettyPrintJson(std::string& json) {
-    std::size_t i = 0;
-    std::size_t depth = 0;
-    auto insertNewline = [&i, &depth, &json]() {
-        json.insert(i, 1, '\n');
-        json.insert(i + 1, depth, '\t');
-        i += 1 + depth;
-    };
+	std::size_t i = 0;
+	std::size_t depth = 0;
+	auto insertNewline = [&i, &depth, &json]() {
+		json.insert(i, 1, '\n');
+		json.insert(i + 1, depth, '\t');
+		i += 1 + depth;
+	};
 
-    while (i < json.size()) {
-        if (json[i] == '"') {
-            // Skip to the end of the string
-            do {
-                ++i;
-                if (json[i] == '"' && json[i - 1] != '\\') {
-                    break;
-                }
-            } while (true);
-            ++i; // Skip over the last "
-        }
+	while (i < json.size()) {
+		if (json[i] == '"') {
+			// Skip to the end of the string
+			do {
+				++i;
+				if (json[i] == '"' && json[i - 1] != '\\') {
+					break;
+				}
+			} while (true);
+			++i; // Skip over the last "
+		}
 
-        switch (json[i]) {
-            case '{': case '[':
-                ++depth;
-                ++i; // Insert \n after the character
-                insertNewline();
-                break;
-            case '}': case ']':
-                --depth;
-                insertNewline();
-                ++i; // Insert \n before the character
-                break;
-            case ',':
-                ++i;  // Insert \n after the character
-                insertNewline();
-                break;
-            default:
-                ++i;
-                break;
-        }
-    }
+		switch (json[i]) {
+			case '{': case '[':
+				++depth;
+				++i; // Insert \n after the character
+				insertNewline();
+				break;
+			case '}': case ']':
+				--depth;
+				insertNewline();
+				++i; // Insert \n before the character
+				break;
+			case ',':
+				++i;  // Insert \n after the character
+				insertNewline();
+				break;
+			default:
+				++i;
+				break;
+		}
+	}
 }
 
 namespace fastgltf {
@@ -5085,7 +5085,7 @@ namespace fastgltf {
 		return {std::begin(buffer), end};
 	}
 
-    std::string to_string(const math::fvec2 value) {
+	std::string to_string(const math::fvec2 value) {
 		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]);
 	}
 
@@ -5135,23 +5135,23 @@ namespace fastgltf {
 } // namespace fastgltf
 
 std::string fg::escapeString(std::string_view string) {
-    std::string ret(string);
+	std::string ret(string);
 	escapeString(ret);
-    return ret;
+	return ret;
 }
 
 void fg::Exporter::setBufferPath(fs::path folder) {
-    if (!folder.is_relative()) {
-        return;
-    }
-    bufferFolder = std::move(folder);
+	if (!folder.is_relative()) {
+		return;
+	}
+	bufferFolder = std::move(folder);
 }
 
 void fg::Exporter::setImagePath(fs::path folder) {
-    if (!folder.is_relative()) {
-        return;
-    }
-    imageFolder = std::move(folder);
+	if (!folder.is_relative()) {
+		return;
+	}
+	imageFolder = std::move(folder);
 }
 
 void fg::Exporter::setExtrasWriteCallback(ExtrasWriteCallback* callback) noexcept {
@@ -5335,20 +5335,20 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 	for (auto it = asset.buffers.begin(); it != asset.buffers.end(); ++it) {
 		json += '{';
 
-        auto bufferIdx = uabs(std::distance(asset.buffers.begin(), it));
+		auto bufferIdx = uabs(std::distance(asset.buffers.begin(), it));
 		std::visit(visitor {
 			[&](auto&) {
 				// Covers BufferView and CustomBuffer.
 				errorCode = Error::InvalidGltf;
 			},
 			[&]([[maybe_unused]] const sources::Array& vector) {
-                if (bufferIdx == 0 && exportingBinary) {
-                    bufferPaths.emplace_back(std::nullopt);
-                    return;
-                }
-                auto path = getBufferFilePath(asset, bufferIdx);
-                json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
-                bufferPaths.emplace_back(path);
+				if (bufferIdx == 0 && exportingBinary) {
+					bufferPaths.emplace_back(std::nullopt);
+					return;
+				}
+				auto path = getBufferFilePath(asset, bufferIdx);
+				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
+				bufferPaths.emplace_back(path);
 			},
 			[&]([[maybe_unused]] const sources::Vector& vector) {
 				if (bufferIdx == 0 && exportingBinary) {
@@ -5364,13 +5364,13 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 					bufferPaths.emplace_back(std::nullopt);
 					return;
 				}
-                auto path = getBufferFilePath(asset, bufferIdx);
-                json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
-                bufferPaths.emplace_back(path);
+				auto path = getBufferFilePath(asset, bufferIdx);
+				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
+				bufferPaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"' + ',';
-                bufferPaths.emplace_back(std::nullopt);
+				bufferPaths.emplace_back(std::nullopt);
 			},
 			[&]([[maybe_unused]] const sources::Fallback& fallback) {
 				json += R"("extensions":{"EXT_meshopt_compression":{"fallback":true}},)";
@@ -5421,37 +5421,37 @@ void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
 			json += ",\"target\":" + std::to_string(to_underlying(it->target.value()));
 		}
 
-        if (it->meshoptCompression != nullptr) {
-            json += R"(,"extensions":{"EXT_meshopt_compression":{)";
-            const auto& meshopt = *it->meshoptCompression;
-            json += "\"buffer\":" + std::to_string(meshopt.bufferIndex);
-            if (meshopt.byteOffset != 0) {
-                json += ",\"byteOffset\":" + std::to_string(meshopt.byteOffset);
-            }
-            json += ",\"byteLength\":" + std::to_string(meshopt.byteLength);
-            json += ",\"byteStride\":" + std::to_string(meshopt.byteStride);
-            json += ",\"count\":" + std::to_string(meshopt.count);
+		if (it->meshoptCompression != nullptr) {
+			json += R"(,"extensions":{"EXT_meshopt_compression":{)";
+			const auto& meshopt = *it->meshoptCompression;
+			json += "\"buffer\":" + std::to_string(meshopt.bufferIndex);
+			if (meshopt.byteOffset != 0) {
+				json += ",\"byteOffset\":" + std::to_string(meshopt.byteOffset);
+			}
+			json += ",\"byteLength\":" + std::to_string(meshopt.byteLength);
+			json += ",\"byteStride\":" + std::to_string(meshopt.byteStride);
+			json += ",\"count\":" + std::to_string(meshopt.count);
 
-            json += ",\"mode\":";
-            if (meshopt.mode == MeshoptCompressionMode::Attributes) {
-                json += "\"ATTRIBUTES\"";
-            } else if (meshopt.mode == MeshoptCompressionMode::Triangles) {
-                json += "\"TRIANGLES\"";
-            } else if (meshopt.mode == MeshoptCompressionMode::Indices) {
-                json += "\"INDICES\"";
-            }
-            if (meshopt.filter != MeshoptCompressionFilter::None) {
-                json += ",\"filter\":";
-                if (meshopt.filter == MeshoptCompressionFilter::Exponential) {
-                    json += "\"EXPONENTIAL\"";
-                } else if (meshopt.filter == MeshoptCompressionFilter::Quaternion) {
-                    json += "\"QUATERNION\"";
-                } else if (meshopt.filter == MeshoptCompressionFilter::Octahedral) {
-                    json += "\"OCTAHEDRAL\"";
-                }
-            }
-            json += "}}";
-        }
+			json += ",\"mode\":";
+			if (meshopt.mode == MeshoptCompressionMode::Attributes) {
+				json += "\"ATTRIBUTES\"";
+			} else if (meshopt.mode == MeshoptCompressionMode::Triangles) {
+				json += "\"TRIANGLES\"";
+			} else if (meshopt.mode == MeshoptCompressionMode::Indices) {
+				json += "\"INDICES\"";
+			}
+			if (meshopt.filter != MeshoptCompressionFilter::None) {
+				json += ",\"filter\":";
+				if (meshopt.filter == MeshoptCompressionFilter::Exponential) {
+					json += "\"EXPONENTIAL\"";
+				} else if (meshopt.filter == MeshoptCompressionFilter::Quaternion) {
+					json += "\"QUATERNION\"";
+				} else if (meshopt.filter == MeshoptCompressionFilter::Octahedral) {
+					json += "\"OCTAHEDRAL\"";
+				}
+			}
+			json += "}}";
+		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.bufferViews.begin(), it)), fastgltf::Category::BufferViews, userPointer);
@@ -5536,24 +5536,24 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
 		json += '{';
 
-        auto imageIdx = uabs(std::distance(asset.images.begin(), it));
+		auto imageIdx = uabs(std::distance(asset.images.begin(), it));
 		std::visit(visitor {
 			[&](auto&) {
 				errorCode = Error::InvalidGltf;
 			},
-            [&](const sources::BufferView& bufferView) {
-                json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + ',';
+			[&](const sources::BufferView& bufferView) {
+				json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + ',';
 				json += std::string(R"("mimeType":")") + std::string(getMimeTypeString(bufferView.mimeType)) + '"';
-                imagePaths.emplace_back(std::nullopt);
-            },
-            [&](const sources::Array& vector) {
-                auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
-                json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
+				imagePaths.emplace_back(std::nullopt);
+			},
+			[&](const sources::Array& vector) {
+				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
+				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
 				}
-                imagePaths.emplace_back(path);
-            },
+				imagePaths.emplace_back(path);
+			},
 			[&](const sources::Vector& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
 				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
@@ -5564,7 +5564,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
-                imagePaths.emplace_back(std::nullopt);
+				imagePaths.emplace_back(std::nullopt);
 			},
 		}, it->data);
 		if (errorCode != Error::None)
@@ -6043,34 +6043,34 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 	for (auto it = asset.meshes.begin(); it != asset.meshes.end(); ++it) {
 		json += '{';
 
-        if (!it->primitives.empty()) {
-            json += R"("primitives":[)";
-            auto itp = it->primitives.begin();
-            while (itp != it->primitives.end()) {
-                json += '{';
+		if (!it->primitives.empty()) {
+			json += R"("primitives":[)";
+			auto itp = it->primitives.begin();
+			while (itp != it->primitives.end()) {
+				json += '{';
 
-                {
-                    json += R"("attributes":{)";
-                    for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
-                        json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
-                        if (uabs(std::distance(itp->attributes.begin(), ita)) + 1 <itp->attributes.size())
-                            json += ',';
-                    }
-                    json += '}';
-                }
+				{
+					json += R"("attributes":{)";
+					for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
+						json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
+						if (uabs(std::distance(itp->attributes.begin(), ita)) + 1 <itp->attributes.size())
+							json += ',';
+					}
+					json += '}';
+				}
 
-                if (itp->indicesAccessor.has_value()) {
-                    json += R"(,"indices":)" + std::to_string(itp->indicesAccessor.value());
-                }
+				if (itp->indicesAccessor.has_value()) {
+					json += R"(,"indices":)" + std::to_string(itp->indicesAccessor.value());
+				}
 
-                if (itp->materialIndex.has_value()) {
-                    json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
-                }
+				if (itp->materialIndex.has_value()) {
+					json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
+				}
 
-            	if (!itp->targets.empty())
-            	{
-            		json  += R"(,"targets":[)";
-            		for (auto itt = itp->targets.begin(); itt != itp->targets.end(); ++itt) {
+				if (!itp->targets.empty())
+				{
+					json  += R"(,"targets":[)";
+					for (auto itt = itp->targets.begin(); itt != itp->targets.end(); ++itt) {
 						json += '{';
 						for (auto ita = itt->begin(); ita != itt->end(); ++ita) {
 							json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
@@ -6081,12 +6081,12 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 						if (uabs(std::distance(itp->targets.begin(), itt)) + 1 < itp->targets.size())
 							json += ',';
 					}
-            		json += ']';
-            	}
+					json += ']';
+				}
 
-                if (itp->type != PrimitiveType::Triangles) {
-                    json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
-                }
+				if (itp->type != PrimitiveType::Triangles) {
+					json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
+				}
 
 				const bool hasExtensions = !itp->mappings.empty() || itp->dracoCompression;
 				if (hasExtensions) {
@@ -6154,10 +6154,10 @@ void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
 		}
 
 		if (!it->name.empty()) {
-            if (json.back() != '{')
-                json += ',';
-            json += R"("name":")" + fg::escapeString(it->name) + '"';
-        }
+			if (json.back() != '{')
+				json += ',';
+			json += R"("name":")" + fg::escapeString(it->name) + '"';
+		}
 		json += '}';
 		if (uabs(std::distance(asset.meshes.begin(), it)) + 1 <asset.meshes.size())
 			json += ',';
@@ -6259,7 +6259,7 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 			},
 		}, it->transform);
 
-	    if (!it->instancingAttributes.empty() || it->lightIndex.has_value()
+		if (!it->instancingAttributes.empty() || it->lightIndex.has_value()
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			|| it->physicsRigidBody
 #endif
@@ -6300,8 +6300,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 						json += R"(,"inertialOrientation":[)" + to_string(*motion.inertialOrientation) + ']';
 					}
 					json += R"(,"linearVelocity":)" + to_string(motion.linearVelocity)
-				        + R"(],"angularVelocity":[)" + to_string(motion.angularVelocity)
-				        + R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + '}';
+						+ R"(],"angularVelocity":[)" + to_string(motion.angularVelocity)
+						+ R"(],"gravityFactor":[)" + to_string_fp(motion.gravityFactor) + '}';
 				}
 
 				if (it->physicsRigidBody->trigger.has_value()) {
@@ -6339,8 +6339,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					if (json.back() != '{') json += ',';
 					const auto& joint = *it->physicsRigidBody->joint;
 					json += R"("joint":{"connectedNode":)" + std::to_string(joint.connectedNode)
-				        + R"(,"joint":)" + std::to_string(joint.joint)
-				        + R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + '}';
+						+ R"(,"joint":)" + std::to_string(joint.joint)
+						+ R"(,"enableCollision":)" + std::to_string(joint.enableCollision) + '}';
 				}
 
 				if (it->physicsRigidBody->collider.has_value()) {
@@ -6372,15 +6372,15 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 				json += R"("KHR_node_visibility":{"visible":false})";
 			}
 
-	    	if (!it->selectable) {
-	    		if (json.back() != '{') json += ',';
-	    		json += R"("KHR_node_selectability":{"selectable":false})";
-	    	}
+			if (!it->selectable) {
+				if (json.back() != '{') json += ',';
+				json += R"("KHR_node_selectability":{"selectable":false})";
+			}
 
-	    	if (!it->hoverable) {
-	    		if (json.back() != '{') json += ',';
-	    		json += R"("KHR_node_hoverability":{"hoverable":false})";
-	    	}
+			if (!it->hoverable) {
+				if (json.back() != '{') json += ',';
+				json += R"("KHR_node_hoverability":{"hoverable":false})";
+			}
 
 			json += "}";
 		}
@@ -6610,7 +6610,7 @@ void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
 				json += R"("type":"sphere","sphere":{"radius":)" + to_string_fp(sphere.radius) + '}';
 			},
 			[&](const BoxShape& box) {
-			    json += R"("type":"box","box":{"size":[)" + to_string(box.size) + "]}";
+				json += R"("type":"box","box":{"size":[)" + to_string(box.size) + "]}";
 			},
 			[&](const CylinderShape& cylinder) {
 				json += R"("type":"cylinder","cylinder":{"height":)" + to_string_fp(cylinder.height)
@@ -6647,9 +6647,9 @@ void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) {
-    if (asset.physicsMaterials.empty()) {
-        return;
-    }
+	if (asset.physicsMaterials.empty()) {
+		return;
+	}
 	if (json.back() == ']' || json.back() == '}') {
 		json += ',';
 	}
@@ -6660,23 +6660,23 @@ void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) 
 		const auto& material = *it;
 
 		json += R"({"staticFriction":)" + to_string_fp(material.staticFriction)
-	        + R"(,"dynamicFriction":)" + to_string_fp(material.dynamicFriction)
-	        + R"(,"restitution":)" + to_string_fp(material.restitution)
-	        + R"(,"frictionCombine":)";
+			+ R"(,"dynamicFriction":)" + to_string_fp(material.dynamicFriction)
+			+ R"(,"restitution":)" + to_string_fp(material.restitution)
+			+ R"(,"frictionCombine":)";
 		switch (material.frictionCombine) {
-        case CombineMode::Average:
+		case CombineMode::Average:
 			json += R"("average")";
-            break;
-        case CombineMode::Minimum:
+			break;
+		case CombineMode::Minimum:
 			json += R"("minimum")";
-            break;
-        case CombineMode::Maximum:
+			break;
+		case CombineMode::Maximum:
 			json += R"("maximum")";
-            break;
-        case CombineMode::Multiply:
+			break;
+		case CombineMode::Multiply:
 			json += R"("multiply")";
-            break;
-        }
+			break;
+		}
 		json += R"(,"restitutionCombine":)";
 		switch (material.restitutionCombine) {
 		case CombineMode::Average:
@@ -6848,7 +6848,7 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 				if (limit.stiffness) {
 					json += R"("stiffness":)" + to_string_fp(*limit.stiffness) + ',';
 				}
-			    json += R"("damping":)" + to_string_fp(limit.damping);
+				json += R"("damping":)" + to_string_fp(limit.damping);
 				json += '}';
 
 				if (uabs(std::distance(joint.limits.begin(), limitIt)) + 1 < joint.limits.size()) {
@@ -6869,13 +6869,13 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 
 				json += R"({"type":)";
 				switch(drive.type) {
-                case DriveType::Linear:
+				case DriveType::Linear:
 					json += R"("linear")";
-                    break;
-                case DriveType::Angular:
+					break;
+				case DriveType::Angular:
 					json += R"("angular")";
-                    break;
-                }
+					break;
+				}
 
 				json += R"(,"mode":)";
 				switch (drive.mode) {
@@ -6888,11 +6888,11 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 				}
 
 				json += R"(,"axis":)" + std::to_string(drive.axis)
-			        + R"(,"maxForce":)" + to_string_fp(drive.maxForce)
-			        + R"(,"positionTarget":)" + to_string_fp(drive.positionTarget)
-			        + R"(,"velocityTarget":)" + to_string_fp(drive.velocityTarget)
-			        + R"(,"stiffness":)" + to_string_fp(drive.stiffness)
-			        + R"(,"damping":)" + to_string_fp(drive.damping);
+					+ R"(,"maxForce":)" + to_string_fp(drive.maxForce)
+					+ R"(,"positionTarget":)" + to_string_fp(drive.positionTarget)
+					+ R"(,"velocityTarget":)" + to_string_fp(drive.velocityTarget)
+					+ R"(,"stiffness":)" + to_string_fp(drive.stiffness)
+					+ R"(,"damping":)" + to_string_fp(drive.damping);
 
 				json += '}';
 
@@ -6928,9 +6928,9 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
 void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& json) {
 	if (json.back() == ']' || json.back() == '}')
 		json += ',';
-    json += "\"extensions\":{";
+	json += "\"extensions\":{";
 
-    writeLights(asset, json);
+	writeLights(asset, json);
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 	writeShapes(asset, json);
@@ -6941,12 +6941,12 @@ void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& js
 		if (json.back() == ']' || json.back() == '}') {
 			json += ',';
 		}
-        json += R"("KHR_physics_rigid_bodies":{)";
-        writePhysicsMaterials(asset, json);
-        writeCollisionFilters(asset, json);
-        writePhysicsJoints(asset, json);
-        json += '}';
-    }
+		json += R"("KHR_physics_rigid_bodies":{)";
+		writePhysicsMaterials(asset, json);
+		writeCollisionFilters(asset, json);
+		writePhysicsJoints(asset, json);
+		json += '}';
+	}
 #endif
 
 	if (!asset.materialVariants.empty()) {
@@ -6961,26 +6961,26 @@ void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& js
 		json += "]}";
 	}
 
-    json += '}';
+	json += '}';
 }
 
 fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) {
-    const auto& bufferName = asset.buffers[index].name;
-    if (bufferName.empty()) {
-        return bufferFolder / ("buffer" + std::to_string(index) + ".bin");
-    }
+	const auto& bufferName = asset.buffers[index].name;
+	if (bufferName.empty()) {
+		return bufferFolder / ("buffer" + std::to_string(index) + ".bin");
+	}
 	return bufferFolder / (bufferName + ".bin");
 }
 
 fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
-    std::string_view extension;
-    switch (mimeType) {
-        case MimeType::JPEG:
-            extension = ".jpeg";
-            break;
-        case MimeType::PNG:
-            extension = ".png";
-            break;
+	std::string_view extension;
+	switch (mimeType) {
+		case MimeType::JPEG:
+			extension = ".jpeg";
+			break;
+		case MimeType::PNG:
+			extension = ".png";
+			break;
 		case MimeType::KTX2:
 			extension = ".ktx2";
 			break;
@@ -6993,9 +6993,9 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
 		case MimeType::OctetStream:
 			extension = ".bin";
 			break;
-    }
+	}
 
-    const auto& imageName = asset.images[index].name;
+	const auto& imageName = asset.images[index].name;
 	if (imageName.empty()) {
 		return imageFolder / ("image" + std::to_string(index) + std::string(extension));
 	}
@@ -7003,24 +7003,24 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
 }
 
 std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
-    // Fairly rudimentary approach of just composing the JSON string using a std::string.
-    std::string outputString;
+	// Fairly rudimentary approach of just composing the JSON string using a std::string.
+	std::string outputString;
 
-    outputString += "{";
+	outputString += "{";
 
-    // Write asset info
-    outputString += "\"asset\":{";
-    if (asset.assetInfo.has_value()) {
-        if (!asset.assetInfo->copyright.empty())
-            outputString += R"("copyright":")" + fg::escapeString(asset.assetInfo->copyright) + "\",";
-        if (!asset.assetInfo->generator.empty())
-            outputString += R"("generator":")" + fg::escapeString(asset.assetInfo->generator) + "\",";
-        outputString += R"("version":")" + asset.assetInfo->gltfVersion + '"';
-    } else {
-        outputString += R"("generator":"fastgltf",)";
-        outputString += R"("version":"2.0")";
-    }
-    outputString += '}';
+	// Write asset info
+	outputString += "\"asset\":{";
+	if (asset.assetInfo.has_value()) {
+		if (!asset.assetInfo->copyright.empty())
+			outputString += R"("copyright":")" + fg::escapeString(asset.assetInfo->copyright) + "\",";
+		if (!asset.assetInfo->generator.empty())
+			outputString += R"("generator":")" + fg::escapeString(asset.assetInfo->generator) + "\",";
+		outputString += R"("version":")" + asset.assetInfo->gltfVersion + '"';
+	} else {
+		outputString += R"("generator":"fastgltf",)";
+		outputString += R"("version":"2.0")";
+	}
+	outputString += '}';
 
 	// Write extension usage info
 	if (!asset.extensionsUsed.empty()) {
@@ -7044,95 +7044,95 @@ std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
 		outputString += ']';
 	}
 
-    writeAccessors(asset, outputString);
-    writeAnimations(asset, outputString);
-    writeBuffers(asset, outputString);
-    writeBufferViews(asset, outputString);
-    writeCameras(asset, outputString);
-    writeImages(asset, outputString);
-    writeMaterials(asset, outputString);
-    writeMeshes(asset, outputString);
-    writeNodes(asset, outputString);
-    writeSamplers(asset, outputString);
-    writeScenes(asset, outputString);
-    writeSkins(asset, outputString);
-    writeTextures(asset, outputString);
-    writeExtensions(asset, outputString);
+	writeAccessors(asset, outputString);
+	writeAnimations(asset, outputString);
+	writeBuffers(asset, outputString);
+	writeBufferViews(asset, outputString);
+	writeCameras(asset, outputString);
+	writeImages(asset, outputString);
+	writeMaterials(asset, outputString);
+	writeMeshes(asset, outputString);
+	writeNodes(asset, outputString);
+	writeSamplers(asset, outputString);
+	writeScenes(asset, outputString);
+	writeSkins(asset, outputString);
+	writeTextures(asset, outputString);
+	writeExtensions(asset, outputString);
 
-    outputString += "}";
+	outputString += "}";
 
-    if (hasBit(options, ExportOptions::PrettyPrintJson)) {
-        prettyPrintJson(outputString);
-    }
+	if (hasBit(options, ExportOptions::PrettyPrintJson)) {
+		prettyPrintJson(outputString);
+	}
 
-    return outputString;
+	return outputString;
 }
 
 fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset& asset, ExportOptions _options) {
-    bufferPaths.clear();
-    imagePaths.clear();
-    options = _options;
+	bufferPaths.clear();
+	imagePaths.clear();
+	options = _options;
 	exportingBinary = false;
 
-    if (hasBit(options, ExportOptions::ValidateAsset)) {
-        if (const auto validation = validate(asset); validation != Error::None) {
-            return validation;
-        }
-    }
+	if (hasBit(options, ExportOptions::ValidateAsset)) {
+		if (const auto validation = validate(asset); validation != Error::None) {
+			return validation;
+		}
+	}
 
-    // Fairly rudimentary approach of just composing the JSON string using a std::string.
-    std::string outputString = writeJson(asset);
-    if (errorCode != Error::None) {
+	// Fairly rudimentary approach of just composing the JSON string using a std::string.
+	std::string outputString = writeJson(asset);
+	if (errorCode != Error::None) {
 		return errorCode;
-    }
+	}
 
-    ExportResult<std::string> result;
-    result.output = std::move(outputString);
-    result.bufferPaths = std::move(bufferPaths);
-    result.imagePaths = std::move(imagePaths);
-    return result;
+	ExportResult<std::string> result;
+	result.output = std::move(outputString);
+	result.bufferPaths = std::move(bufferPaths);
+	result.imagePaths = std::move(imagePaths);
+	return result;
 }
 
 fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions _options) {
-    bufferPaths.clear();
-    imagePaths.clear();
-    options = _options;
+	bufferPaths.clear();
+	imagePaths.clear();
+	options = _options;
 	exportingBinary = true;
 
-    options &= (~ExportOptions::PrettyPrintJson);
+	options &= (~ExportOptions::PrettyPrintJson);
 
-    ExportResult<std::vector<std::byte>> result;
-    auto json = writeJson(asset);
-    if (errorCode != Error::None) {
+	ExportResult<std::vector<std::byte>> result;
+	auto json = writeJson(asset);
+	if (errorCode != Error::None) {
 		return errorCode;
-    }
+	}
 
-    result.bufferPaths = std::move(bufferPaths);
-    result.imagePaths = std::move(imagePaths);
+	result.bufferPaths = std::move(bufferPaths);
+	result.imagePaths = std::move(imagePaths);
 
 	// TODO: Add ExportOption enumeration for disabling this?
-    const bool withEmbeddedBuffer = !asset.buffers.empty()
+	const bool withEmbeddedBuffer = !asset.buffers.empty()
 			// We only support writing Vectors and ByteViews as embedded buffers
 			&& (std::holds_alternative<sources::Array>(asset.buffers.front().data) || std::holds_alternative<sources::ByteView>(asset.buffers.front().data) || std::holds_alternative<sources::Vector>(asset.buffers.front().data))
 			&& asset.buffers.front().byteLength < std::numeric_limits<decltype(BinaryGltfChunk::chunkLength)>::max();
 
-    std::size_t binarySize = 0;
-    binarySize += sizeof(BinaryGltfHeader); // glTF header
-    binarySize += sizeof(BinaryGltfChunk) + alignUp(json.size(), 4); // JSON chunk
-    if (withEmbeddedBuffer) {
-        binarySize += sizeof(BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4); // BIN chunk
-    }
+	std::size_t binarySize = 0;
+	binarySize += sizeof(BinaryGltfHeader); // glTF header
+	binarySize += sizeof(BinaryGltfChunk) + alignUp(json.size(), 4); // JSON chunk
+	if (withEmbeddedBuffer) {
+		binarySize += sizeof(BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4); // BIN chunk
+	}
 
 	// A GLB is limited to 2^32 bytes since the length field in the file header is a 32-bit integer.
 	if (binarySize >= static_cast<std::size_t>(std::numeric_limits<decltype(BinaryGltfHeader::length)>::max())) {
 		return Error::InvalidGLB;
 	}
 
-    result.output.resize(binarySize);
-    auto write = [output = result.output.data()](const void* data, std::size_t size) mutable {
-        std::memcpy(output, data, size);
-        output += size;
-    };
+	result.output.resize(binarySize);
+	auto write = [output = result.output.data()](const void* data, std::size_t size) mutable {
+		std::memcpy(output, data, size);
+		output += size;
+	};
 
 	// Write glTF header
 	BinaryGltfHeader header {};
@@ -7149,21 +7149,21 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 	auto chunkBytes = writeBinaryChunk(jsonChunk);
 	write(chunkBytes.data(), chunkBytes.size());
 
-    write(json.data(), json.size());
+	write(json.data(), json.size());
 
-    // 4 bytes padding with space character (0x20)
-    for (std::size_t i = json.size(); i % 4 != 0; ++i) {
-        static constexpr std::uint8_t space = 0x20U;
-        write(&space, sizeof space);
-    }
+	// 4 bytes padding with space character (0x20)
+	for (std::size_t i = json.size(); i % 4 != 0; ++i) {
+		static constexpr std::uint8_t space = 0x20U;
+		write(&space, sizeof space);
+	}
 
-    if (withEmbeddedBuffer) {
-        const auto& buffer = asset.buffers.front();
+	if (withEmbeddedBuffer) {
+		const auto& buffer = asset.buffers.front();
 
-        // Write BIN chunk
-        BinaryGltfChunk dataChunk {};
-        dataChunk.chunkType = binaryGltfDataChunkMagic;
-        dataChunk.chunkLength = static_cast<std::uint32_t>(alignUp(buffer.byteLength, 4));
+		// Write BIN chunk
+		BinaryGltfChunk dataChunk {};
+		dataChunk.chunkType = binaryGltfDataChunkMagic;
+		dataChunk.chunkLength = static_cast<std::uint32_t>(alignUp(buffer.byteLength, 4));
 		chunkBytes = writeBinaryChunk(dataChunk);
 		write(chunkBytes.data(), chunkBytes.size());
 
@@ -7180,14 +7180,14 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 			},
 		}, buffer.data);
 
-        // 4 bytes padding with zeros
-        for (std::size_t i = buffer.byteLength; i % 4 != 0; ++i) {
-            static constexpr std::uint8_t zero = 0x0U;
-            write(&zero, sizeof zero);
-        }
-    }
+		// 4 bytes padding with zeros
+		for (std::size_t i = buffer.byteLength; i % 4 != 0; ++i) {
+			static constexpr std::uint8_t zero = 0x0U;
+			write(&zero, sizeof zero);
+		}
+	}
 
-    return result;
+	return result;
 }
 
 namespace fastgltf {
@@ -7267,23 +7267,23 @@ fg::Error fg::FileExporter::writeGltfJson(const Asset& asset, const fs::path& ta
 
 	auto expected = Exporter::writeGltfJson(asset, _options);
 
-    if (!expected) {
-        return expected.error();
-    }
-    auto& result = expected.get();
+	if (!expected) {
+		return expected.error();
+	}
+	auto& result = expected.get();
 
-    std::ofstream file(target, std::ios::out);
-    if (!file.is_open()) {
-        return fg::Error::InvalidPath;
-    }
+	std::ofstream file(target, std::ios::out);
+	if (!file.is_open()) {
+		return fg::Error::InvalidPath;
+	}
 
-    file << result.output;
-    file.close();
+	file << result.output;
+	file.close();
 
 	if (!writeFiles(asset, result, target.parent_path())) {
 		return Error::FailedWritingFiles;
 	}
-    return Error::None;
+	return Error::None;
 }
 
 fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, const fs::path& target, const ExportOptions _options) {
@@ -7294,25 +7294,25 @@ fg::Error fg::FileExporter::writeGltfBinary(const Asset& asset, const fs::path& 
 		}
 	}
 
-    auto expected = Exporter::writeGltfBinary(asset, _options);
+	auto expected = Exporter::writeGltfBinary(asset, _options);
 
-    if (!expected) {
-        return expected.error();
-    }
-    auto& result = expected.get();
+	if (!expected) {
+		return expected.error();
+	}
+	auto& result = expected.get();
 
-    std::ofstream file(target, std::ios::out | std::ios::binary);
-    if (!file.is_open()) {
-        return Error::InvalidPath;
-    }
+	std::ofstream file(target, std::ios::out | std::ios::binary);
+	if (!file.is_open()) {
+		return Error::InvalidPath;
+	}
 
-    file.write(reinterpret_cast<const char*>(result.output.data()),
-               static_cast<std::streamsize>(result.output.size()));
+	file.write(reinterpret_cast<const char*>(result.output.data()),
+			   static_cast<std::streamsize>(result.output.size()));
 
 	if (!writeFiles(asset, result, target.parent_path())) {
 		return Error::FailedWritingFiles;
 	}
-    return Error::None;
+	return Error::None;
 }
 #pragma endregion
 

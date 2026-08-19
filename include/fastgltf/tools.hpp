@@ -194,13 +194,13 @@ namespace internal {
  */
 template <typename T>
 constexpr T deserializeComponent(const std::byte* bytes, std::size_t index) {
-    static_assert(std::is_integral_v<T> && !std::is_same_v<T, bool>, "Component deserialization is only supported on basic arithmetic types.");
-    T ret = 0;
-    // Turns out that on some systems a byte is not 8-bit so this sizeof is not technically correct.
-    for (std::size_t i = 0; i < sizeof(T); ++i) {
-        ret |= (static_cast<T>(bytes[i + index * sizeof(T)]) << i * 8);
-    }
-    return ret;
+	static_assert(std::is_integral_v<T> && !std::is_same_v<T, bool>, "Component deserialization is only supported on basic arithmetic types.");
+	T ret = 0;
+	// Turns out that on some systems a byte is not 8-bit so this sizeof is not technically correct.
+	for (std::size_t i = 0; i < sizeof(T); ++i) {
+		ret |= (static_cast<T>(bytes[i + index * sizeof(T)]) << i * 8);
+	}
+	return ret;
 }
 
 #if FASTGLTF_HAS_FLOAT32
@@ -225,12 +225,12 @@ template<>
 constexpr
 #endif
 inline float deserializeComponent<float>(const std::byte* bytes, std::size_t index) {
-    static_assert(std::numeric_limits<float>::is_iec559 &&
-                  std::numeric_limits<float>::radix == 2 &&
-                  std::numeric_limits<float>::digits == 24 &&
-                  std::numeric_limits<float>::max_exponent == 128,
-                  "Float deserialization is only supported on IEE754 platforms");
-    return bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
+	static_assert(std::numeric_limits<float>::is_iec559 &&
+				  std::numeric_limits<float>::radix == 2 &&
+				  std::numeric_limits<float>::digits == 24 &&
+				  std::numeric_limits<float>::max_exponent == 128,
+				  "Float deserialization is only supported on IEE754 platforms");
+	return bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
 }
 #endif
 
@@ -256,12 +256,12 @@ template<>
 constexpr
 #endif
 inline double deserializeComponent<double>(const std::byte* bytes, std::size_t index) {
-    static_assert(std::numeric_limits<double>::is_iec559 &&
-                  std::numeric_limits<double>::radix == 2 &&
-                  std::numeric_limits<double>::digits == 53 &&
-                  std::numeric_limits<double>::max_exponent == 1024,
-                  "Float deserialization is only supported on IEE754 platforms");
-    return bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
+	static_assert(std::numeric_limits<double>::is_iec559 &&
+				  std::numeric_limits<double>::radix == 2 &&
+				  std::numeric_limits<double>::digits == 53 &&
+				  std::numeric_limits<double>::max_exponent == 1024,
+				  "Float deserialization is only supported on IEE754 platforms");
+	return bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
 }
 #endif
 
@@ -283,7 +283,7 @@ constexpr DestType convertComponent(const SourceType& source, bool normalized) {
 			// We have to use max here because for uchar -> float we could have -128 but 1.0 should represent 127,
 			// which is why -128 and -127 both equate to 1.0.
 			return fastgltf::max(static_cast<DestType>(source) / static_cast<DestType>(std::numeric_limits<SourceType>::max()),
-			                     minValue);
+								 minValue);
 		}
 	}
 
@@ -493,8 +493,9 @@ public:
 			: accessor(accessor), idx(idx) {
 		if (accessor->accessor.sparse.has_value()) {
 			// Get the first sparse index.
-			nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(accessor->indexComponentType,
-			                                                                &accessor->indicesBytes[accessor->indexStride * sparseIdx]);
+			nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
+				accessor->indexComponentType,
+				&accessor->indicesBytes[accessor->indexStride * sparseIdx]);
 		}
 	}
 
@@ -530,15 +531,17 @@ public:
 		if (accessor->accessor.sparse.has_value()) {
 			if (idx == nextSparseIndex) {
 				// Get the sparse value for this index
-				auto value = internal::getAccessorElementAt<ElementType>(accessor->componentType,
-																		 &accessor->valuesBytes[accessor->valueStride * sparseIdx],
-																		 accessor->accessor.normalized);
+				auto value = internal::getAccessorElementAt<ElementType>(
+					accessor->componentType,
+					&accessor->valuesBytes[accessor->valueStride * sparseIdx],
+					accessor->accessor.normalized);
 
 				// Find the next sparse index.
 				++sparseIdx;
 				if (sparseIdx < accessor->sparseCount) {
-					nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(accessor->indexComponentType,
-					                                                                &accessor->indicesBytes[accessor->indexStride * sparseIdx]);
+					nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
+						accessor->indexComponentType,
+						&accessor->indicesBytes[accessor->indexStride * sparseIdx]);
 				}
 				return value;
 			}
@@ -657,12 +660,12 @@ ElementType getAccessorElement(const Asset& asset, const Accessor& accessor, siz
 	}
 
 	const auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-    auto stride = view.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
+	auto stride = view.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
 
 	auto bytes = adapter(asset, *accessor.bufferViewIndex).subspan(accessor.byteOffset);
 
 	return internal::getAccessorElementAt<ElementType>(
-            accessor.componentType, &bytes[index * stride], accessor.normalized);
+			accessor.componentType, &bytes[index * stride], accessor.normalized);
 }
 
 FASTGLTF_EXPORT template<typename ElementType, typename BufferDataAdapter = DefaultBufferDataAdapter>
@@ -706,8 +709,8 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 		if (accessor.bufferViewIndex) {
 			auto& view = asset.bufferViews[*accessor.bufferViewIndex];
 			srcBytes = adapter(asset, *accessor.bufferViewIndex).subspan(accessor.byteOffset);
-            srcStride = view.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
-        }
+			srcStride = view.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
+		}
 
 		auto nextSparseIndex = internal::getAccessorElementAt<std::uint32_t>(
 				accessor.sparse->indexComponentType, indicesBytes.data());
@@ -750,7 +753,7 @@ void iterateAccessor(const Asset& asset, const Accessor& accessor, Functor&& fun
 		}
 	} else {
 		auto& view = asset.bufferViews[*accessor.bufferViewIndex];
-        auto stride = view.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
+		auto stride = view.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
 
 		auto bytes = adapter(asset, *accessor.bufferViewIndex).subspan(accessor.byteOffset);
 
@@ -767,7 +770,7 @@ FASTGLTF_EXPORT template <typename ElementType, typename Functor, typename Buffe
 requires Element<ElementType> && std::is_invocable_v<Functor, ElementType, std::size_t>
 #endif
 void iterateAccessorWithIndex(const Asset& asset, const Accessor& accessor, Functor&& func,
-                     const BufferDataAdapter& adapter = {}) {
+					 const BufferDataAdapter& adapter = {}) {
 	std::size_t idx = 0;
 	iterateAccessor<ElementType>(asset, accessor, [&](auto&& elementType) {
 		std::invoke(func, std::forward<ElementType>(elementType), idx++);
@@ -775,7 +778,7 @@ void iterateAccessorWithIndex(const Asset& asset, const Accessor& accessor, Func
 }
 
 FASTGLTF_EXPORT template <typename ElementType, std::size_t TargetStride = sizeof(ElementType),
-    typename BufferDataAdapter = DefaultBufferDataAdapter>
+	typename BufferDataAdapter = DefaultBufferDataAdapter>
 #if FASTGLTF_HAS_CONCEPTS
 requires Element<ElementType>
 #endif
@@ -833,7 +836,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 
 	auto srcBytes = adapter(asset, *accessor.bufferViewIndex).subspan(accessor.byteOffset);
 
-    // If the data is normalized or the component/accessor type is different, we have to convert each element and can't memcpy.
+	// If the data is normalized or the component/accessor type is different, we have to convert each element and can't memcpy.
 	if (std::is_trivially_copyable_v<ElementType> && !accessor.normalized && accessor.componentType == Traits::enum_component_type && !isMatrix(accessor.type)) {
 		if (srcStride == elemSize && srcStride == TargetStride) {
 			std::memcpy(dest, srcBytes.data(), elemSize * accessor.count);
@@ -846,7 +849,7 @@ void copyFromAccessor(const Asset& asset, const Accessor& accessor, void* dest,
 		for (std::size_t i = 0; i < accessor.count; ++i) {
 			auto* pDest = reinterpret_cast<ElementType*>(dstBytes + TargetStride * i);
 			*pDest = internal::getAccessorElementAt<ElementType>(
-                    accessor.componentType, &srcBytes[srcStride * i]);
+					accessor.componentType, &srcBytes[srcStride * i]);
 		}
 	}
 }
@@ -920,7 +923,7 @@ FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fma
 FASTGLTF_EXPORT template <typename AssetType, typename Callback>
 #if FASTGLTF_HAS_CONCEPTS
 requires std::same_as<std::remove_cvref_t<AssetType>, Asset>
-      && std::is_invocable_v<Callback, fastgltf::Node&, const fastgltf::math::fmat4x4&>
+	  && std::is_invocable_v<Callback, fastgltf::Node&, const fastgltf::math::fmat4x4&>
 #endif
 void iterateSceneNodes(AssetType&& asset, std::size_t sceneIndex, math::fmat4x4 initial, Callback callback) {
 	auto& scene = asset.scenes[sceneIndex];
