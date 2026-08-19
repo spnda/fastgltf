@@ -976,6 +976,14 @@ fg::Error fg::validate(const Asset& asset) {
 			}
 		}
 
+		if (accessor.bufferViewIndex.has_value()) {
+			const auto& bufferView = asset.bufferViews[accessor.bufferViewIndex.value()];
+			const auto stride = bufferView.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
+			if (accessor.byteOffset + stride * (accessor.count - 1) +
+				getComponentByteSize(accessor.componentType) * getNumComponents(accessor.type) > bufferView.byteLength)
+				return Error::InvalidGltf;
+		}
+
 		if (accessor.max.has_value()) {
 			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
 				&& !accessor.max->isType<double>())
@@ -1070,6 +1078,10 @@ fg::Error fg::validate(const Asset& asset) {
 		if (bufferView.byteStride.has_value() && (*bufferView.byteStride < 4U || *bufferView.byteStride > 252U || *bufferView.byteStride % 4 != 0))
 			return Error::InvalidGltf;
 		if (bufferView.bufferIndex >= asset.buffers.size())
+			return Error::InvalidGltf;
+
+		if (const auto& buffer = asset.buffers[bufferView.bufferIndex];
+			bufferView.byteOffset + bufferView.byteLength > buffer.byteLength)
 			return Error::InvalidGltf;
 
 		if (bufferView.meshoptCompression != nullptr &&
