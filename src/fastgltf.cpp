@@ -4722,9 +4722,9 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
-			std::uint64_t geometryNode;
-			if (error = geometryObject["mesh"].get_uint64().get(geometryNode); error == SUCCESS) {
-				collider.geometry.mesh = static_cast<std::size_t>(geometryNode);
+			std::uint64_t geometryMesh;
+			if (error = geometryObject["mesh"].get_uint64().get(geometryMesh); error == SUCCESS) {
+				collider.geometry.mesh = static_cast<std::size_t>(geometryMesh);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
