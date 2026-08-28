@@ -3671,7 +3671,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
 		auto weightsError = getJsonArray(nodeObject, "weights", &array);
 		if (weightsError != Error::MissingField) {
-			if (weightsError != Error::None) {
+			if (weightsError == Error::None) {
 				node.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.weights), resourceAllocator.get(), 0);
 				node.weights.reserve(array.size());
 				for (auto weightValue : array) {
