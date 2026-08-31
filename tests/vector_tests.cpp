@@ -124,3 +124,79 @@ TEST_CASE("Test initial value for StaticVector", "[vector-tests]") {
 	}
 	REQUIRE(count == 10);
 }
+
+struct MoveOnlyObject {
+	std::unique_ptr<int> ptr;
+
+	MoveOnlyObject() : ptr(std::make_unique<int>(0)) {}
+	explicit MoveOnlyObject(int v) : ptr(std::make_unique<int>(v)) {}
+	MoveOnlyObject(const MoveOnlyObject&) = delete;
+	MoveOnlyObject& operator=(const MoveOnlyObject&) = delete;
+	MoveOnlyObject(MoveOnlyObject&&) noexcept = default;
+	MoveOnlyObject& operator=(MoveOnlyObject&&) noexcept = default;
+	~MoveOnlyObject() = default;
+};
+
+TEST_CASE("Test move-only types with SmallVector", "[vector-tests]") {
+	SECTION("Stack storage move constructor") {
+		fastgltf::SmallVector<MoveOnlyObject, 4> vec;
+		vec.emplace_back(10);
+		vec.emplace_back(20);
+		vec.emplace_back(30);
+
+		fastgltf::SmallVector<MoveOnlyObject, 4> vec2 = std::move(vec);
+		REQUIRE(vec.empty());
+		REQUIRE(vec2.size() == 3);
+		REQUIRE(*vec2[0].ptr == 10);
+		REQUIRE(*vec2[1].ptr == 20);
+		REQUIRE(*vec2[2].ptr == 30);
+	}
+
+	SECTION("Stack storage move assignment") {
+		fastgltf::SmallVector<MoveOnlyObject, 4> vec;
+		vec.emplace_back(10);
+		vec.emplace_back(20);
+
+		fastgltf::SmallVector<MoveOnlyObject, 4> vec2;
+		vec2.emplace_back(100);
+		vec2 = std::move(vec);
+
+		REQUIRE(vec.empty());
+		REQUIRE(vec2.size() == 2);
+		REQUIRE(*vec2[0].ptr == 10);
+		REQUIRE(*vec2[1].ptr == 20);
+	}
+
+	SECTION("Heap storage move constructor") {
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec;
+		vec.emplace_back(1);
+		vec.emplace_back(2);
+		vec.emplace_back(3);
+
+		REQUIRE(!vec.isUsingStack());
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec2 = std::move(vec);
+		REQUIRE(vec.empty());
+		REQUIRE(vec2.size() == 3);
+		REQUIRE(*vec2[0].ptr == 1);
+		REQUIRE(*vec2[1].ptr == 2);
+		REQUIRE(*vec2[2].ptr == 3);
+	}
+
+	SECTION("Heap storage move assignment") {
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec;
+		vec.emplace_back(1);
+		vec.emplace_back(2);
+		vec.emplace_back(3);
+
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec2;
+		vec2.emplace_back(99);
+		vec2 = std::move(vec);
+
+		REQUIRE(vec.empty());
+		REQUIRE(vec2.size() == 3);
+		REQUIRE(*vec2[0].ptr == 1);
+		REQUIRE(*vec2[1].ptr == 2);
+		REQUIRE(*vec2[2].ptr == 3);
+	}
+}
+
