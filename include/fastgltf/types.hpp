@@ -2070,9 +2070,9 @@ namespace fastgltf {
 		Optional<size_t> shape;
 
 		/**
-		 * The index of a glTF `node` which provides a mesh representation of the geometry
+		 * The index of a glTF `mesh` which provides a mesh representation of the geometry
 		 */
-		Optional<size_t> node;
+		Optional<size_t> mesh;
 
 		/**
 		 * Flag to indicate that the geometry should be a convex hull.

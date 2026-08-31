@@ -708,7 +708,7 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 	REQUIRE(node.physicsRigidBody->collider.has_value());
 	REQUIRE(node.physicsRigidBody->collider->geometry.shape.has_value());
 	REQUIRE(node.physicsRigidBody->collider->geometry.shape == 0);
-	REQUIRE(!node.physicsRigidBody->collider->geometry.node.has_value());
+	REQUIRE(!node.physicsRigidBody->collider->geometry.mesh.has_value());
 	REQUIRE(node.physicsRigidBody->collider->physicsMaterial == 0);
 	REQUIRE(node.physicsRigidBody->collider->collisionFilter == 0);
 
@@ -716,17 +716,17 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 	REQUIRE(!node.physicsRigidBody->joint.has_value());
 
 
-	const auto& node10 = asset->nodes.at(11);
+	const auto& node9 = asset->nodes.at(9);
 
-	REQUIRE(node10.physicsRigidBody);
-	REQUIRE(!node10.physicsRigidBody->motion.has_value());
-	REQUIRE(!node10.physicsRigidBody->collider.has_value());
+	REQUIRE(node9.physicsRigidBody);
+	REQUIRE(!node9.physicsRigidBody->motion.has_value());
+	REQUIRE(!node9.physicsRigidBody->collider.has_value());
 
-	REQUIRE(node10.physicsRigidBody->trigger.has_value());
+	REQUIRE(node9.physicsRigidBody->trigger.has_value());
 	fastgltf::visit_exhaustive(fastgltf::visitor{
 		[](const fastgltf::GeometryTrigger& geo) {
 			REQUIRE(geo.geometry.convexHull);
-			REQUIRE(geo.geometry.node == 10);
+			REQUIRE(geo.geometry.mesh == 7);
 			REQUIRE(geo.collisionFilter.has_value());
 			REQUIRE(geo.collisionFilter == 0);
 		},
@@ -734,9 +734,9 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 			REQUIRE(false);
 		}
 		},
-		*node10.physicsRigidBody->trigger);
+		*node9.physicsRigidBody->trigger);
 
-	REQUIRE(!node10.physicsRigidBody->joint.has_value());
+	REQUIRE(!node9.physicsRigidBody->joint.has_value());
 }
 
 TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
@@ -818,14 +818,14 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 
 	REQUIRE(joint9.drives.size() == 0);
 
-	const auto& node10 = asset->nodes.at(10);
-	REQUIRE(node10.physicsRigidBody);
-	REQUIRE(!node10.physicsRigidBody->collider.has_value());
-	REQUIRE(!node10.physicsRigidBody->motion.has_value());
-	REQUIRE(!node10.physicsRigidBody->trigger.has_value());
-	REQUIRE(node10.physicsRigidBody->joint.has_value());
-	const auto& joint = *node10.physicsRigidBody->joint;
-	REQUIRE(joint.connectedNode == 9);
+	const auto& node8 = asset->nodes.at(8);
+	REQUIRE(node8.physicsRigidBody);
+	REQUIRE(!node8.physicsRigidBody->collider.has_value());
+	REQUIRE(!node8.physicsRigidBody->motion.has_value());
+	REQUIRE(!node8.physicsRigidBody->trigger.has_value());
+	REQUIRE(node8.physicsRigidBody->joint.has_value());
+	const auto& joint = *node8.physicsRigidBody->joint;
+	REQUIRE(joint.connectedNode == 7);
 	REQUIRE(joint.joint == 0);
 	REQUIRE(joint.enableCollision == false);
 }

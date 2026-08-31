@@ -4722,9 +4722,9 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
-			std::uint64_t geometryNode;
-			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
-				collider.geometry.node = static_cast<std::size_t>(geometryNode);
+			std::uint64_t geometryMesh;
+			if (error = geometryObject["mesh"].get_uint64().get(geometryMesh); error == SUCCESS) {
+				collider.geometry.mesh = static_cast<std::size_t>(geometryMesh);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
@@ -4768,9 +4768,9 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
-			std::uint64_t geometryNode;
-			if (error = geometryObject["node"].get_uint64().get(geometryNode); error == SUCCESS) {
-				geometryTrigger.geometry.node = static_cast<std::size_t>(geometryNode);
+			std::uint64_t meshIndex;
+			if (error = geometryObject["mesh"].get_uint64().get(meshIndex); error == SUCCESS) {
+				geometryTrigger.geometry.mesh = static_cast<std::size_t>(meshIndex);
 			} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 				return Error::InvalidGltf;
 			}
@@ -6351,8 +6351,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 							json += R"("geometry":{)";
 							if (geometry.geometry.shape.has_value()) {
 								json += R"("shape":)" + std::to_string(*geometry.geometry.shape) + ',';
-							} else if(geometry.geometry.node.has_value()) {
-								json += R"("node":)" + std::to_string(*geometry.geometry.node) + ',';
+							} else if(geometry.geometry.mesh.has_value()) {
+								json += R"("mesh":)" + std::to_string(*geometry.geometry.mesh) + ',';
 							}
 							json += R"("convexHull":)" + std::to_string(geometry.geometry.convexHull) + '}';
 
@@ -6389,8 +6389,8 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 					json += R"("geometry":{)";
 					if (collider.geometry.shape.has_value()) {
 						json += R"("shape":)" + std::to_string(*collider.geometry.shape) + ',';
-					} else if (collider.geometry.node.has_value()) {
-						json += R"("node":)" + std::to_string(*collider.geometry.node) + ',';
+					} else if (collider.geometry.mesh.has_value()) {
+						json += R"("mesh":)" + std::to_string(*collider.geometry.mesh) + ',';
 					}
 					json += R"("convexHull":)" + std::to_string(collider.geometry.convexHull) + '}';
 
