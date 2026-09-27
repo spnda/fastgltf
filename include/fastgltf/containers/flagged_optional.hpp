@@ -27,6 +27,8 @@
 #ifndef FASTGLTF_FLAGGED_OPTIONAL_HPP
 #define FASTGLTF_FLAGGED_OPTIONAL_HPP
 
+#include <functional>
+
 #include <fastgltf/util.hpp>
 
 namespace fastgltf {
