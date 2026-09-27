@@ -6,6 +6,16 @@ Changelog
 
 To view the full changelogs for each release please see the `GitHub releases <https://github.com/spnda/fastgltf/releases>`_.
 
+1.0.0
+=====
+
+- Upgrade repository to C++20
+- Fix SmallVector's move and copy constructors with regards to the allocator usage and compatibility between allocations of different vectors
+- Fix SmallVector's clear and shrink_to_fit behavior
+- Fix SmallVector's handling of arguments to resize/assign/emplace_back being a reference to an object of the vector
+- Removed macros: FASTGLTF_CPP_17, FASTGLTF_HAS_BIT, FASTGLTF_HAS_CONCEPTS, FASTGLTF_CONSTEXPR_BITCAST, FASTGLTF_LIKELY / FASTGLTF_UNLIKELY
+- Removed CMake option: FASTGLTF_COMPILE_AS_CPP20.
+
 0.9.1
 =====
 
