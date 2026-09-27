@@ -1794,7 +1794,8 @@ namespace fastgltf {
 		}
 	};
 
-	FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
+	FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent [[deprecated]] = std::dynamic_extent;
+	FASTGLTF_EXPORT template <class T, std::size_t E = std::dynamic_extent> using span [[deprecated]] = std::span<T, E>;
 
 	FASTGLTF_EXPORT using CustomBufferId = std::uint64_t;
 
