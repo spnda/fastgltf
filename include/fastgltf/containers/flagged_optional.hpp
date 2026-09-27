@@ -312,12 +312,12 @@ namespace fastgltf {
 		}
 
 		template <typename F>
-		[[nodiscard]] constexpr T or_else(F&& func) const& {
+		[[nodiscard]] constexpr Optional<T> or_else(F&& func) const& {
 			return *this ? *this : std::invoke(std::forward<F>(func));
 		}
 
 		template <typename F>
-		[[nodiscard]] constexpr T or_else(F&& func) && {
+		[[nodiscard]] constexpr Optional<T> or_else(F&& func) && {
 			return *this ? std::move(*this) : std::invoke(std::forward<F>(func));
 		}
 
@@ -328,8 +328,10 @@ namespace fastgltf {
 				std::swap(_value, other._value);
 			} else if (has_value() && !other.has_value()) {
 				other._value = std::move(_value);
+				reset();
 			} else if (!has_value() && other.has_value()) {
 				_value = std::move(other._value);
+				other.reset();
 			}
 		}
 

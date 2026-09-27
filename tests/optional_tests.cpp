@@ -174,3 +174,39 @@ TEST_CASE("Test OptionalWithFlagValue converting move assignment", "[optional-te
 		return target.has_value() && *target == 1.5;
 	}());
 }
+
+TEST_CASE("Test OptionalWithFlagValue swap", "[optional-tests]") {
+	using Opt = fastgltf::OptionalWithFlagValue<std::size_t>;
+
+	Opt a(std::size_t(1)), b(std::size_t(2));
+	a.swap(b);
+	REQUIRE((*a == 2 && *b == 1));
+
+	Opt value(std::size_t(3)), empty;
+	value.swap(empty);
+	REQUIRE(!value.has_value());
+	REQUIRE(*empty == 3);
+
+	value.swap(empty);
+	REQUIRE(*value == 3);
+	REQUIRE(!empty.has_value());
+
+	Opt empty2;
+	empty.swap(empty2);
+	REQUIRE((!empty.has_value() && !empty2.has_value()));
+}
+
+TEST_CASE("Test OptionalWithFlagValue or_else", "[optional-tests]") {
+	using Opt = fastgltf::OptionalWithFlagValue<std::size_t>;
+	const auto fallback = [] { return Opt(std::size_t(42)); };
+
+	const Opt value(std::size_t(1));
+	const Opt empty;
+	static_assert(std::is_same_v<decltype(value.or_else(fallback)), Opt>);
+
+	REQUIRE(*value.or_else(fallback) == 1);
+	REQUIRE(*empty.or_else(fallback) == 42);
+	REQUIRE(*Opt(std::size_t(1)).or_else(fallback) == 1);
+	REQUIRE(*Opt().or_else(fallback) == 42);
+	REQUIRE(!Opt().or_else([] { return Opt(); }).has_value());
+}
