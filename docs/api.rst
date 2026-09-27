@@ -337,12 +337,22 @@ Math
 
 **fastgltf** includes a small math library with everything necessary for working with glTF assets.
 
+.. doxygenfunction:: fastgltf::math::clamp
+
+.. doxygenfunction:: fastgltf::math::lerp
+
+.. doxygenfunction:: fastgltf::math::radians
+
+.. doxygenfunction:: fastgltf::math::degrees
+
 Vector
 ------
 
 .. doxygenclass:: fastgltf::math::vec
    :members:
    :undoc-members:
+
+.. doxygenfunction:: fastgltf::math::sum
 
 .. doxygenfunction:: fastgltf::math::dot
 
@@ -352,12 +362,22 @@ Vector
 
 .. doxygenfunction:: fastgltf::math::normalize
 
+.. doxygenfunction:: fastgltf::math::clamp
+
+.. doxygenfunction:: fastgltf::math::lerp
+
 Quaternion
 ----------
 
 .. doxygenclass:: fastgltf::math::quat
    :members:
    :undoc-members:
+
+.. doxygenfunction:: fastgltf::math::dot
+
+.. doxygenfunction:: fastgltf::math::normalize
+
+.. doxygenfunction:: fastgltf::math::slerp
 
 .. doxygenfunction:: fastgltf::math::asMatrix
 
@@ -368,13 +388,19 @@ Matrix
    :members:
    :undoc-members:
 
+.. doxygenfunction:: fastgltf::math::transpose
+
+.. doxygenfunction:: fastgltf::math::determinant
+
+.. doxygenfunction:: fastgltf::math::inverse
+
+.. doxygenfunction:: fastgltf::math::affineInverse
+
 .. doxygenfunction:: fastgltf::math::translate
 
 .. doxygenfunction:: fastgltf::math::scale
 
 .. doxygenfunction:: fastgltf::math::rotate
-
-.. doxygenfunction:: fastgltf::math::transpose
 
 .. doxygenfunction:: fastgltf::math::decomposeTransformMatrix
 
