@@ -1134,6 +1134,19 @@ namespace fastgltf {
 	FASTGLTF_EXPORT template<typename T>
 	class OptionalWithFlagValue;
 
+	namespace internal {
+		/** Excludes optional types and std::nullopt_t from the comparison operators taking a plain value, like std::optional does. */
+		template <typename T>
+		inline constexpr bool is_optional_impl_v = std::is_same_v<T, std::nullopt_t>;
+		template <typename T>
+		inline constexpr bool is_optional_impl_v<OptionalWithFlagValue<T>> = true;
+		template <typename T>
+		inline constexpr bool is_optional_impl_v<std::optional<T>> = true;
+
+		template <typename T>
+		inline constexpr bool is_optional_v = is_optional_impl_v<std::remove_cv_t<T>>;
+	} // namespace internal
+
 	/**
 	 * A type alias which checks if there is a specialization of OptionalFlagValue for T and "switches"
 	 * between fastgltf::OptionalWithFlagValue and std::optional.
@@ -1177,7 +1190,7 @@ namespace fastgltf {
 		requires std::is_copy_constructible_v<T>
 		constexpr OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
 			if (other.has_value()) {
-				new (std::addressof(_value)) T(*other);
+				std::construct_at(std::addressof(_value), *other);
 			} else {
 				reset();
 			}
@@ -1187,7 +1200,7 @@ namespace fastgltf {
 		requires std::is_move_constructible_v<T>
 		constexpr OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
 			if (other.has_value()) {
-				new (std::addressof(_value)) T(std::move(*other));
+				std::construct_at(std::addressof(_value), std::move(*other));
 			} else {
 				reset();
 			}
@@ -1203,7 +1216,7 @@ namespace fastgltf {
 		requires std::is_constructible_v<T, U&&>
 		constexpr OptionalWithFlagValue(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> &&
 														   std::is_nothrow_constructible_v<T, U>) {
-			new (std::addressof(_value)) T(std::forward<U>(_new));
+			std::construct_at(std::addressof(_value), std::forward<U>(_new));
 		}
 
 		constexpr ~OptionalWithFlagValue() { reset(); }
@@ -1215,11 +1228,11 @@ namespace fastgltf {
 
 		template <typename U = T>
 		requires std::is_constructible_v<T, U&&>
-		OptionalWithFlagValue& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
+		constexpr OptionalWithFlagValue& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
 			if (has_value()) {
 				_value = std::forward<U>(_new);
 			} else {
-				new(std::addressof(_value)) T(std::forward<U>(_new));
+				std::construct_at(std::addressof(_value), std::forward<U>(_new));
 			}
 			return *this;
 		}
@@ -1232,7 +1245,7 @@ namespace fastgltf {
 				if (has_value()) {
 					_value = other._value;
 				} else {
-					new(std::addressof(_value)) T(other._value);
+					std::construct_at(std::addressof(_value), other._value);
 				}
 			} else {
 				reset();
@@ -1248,7 +1261,7 @@ namespace fastgltf {
 				if (has_value()) {
 					_value = std::move(other._value);
 				} else {
-					new(std::addressof(_value)) T(other._value);
+					std::construct_at(std::addressof(_value), std::move(other._value));
 				}
 			} else {
 				reset();
@@ -1258,9 +1271,10 @@ namespace fastgltf {
 
 		[[nodiscard]] constexpr bool has_value() const {
 			if constexpr (std::is_floating_point_v<T>) {
-				// NaNs are never equal to anything, not even themselves.
-				// Since the sentinels are special NaN values, we need to memcmp to check equality.
-				return std::memcmp(&_value, &OptionalFlagValue<T>::missing_value, sizeof(T)) != 0;
+				// The sentinels are NaNs, which never compare equal, so compare the bit patterns instead.
+				using Bits = std::conditional_t<sizeof(T) == sizeof(std::uint32_t), std::uint32_t, std::uint64_t>;
+				static_assert(sizeof(Bits) == sizeof(T));
+				return std::bit_cast<Bits>(_value) != std::bit_cast<Bits>(OptionalFlagValue<T>::missing_value);
 			}
 			return this->_value != OptionalFlagValue<T>::missing_value;
 		}
@@ -1393,14 +1407,14 @@ namespace fastgltf {
 
 		template <typename... Args>
 		constexpr T& emplace(Args&&... args) {
-			new (std::addressof(_value)) T(std::forward<Args>(args)...);
+			std::construct_at(std::addressof(_value), std::forward<Args>(args)...);
 			return _value;
 		}
 
 		template <typename U, typename... Args>
 		constexpr T& emplace(std::initializer_list<U> list, Args&&... args) {
 			static_assert(std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>);
-			new (std::addressof(_value)) T(list, std::forward<Args>(args)...);
+			std::construct_at(std::addressof(_value), list, std::forward<Args>(args)...);
 			return _value;
 		}
 
@@ -1418,11 +1432,11 @@ namespace fastgltf {
 
 		constexpr const T&& operator*() const&& noexcept { return std::move(_value); }
 
-		operator std::optional<T>() const noexcept {
+		operator std::optional<T>() const& noexcept {
 			return has_value() ? std::optional<T>(_value) : std::nullopt;
 		}
 
-		operator std::optional<T>&&()&& noexcept {
+		operator std::optional<T>() && noexcept {
 			return has_value() ? std::optional<T>(std::move(_value)) : std::nullopt;
 		}
 	};
@@ -1432,13 +1446,6 @@ namespace fastgltf {
 							  const OptionalWithFlagValue<U>& rhs) {
 		return lhs.has_value() != rhs.has_value() ? false
 												  : (lhs.has_value() == false ? true : *lhs == *rhs);
-	}
-
-	FASTGLTF_EXPORT template <typename T, typename U>
-	constexpr bool operator!=(const OptionalWithFlagValue<T>& lhs,
-							  const OptionalWithFlagValue<U>& rhs) {
-		return lhs.has_value() != rhs.has_value() ? true
-												  : (lhs.has_value() == false ? false : *lhs != *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
@@ -1481,36 +1488,40 @@ namespace fastgltf {
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
+	requires (!internal::is_optional_v<U>)
 	constexpr bool operator==(const OptionalWithFlagValue<T>& opt, const U& value) {
 		return opt.has_value() && (*opt) == value;
 	}
 
-	FASTGLTF_EXPORT template <typename T, typename U>
-	constexpr bool operator!=(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return !(opt == value);
-	}
+	// No operator!= for plain values: C++20 synthesizes it from operator==, and declaring one
+	// would prevent the reversed `value == opt` form from being considered (P2468R2).
 
 	FASTGLTF_EXPORT template <typename T, typename U>
+	requires (!internal::is_optional_v<U>)
 	constexpr bool operator<(const OptionalWithFlagValue<T>& opt, const U& value) {
 		return opt.has_value() ? *opt < value : true;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
+	requires (!internal::is_optional_v<U>)
 	constexpr bool operator<=(const OptionalWithFlagValue<T>& opt, const U& value) {
 		return opt.has_value() ? *opt <= value : true;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
+	requires (!internal::is_optional_v<U>)
 	constexpr bool operator>(const OptionalWithFlagValue<T>& opt, const U& value) {
 		return opt.has_value() ? *opt > value : false;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
+	requires (!internal::is_optional_v<U>)
 	constexpr bool operator>=(const OptionalWithFlagValue<T>& opt, const U& value) {
 		return opt.has_value() ? *opt >= value : false;
 	}
 
-	FASTGLTF_EXPORT template <typename T, std::three_way_comparable_with<T> U>
+	FASTGLTF_EXPORT template <typename T, typename U>
+	requires (!internal::is_optional_v<U>) && std::three_way_comparable_with<T, U>
 	constexpr std::compare_three_way_result_t<T, U> operator<=>(const OptionalWithFlagValue<T>& opt,
 																const U& value) {
 		return opt.has_value() ? *opt <=> value : std::strong_ordering::less;
