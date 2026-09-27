@@ -277,6 +277,10 @@ namespace fastgltf {
 		}
 	};
 
+	/** Allows the quick creation of a unique_ptr type that can take any function of the form void(T*) for its deleter */
+	template <typename T, auto callback>
+	using deletable_unique_ptr = std::unique_ptr<T, UniqueDeleter<callback>>;
+
 	// For simple ops like &, |, +, - taking a left and right operand.
 #define FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(T1, T2, op) \
 	FASTGLTF_EXPORT constexpr T1 operator op(const T1& a, const T2& b) noexcept { \
