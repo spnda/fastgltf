@@ -349,7 +349,7 @@ TEST_CASE("Small CRC32-C benchmark", "[gltf-benchmark]") {
     BENCHMARK("SSE4 hardware algorithm") {
         return fastgltf::sse_crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
     };
-#elif defined(FASTGLTF_IS_A64)
+#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 	BENCHMARK("ARMv8 hardware CRC32-C algorithm") {
 		return fastgltf::armv8_crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
 	};
