@@ -44,7 +44,11 @@ set(FASTGLTF_HEADERS
         "include/fastgltf/tools.hpp"
         "include/fastgltf/types.hpp"
         "include/fastgltf/util.hpp"
+        "include/fastgltf/uri.hpp"
         "include/fastgltf/math.hpp"
+        "include/fastgltf/containers/flagged_optional.hpp"
+        "include/fastgltf/containers/small_vector.hpp"
+        "include/fastgltf/containers/static_vector.hpp"
 )
 
 add_library(fastgltf

@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <fastgltf/types.hpp>
+#include <fastgltf/containers/flagged_optional.hpp>
 
 TEST_CASE("Test basic Optional interface", "[optional-tests]") {
 	// We have no specialization for std::uint32_t, and therefore this is just
