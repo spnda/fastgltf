@@ -4,7 +4,7 @@ if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" VERSION_GREATER_EQUAL "3.24"
     cmake_policy(SET CMP0135 NEW)
 endif ()
 
-project(fastgltf VERSION 0.9.1 LANGUAGES C CXX)
+project(fastgltf VERSION 1.0.0 LANGUAGES C CXX)
 
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
