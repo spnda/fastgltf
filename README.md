@@ -4,6 +4,8 @@
 ![conan center](https://img.shields.io/conan/v/fastgltf?style=flat-square)
 ![CI_x64 workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_x64.yml?label=CI%20x64&style=flat-square)
 ![CI_arm workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_arm.yml?label=CI%20ARM&style=flat-square)
+![CI_macOS workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_macos.yml?label=CI%20macOS&style=flat-square)
+![CI_sanitizers workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_sanitizers.yml?label=CI%20Sanitizers&style=flat-square)
 [![Documentation Status](https://readthedocs.org/projects/fastgltf/badge/?version=latest)](https://fastgltf.readthedocs.io/latest/?badge=latest)
 
 
@@ -19,7 +21,7 @@ including accessor tools, the ability to directly write to mapped GPU buffers, a
 
 To learn more about fastgltf, its features, performance and API you can read [the docs](https://fastgltf.readthedocs.io/).
 
-> [!NOTE]  
+> [!NOTE]
 > For C++17 compatibility, please use v0.9.x. Later versions require C++20.
 
 ## Examples and real-world usage

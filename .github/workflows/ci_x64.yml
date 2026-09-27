@@ -43,23 +43,17 @@ jobs:
         run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex ~[gltf-benchmark]
 
   build_linux:
+    name: build_linux (${{ matrix.os }}, ${{ matrix.c_compiler }})
     strategy:
+      fail-fast: false
       matrix:
-        c_compiler: [gcc-12, gcc-13, gcc-14, clang-16, clang-17, clang-18]
-        os: [ubuntu-24.04]
         include:
-          - cxx_compiler: g++-12
-            c_compiler: gcc-12
-          - cxx_compiler: g++-13
-            c_compiler: gcc-13
-          - cxx_compiler: g++-14
-            c_compiler: gcc-14
-          - cxx_compiler: clang++-16
-            c_compiler: clang-16
-          - cxx_compiler: clang++-17
-            c_compiler: clang-17
-          - cxx_compiler: clang++-18
-            c_compiler: clang-18
+          # The oldest compilers we support
+          - { os: ubuntu-24.04, c_compiler: gcc-12, cxx_compiler: g++-12 }
+          - { os: ubuntu-24.04, c_compiler: clang-16, cxx_compiler: clang++-16 }
+          # The newest compilers available on the runner images
+          - { os: ubuntu-26.04, c_compiler: gcc-15, cxx_compiler: g++-15 }
+          - { os: ubuntu-26.04, c_compiler: clang-22, cxx_compiler: clang++-22 }
 
     runs-on: ${{ matrix.os }}
     env:
