@@ -58,11 +58,6 @@ namespace fastgltf {
 		T* _data;
 		std::size_t _size = 0, _capacity = N;
 
-		/** We use geometric growth, similarly to std::vector. */
-		[[nodiscard]] static std::size_t growCapacity(const std::size_t capacity) noexcept {
-			return static_cast<std::size_t>(1) << (std::numeric_limits<std::size_t>::digits - std::countl_zero(capacity));
-		}
-
 		/**
 		 * Moves all elements into the uninitialized memory at dest, destroys the old elements, and frees the
 		 * old allocation if it was on the heap. The caller is responsible for updating _capacity afterwards.
@@ -210,7 +205,7 @@ namespace fastgltf {
 				return;
 			}
 
-			newCapacity = growCapacity(newCapacity);
+			newCapacity = std::bit_ceil(newCapacity);
 			relocate(allocator.allocate(newCapacity));
 			_capacity = newCapacity;
 		}
@@ -292,7 +287,7 @@ namespace fastgltf {
 				reserve(size() + 1);
 				new (_data + size()) T(std::forward<Args>(args)...);
 			} else {
-				const auto newCapacity = growCapacity(size() + 1);
+				const auto newCapacity = std::bit_ceil(size() + 1);
 				T* alloc = allocator.allocate(newCapacity);
 				new (alloc + size()) T(std::forward<Args>(args)...);
 				relocate(alloc);
