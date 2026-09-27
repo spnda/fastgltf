@@ -82,7 +82,6 @@ TEST_CASE("Test OptionalWithFlagValue comparisons with values", "[optional-tests
 	REQUIRE(!(empty == 1.0f));
 	REQUIRE(empty != 1.0f);
 
-	// Like std::optional, an empty optional compares less than any value.
 	REQUIRE(empty < 1.0f);
 	REQUIRE(empty <= 1.0f);
 	REQUIRE(!(empty > 1.0f));
@@ -109,8 +108,6 @@ TEST_CASE("Test OptionalWithFlagValue comparisons between optionals", "[optional
 	const fastgltf::OptionalWithFlagValue<float> one(1.0f);
 	const fastgltf::OptionalWithFlagValue<float> two(2.0f);
 
-	// Two empty optionals are equal. This also verifies that the optional-to-optional overloads
-	// are picked over the ones comparing against a plain value.
 	REQUIRE(empty1 == empty2);
 	REQUIRE(!(empty1 != empty2));
 	REQUIRE(!(empty1 < empty2));
@@ -129,4 +126,36 @@ TEST_CASE("Test OptionalWithFlagValue comparisons between optionals", "[optional
 	REQUIRE(((empty1 <=> one) < 0));
 	REQUIRE(((one <=> two) < 0));
 	REQUIRE(((two <=> one) > 0));
+}
+
+TEST_CASE("Test OptionalWithFlagValue converting move assignment", "[optional-tests]") {
+	SECTION("Into an empty optional") {
+		fastgltf::OptionalWithFlagValue<double> target;
+		fastgltf::OptionalWithFlagValue<float> source(1.5f);
+		target = std::move(source);
+		REQUIRE(target.has_value());
+		REQUIRE(*target == 1.5);
+	}
+
+	SECTION("Into an engaged optional") {
+		fastgltf::OptionalWithFlagValue<double> target(3.0);
+		fastgltf::OptionalWithFlagValue<float> source(1.5f);
+		target = std::move(source);
+		REQUIRE(target.has_value());
+		REQUIRE(*target == 1.5);
+	}
+
+	SECTION("From an empty optional") {
+		fastgltf::OptionalWithFlagValue<double> target(3.0);
+		fastgltf::OptionalWithFlagValue<float> source;
+		target = std::move(source);
+		REQUIRE(!target.has_value());
+	}
+
+	static_assert([] {
+		fastgltf::OptionalWithFlagValue<double> target;
+		fastgltf::OptionalWithFlagValue<float> source(1.5f);
+		target = std::move(source);
+		return target.has_value() && *target == 1.5;
+	}());
 }

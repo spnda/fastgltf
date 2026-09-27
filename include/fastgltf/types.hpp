@@ -689,10 +689,13 @@ namespace fastgltf {
 			return std::lexicographical_compare_three_way(
 				begin(), end(), other.begin(), other.end(),
 				[]<typename U, typename V>(const U& u, const V& v) {
-				if constexpr (std::three_way_comparable_with<U, V>) return u <=> v;
-				if (u < v) return std::weak_ordering::less;
-				if (v < u) return std::weak_ordering::greater;
-				return std::weak_ordering::equivalent;
+				if constexpr (std::three_way_comparable_with<U, V>) {
+					return u <=> v;
+				} else {
+					if (u < v) return std::weak_ordering::less;
+					if (v < u) return std::weak_ordering::greater;
+					return std::weak_ordering::equivalent;
+				}
 			});
 		}
 
@@ -703,10 +706,13 @@ namespace fastgltf {
 			return std::lexicographical_compare_three_way(
 				begin(), end(), other.begin(), other.end(),
 				[]<typename U, typename V>(const U& u, const V& v) {
-				if constexpr (std::three_way_comparable_with<U, V>) return u <=> v;
-				if (u < v) return std::weak_ordering::less;
-				if (v < u) return std::weak_ordering::greater;
-				return std::weak_ordering::equivalent;
+				if constexpr (std::three_way_comparable_with<U, V>) {
+					return u <=> v;
+				} else {
+					if (u < v) return std::weak_ordering::less;
+					if (v < u) return std::weak_ordering::greater;
+					return std::weak_ordering::equivalent;
+				}
 			});
 		}
 	};
@@ -1243,9 +1249,9 @@ namespace fastgltf {
 		constexpr OptionalWithFlagValue& operator=(const OptionalWithFlagValue<U>& other) {
 			if (other.has_value()) {
 				if (has_value()) {
-					_value = other._value;
+					_value = *other;
 				} else {
-					std::construct_at(std::addressof(_value), other._value);
+					std::construct_at(std::addressof(_value), *other);
 				}
 			} else {
 				reset();
@@ -1259,9 +1265,9 @@ namespace fastgltf {
 		std::is_nothrow_assignable_v<T&, T> && std::is_nothrow_constructible_v<T, T>) {
 			if (other.has_value()) {
 				if (has_value()) {
-					_value = std::move(other._value);
+					_value = std::move(*other);
 				} else {
-					std::construct_at(std::addressof(_value), std::move(other._value));
+					std::construct_at(std::addressof(_value), std::move(*other));
 				}
 			} else {
 				reset();
