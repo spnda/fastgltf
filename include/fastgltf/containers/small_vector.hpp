@@ -58,6 +58,11 @@ namespace fastgltf {
 		T* _data;
 		std::size_t _size = 0, _capacity = N;
 
+		/** We use geometric growth, similarly to std::vector. */
+		[[nodiscard]] static std::size_t growCapacity(const std::size_t capacity) noexcept {
+			return static_cast<std::size_t>(1) << (std::numeric_limits<std::size_t>::digits - std::countl_zero(capacity));
+		}
+
 		/**
 		 * Moves all elements into the uninitialized memory at dest, destroys the old elements, and frees the
 		 * old allocation if it was on the heap. The caller is responsible for updating _capacity afterwards.
@@ -205,8 +210,7 @@ namespace fastgltf {
 				return;
 			}
 
-			// We use geometric growth, similarly to std::vector.
-			newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - std::countl_zero(newCapacity));
+			newCapacity = growCapacity(newCapacity);
 			relocate(allocator.allocate(newCapacity));
 			_capacity = newCapacity;
 		}
@@ -234,29 +238,16 @@ namespace fastgltf {
 
 		void resize(std::size_t newSize, const T& value) {
 			static_assert(std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
-			if (newSize == size()) {
-				return;
-			}
-
-			if (newSize < size()) {
+			if (newSize <= size()) {
 				// Just destroy the "overflowing" elements.
 				std::destroy(begin() + newSize, end());
-			} else {
-				// Reserve enough capacity and copy the new value over.
-				auto oldSize = _size;
+			} else if (newSize > capacity()) {
+				// value might be a reference to an object within the existing array, so copy it
+				const T copy(value);
 				reserve(newSize);
-				for (auto it = begin() + oldSize; it != begin() + newSize; ++it) {
-					if (it == nullptr)
-						break;
-
-					if constexpr (std::is_move_constructible_v<T>) {
-						new (it) T(std::move(value));
-					} else if constexpr (std::is_trivially_copyable_v<T>) {
-						std::memcpy(it, std::addressof(value), sizeof(T));
-					} else {
-						new (it) T(value);
-					}
-				}
+				std::uninitialized_fill(begin() + size(), begin() + newSize, copy);
+			} else {
+				std::uninitialized_fill(begin() + size(), begin() + newSize, value);
 			}
 
 			_size = newSize;
@@ -277,7 +268,7 @@ namespace fastgltf {
 			}
 		}
 
-		void assign(std::size_t count, const T& value) {
+		void assign(const std::size_t count, const T& value) {
 			clear();
 			resize(count, value);
 		}
@@ -297,10 +288,17 @@ namespace fastgltf {
 
 		template <typename... Args>
 		decltype(auto) emplace_back(Args&&... args) {
-			// We reserve enough capacity for the new element, and then just increment the size.
-			reserve(_size + 1);
+			if (size() < capacity() || (isUsingStack() && size() < N)) {
+				reserve(size() + 1);
+				new (_data + size()) T(std::forward<Args>(args)...);
+			} else {
+				const auto newCapacity = growCapacity(size() + 1);
+				T* alloc = allocator.allocate(newCapacity);
+				new (alloc + size()) T(std::forward<Args>(args)...);
+				relocate(alloc);
+				_capacity = newCapacity;
+			}
 			++_size;
-			new (std::addressof(back())) T(std::forward<Args>(args)...);
 			return (back());
 		}
 

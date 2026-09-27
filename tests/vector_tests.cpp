@@ -1,4 +1,5 @@
 #include <memory_resource>
+#include <string>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -54,6 +55,31 @@ TEST_CASE("Test resizing and allocation behaviour", "[vector-tests]") {
 		vec.reserve(64);
 		REQUIRE(vec.empty());
 		REQUIRE(vec.capacity() >= 64);
+	}
+
+	SECTION("Growing from an element of the vector itself") {
+		const std::string first = "The first string in the vector, which is too long for SSO";
+		const std::string second = "The second string in the vector, which is too long for SSO";
+
+		fastgltf::SmallVector<std::string, 2> vec;
+		vec.emplace_back(first);
+		vec.emplace_back(second);
+
+		vec.emplace_back(vec[0]);
+		REQUIRE(vec.size() == 3);
+		REQUIRE(vec[2] == first);
+
+		vec.resize(vec.capacity(), vec[1]);
+		vec.resize(vec.capacity() + 1, vec[1]);
+		for (std::size_t i = 3; i < vec.size(); ++i) {
+			REQUIRE(vec[i] == second);
+		}
+
+		vec.resize(vec.capacity(), vec[1]);
+		const auto size = vec.size();
+		vec.emplace_back(vec[0]);
+		REQUIRE(vec.size() == size + 1);
+		REQUIRE(vec[size] == first);
 	}
 }
 
