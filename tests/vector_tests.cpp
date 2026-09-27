@@ -57,6 +57,25 @@ TEST_CASE("Test resizing and allocation behaviour", "[vector-tests]") {
 		REQUIRE(vec.capacity() >= 64);
 	}
 
+	SECTION("Pushing and popping") {
+		fastgltf::SmallVector<std::string, 2> vec;
+		const std::string value = "value";
+		vec.push_back(value);
+		vec.push_back(std::string("moved"));
+		vec.push_back(vec[0]);
+		REQUIRE(vec.size() == 3);
+		REQUIRE(vec[0] == "value");
+		REQUIRE(vec[1] == "moved");
+		REQUIRE(vec[2] == "value");
+
+		vec.pop_back();
+		REQUIRE(vec.size() == 2);
+		REQUIRE(vec.back() == "moved");
+		vec.pop_back();
+		vec.pop_back();
+		REQUIRE(vec.empty());
+	}
+
 	SECTION("Growing from an element of the vector itself") {
 		const std::string first = "The first string in the vector, which is too long for SSO";
 		const std::string second = "The second string in the vector, which is too long for SSO";

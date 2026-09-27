@@ -297,6 +297,20 @@ namespace fastgltf {
 			return (back());
 		}
 
+		void push_back(const T& value) {
+			emplace_back(value);
+		}
+
+		void push_back(T&& value) {
+			emplace_back(std::move(value));
+		}
+
+		void pop_back() {
+			assert(!empty());
+			std::destroy_at(std::addressof(back()));
+			--_size;
+		}
+
 		[[nodiscard]] T& at(std::size_t idx) {
 			if (idx >= size()) {
 				raise<std::out_of_range>("Index is out of range for SmallVector");
