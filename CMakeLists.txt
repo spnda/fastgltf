@@ -4,7 +4,7 @@ if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" VERSION_GREATER_EQUAL "3.24"
     cmake_policy(SET CMP0135 NEW)
 endif ()
 
-project(fastgltf VERSION 0.9.0 LANGUAGES C CXX)
+project(fastgltf VERSION 0.9.1 LANGUAGES C CXX)
 
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
@@ -146,12 +146,12 @@ if (FASTGLTF_ENABLE_INSTALL)
         FILES ${FASTGLTF_HEADERS}
         DESTINATION include/fastgltf
     )
-    
+
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
     )
-    
+
     install(
         TARGETS fastgltf
         EXPORT fastgltf-targets
@@ -160,7 +160,7 @@ if (FASTGLTF_ENABLE_INSTALL)
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
-    
+
     install(
         EXPORT fastgltf-targets
         FILE fastgltfConfig.cmake

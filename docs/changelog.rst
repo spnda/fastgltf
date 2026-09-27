@@ -6,6 +6,27 @@ Changelog
 
 To view the full changelogs for each release please see the `GitHub releases <https://github.com/spnda/fastgltf/releases>`_.
 
+0.9.1
+=====
+
+- Add support for more extensions
+    - KHR_node_visibility (`#122 <https://github.com/spnda/fastgltf/pull/122>`_)
+    - KHR_node_selectability (`#122 <https://github.com/spnda/fastgltf/pull/122>`_)
+    - KHR_node_hoverability (`#122 <https://github.com/spnda/fastgltf/pull/122>`_)
+    - KHR_meshopt_compression
+- Add: CMake install option
+- Add: Utility functions for base64 encoding
+- Change: Rename invert -> inverse function, improve performance of matrix inversion calculation
+- Change: Editor config, reformat everything to use tabs
+- Fix (Exporter): KHR_lights_punctual spot light serialization
+- Fix (Exporter): Multiple fixes for KHR_physics_rigid_bodies
+- Fix (Exporter): Emit mimeType for URI images
+- Fix: Node weights were never parsed
+- Fix: Correctly move objects in SmallVector constructors
+- Bump builtin simdjson version from 3.12 to 4.6
+
+... and a significant amount of various minor improvements and fixes!
+
 0.9.0
 =====
 

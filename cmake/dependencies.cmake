@@ -8,7 +8,7 @@ if (NOT TARGET simdjson::simdjson)
         message(STATUS "fastgltf: Found simdjson config")
     else ()
         # Download and configure simdjson
-        set(SIMDJSON_TARGET_VERSION "4.6.2")
+        set(SIMDJSON_TARGET_VERSION "4.6.11")
         file(MAKE_DIRECTORY ${SIMDJSON_DL_DIR})
 
         set(SIMDJSON_HEADER_FILE "${SIMDJSON_DL_DIR}/simdjson.h")
@@ -19,23 +19,23 @@ if (NOT TARGET simdjson::simdjson)
 
         macro(download_and_check_for_errors URL DEST_FILE)
             file(DOWNLOAD "${URL}" "${DEST_FILE}" STATUS DOWNLOAD_STATUS)
-            
+
             list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
             list(GET DOWNLOAD_STATUS 1 ERROR_MESSAGE)
-            
+
             if(NOT STATUS_CODE EQUAL 0)
                 message(FATAL_ERROR "Error downloading ${URL}: ${ERROR_MESSAGE}")
             else()
                 message(STATUS "Successfully downloaded: ${DEST_FILE}")
             endif()
         endmacro()
-        
+
         macro(download_simdjson)
             download_and_check_for_errors(
                 "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h"
                 ${SIMDJSON_HEADER_FILE}
             )
-            
+
             download_and_check_for_errors(
                 "https://raw.githubusercontent.com/simdjson/simdjson/v${SIMDJSON_TARGET_VERSION}/singleheader/simdjson.cpp"
                 ${SIMDJSON_SOURCE_FILE}
