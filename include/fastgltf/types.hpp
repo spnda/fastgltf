@@ -31,6 +31,7 @@
 #include <cassert>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -81,12 +82,6 @@
 #define FASTGLTF_IF_PMR(expr) expr
 #endif
 
-#if FASTGLTF_CPP_20
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
-#include <span>
-#endif
-#endif
-
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -107,9 +102,9 @@ namespace fastgltf {
 #endif
 
 	namespace math {
-		FASTGLTF_EXPORT using nvec2 = math::vec<num, 2>;
-		FASTGLTF_EXPORT using nvec3 = math::vec<num, 3>;
-		FASTGLTF_EXPORT using nvec4 = math::vec<num, 4>;
+		FASTGLTF_EXPORT using nvec2 = vec<num, 2>;
+		FASTGLTF_EXPORT using nvec3 = vec<num, 3>;
+		FASTGLTF_EXPORT using nvec4 = vec<num, 4>;
 	}
 
 #pragma region Enums
@@ -415,7 +410,7 @@ namespace fastgltf {
 	 * Don't use this, use getComponentType instead.
 	 * This order matters as we assume that their glTF constant is ascending to index it.
 	 */
-	static constexpr std::array<ComponentType, 11> components = {
+    static constexpr std::array components = {
 		ComponentType::Byte,
 		ComponentType::UnsignedByte,
 		ComponentType::Short,
@@ -438,7 +433,7 @@ namespace fastgltf {
 	}
 
 	// This order matters as we assume that their glTF constant is ascending to index it.
-	static constexpr std::array<AccessorType, 7> accessorTypes = {
+    static constexpr std::array accessorTypes = {
 		AccessorType::Scalar,
 		AccessorType::Vec2,
 		AccessorType::Vec3,
@@ -613,8 +608,8 @@ namespace fastgltf {
 		using iterator = pointer;
 		using const_iterator = const_pointer;
 
-		explicit StaticVector(std::size_t size) : _size(size), _array(std::move(std::unique_ptr<array_t>(new std::remove_extent_t<array_t>[size]))) {}
-		explicit StaticVector(std::size_t size, const T& initialValue) : _size(size), _array(std::move(std::unique_ptr<array_t>(new std::remove_extent_t<array_t>[size]))) {
+        explicit StaticVector(std::size_t size) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {}
+		explicit StaticVector(std::size_t size, const T& initialValue) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {
 			for (auto& value : *this) {
 				value = initialValue;
 			}
@@ -645,15 +640,9 @@ namespace fastgltf {
 		/**
 		 * Copies the contents of the given vector into a new StaticVector.
 		 */
-		static StaticVector<T> fromVector(std::vector<T> vector) {
-			StaticVector<T> staticVector(vector.size());
-			if constexpr (std::is_trivially_copyable_v<T>) {
-				std::memcpy(staticVector.data(), vector.data(), vector.size());
-			} else {
-				for (auto it = vector.begin(); it != vector.end(); ++it) {
-					staticVector[std::distance(vector.begin(), it)] = *it;
-				}
-			}
+		static auto fromVector(const std::vector<T>& vector) {
+			StaticVector staticVector(vector.size());
+			std::ranges::copy(vector.begin(), vector.end(), staticVector.begin());
 			return staticVector;
 		}
 
@@ -693,15 +682,38 @@ namespace fastgltf {
 			return begin()[idx];
 		}
 
-		bool operator==(const StaticVector<value_type>& other) const {
-			if (other.size() != size()) return false;
-			return std::memcmp(data(), other.data(), size_bytes()) == 0;
+		constexpr bool operator==(const StaticVector& other) const {
+			return size() == other.size() && std::equal(begin(), end(), other.begin());
+		}
+		constexpr auto operator<=>(const StaticVector& other) const {
+			return std::lexicographical_compare_three_way(
+				begin(), end(), other.begin(), other.end(),
+				[]<typename U, typename V>(const U& u, const V& v) {
+				if constexpr (std::three_way_comparable_with<U, V>) {
+					return u <=> v;
+				} else {
+					if (u < v) return std::weak_ordering::less;
+					if (v < u) return std::weak_ordering::greater;
+					return std::weak_ordering::equivalent;
+				}
+			});
 		}
 
-		// This is mostly just here for compatibility and the tests
-		bool operator==(const std::vector<value_type>& other) const {
-			if (other.size() != size()) return false;
-			return std::memcmp(data(), other.data(), size_bytes()) == 0;
+		constexpr bool operator==(const std::vector<value_type>& other) const {
+			return size() == other.size() && std::equal(begin(), end(), other.begin());
+		}
+		constexpr auto operator<=>(const std::vector<value_type>& other) const {
+			return std::lexicographical_compare_three_way(
+				begin(), end(), other.begin(), other.end(),
+				[]<typename U, typename V>(const U& u, const V& v) {
+				if constexpr (std::three_way_comparable_with<U, V>) {
+					return u <=> v;
+				} else {
+					if (u < v) return std::weak_ordering::less;
+					if (v < u) return std::weak_ordering::greater;
+					return std::weak_ordering::equivalent;
+				}
+			});
 		}
 	};
 
@@ -875,7 +887,7 @@ namespace fastgltf {
 			}
 
 			// We use geometric growth, similarly to std::vector.
-			newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - clz(newCapacity));
+            newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - std::countl_zero(newCapacity));
 
 			T* alloc = allocator.allocate(newCapacity);
 
@@ -1107,12 +1119,12 @@ namespace fastgltf {
 	struct OptionalFlagValue<float, std::enable_if_t<std::numeric_limits<float>::is_iec559>> {
 		// This float is a quiet NaN with a specific bit pattern to be able to differentiate
 		// between this flag value and any result from FP operations.
-		static constexpr auto missing_value = static_cast<float>(0x7fedb6db);
+		static constexpr auto missing_value = std::bit_cast<float>(0x7fedb6db);
 	};
 
 	template<>
 	struct OptionalFlagValue<double, std::enable_if_t<std::numeric_limits<double>::is_iec559>> {
-		static constexpr auto missing_value = static_cast<double>(0x7ffdb6db6db6db6d);
+		static constexpr auto missing_value = std::bit_cast<double>(0x7ffdb6db6db6db6d);
 	};
 
 	template<>
@@ -1127,6 +1139,19 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT template<typename T>
 	class OptionalWithFlagValue;
+
+	namespace internal {
+		/** Excludes optional types and std::nullopt_t from the comparison operators taking a plain value, like std::optional does. */
+		template <typename T>
+		inline constexpr bool is_optional_impl_v = std::is_same_v<T, std::nullopt_t>;
+		template <typename T>
+		inline constexpr bool is_optional_impl_v<OptionalWithFlagValue<T>> = true;
+		template <typename T>
+		inline constexpr bool is_optional_impl_v<std::optional<T>> = true;
+
+		template <typename T>
+		inline constexpr bool is_optional_v = is_optional_impl_v<std::remove_cv_t<T>>;
+	} // namespace internal
 
 	/**
 	 * A type alias which checks if there is a specialization of OptionalFlagValue for T and "switches"
@@ -1163,67 +1188,70 @@ namespace fastgltf {
 		};
 
 	public:
-		OptionalWithFlagValue() noexcept {
-			reset();
-		}
+		constexpr OptionalWithFlagValue() noexcept { reset(); }
 
-		OptionalWithFlagValue(std::nullopt_t) noexcept {
-			reset();
-		}
+		constexpr OptionalWithFlagValue(std::nullopt_t) noexcept { reset(); }
 
-		template <typename U = T, std::enable_if_t<std::is_copy_constructible_v<T>, int> = 0>
-		OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
+		template <typename U = T>
+		requires std::is_copy_constructible_v<T>
+		constexpr OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
 			if (other.has_value()) {
-				new (std::addressof(_value)) T(*other);
+				std::construct_at(std::addressof(_value), *other);
 			} else {
 				reset();
 			}
 		}
 
-		template <typename U = T, std::enable_if_t<std::is_move_constructible_v<T>, int> = 0>
-		OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
+		template <typename U = T>
+		requires std::is_move_constructible_v<T>
+		constexpr OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
 			if (other.has_value()) {
-				new (std::addressof(_value)) T(std::move(*other));
+				std::construct_at(std::addressof(_value), std::move(*other));
 			} else {
 				reset();
 			}
 		}
 
-		template<typename... Args, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0>
-		explicit OptionalWithFlagValue(std::in_place_t, Args&& ... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+		template<typename... Args>
+		requires std::is_constructible_v<T, Args...>
+		constexpr explicit OptionalWithFlagValue(std::in_place_t, Args&&... args) noexcept(
+			std::is_nothrow_constructible_v<T, Args...>)
 			: _value(std::forward<Args>(args)...) {}
 
-		template <typename U = T, std::enable_if_t<std::is_constructible_v<T, U&&>, int> = 0>
-		OptionalWithFlagValue(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
-			new (std::addressof(_value)) T(std::forward<U>(_new));
+		template <typename U = T>
+		requires std::is_constructible_v<T, U&&>
+		constexpr OptionalWithFlagValue(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> &&
+														   std::is_nothrow_constructible_v<T, U>) {
+			std::construct_at(std::addressof(_value), std::forward<U>(_new));
 		}
 
-		~OptionalWithFlagValue() {
-			reset();
-		}
+		constexpr ~OptionalWithFlagValue() { reset(); }
 
-		OptionalWithFlagValue& operator=(std::nullopt_t) noexcept {
+		constexpr OptionalWithFlagValue& operator=(std::nullopt_t) noexcept {
 			reset();
 			return *this;
 		}
 
-		template<typename U = T, std::enable_if_t<std::is_constructible_v<T, U&&>, int> = 0>
-		OptionalWithFlagValue& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
+		template <typename U = T>
+		requires std::is_constructible_v<T, U&&>
+		constexpr OptionalWithFlagValue& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
 			if (has_value()) {
 				_value = std::forward<U>(_new);
 			} else {
-				new(std::addressof(_value)) T(std::forward<U>(_new));
+				std::construct_at(std::addressof(_value), std::forward<U>(_new));
 			}
 			return *this;
 		}
 
-		template <typename U, std::enable_if_t<std::conjunction_v<std::is_constructible<T, const U&>, std::is_assignable<T&, const U&>>, int> = 0>
-		OptionalWithFlagValue& operator=(const OptionalWithFlagValue<U>& other) {
+		template <typename U>
+		requires std::conjunction_v<std::is_constructible<T, const U&>,
+									std::is_assignable<T&, const U&>>
+		constexpr OptionalWithFlagValue& operator=(const OptionalWithFlagValue<U>& other) {
 			if (other.has_value()) {
 				if (has_value()) {
-					_value = other._value;
+					_value = *other;
 				} else {
-					new(std::addressof(_value)) T(other._value);
+					std::construct_at(std::addressof(_value), *other);
 				}
 			} else {
 				reset();
@@ -1231,13 +1259,15 @@ namespace fastgltf {
 			return *this;
 		}
 
-		template <typename U, std::enable_if_t<std::conjunction_v<std::is_constructible<T, U>, std::is_assignable<T&, U>>, int> = 0>
-		OptionalWithFlagValue& operator=(OptionalWithFlagValue<U>&& other) noexcept(std::is_nothrow_assignable_v<T&, T> && std::is_nothrow_constructible_v<T, T>) {
+		template <typename U>
+		requires std::conjunction_v<std::is_constructible<T, U>, std::is_assignable<T&, U>>
+		constexpr OptionalWithFlagValue& operator=(OptionalWithFlagValue<U>&& other) noexcept(
+		std::is_nothrow_assignable_v<T&, T> && std::is_nothrow_constructible_v<T, T>) {
 			if (other.has_value()) {
 				if (has_value()) {
-					_value = std::move(other._value);
+					_value = std::move(*other);
 				} else {
-					new(std::addressof(_value)) T(other._value);
+					std::construct_at(std::addressof(_value), std::move(*other));
 				}
 			} else {
 				reset();
@@ -1245,82 +1275,88 @@ namespace fastgltf {
 			return *this;
 		}
 
-		[[nodiscard]] bool has_value() const {
+		[[nodiscard]] constexpr bool has_value() const {
+			if constexpr (std::is_floating_point_v<T>) {
+				// The sentinels are NaNs, which never compare equal, so compare the bit patterns instead.
+				using Bits = std::conditional_t<sizeof(T) == sizeof(std::uint32_t), std::uint32_t, std::uint64_t>;
+				static_assert(sizeof(Bits) == sizeof(T));
+				return std::bit_cast<Bits>(_value) != std::bit_cast<Bits>(OptionalFlagValue<T>::missing_value);
+			}
 			return this->_value != OptionalFlagValue<T>::missing_value;
 		}
 
-		[[nodiscard]] T& value()& {
+		[[nodiscard]] constexpr T& value() & {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
 			return _value;
 		}
 
-		[[nodiscard]] const T& value() const& {
+		[[nodiscard]] constexpr const T& value() const& {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
 			return _value;
 		}
 
-		[[nodiscard]] T&& value()&& {
+		[[nodiscard]] constexpr T&& value() && {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
 			return std::move(_value);
 		}
 
-		[[nodiscard]] const T&& value() const&& {
+		[[nodiscard]] constexpr const T&& value() const&& {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
 			return std::move(_value);
 		}
 
-		template<typename U>
-		[[nodiscard]] T value_or(U&& default_value) const& {
+		template <typename U = std::remove_cv_t<T>>
+		[[nodiscard]] constexpr T value_or(U&& default_value) const& {
 			return has_value() ? **this : static_cast<T>(std::forward<U>(default_value));
 		}
 
-		template<typename U>
-		[[nodiscard]] T value_or(U&& default_value)&& {
+		template <typename U = std::remove_cv_t<T>>
+		[[nodiscard]] constexpr T value_or(U&& default_value) && {
 			return has_value() ? std::move(**this) : static_cast<T>(std::forward<U>(default_value));
 		}
 
 		template <typename F>
-		[[nodiscard]] auto and_then(F&& func)& {
-			using U = remove_cvref_t<std::invoke_result_t<F, T&>>;
+		[[nodiscard]] constexpr auto and_then(F&& func) & {
+			using U = std::remove_cvref_t<std::invoke_result_t<F, T&>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
 		}
 
 		template <typename F>
-		[[nodiscard]] auto and_then(F&& func) const& {
-			using U = remove_cvref_t<std::invoke_result_t<F, const T&>>;
+		[[nodiscard]] constexpr auto and_then(F&& func) const& {
+			using U = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), **this);
 		}
 
 		template <typename F>
-		[[nodiscard]] auto and_then(F&& func)&& {
-			using U = remove_cvref_t<std::invoke_result_t<F, T>>;
+		[[nodiscard]] constexpr auto and_then(F&& func) && {
+			using U = std::remove_cvref_t<std::invoke_result_t<F, T>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
 		}
 
 		template <typename F>
-		[[nodiscard]] auto and_then(F&& func) const&& {
-			using U = remove_cvref_t<std::invoke_result_t<F, const T>>;
+		[[nodiscard]] constexpr auto and_then(F&& func) const&& {
+			using U = std::remove_cvref_t<std::invoke_result_t<F, const T>>;
 			if (!has_value())
 				return U(std::nullopt);
 			return std::invoke(std::forward<F>(func), std::move(**this));
 		}
 
 		template <typename F>
-		[[nodiscard]] auto transform(F&& func)& {
+		[[nodiscard]] constexpr auto transform(F&& func) & {
 			using U = std::remove_cv_t<std::invoke_result_t<F, T&>>;
 			if (!has_value())
 				return Optional<U>(std::nullopt);
@@ -1328,7 +1364,7 @@ namespace fastgltf {
 		}
 
 		template <typename F>
-		[[nodiscard]] auto transform(F&& func) const& {
+		[[nodiscard]] constexpr auto transform(F&& func) const& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, const T&>>;
 			if (!has_value())
 				return Optional<U>(std::nullopt);
@@ -1336,7 +1372,7 @@ namespace fastgltf {
 		}
 
 		template <typename F>
-		[[nodiscard]] auto transform(F&& func)&& {
+		[[nodiscard]] constexpr auto transform(F&& func) && {
 			using U = std::remove_cv_t<std::invoke_result_t<F, T>>;
 			if (!has_value())
 				return Optional<U>(std::nullopt);
@@ -1344,7 +1380,7 @@ namespace fastgltf {
 		}
 
 		template <typename F>
-		[[nodiscard]] auto transform(F&& func) const&& {
+		[[nodiscard]] constexpr auto transform(F&& func) const&& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, const T>>;
 			if (!has_value())
 				return Optional<U>(std::nullopt);
@@ -1352,17 +1388,17 @@ namespace fastgltf {
 		}
 
 		template <typename F>
-		[[nodiscard]] T or_else(F&& func) const& {
+		[[nodiscard]] constexpr T or_else(F&& func) const& {
 			return *this ? *this : std::invoke(std::forward<F>(func));
 		}
 
 		template <typename F>
-		[[nodiscard]] T or_else(F&& func)&& {
+		[[nodiscard]] constexpr T or_else(F&& func) && {
 			return *this ? std::move(*this) : std::invoke(std::forward<F>(func));
 		}
 
-		void swap(OptionalWithFlagValue<T>& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
-															std::is_nothrow_swappable_v<T>) {
+		constexpr void swap(OptionalWithFlagValue<T>& other) noexcept(
+			std::is_nothrow_move_constructible_v<T> && std::is_nothrow_swappable_v<T>) {
 			static_assert(std::is_move_constructible_v<T>);
 			if (has_value() && other.has_value()) {
 				std::swap(_value, other._value);
@@ -1373,101 +1409,129 @@ namespace fastgltf {
 			}
 		}
 
-		void reset() noexcept {
-			this->_value = OptionalFlagValue<T>::missing_value;
-		}
+		constexpr void reset() noexcept { this->_value = OptionalFlagValue<T>::missing_value; }
 
 		template <typename... Args>
-		T& emplace(Args&&... args) {
-			new (std::addressof(_value)) T(std::forward<Args>(args)...);
+		constexpr T& emplace(Args&&... args) {
+			std::construct_at(std::addressof(_value), std::forward<Args>(args)...);
 			return _value;
 		}
 
 		template <typename U, typename... Args>
-		T& emplace(std::initializer_list<U> list, Args&&... args) {
+		constexpr T& emplace(std::initializer_list<U> list, Args&&... args) {
 			static_assert(std::is_constructible_v<T, std::initializer_list<U>&, Args&&...>);
-			new (std::addressof(_value)) T(list, std::forward<Args>(args)...);
+			std::construct_at(std::addressof(_value), list, std::forward<Args>(args)...);
 			return _value;
 		}
 
-		explicit operator bool() const noexcept {
-			return has_value();
-		}
+		constexpr explicit operator bool() const noexcept { return has_value(); }
 
-		T* operator->() noexcept {
-			return std::addressof(_value);
-		}
+		constexpr T* operator->() noexcept { return std::addressof(_value); }
 
-		const T* operator->() const noexcept {
-			return std::addressof(_value);
-		}
+		constexpr const T* operator->() const noexcept { return std::addressof(_value); }
 
-		T& operator*()& noexcept {
-			return _value;
-		}
+		constexpr T& operator*() & noexcept { return _value; }
 
-		const T& operator*() const& noexcept {
-			return _value;
-		}
+		constexpr const T& operator*() const& noexcept { return _value; }
 
-		T&& operator*()&& noexcept {
-			return std::move(_value);
-		}
+		constexpr T&& operator*() && noexcept { return std::move(_value); }
 
-		const T&& operator*() const&& noexcept {
-			return std::move(_value);
-		}
+		constexpr const T&& operator*() const&& noexcept { return std::move(_value); }
 
-		operator std::optional<T>() const noexcept {
+		operator std::optional<T>() const& noexcept {
 			return has_value() ? std::optional<T>(_value) : std::nullopt;
 		}
 
-		operator std::optional<T>&&()&& noexcept {
+		operator std::optional<T>() && noexcept {
 			return has_value() ? std::optional<T>(std::move(_value)) : std::nullopt;
 		}
 	};
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator==(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
-		return static_cast<bool>(lhs) == static_cast<bool>(rhs) &&
-			(!static_cast<bool>(lhs) || *lhs == *rhs);
+	constexpr bool operator==(const OptionalWithFlagValue<T>& lhs,
+							  const OptionalWithFlagValue<U>& rhs) {
+		return lhs.has_value() != rhs.has_value() ? false
+												  : (lhs.has_value() == false ? true : *lhs == *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator!=(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
-		return !(lhs == rhs);
+	constexpr bool operator<(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
+		return !rhs ? false : (!lhs ? true : *lhs < *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator==(const OptionalWithFlagValue<T>& opt, const U& value) {
+	constexpr bool operator<=(const OptionalWithFlagValue<T>& lhs,
+							  const OptionalWithFlagValue<U>& rhs) {
+		return !lhs ? true : (!rhs ? false : *lhs <= *rhs);
+	}
+
+	FASTGLTF_EXPORT template <typename T, typename U>
+	constexpr bool operator>(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
+		return !lhs ? false : (!rhs ? true : *lhs > *rhs);
+	}
+
+	FASTGLTF_EXPORT template <typename T, typename U>
+	constexpr bool operator>=(const OptionalWithFlagValue<T>& lhs,
+							  const OptionalWithFlagValue<U>& rhs) {
+		return !rhs ? true : (!lhs ? false : *lhs >= *rhs);
+	}
+
+	FASTGLTF_EXPORT template <typename T, std::three_way_comparable_with<T> U>
+	constexpr std::compare_three_way_result_t<T, U> operator<=>(const OptionalWithFlagValue<T>& lhs,
+																const OptionalWithFlagValue<U>& rhs) {
+		return lhs && rhs ? *lhs <=> *rhs : lhs.has_value() <=> rhs.has_value();
+	}
+
+	FASTGLTF_EXPORT template <typename T>
+	constexpr bool operator==(const OptionalWithFlagValue<T>& opt, std::nullopt_t) noexcept {
+		return !opt.has_value();
+	}
+
+	FASTGLTF_EXPORT template <typename T>
+	constexpr std::strong_ordering operator<=>(const OptionalWithFlagValue<T>& opt,
+											   std::nullopt_t) noexcept {
+		return opt.has_value() <=> false;
+	}
+
+	FASTGLTF_EXPORT template <typename T, typename U>
+	requires (!internal::is_optional_v<U>)
+	constexpr bool operator==(const OptionalWithFlagValue<T>& opt, const U& value) {
 		return opt.has_value() && (*opt) == value;
 	}
 
+	// No operator!= for plain values: C++20 synthesizes it from operator==, and declaring one
+	// would prevent the reversed `value == opt` form from being considered (P2468R2).
+
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator!=(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return !(opt == value);
+	requires (!internal::is_optional_v<U>)
+	constexpr bool operator<(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() ? *opt < value : true;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator<(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && *opt < value;
+	requires (!internal::is_optional_v<U>)
+	constexpr bool operator<=(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() ? *opt <= value : true;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator<=(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && *opt <= value;
+	requires (!internal::is_optional_v<U>)
+	constexpr bool operator>(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() ? *opt > value : false;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator>(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && *opt > value;
+	requires (!internal::is_optional_v<U>)
+	constexpr bool operator>=(const OptionalWithFlagValue<T>& opt, const U& value) {
+		return opt.has_value() ? *opt >= value : false;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	bool operator>=(const OptionalWithFlagValue<T>& opt, const U& value) {
-		return opt.has_value() && *opt >= value;
+	requires (!internal::is_optional_v<U>) && std::three_way_comparable_with<T, U>
+	constexpr std::compare_three_way_result_t<T, U> operator<=>(const OptionalWithFlagValue<T>& opt,
+																const U& value) {
+		return opt.has_value() ? *opt <=> value : std::strong_ordering::less;
 	}
-
 #pragma endregion
 
 #pragma region Structs
@@ -1621,7 +1685,8 @@ namespace fastgltf {
 			}
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		static AccessorBoundsArray ForType(const std::size_t len) {
 			if constexpr (std::is_same_v<T, std::int64_t>) {
 				return AccessorBoundsArray(len, BoundsType::int64);
@@ -1690,7 +1755,8 @@ namespace fastgltf {
 			return dataType;
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] bool isType() const noexcept {
 			switch (dataType) {
 				case BoundsType::int64:
@@ -1706,7 +1772,8 @@ namespace fastgltf {
 			return len;
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] auto* data() noexcept {
 			assert(isType<T>());
 			if constexpr (std::is_same_v<T, std::int64_t>) {
@@ -1717,7 +1784,8 @@ namespace fastgltf {
 			FASTGLTF_UNREACHABLE
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] const auto* data() const noexcept {
 			assert(isType<T>());
 			if constexpr (std::is_same_v<T, std::int64_t>) {
@@ -1728,134 +1796,23 @@ namespace fastgltf {
 			FASTGLTF_UNREACHABLE
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		[[nodiscard]] T get(const std::size_t pos) const {
 			assert(pos < len && isType<T>());
 			return data<T>()[pos];
 		}
 
-		template <typename T, std::enable_if_t<is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires is_valid_type_v<T>
 		void set(const std::size_t pos, const T value) {
 			assert(pos < len && isType<T>());
 			data<T>()[pos] = value;
 		}
 	};
 
-	FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
-
-	/**
-	 * Custom span class imitating C++20's std::span for referencing bytes without owning the
-	 * allocation. Can also directly be converted to a std::span or used by itself.
-	 */
-	FASTGLTF_EXPORT template <typename T, std::size_t Extent = dynamic_extent>
-	class span {
-		using element_type = T;
-		using value_type = std::remove_cv_t<T>;
-		using size_type = std::size_t;
-		using difference_type = std::ptrdiff_t;
-		using pointer = T*;
-		using const_pointer = const T*;
-		using reference = T&;
-		using const_reference = const T&;
-
-		using iterator = pointer;
-		using reverse_iterator = std::reverse_iterator<iterator>;
-
-		pointer _ptr = nullptr;
-		size_type _size = 0;
-
-	public:
-		static constexpr std::size_t extent = Extent;
-
-		constexpr span() = default;
-
-		// std::span ctor (2)
-		template <typename Iterator>
-		explicit /*(Extent != dynamic_extent)*/ constexpr span(Iterator first, const size_type count) : _ptr(first), _size(count) {}
-
-		// std::span ctor (5)
-		template<typename U, std::size_t N>
-		constexpr span(std::array<U, N>& arr) noexcept : _ptr(arr.data()), _size(N) {}
-
-		// std::span ctor (6)
-		template<typename U, std::size_t N>
-		constexpr span(const std::array<U, N>& arr) noexcept : _ptr(arr.data()), _size(N) {}
-
-#if FASTGLTF_CPP_20
-		constexpr span(std::span<T> data) : _ptr(data.data()), _size(data.size()) {}
-#endif
-
-		constexpr span(const span& other) noexcept = default;
-		constexpr span& operator=(const span& other) = default;
-
-		[[nodiscard]] constexpr iterator begin() const noexcept {
-			return data();
-		}
-		[[nodiscard]] constexpr iterator end() const noexcept {
-			return data() + size();
-		}
-		[[nodiscard]] constexpr reverse_iterator rbegin() const noexcept {
-			return std::reverse_iterator(end());
-		}
-		[[nodiscard]] constexpr reverse_iterator rend() const noexcept {
-			return std::reverse_iterator(begin());
-		}
-
-		[[nodiscard]] constexpr reference front() const { return *begin(); }
-		[[nodiscard]] constexpr reference back() const { return *(end() - 1); }
-
-		[[nodiscard]] constexpr reference operator[](size_type idx) const {
-			return data()[idx];
-		}
-
-		[[nodiscard]] constexpr reference at(size_type idx) const {
-			return data()[idx];
-		}
-
-		[[nodiscard]] constexpr pointer data() const {
-			return _ptr;
-		}
-
-		[[nodiscard]] constexpr size_type size() const {
-			return _size;
-		}
-
-		[[nodiscard]] constexpr size_type size_bytes() const {
-			return size() * sizeof(element_type);
-		}
-
-		[[nodiscard]] constexpr bool empty() const {
-			return size() == 0;
-		}
-
-		[[nodiscard]] constexpr span first(size_type count) const {
-			return span(_ptr, count);
-		}
-
-		[[nodiscard]] constexpr span last(size_type count) const {
-			return span(&data()[size() - count], count);
-		}
-
-		[[nodiscard]] constexpr span subspan(size_type offset, size_type count = dynamic_extent) const {
-			return span(&data()[offset], count == dynamic_extent ? size() - offset : count);
-		}
-
-#if FASTGLTF_CPP_20
-		operator std::span<T, Extent == dynamic_extent ? std::dynamic_extent : Extent>() const {
-			return std::span<T, Extent == dynamic_extent ? std::dynamic_extent : Extent>(data(), size());
-		}
-#endif
-	};
-
-	FASTGLTF_EXPORT template <typename T>
-	span(T* data, std::size_t count) -> span<T>;
-
-	FASTGLTF_EXPORT template <typename T>
-	span(const T* data, std::size_t size) -> span<const T>;
-
-	// std::span deduction guide (4)
-	FASTGLTF_EXPORT template<class T, std::size_t N>
-	span(const std::array<T, N>&) -> span<const T, N>;
+	FASTGLTF_EXPORT inline constexpr std::size_t dynamic_extent [[deprecated]] = std::dynamic_extent;
+	FASTGLTF_EXPORT template <class T, std::size_t E = std::dynamic_extent> using span [[deprecated]] = std::span<T, E>;
 
 	FASTGLTF_EXPORT using CustomBufferId = std::uint64_t;
 
@@ -1891,7 +1848,7 @@ namespace fastgltf {
 		};
 
 		FASTGLTF_EXPORT struct ByteView {
-			span<const std::byte> bytes;
+            std::span<const std::byte> bytes;
 			MimeType mimeType = MimeType::None;
 		};
 
@@ -2710,7 +2667,8 @@ namespace fastgltf {
 		/**
 		 * Helper function that updates the max/min variables dynamically.
 		 */
-		template <typename T, std::enable_if_t<AccessorBoundsArray::is_valid_type_v<T>, bool> = true>
+		template <typename T>
+		requires AccessorBoundsArray::is_valid_type_v<T>
 		void updateBoundsToInclude(T value) {
 			if (!max)
 				max = AccessorBoundsArray::ForType<T>(1);
@@ -2732,7 +2690,8 @@ namespace fastgltf {
 		 * Helper function that updates the max/min variables dynamically. Note that the value passed in
 		 * needs to be a vector with the same size as max/min
 		 */
-		template <typename T, std::size_t N, std::enable_if_t<AccessorBoundsArray::is_valid_type_v<T>, bool> = true>
+		template <typename T, std::size_t N>
+		requires AccessorBoundsArray::is_valid_type_v<T>
 		void updateBoundsToInclude(math::vec<T, N> value) {
 			if (!max)
 				max = AccessorBoundsArray::ForType<T>(value.size());

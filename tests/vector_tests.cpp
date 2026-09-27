@@ -2,18 +2,6 @@
 
 #include <fastgltf/types.hpp>
 
-TEST_CASE("Verify clz", "[vector-tests]") {
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000000) == 8);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000001) == 7);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000010) == 6);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b00000100) == 5);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b00001000) == 4);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b00010000) == 3);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b00100000) == 2);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b01000000) == 1);
-	REQUIRE(fastgltf::clz<std::uint8_t>(0b10000000) == 0);
-}
-
 TEST_CASE("Test resize/reserve", "[vector-tests]") {
     fastgltf::SmallVector<uint32_t, 4> vec = {1, 2, 3};
     REQUIRE(vec[0] == 1);
@@ -200,3 +188,65 @@ TEST_CASE("Test move-only types with SmallVector", "[vector-tests]") {
 	}
 }
 
+namespace {
+	template <typename T>
+	fastgltf::StaticVector<T> makeStaticVector(std::initializer_list<T> values) {
+		fastgltf::StaticVector<T> vector(values.size());
+		std::size_t i = 0;
+		for (const auto& value : values)
+			vector[i++] = value;
+		return vector;
+	}
+
+	// type that only implements operator< to test the weak_ordering fallback for the operator<=> of StaticVector
+	struct LessOnly {
+		int value;
+		friend bool operator<(const LessOnly& a, const LessOnly& b) { return a.value < b.value; }
+	};
+} // namespace
+
+TEST_CASE("Test StaticVector three-way comparison", "[vector-tests]") {
+	const auto a = makeStaticVector({1, 2, 3});
+	const auto b = makeStaticVector({1, 2, 3});
+	const auto c = makeStaticVector({1, 2, 4});
+	const auto prefix = makeStaticVector({1, 2});
+
+	REQUIRE(((a <=> b) == 0));
+	REQUIRE(((a <=> c) < 0));
+	REQUIRE(((c <=> a) > 0));
+	REQUIRE(((prefix <=> a) < 0));
+	REQUIRE(a < c);
+	REQUIRE(c >= a);
+	REQUIRE(prefix <= a);
+
+	static_assert(std::is_same_v<decltype(a <=> b), std::strong_ordering>);
+
+	SECTION("Against std::vector") {
+		const std::vector<int> equal = {1, 2, 3};
+		const std::vector<int> greater = {1, 3};
+
+		REQUIRE(((a <=> equal) == 0));
+		REQUIRE(((a <=> greater) < 0));
+		REQUIRE(a < greater);
+		REQUIRE(greater > a);
+	}
+
+	SECTION("Floating point") {
+		const auto f1 = makeStaticVector({1.0f, 2.0f});
+		const auto f2 = makeStaticVector({1.0f, 2.5f});
+
+		static_assert(std::is_same_v<decltype(f1 <=> f2), std::partial_ordering>);
+		REQUIRE(((f1 <=> f2) < 0));
+		REQUIRE(((f1 <=> f1) == 0));
+	}
+
+	SECTION("Types without operator<=>") {
+		const auto l1 = makeStaticVector({LessOnly {1}, LessOnly {2}});
+		const auto l2 = makeStaticVector({LessOnly {1}, LessOnly {3}});
+
+		static_assert(std::is_same_v<decltype(l1 <=> l2), std::weak_ordering>);
+		REQUIRE(((l1 <=> l2) < 0));
+		REQUIRE(((l2 <=> l1) > 0));
+		REQUIRE(((l1 <=> l1) == 0));
+	}
+}
