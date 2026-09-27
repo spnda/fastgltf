@@ -58,7 +58,7 @@ fg::GltfDataBuffer::GltfDataBuffer(const fs::path& path) noexcept {
 	}
 
 	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-	buffer = std::make_unique_for_overwrite<std::byte[]>(allocatedSize);
+	buffer = decltype(buffer)(new (std::nothrow) std::byte[allocatedSize]);
 
 	if (buffer != nullptr) {
 		// Copy the data and fill the padding region with zeros.
@@ -83,7 +83,7 @@ fg::GltfDataBuffer::GltfDataBuffer(const std::span<std::byte> span) noexcept {
 
 void fg::GltfDataBuffer::allocateAndCopy(const std::byte *bytes) noexcept {
 	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-	buffer = std::make_unique_for_overwrite<std::byte[]>(allocatedSize);
+	buffer = decltype(buffer)(new (std::nothrow) std::byte[allocatedSize]);
 
 	if (buffer != nullptr) {
 		std::memcpy(buffer.get(), bytes, dataSize);
@@ -349,7 +349,7 @@ fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(const fs::path& path, std::uint
 
 	dataSize = length - byteOffset;
 	allocatedSize = dataSize + simdjson::SIMDJSON_PADDING;
-	buffer = std::make_unique_for_overwrite<std::byte[]>(allocatedSize);
+	buffer = decltype(buffer)(new(std::nothrow) std::byte[allocatedSize]);
 
 	if (buffer == nullptr) {
 		error = Error::FileBufferAllocationFailed;
