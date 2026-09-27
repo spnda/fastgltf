@@ -40,6 +40,7 @@
 #include <string_view>
 #include <type_traits>
 #include <variant>
+#include <version>
 #endif
 
 #ifndef FASTGLTF_EXPORT
@@ -47,19 +48,16 @@
 #endif
 
 // Macros to determine C++ standard version
-#if (!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
-#define FASTGLTF_CPP_20 1
-#include <version>
-#else
+#if !((!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)) || (defined(FASTGLTF_CPP_20) && !FASTGLTF_CPP_20)
 #error "fastgltf requires C++20"
 #endif
 
 #ifndef FASTGLTF_CPP_23
-	#if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
-	#define FASTGLTF_CPP_23 1
-	#else
-	#define FASTGLTF_CPP_23 0
-	#endif
+#if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
+#define FASTGLTF_CPP_23 1
+#else
+#define FASTGLTF_CPP_23 0
+#endif
 #endif
 
 #if FASTGLTF_CPP_23
