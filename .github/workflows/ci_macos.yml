@@ -25,10 +25,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Download cached sample assets
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: sample-assets-cache
         with:
           path: ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
