@@ -1,86 +1,153 @@
+#include <memory_resource>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <fastgltf/containers/small_vector.hpp>
 #include <fastgltf/containers/static_vector.hpp>
 
-TEST_CASE("Test resize/reserve", "[vector-tests]") {
-    fastgltf::SmallVector<uint32_t, 4> vec = {1, 2, 3};
-    REQUIRE(vec[0] == 1);
-    REQUIRE(vec[1] == 2);
-    REQUIRE(vec[2] == 3);
+TEST_CASE("Test resizing and allocation behaviour", "[vector-tests]") {
+	SECTION("Resizing") {
+		fastgltf::SmallVector<uint32_t, 4> vec = {1, 2, 3};
+		REQUIRE(vec[0] == 1);
+		REQUIRE(vec[1] == 2);
+		REQUIRE(vec[2] == 3);
 
-    vec.resize(5);
-    REQUIRE(vec.size() == 5);
-    REQUIRE(vec[3] == 0);
-    REQUIRE(vec[4] == 0);
+		vec.resize(5);
+		REQUIRE(vec.size() == 5);
+		REQUIRE(vec[3] == 0);
+		REQUIRE(vec[4] == 0);
 
-    vec.resize(2);
-    REQUIRE(vec.size() == 2);
-    REQUIRE(vec[0] == 1);
-    REQUIRE(vec[1] == 2);
+		vec.resize(2);
+		REQUIRE(vec.size() == 2);
+		REQUIRE(vec[0] == 1);
+		REQUIRE(vec[1] == 2);
 
-    vec.resize(6, 4);
-    REQUIRE(vec.size() == 6);
-    for (std::size_t i = 2; i < vec.size(); ++i) {
-        REQUIRE(vec[i] == 4);
-    }
+		vec.resize(6, 4);
+		REQUIRE(vec.size() == 6);
+		for (std::size_t i = 2; i < vec.size(); ++i) {
+			REQUIRE(vec[i] == 4);
+		}
 
-    vec.reserve(8);
-    REQUIRE(vec.size() == 6);
-    REQUIRE(vec.capacity() == 8);
+		vec.reserve(8);
+		REQUIRE(vec.size() == 6);
+		REQUIRE(vec.capacity() == 8);
 
-	vec.shrink_to_fit();
-	REQUIRE(vec.capacity() == 6);
+		vec.shrink_to_fit();
+		REQUIRE(vec.capacity() == 6);
+	}
+
+	SECTION("Clearing") {
+		fastgltf::SmallVector<uint32_t, 4> vec = {1, 2, 3};
+		REQUIRE(vec.size() == 3);
+		REQUIRE(vec.capacity() == 4);
+		vec.clear();
+		REQUIRE(vec.empty());
+		REQUIRE(vec.capacity() == 4);
+
+		vec.resize(16);
+		REQUIRE(vec.size() == 16);
+		REQUIRE(vec.capacity() >= 16);
+		vec.clear();
+		REQUIRE(vec.empty());
+		REQUIRE(vec.capacity() >= 16);
+
+		vec.reserve(64);
+		REQUIRE(vec.empty());
+		REQUIRE(vec.capacity() >= 64);
+	}
 }
 
 TEST_CASE("Test constructors", "[vector-tests]") {
-    fastgltf::SmallVector<uint32_t, 4> vec = {0, 1, 2, 3};
-    for (std::size_t i = 0; i < vec.size(); ++i) {
-        REQUIRE(vec[i] == i);
-    }
+	fastgltf::SmallVector<uint32_t, 4> vec = {0, 1, 2, 3};
+	for (std::size_t i = 0; i < vec.size(); ++i) {
+		REQUIRE(vec[i] == i);
+	}
 
-    fastgltf::SmallVector<uint32_t, 4> vec2(vec);
-    for (std::size_t i = 0; i < vec2.size(); ++i) {
-        REQUIRE(vec2[i] == i);
-    }
+	fastgltf::SmallVector<uint32_t, 4> vec2(vec);
+	for (std::size_t i = 0; i < vec2.size(); ++i) {
+		REQUIRE(vec2[i] == i);
+	}
 
-    fastgltf::SmallVector<uint32_t, 4> vec3 = std::move(vec2);
-    REQUIRE(vec2.empty());
-    vec3.resize(6);
-    for (std::size_t i = 0; i < 4; ++i) {
-        REQUIRE(vec3[i] == i);
-    }
-    REQUIRE(vec3[4] == 0);
-    REQUIRE(vec3[5] == 0);
+	fastgltf::SmallVector<uint32_t, 4> vec3 = std::move(vec2);
+	REQUIRE(vec2.empty());
+	vec3.resize(6);
+	for (std::size_t i = 0; i < 4; ++i) {
+		REQUIRE(vec3[i] == i);
+	}
+	REQUIRE(vec3[4] == 0);
+	REQUIRE(vec3[5] == 0);
+}
+
+TEST_CASE("Test reusing moved-from SmallVector", "[vector-tests]") {
+	auto fillAndCheck = [](fastgltf::SmallVector<uint32_t, 4>& vec) {
+		for (uint32_t i = 0; i < 16; ++i) {
+			vec.emplace_back(i);
+		}
+		REQUIRE(vec.size() == 16);
+		for (uint32_t i = 0; i < 16; ++i) {
+			REQUIRE(vec[i] == i);
+		}
+	};
+
+	SECTION("Move constructor") {
+		fastgltf::SmallVector<uint32_t, 4> source;
+		fillAndCheck(source);
+		REQUIRE(!source.isUsingStack());
+
+		fastgltf::SmallVector<uint32_t, 4> target(std::move(source));
+		REQUIRE(target.size() == 16);
+		REQUIRE(source.empty());
+		REQUIRE(source.isUsingStack());
+
+		fillAndCheck(source);
+	}
+
+	SECTION("Move assignment") {
+		fastgltf::SmallVector<uint32_t, 4> source;
+		fillAndCheck(source);
+
+		fastgltf::SmallVector<uint32_t, 4> target;
+		target = std::move(source);
+		REQUIRE(target.size() == 16);
+		REQUIRE(source.empty());
+		REQUIRE(source.isUsingStack());
+
+		fillAndCheck(source);
+	}
 }
 
 TEST_CASE("Nested SmallVector", "[vector-tests]") {
-    fastgltf::SmallVector<fastgltf::SmallVector<uint32_t, 2>, 4> vectors(6, {4}); // This should heap allocate straight away.
-    REQUIRE(vectors.size() == 6);
-    for (auto& vector : vectors) {
-        REQUIRE(vector.size() == 1);
-        REQUIRE(vector.front() == 4);
-        vector.reserve(6);
-    }
+	fastgltf::SmallVector<fastgltf::SmallVector<uint32_t, 2>, 4> vectors(6, {4}); // This should heap allocate straight away.
+	REQUIRE(vectors.size() == 6);
+	for (auto& vector : vectors) {
+		REQUIRE(vector.size() == 1);
+		REQUIRE(vector.front() == 4);
+		vector.reserve(6);
+	}
 }
 
-struct RefCountedObject {
-	static inline std::size_t aliveObjects = 0;
+namespace {
+	struct RefCountedObject {
+		static inline std::size_t aliveObjects = 0;
 
-	RefCountedObject() {
-		++aliveObjects;
-	}
+		RefCountedObject() {
+			++aliveObjects;
+		}
 
-	RefCountedObject(const RefCountedObject& other) {
-		++aliveObjects;
-	}
+		RefCountedObject(const RefCountedObject& other) {
+			++aliveObjects;
+		}
 
-	RefCountedObject(RefCountedObject&& other) = delete;
+		// Deliberately not noexcept, so that SmallVector::reserve still uses the copy constructor.
+		RefCountedObject(RefCountedObject&& other) {
+			++aliveObjects;
+		}
 
-	~RefCountedObject() {
-		--aliveObjects;
-	}
-};
+		~RefCountedObject() {
+			--aliveObjects;
+		}
+	};
+}
 
 TEST_CASE("Test shrinking vectors", "[vector-tests]") {
 	fastgltf::SmallVector<RefCountedObject, 4> objects;
@@ -92,6 +159,58 @@ TEST_CASE("Test shrinking vectors", "[vector-tests]") {
 	REQUIRE(RefCountedObject::aliveObjects == 5);
 	objects.resize(4);
 	REQUIRE(RefCountedObject::aliveObjects == 4);
+
+	// The remaining elements fit into the inline storage again, so the heap allocation has to be freed.
+	REQUIRE(!objects.isUsingStack());
+	objects.shrink_to_fit();
+	REQUIRE(objects.isUsingStack());
+	REQUIRE(objects.size() == 4);
+	REQUIRE(objects.capacity() == 4);
+	REQUIRE(RefCountedObject::aliveObjects == 4);
+}
+
+TEST_CASE("Test moving vectors with inline storage", "[vector-tests]") {
+	{
+		fastgltf::SmallVector<RefCountedObject, 4> source(3);
+		REQUIRE(RefCountedObject::aliveObjects == 3);
+
+		fastgltf::SmallVector<RefCountedObject, 4> target(std::move(source));
+		REQUIRE(source.empty());
+		REQUIRE(target.size() == 3);
+		REQUIRE(RefCountedObject::aliveObjects == 3);
+
+		fastgltf::SmallVector<RefCountedObject, 4> assigned(1);
+		assigned = std::move(target);
+		REQUIRE(target.empty());
+		REQUIRE(assigned.size() == 3);
+		REQUIRE(RefCountedObject::aliveObjects == 3);
+	}
+	REQUIRE(RefCountedObject::aliveObjects == 0);
+}
+
+TEST_CASE("Test copying vectors", "[vector-tests]") {
+	{
+		fastgltf::SmallVector<RefCountedObject, 4> inlineSource(3);
+		fastgltf::SmallVector<RefCountedObject, 4> heapSource(6);
+		REQUIRE(RefCountedObject::aliveObjects == 9);
+
+		fastgltf::SmallVector<RefCountedObject, 4> inlineCopy(inlineSource);
+		fastgltf::SmallVector<RefCountedObject, 4> heapCopy(heapSource);
+		REQUIRE(inlineCopy.size() == 3);
+		REQUIRE(heapCopy.size() == 6);
+		REQUIRE(RefCountedObject::aliveObjects == 18);
+
+		const auto capacity = heapCopy.capacity();
+		heapCopy = inlineSource;
+		REQUIRE(heapCopy.size() == 3);
+		REQUIRE(heapCopy.capacity() == capacity);
+		REQUIRE(RefCountedObject::aliveObjects == 15);
+
+		inlineCopy = heapSource;
+		REQUIRE(inlineCopy.size() == 6);
+		REQUIRE(RefCountedObject::aliveObjects == 18);
+	}
+	REQUIRE(RefCountedObject::aliveObjects == 0);
 }
 
 TEST_CASE("Test vectors with polymorphic allocators", "[vector-tests]") {
@@ -101,6 +220,34 @@ TEST_CASE("Test vectors with polymorphic allocators", "[vector-tests]") {
 	REQUIRE(ints.data() != nullptr);
 	for (auto& i : ints) {
 		REQUIRE(i == 5);
+	}
+
+	SECTION("Move assignment with unequal allocators") {
+		std::pmr::monotonic_buffer_resource otherResource;
+		fastgltf::pmr::SmallVector<std::uint32_t, 4> other(&otherResource);
+		other = std::move(ints);
+
+		REQUIRE(ints.empty());
+		REQUIRE(other.size() == 10);
+		for (auto& i : other) {
+			REQUIRE(i == 5);
+		}
+	}
+
+	SECTION("Move constructor takes over the allocator") {
+		// The memory comes from a buffer on the stack, so freeing it with any other allocator would be caught by ASan.
+		std::array<std::byte, 256> buffer {};
+		std::pmr::monotonic_buffer_resource resource(buffer.data(), buffer.size(), std::pmr::null_memory_resource());
+		fastgltf::pmr::SmallVector<std::uint32_t, 4> source(&resource);
+		source.assign(10, 5);
+		REQUIRE(!source.isUsingStack());
+
+		fastgltf::pmr::SmallVector<std::uint32_t, 4> moved(std::move(source));
+		REQUIRE(moved.size() == 10);
+		// Growing has to allocate from, and free the old allocation back to, the same resource.
+		REQUIRE(moved.capacity() < 17);
+		moved.resize(17, 6);
+		REQUIRE(moved.back() == 6);
 	}
 }
 
@@ -114,17 +261,19 @@ TEST_CASE("Test initial value for StaticVector", "[vector-tests]") {
 	REQUIRE(count == 10);
 }
 
-struct MoveOnlyObject {
-	std::unique_ptr<int> ptr;
+namespace {
+	struct MoveOnlyObject {
+		std::unique_ptr<int> ptr;
 
-	MoveOnlyObject() : ptr(std::make_unique<int>(0)) {}
-	explicit MoveOnlyObject(int v) : ptr(std::make_unique<int>(v)) {}
-	MoveOnlyObject(const MoveOnlyObject&) = delete;
-	MoveOnlyObject& operator=(const MoveOnlyObject&) = delete;
-	MoveOnlyObject(MoveOnlyObject&&) noexcept = default;
-	MoveOnlyObject& operator=(MoveOnlyObject&&) noexcept = default;
-	~MoveOnlyObject() = default;
-};
+		MoveOnlyObject() : ptr(std::make_unique<int>(0)) {}
+		explicit MoveOnlyObject(int v) : ptr(std::make_unique<int>(v)) {}
+		MoveOnlyObject(const MoveOnlyObject&) = delete;
+		MoveOnlyObject& operator=(const MoveOnlyObject&) = delete;
+		MoveOnlyObject(MoveOnlyObject&&) noexcept = default;
+		MoveOnlyObject& operator=(MoveOnlyObject&&) noexcept = default;
+		~MoveOnlyObject() = default;
+	};
+}
 
 TEST_CASE("Test move-only types with SmallVector", "[vector-tests]") {
 	SECTION("Stack storage move constructor") {
@@ -186,6 +335,84 @@ TEST_CASE("Test move-only types with SmallVector", "[vector-tests]") {
 		REQUIRE(*vec2[0].ptr == 1);
 		REQUIRE(*vec2[1].ptr == 2);
 		REQUIRE(*vec2[2].ptr == 3);
+	}
+
+	SECTION("Heap storage move assignment into heap storage") {
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec;
+		vec.emplace_back(1);
+		vec.emplace_back(2);
+		vec.emplace_back(3);
+
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec2;
+		vec2.emplace_back(97);
+		vec2.emplace_back(98);
+		vec2.emplace_back(99);
+		vec2 = std::move(vec);
+
+		REQUIRE(vec.empty());
+		REQUIRE(vec2.size() == 3);
+		REQUIRE(*vec2[0].ptr == 1);
+		REQUIRE(*vec2[2].ptr == 3);
+	}
+
+	SECTION("Stack storage move assignment into heap storage") {
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec;
+		vec.emplace_back(1);
+
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec2;
+		vec2.emplace_back(97);
+		vec2.emplace_back(98);
+		vec2.emplace_back(99);
+		vec2 = std::move(vec);
+
+		REQUIRE(vec.empty());
+		REQUIRE(vec.isUsingStack());
+		REQUIRE(vec2.size() == 1);
+		REQUIRE(*vec2[0].ptr == 1);
+
+		REQUIRE(!vec2.isUsingStack());
+		REQUIRE(vec2.capacity() >= 3);
+
+		vec2.emplace_back(2);
+		vec2.emplace_back(3);
+		vec2.emplace_back(4);
+		REQUIRE(vec2.size() == 4);
+		REQUIRE(*vec2[3].ptr == 4);
+	}
+
+	SECTION("Move assignment from an empty vector") {
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec;
+
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec2;
+		vec2.emplace_back(98);
+		vec2.emplace_back(99);
+		vec2 = std::move(vec);
+		REQUIRE(vec2.empty());
+
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec3;
+		vec3.emplace_back(97);
+		vec3.emplace_back(98);
+		vec3.emplace_back(99);
+		vec3 = std::move(vec);
+		REQUIRE(vec3.empty());
+	}
+
+	SECTION("Shrinking") {
+		fastgltf::SmallVector<MoveOnlyObject, 2> vec;
+		vec.emplace_back(1);
+		vec.emplace_back(2);
+		vec.emplace_back(3);
+		vec.reserve(16);
+
+		vec.shrink_to_fit();
+		REQUIRE(vec.capacity() == 3);
+		REQUIRE(*vec[2].ptr == 3);
+
+		vec.resize(2);
+		vec.shrink_to_fit();
+		REQUIRE(vec.isUsingStack());
+		REQUIRE(*vec[0].ptr == 1);
+		REQUIRE(*vec[1].ptr == 2);
 	}
 }
 

@@ -53,29 +53,30 @@ namespace fastgltf {
 
 		alignas(T) std::array<std::byte, N * sizeof(T)> storage = {};
 
-		Allocator allocator;
+		[[no_unique_address]] Allocator allocator;
 
 		T* _data;
 		std::size_t _size = 0, _capacity = N;
 
-		void copy(const T* first, const std::size_t count, T* result) {
-			if constexpr (std::is_trivially_copyable_v<T>) {
-				std::memcpy(result, first, count * sizeof(T));
-			} else {
-				for (std::size_t i = 0; i < count; ++i) {
-					result[i] = first[i];
+		/**
+		 * Moves all elements into the uninitialized memory at dest, destroys the old elements, and frees the
+		 * old allocation if it was on the heap. The caller is responsible for updating _capacity afterwards.
+		 */
+		void relocate(T* dest) {
+			for (std::size_t i = 0; i < size(); ++i) {
+				auto& x = _data[i];
+				if constexpr (std::is_nothrow_move_constructible_v<T> || !std::is_copy_constructible_v<T>) {
+					new (dest + i) T(std::move(x));
+				} else {
+					new (dest + i) T(x);
 				}
 			}
-		}
 
-		void move_elements(T* first, const std::size_t count, T* result) {
-			if constexpr (std::is_trivially_copyable_v<T>) {
-				std::memcpy(result, first, count * sizeof(T));
-			} else {
-				for (std::size_t i = 0; i < count; ++i) {
-					result[i] = std::move(first[i]);
-				}
+			std::destroy(begin(), end());
+			if (!isUsingStack()) {
+				allocator.deallocate(_data, _capacity);
 			}
+			_data = dest;
 		}
 
 	public:
@@ -98,22 +99,23 @@ namespace fastgltf {
 			assign(init);
 		}
 
-		SmallVector(const SmallVector& other) noexcept : _data(reinterpret_cast<T*>(storage.data())) {
-			resize(other.size());
-			copy(other.begin(), other.size(), begin());
+		SmallVector(const SmallVector& other)
+				: allocator(std::allocator_traits<Allocator>::select_on_container_copy_construction(other.allocator)),
+				  _data(reinterpret_cast<T*>(storage.data())) {
+			reserve(other.size());
+			std::uninitialized_copy(other.begin(), other.end(), begin());
+			_size = other.size();
 		}
 
-		SmallVector(SmallVector&& other) noexcept : _data(reinterpret_cast<T*>(storage.data())) {
+		SmallVector(SmallVector&& other) noexcept(std::is_nothrow_move_constructible_v<T>) : allocator(std::move(other.allocator)), _data(reinterpret_cast<T*>(storage.data())) {
 			if (other.isUsingStack()) {
-				if (!other.empty()) {
-					resize(other.size());
-					move_elements(other.begin(), other.size(), begin());
-					other._data = reinterpret_cast<T*>(other.storage.data()); // Reset pointer
-					_size = std::exchange(other._size, 0);
-					_capacity = std::exchange(other._capacity, N);
-				}
+				// since N is the same we can assume that capacity() == other.capacity(), so just move each element over
+				std::uninitialized_move(other.begin(), other.end(), begin());
+				_size = other.size();
+				other.clear();
 			} else {
-				_data = std::exchange(other._data, nullptr);
+				// allow other to be re-used by assigning its data with its internal buffer again
+				_data = std::exchange(other._data, reinterpret_cast<T*>(other.storage.data()));
 				_size = std::exchange(other._size, 0);
 				_capacity = std::exchange(other._capacity, N);
 			}
@@ -121,34 +123,42 @@ namespace fastgltf {
 
 		SmallVector& operator=(const SmallVector& other) {
 			if (std::addressof(other) != this) {
-				if (!isUsingStack() && _data) {
-					std::destroy(begin(), end());
-					allocator.deallocate(_data, _capacity);
-					_data = reinterpret_cast<T*>(storage.data());
-					_size = _capacity = 0;
-				}
-
-				resize(other.size());
-				copy(other.begin(), other.size(), begin());
+				clear();
+				reserve(other.size());
+				std::uninitialized_copy(other.begin(), other.end(), begin());
+				_size = other.size();
 			}
 			return *this;
 		}
 
-		SmallVector& operator=(SmallVector&& other) noexcept {
-			if (std::addressof(other) != this) {
-				if (other.isUsingStack()) {
-					if (!other.empty()) {
-						resize(other.size());
-						move_elements(other.begin(), other.size(), begin());
-						other._data = reinterpret_cast<T*>(other.storage.data()); // Reset pointer
-						_size = std::exchange(other._size, 0);
-						_capacity = std::exchange(other._capacity, N);
-					}
-				} else {
-					_data = std::exchange(other._data, nullptr);
-					_size = std::exchange(other._size, 0);
-					_capacity = std::exchange(other._capacity, N);
+		SmallVector& operator=(SmallVector&& other) noexcept(
+				(std::allocator_traits<Allocator>::propagate_on_container_move_assignment::value
+				 || std::allocator_traits<Allocator>::is_always_equal::value)
+				&& std::is_nothrow_move_constructible_v<T>) {
+			using traits = std::allocator_traits<Allocator>;
+			if (std::addressof(other) == this) {
+				return *this;
+			}
+
+			clear();
+
+			if (!other.isUsingStack() && (traits::propagate_on_container_move_assignment::value || allocator == other.allocator)) {
+				if (!isUsingStack()) {
+					allocator.deallocate(_data, _capacity);
 				}
+				if constexpr (traits::propagate_on_container_move_assignment::value) {
+					allocator = std::move(other.allocator);
+				}
+
+				_data = std::exchange(other._data, reinterpret_cast<T*>(other.storage.data()));
+				_size = std::exchange(other._size, 0);
+				_capacity = std::exchange(other._capacity, N);
+			} else {
+				// we can't reuse the allocation, so just re-allocate and move everything over
+				reserve(other.size());
+				std::uninitialized_move(other.begin(), other.end(), begin());
+				_size = other.size();
+				other.clear();
 			}
 			return *this;
 		}
@@ -190,44 +200,14 @@ namespace fastgltf {
 			static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>, "T needs to be copy constructible.");
 
 			// We don't want to reduce capacity with reserve, only with shrink_to_fit.
+			// This also covers everything that fits into the inline storage, whose capacity is always N.
 			if (newCapacity <= capacity()) {
 				return;
 			}
 
-			// If the new capacity is lower than what we can hold on the stack, we ignore this request.
-			if (newCapacity <= N && isUsingStack()) {
-				_capacity = newCapacity;
-				if (_size > _capacity) {
-					_size = _capacity;
-				}
-				return;
-			}
-
 			// We use geometric growth, similarly to std::vector.
-            newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - std::countl_zero(newCapacity));
-
-			T* alloc = allocator.allocate(newCapacity);
-
-			// Copy/Move the old data into the new memory
-			for (std::size_t i = 0; i < size(); ++i) {
-				auto& x = (*this)[i];
-				if constexpr (std::is_nothrow_move_constructible_v<T>) {
-					new(alloc + i) T(std::move(x));
-				} else if constexpr (std::is_copy_constructible_v<T>) {
-					new(alloc + i) T(x);
-				} else {
-					new(alloc + i) T(std::move(x));
-				}
-			}
-
-			// Destroy all objects in the old allocation
-			std::destroy(begin(), end());
-
-			if (!isUsingStack() && _data && size() != 0) {
-				allocator.deallocate(_data, _capacity);
-			}
-
-			_data = alloc;
+			newCapacity = static_cast<std::size_t>(1) << (std::numeric_limits<decltype(newCapacity)>::digits - std::countl_zero(newCapacity));
+			relocate(allocator.allocate(newCapacity));
 			_capacity = newCapacity;
 		}
 
@@ -283,31 +263,18 @@ namespace fastgltf {
 		}
 
 		void shrink_to_fit() {
-			// Only have to shrink if there's any unused capacity.
-			if (capacity() == size() || size() == 0) {
+			if (isUsingStack() || capacity() == size()) {
 				return;
 			}
 
-			// If we can use the object's memory again, we'll copy everything over.
 			if (size() <= N) {
-				copy(begin(), size(), reinterpret_cast<T*>(storage.data()));
-				_data = reinterpret_cast<T*>(storage.data());
+				// Move everything back into the inline storage, and free the heap allocation.
+				relocate(reinterpret_cast<T*>(storage.data()));
+				_capacity = N;
 			} else {
-				// We have to use heap allocated memory.
-				auto* alloc = allocator.allocate(size());
-				for (std::size_t i = 0; i < size(); ++i) {
-					new(alloc + i) T((*this)[i]);
-				}
-
-				if (_data && !isUsingStack()) {
-					std::destroy(begin(), end());
-					allocator.deallocate(_data, _capacity);
-				}
-
-				_data = alloc;
+				relocate(allocator.allocate(size()));
+				_capacity = size();
 			}
-
-			_capacity = _size;
 		}
 
 		void assign(std::size_t count, const T& value) {
@@ -316,28 +283,15 @@ namespace fastgltf {
 		}
 
 		void assign(std::initializer_list<T> init) {
-			static_assert(std::is_trivially_copyable_v<T> || std::is_copy_constructible_v<T>, "T needs to be trivially copyable or be copy constructible");
+			static_assert(std::is_copy_constructible_v<T>, "T needs to be copy constructible");
 			clear();
 			reserve(init.size());
+			std::uninitialized_copy(init.begin(), init.end(), begin());
 			_size = init.size();
-
-			if constexpr (std::is_trivially_copyable_v<T>) {
-				std::memcpy(begin(), init.begin(), init.size() * sizeof(T));
-			} else if constexpr (std::is_copy_constructible_v<T>) {
-				for (auto it = init.begin(); it != init.end(); ++it) {
-					new (_data + std::distance(init.begin(), it)) T(*it);
-				}
-			}
 		}
 
 		void clear() noexcept {
 			std::destroy(begin(), end());
-
-			if (!isUsingStack() && size() != 0) {
-				allocator.deallocate(_data, _capacity);
-				_data = reinterpret_cast<T*>(storage.data());
-			}
-
 			_size = 0;
 		}
 

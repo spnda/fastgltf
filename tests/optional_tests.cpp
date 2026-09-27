@@ -9,6 +9,21 @@ TEST_CASE("Test basic Optional interface", "[optional-tests]") {
 	static_assert(sizeof(optional) > sizeof(std::uint32_t));
 }
 
+TEST_CASE("Test OptionalWithFlagValue copy and move operations", "[optional-tests]") {
+	fastgltf::OptionalWithFlagValue<std::size_t> value(std::size_t(5));
+	fastgltf::OptionalWithFlagValue<std::size_t> empty;
+
+	auto copy = value;
+	auto moved = std::move(copy);
+	REQUIRE(moved.has_value());
+	REQUIRE(*moved == 5);
+
+	moved = empty;
+	REQUIRE(!moved.has_value());
+	moved = std::move(value);
+	REQUIRE(*moved == 5);
+}
+
 TEST_CASE("Test Optional float specialization", "[optional-tests]") {
 	fastgltf::Optional<float> foptional;
 	REQUIRE(!foptional.has_value());

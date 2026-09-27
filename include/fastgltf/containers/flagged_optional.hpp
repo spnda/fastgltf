@@ -107,6 +107,13 @@ namespace fastgltf {
 
 		constexpr OptionalWithFlagValue(std::nullopt_t) noexcept { reset(); }
 
+		static_assert(std::is_trivially_copyable_v<T>, "OptionalWithFlagValue only supports trivially copyable types.");
+
+		constexpr OptionalWithFlagValue(const OptionalWithFlagValue&) = default;
+		constexpr OptionalWithFlagValue(OptionalWithFlagValue&&) = default;
+		constexpr OptionalWithFlagValue& operator=(const OptionalWithFlagValue&) = default;
+		constexpr OptionalWithFlagValue& operator=(OptionalWithFlagValue&&) = default;
+
 		template <typename U = T>
 		requires std::is_copy_constructible_v<T>
 		constexpr OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
@@ -361,6 +368,10 @@ namespace fastgltf {
 			return has_value() ? std::optional<T>(std::move(_value)) : std::nullopt;
 		}
 	};
+
+	// Containers like std::vector only move elements when reallocating if the move constructor is noexcept
+	static_assert(std::is_nothrow_move_constructible_v<OptionalWithFlagValue<std::size_t>>);
+	static_assert(std::is_nothrow_move_constructible_v<OptionalWithFlagValue<float>>);
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	constexpr bool operator==(const OptionalWithFlagValue<T>& lhs,
