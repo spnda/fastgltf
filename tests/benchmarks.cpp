@@ -90,7 +90,7 @@ fastgltf::StaticVector<std::uint8_t> readFileAsBytes(const std::filesystem::path
     return bytes;
 }
 
-TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
+TEST_CASE("Benchmark loading of NewSponza", "[!benchmark][gltf-benchmark]") {
     if (!std::filesystem::exists(intelSponza / "NewSponza_Main_glTF_002.gltf")) {
         // NewSponza is not part of gltf-Sample-Models, and therefore not always available.
         SKIP("Intel's NewSponza (GLTF) is required for this benchmark.");
@@ -144,7 +144,7 @@ TEST_CASE("Benchmark loading of NewSponza", "[gltf-benchmark]") {
 #endif
 }
 
-TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
+TEST_CASE("Benchmark base64 decoding from glTF file", "[!benchmark][gltf-benchmark]") {
     fastgltf::Parser parser;
 #ifdef HAS_TINYGLTF
     tinygltf::TinyGLTF tinygltf;
@@ -198,7 +198,7 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[gltf-benchmark]") {
 #endif
 }
 
-TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
+TEST_CASE("Benchmark raw JSON parsing", "[!benchmark][gltf-benchmark]") {
     fastgltf::Parser parser;
 #ifdef HAS_TINYGLTF
     tinygltf::TinyGLTF tinygltf;
@@ -249,7 +249,7 @@ TEST_CASE("Benchmark raw JSON parsing", "[gltf-benchmark]") {
 #endif
 }
 
-TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
+TEST_CASE("Benchmark massive gltf file", "[!benchmark][gltf-benchmark]") {
     if (!std::filesystem::exists(bistroPath / "bistro.gltf")) {
         // Bistro is not part of gltf-Sample-Models, and therefore not always available.
         SKIP("Amazon's Bistro (GLTF) is required for this benchmark.");
@@ -304,7 +304,7 @@ TEST_CASE("Benchmark massive gltf file", "[gltf-benchmark]") {
 #endif
 }
 
-TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmark]") {
+TEST_CASE("Compare parsing performance with minified documents", "[!benchmark][gltf-benchmark]") {
     auto sponzaPath = sampleAssets / "Models" / "Sponza" / "glTF";
     auto bytes = readFileAsBytes(sponzaPath / "Sponza.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
@@ -341,11 +341,11 @@ TEST_CASE("Compare parsing performance with minified documents", "[gltf-benchmar
     };
 }
 
-TEST_CASE("Small CRC32-C benchmark", "[gltf-benchmark]") {
     static constexpr std::string_view test = "abcdefghijklmnopqrstuvwxyz";
     BENCHMARK("Default 1-byte tabular algorithm") {
         return fastgltf::crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
     };
+TEST_CASE("Small-string CRC32-C benchmark", "[!benchmark][gltf-benchmark][crc-benchmark]") {
 #if defined(FASTGLTF_IS_X86)
     BENCHMARK("SSE4 hardware algorithm") {
         return fastgltf::sse_crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
@@ -357,7 +357,7 @@ TEST_CASE("Small CRC32-C benchmark", "[gltf-benchmark]") {
 #endif
 }
 
-TEST_CASE("Compare base64 decoding performance", "[gltf-benchmark]") {
+TEST_CASE("Compare base64 decoding performance", "[!benchmark][gltf-benchmark]") {
 	std::string base64Characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	constexpr std::size_t bufferSize = 2 * 1024 * 1024;
 

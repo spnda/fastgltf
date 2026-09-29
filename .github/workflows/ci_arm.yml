@@ -39,7 +39,7 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target tests/fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex ~[gltf-benchmark]
+        run: ${{ github.workspace }}\build\tests\Release\fastgltf_tests.exe -d yes --order lex
 
   build_linux:
     name: build_linux (${{ matrix.os }}, ${{ matrix.c_compiler }})
@@ -79,4 +79,4 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target fastgltf_tests --verbose
 
       - name: Run tests
-        run: ${{ github.workspace }}/build/tests/fastgltf_tests -d yes --order lex ~[gltf-benchmark]
+        run: ${{ github.workspace }}/build/tests/fastgltf_tests -d yes --order lex

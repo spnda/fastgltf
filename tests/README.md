@@ -11,8 +11,8 @@ repository to test if the parser correctly maps data to the structs. The tests
 expect a copy of the aforementioned repository to be in the `tests/gltf/glTF-Sample-Models`
 folder. This can be a simple clone or a symlink to another copy you have locally.
 
-The tests for KHR_implicit_shapes and KHR_physics_rigid_body use various assets from the 
-[glTF_Physics](https://github.com/eoineoineoin/glTF_Physics) repository. The 
+The tests for KHR_implicit_shapes and KHR_physics_rigid_body use various assets from the
+[glTF_Physics](https://github.com/eoineoineoin/glTF_Physics) repository. The
 tests expect a copy of that repo to be in `tests/gltf/glTF_Physics` - as with the other sample
 assets, you may use a symlink if you so choose
 
@@ -45,7 +45,7 @@ cmake --build . --target tests/fastgltf_tests
 **fastgltf** uses the `Catch2` test framework, which can take various command-line parameters when running.
 To simply run all tests, one can simply run the following command from the build directory.
 ```
-tests/fastgltf_tests -d yes --order lex ~[gltf-benchmark]
+tests/fastgltf_tests -d yes --order lex
 ```
 
 This will run all tests except those tagged as `gltf-benchmark`. You can fine-grain your tests using the
