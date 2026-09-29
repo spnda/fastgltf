@@ -341,20 +341,58 @@ TEST_CASE("Compare parsing performance with minified documents", "[!benchmark][g
     };
 }
 
-    static constexpr std::string_view test = "abcdefghijklmnopqrstuvwxyz";
-    BENCHMARK("Default 1-byte tabular algorithm") {
-        return fastgltf::crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
-    };
 TEST_CASE("Small-string CRC32-C benchmark", "[!benchmark][gltf-benchmark][crc-benchmark]") {
+	std::mt19937 gen;
+	std::uniform_int_distribution<int> dist('a', 'z');
+	std::string data(16, '\0');
+	for (auto& c : data)
+		c = static_cast<char>(dist(gen));
+
+	BENCHMARK("Default 1-byte tabular algorithm") {
+		return fastgltf::crc32c(data);
+	};
 #if defined(FASTGLTF_IS_X86)
-    BENCHMARK("SSE4 hardware algorithm") {
-        return fastgltf::sse_crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
-    };
+	BENCHMARK("SSE4 hardware algorithm") {
+		return fastgltf::sse_crc32c(data);
+	};
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 	BENCHMARK("ARMv8 hardware CRC32-C algorithm") {
-		return fastgltf::armv8_crc32c(reinterpret_cast<const std::uint8_t*>(test.data()), test.size());
+		return fastgltf::armv8_crc32c(data);
 	};
 #endif
+}
+
+TEST_CASE("Large-string CRC32-C benchmark", "[!benchmark][crc-benchmark]") {
+	// Every length up to 64 (the tail handling for len % 4 / % 8 matters here), then ~25% steps up to 8K.
+	std::vector<std::size_t> lengths;
+	for (std::size_t i = 1; i <= 64; ++i)
+		lengths.push_back(i);
+	for (std::size_t i = 80; i <= 8192; i = i * 5 / 4)
+		lengths.push_back(i);
+
+	std::mt19937 gen;
+	std::uniform_int_distribution<int> dist('a', 'z');
+	std::string data(lengths.back(), '\0');
+	for (auto& c : data)
+		c = static_cast<char>(dist(gen));
+
+	for (const auto len : lengths) {
+		const std::string_view str(data.data(), len);
+		const auto suffix = "/" + std::to_string(len);
+
+		BENCHMARK("table" + suffix) {
+			return fastgltf::crc32c(str);
+		};
+#if defined(FASTGLTF_IS_X86)
+		BENCHMARK("hw" + suffix) {
+			return fastgltf::sse_crc32c(str);
+		};
+#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
+		BENCHMARK("hw" + suffix) {
+			return fastgltf::armv8_crc32c(str);
+		};
+#endif
+	}
 }
 
 TEST_CASE("Compare base64 decoding performance", "[!benchmark][gltf-benchmark]") {
