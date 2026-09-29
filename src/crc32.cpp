@@ -12,7 +12,7 @@
 namespace fastgltf {
 #if defined(FASTGLTF_IS_X86)
 	[[gnu::hot, gnu::pure, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
-		std::uint32_t crc = 0;
+		std::uint32_t crc = ~0;
 
 		// Decode as much as possible using 4 byte steps.
 		// We specifically don't use the 8 byte instruction here because it uses a 64-bit output integer.
@@ -35,11 +35,11 @@ namespace fastgltf {
 			crc = _mm_crc32_u8(crc, *d);
 		}
 
-		return crc;
+		return crc ^ 0xffffffff;
 	}
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 	[[gnu::hot, gnu::pure, gnu::target("+crc")]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
-		std::uint32_t crc = 0;
+		std::uint32_t crc = ~0;
 
 		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang
 		// than using a std::size_t i = 0.
@@ -69,7 +69,7 @@ namespace fastgltf {
 			crc = __crc32cb(crc, *d);
 		}
 
-		return crc;
+		return crc ^ 0xffffffff;
 	}
 #endif
 }
