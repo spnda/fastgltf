@@ -418,7 +418,7 @@ TEST_CASE("Compare base64 decoding performance", "[gltf-benchmark]") {
 			return fastgltf::base64::avx2_decode(generatedData);
 		};
 	}
-#elif defined(FASTGLTF_IS_A64)
+#elif FASTGLTF_ENABLE_NEON_BASE64
 	const auto& impls = simdjson::get_available_implementations();
 	if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
 		BENCHMARK("Run fastgltf's Neon base64 decoder") {
