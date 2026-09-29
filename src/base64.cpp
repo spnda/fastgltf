@@ -49,7 +49,7 @@
 #else
 #include <intrin.h>
 #endif
-#elif defined(FASTGLTF_IS_A64)
+#elif FASTGLTF_ENABLE_NEON_BASE64
 #include <arm_neon.h> // Includes arm64_neon.h on MSVC
 #endif
 
@@ -82,7 +82,7 @@ namespace fastgltf::base64 {
 				func = sse4_decode;
 				inplace = sse4_decode_inplace;
 			}
-#elif defined(FASTGLTF_IS_A64)
+#elif FASTGLTF_ENABLE_NEON_BASE64
 			// _M_ARM64 always guarantees 64-bit ARM processors that support NEON, defined by MSVC.
 			// __aarch64__ always guarantees 64-bit ARMv8 processors that support NEON, defined by Clang.
 			// __ARM_NEON always guarantees NEON support, defined by Clang and GCC.
@@ -268,7 +268,7 @@ namespace fastgltf::base64 {
 
 	return ret;
 }
-#elif defined(FASTGLTF_IS_A64)
+#elif FASTGLTF_ENABLE_NEON_BASE64
 FASTGLTF_FORCEINLINE int8x16_t neon_lookup_pshufb_bitmask(const uint8x16_t input) {
 	// clang-format off
 	constexpr std::array<int8_t, 16> shiftLUTdata = {
