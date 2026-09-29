@@ -2,14 +2,14 @@ name: CI x64
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "v*.*.x" ]
     paths:
       - '.github/workflows/**'
       - '**.cpp'
       - '**.hpp'
       - '**.txt'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "v*.*.x" ]
 
 env:
   BUILD_TYPE: Release
