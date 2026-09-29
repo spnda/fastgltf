@@ -1,7 +1,8 @@
-import fastgltf;
-
+// these need to come first on GCC idk why
 #include <cstddef>
 #include <cstdio>
+
+import fastgltf;
 
 int main() {
 	fastgltf::Parser parser;

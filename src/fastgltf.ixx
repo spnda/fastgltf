@@ -37,6 +37,8 @@ module;
 
 #include <cassert> // we always need this for its macros
 
+// Put all implementation-provided headers into the global module fragment
+// to prevent attachment to this module.
 #if !FASTGLTF_USE_STD_MODULE
 #include <algorithm>
 #include <array>
