@@ -16,7 +16,6 @@ target_link_libraries(fastgltf_tests PRIVATE fastgltf::fastgltf)
 target_link_libraries(fastgltf_tests PRIVATE glm::glm Catch2::Catch2)
 fastgltf_compiler_flags(fastgltf_tests)
 
-# We only use tinygltf to compare against.
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/tinygltf/tiny_gltf.h")
     message(STATUS "fastgltf: Found tinygltf")
     set(TINYGLTF_INSTALL OFF CACHE BOOL "")
@@ -33,6 +32,18 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/tinygltf/tiny_gltf.h")
         target_include_directories(fastgltf_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/RapidJSON/include")
         target_compile_definitions(fastgltf_tests PRIVATE HAS_RAPIDJSON=1 TINYGLTF_USE_RAPIDJSON=1 TINYGLTF_NO_INCLUDE_RAPIDJSON)
     endif ()
+endif ()
+
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/tinygltf_v3/tiny_gltf_v3.h")
+    message(STATUS "fastgltf: Found tinygltf v3")
+    set(TINYGLTF3_BUILD_TESTS OFF CACHE BOOL "")
+    set(TINYGLTF3_INSTALL OFF CACHE BOOL "")
+
+    add_subdirectory(gltf_loaders/tinygltf_v3)
+    add_library(tinygltf_v3 "gltf_loaders/tinygltf_v3/tiny_gltf_v3.c")
+    target_include_directories(tinygltf_v3 PUBLIC "gltf_loaders/tinygltf_v3")
+    target_link_libraries(fastgltf_tests PRIVATE tinygltf_v3)
+    target_compile_definitions(fastgltf_tests PRIVATE HAS_TINYGLTF_V3=1)
 endif ()
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gltf_loaders/cgltf/cgltf.h")

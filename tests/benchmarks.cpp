@@ -30,35 +30,39 @@ constexpr auto benchmarkOptions = fastgltf::Options::DontRequireValidAssetMember
 #include <tiny_gltf.h>
 
 bool tinygltf_FileExistsFunction([[maybe_unused]] const std::string& filename, [[maybe_unused]] void* user) {
-    return true;
+	return true;
 }
 
 std::string tinygltf_ExpandFilePathFunction(const std::string& filePath, [[maybe_unused]] void* user) {
-    return filePath;
+	return filePath;
 }
 
 bool tinygltf_ReadWholeFileFunction(std::vector<unsigned char>* data, std::string*, const std::string&, void*) {
-    // tinygltf checks if size == 1. It also checks if the size is correct for glb files, but
-    // well ignore that for now.
-    data->resize(1);
-    return true;
+	// tinygltf checks if size == 1. It also checks if the size is correct for glb files, but
+	// well ignore that for now.
+	data->resize(1);
+	return true;
 }
 
 bool tinygltf_LoadImageData(tinygltf::Image *image, const int image_idx, std::string *err,
-                   std::string *warn, int req_width, int req_height,
-                   const unsigned char *bytes, int size, void *user_data) {
-    return true;
+				   std::string *warn, int req_width, int req_height,
+				   const unsigned char *bytes, int size, void *user_data) {
+	return true;
 }
 
 void setTinyGLTFCallbacks(tinygltf::TinyGLTF& gltf) {
-    gltf.SetFsCallbacks({
-        tinygltf_FileExistsFunction,
-        tinygltf_ExpandFilePathFunction,
-        tinygltf_ReadWholeFileFunction,
-        nullptr, nullptr,
-    });
-    gltf.SetImageLoader(tinygltf_LoadImageData, nullptr);
+	gltf.SetFsCallbacks({
+		tinygltf_FileExistsFunction,
+		tinygltf_ExpandFilePathFunction,
+		tinygltf_ReadWholeFileFunction,
+		nullptr, nullptr,
+	});
+	gltf.SetImageLoader(tinygltf_LoadImageData, nullptr);
 }
+#endif
+
+#ifdef HAS_TINYGLTF_V3
+#include "tiny_gltf_v3.h"
 #endif
 
 #ifdef HAS_CGLTF
@@ -78,56 +82,70 @@ void setTinyGLTFCallbacks(tinygltf::TinyGLTF& gltf) {
 #endif
 
 fastgltf::StaticVector<std::uint8_t> readFileAsBytes(const std::filesystem::path& filePath) {
-    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
-    if (!file.is_open())
-        throw std::runtime_error(std::string { "Failed to open file: " } + filePath.string());
+	std::ifstream file(filePath, std::ios::ate | std::ios::binary);
+	if (!file.is_open())
+		throw std::runtime_error(std::string { "Failed to open file: " } + filePath.string());
 
-    auto fileSize = file.tellg();
-    fastgltf::StaticVector<std::uint8_t> bytes(static_cast<std::size_t>(fileSize));
-    file.seekg(0, std::ifstream::beg);
-    file.read(reinterpret_cast<char*>(bytes.data()), fileSize);
-    file.close();
-    return bytes;
+	auto fileSize = file.tellg();
+	fastgltf::StaticVector<std::uint8_t> bytes(static_cast<std::size_t>(fileSize));
+	file.seekg(0, std::ifstream::beg);
+	file.read(reinterpret_cast<char*>(bytes.data()), fileSize);
+	file.close();
+	return bytes;
 }
 
 TEST_CASE("Benchmark loading of NewSponza", "[!benchmark][gltf-benchmark]") {
-    if (!std::filesystem::exists(intelSponza / "NewSponza_Main_glTF_002.gltf")) {
-        // NewSponza is not part of gltf-Sample-Models, and therefore not always available.
-        SKIP("Intel's NewSponza (GLTF) is required for this benchmark.");
-    }
+	if (!std::filesystem::exists(intelSponza / "NewSponza_Main_glTF_002.gltf")) {
+		// NewSponza is not part of gltf-Sample-Models, and therefore not always available.
+		SKIP("Intel's NewSponza (GLTF) is required for this benchmark.");
+	}
 
-    fastgltf::Parser parser;
+	fastgltf::Parser parser;
 #ifdef HAS_TINYGLTF
-    tinygltf::TinyGLTF tinygltf;
-    tinygltf::Model model;
-    std::string warn, err;
+	tinygltf::TinyGLTF tinygltf;
+	tinygltf::Model model;
+	std::string warn, err;
+#endif
+#ifdef HAS_TINYGLTF_V3
+	tg3_parse_options opts;
+	tg3_error_stack errors;
+	tg3_model tg3_model;
+
+	tg3_parse_options_init(&opts);
+	tg3_error_stack_init(&errors);
 #endif
 
-    auto bytes = readFileAsBytes(intelSponza / "NewSponza_Main_glTF_002.gltf");
+	auto bytes = readFileAsBytes(intelSponza / "NewSponza_Main_glTF_002.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
-    BENCHMARK("Parse NewSponza") {
-        return parser.loadGltfJson(jsonData.get(), intelSponza, benchmarkOptions);
-    };
+	BENCHMARK("Parse NewSponza") {
+		return parser.loadGltfJson(jsonData.get(), intelSponza, benchmarkOptions);
+	};
 
 #ifdef HAS_TINYGLTF
-    setTinyGLTFCallbacks(tinygltf);
-    BENCHMARK("Parse NewSponza with tinygltf") {
-        return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), intelSponza.string());
-    };
+	setTinyGLTFCallbacks(tinygltf);
+	BENCHMARK("Parse NewSponza with tinygltf") {
+		return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), intelSponza.string());
+	};
+#endif
+
+#ifdef HAS_TINYGLTF_V3
+	BENCHMARK("Parse NewSponza with tinygltf v3") {
+		return tg3_parse_auto(&tg3_model, &errors, bytes.data(), bytes.size(), "", 0, &opts);
+	};
 #endif
 
 #ifdef HAS_CGLTF
-    BENCHMARK("Parse NewSponza with cgltf") {
-        cgltf_options options = {};
-        cgltf_data* data = nullptr;
-        cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        REQUIRE(result == cgltf_result_success);
-        cgltf_free(data);
-        return result;
-    };
+	BENCHMARK("Parse NewSponza with cgltf") {
+		cgltf_options options = {};
+		cgltf_data* data = nullptr;
+		cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
+		REQUIRE(result == cgltf_result_success);
+		cgltf_free(data);
+		return result;
+	};
 #endif
 
 #ifdef HAS_GLTFRS
@@ -142,44 +160,63 @@ TEST_CASE("Benchmark loading of NewSponza", "[!benchmark][gltf-benchmark]") {
 		return aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0, nullptr);
 	};
 #endif
+
+#ifdef HAS_TINYGLTF_V3
+	tg3_model_free(&tg3_model);
+	tg3_error_stack_free(&errors);
+#endif
 }
 
 TEST_CASE("Benchmark base64 decoding from glTF file", "[!benchmark][gltf-benchmark]") {
-    fastgltf::Parser parser;
+	fastgltf::Parser parser;
 #ifdef HAS_TINYGLTF
-    tinygltf::TinyGLTF tinygltf;
-    tinygltf::Model model;
-    std::string warn, err;
+	tinygltf::TinyGLTF tinygltf;
+	tinygltf::Model model;
+	std::string warn, err;
+#endif
+#ifdef HAS_TINYGLTF_V3
+	tg3_parse_options opts;
+	tg3_error_stack errors;
+	tg3_model tg3_model;
+
+	tg3_parse_options_init(&opts);
+	tg3_error_stack_init(&errors);
 #endif
 
-    auto cylinderEngine = sampleAssets / "Models" / "MetalRoughSpheres" / "glTF-Embedded";
-    auto bytes = readFileAsBytes(cylinderEngine / "MetalRoughSpheres.gltf");
+	auto cylinderEngine = sampleAssets / "Models" / "MetalRoughSpheres" / "glTF-Embedded";
+	auto bytes = readFileAsBytes(cylinderEngine / "MetalRoughSpheres.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
-    BENCHMARK("Parse MetalRoughSpheres and decode base64") {
-        return parser.loadGltfJson(jsonData.get(), cylinderEngine, benchmarkOptions);
-    };
+	BENCHMARK("Parse MetalRoughSpheres and decode base64") {
+		return parser.loadGltfJson(jsonData.get(), cylinderEngine, benchmarkOptions);
+	};
 
 #ifdef HAS_TINYGLTF
-    setTinyGLTFCallbacks(tinygltf);
-    BENCHMARK("MetalRoughSpheres decode with tinygltf") {
-        return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), cylinderEngine.string());
-    };
+	setTinyGLTFCallbacks(tinygltf);
+	BENCHMARK("MetalRoughSpheres decode with tinygltf") {
+		return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), cylinderEngine.string());
+	};
+#endif
+
+#ifdef HAS_TINYGLTF_V3
+	BENCHMARK("MetalRoughSpheres decode with tinygltf v3") {
+		return tg3_parse_auto(&tg3_model, &errors, bytes.data(), bytes.size(), "", 0, &opts);
+	};
 #endif
 
 #ifdef HAS_CGLTF
-    BENCHMARK("MetalRoughSpheres decode with cgltf") {
-        cgltf_options options = {};
-        cgltf_data* data = nullptr;
-        auto filePath = cylinderEngine.string();
-        cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        REQUIRE(result == cgltf_result_success);
-        result = cgltf_load_buffers(&options, data, filePath.c_str());
-        cgltf_free(data);
-        return result;
-    };
+	BENCHMARK("MetalRoughSpheres decode with cgltf") {
+		cgltf_options options = {};
+		cgltf_data* data = nullptr;
+		auto filePath = cylinderEngine.string();
+		cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
+		REQUIRE(result == cgltf_result_success);
+		result = cgltf_load_buffers(&options, data, filePath.c_str());
+		cgltf_free(data);
+		return result;
+	};
 #endif
 
 #ifdef HAS_GLTFRS
@@ -196,43 +233,62 @@ TEST_CASE("Benchmark base64 decoding from glTF file", "[!benchmark][gltf-benchma
 		return scene;
 	};
 #endif
+
+#ifdef HAS_TINYGLTF_V3
+	tg3_model_free(&tg3_model);
+	tg3_error_stack_free(&errors);
+#endif
 }
 
 TEST_CASE("Benchmark raw JSON parsing", "[!benchmark][gltf-benchmark]") {
-    fastgltf::Parser parser;
+	fastgltf::Parser parser;
 #ifdef HAS_TINYGLTF
-    tinygltf::TinyGLTF tinygltf;
-    tinygltf::Model model;
-    std::string warn, err;
+	tinygltf::TinyGLTF tinygltf;
+	tinygltf::Model model;
+	std::string warn, err;
+#endif
+#ifdef HAS_TINYGLTF_V3
+	tg3_parse_options opts;
+	tg3_error_stack errors;
+	tg3_model tg3_model;
+
+	tg3_parse_options_init(&opts);
+	tg3_error_stack_init(&errors);
 #endif
 
-    auto sponzaPath = sampleAssets / "Models" / "Sponza" / "glTF";
-    auto bytes = readFileAsBytes(sponzaPath / "Sponza.gltf");
+	auto sponzaPath = sampleAssets / "Models" / "Sponza" / "glTF";
+	auto bytes = readFileAsBytes(sponzaPath / "Sponza.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
-    BENCHMARK("Parse Sponza.gltf") {
-        return parser.loadGltfJson(jsonData.get(), sponzaPath, benchmarkOptions);
-    };
+	BENCHMARK("Parse Sponza.gltf") {
+		return parser.loadGltfJson(jsonData.get(), sponzaPath, benchmarkOptions);
+	};
 
 #ifdef HAS_TINYGLTF
-    setTinyGLTFCallbacks(tinygltf);
-    BENCHMARK("Parse Sponza.gltf with tinygltf") {
-        return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), sponzaPath.string());
-    };
+	setTinyGLTFCallbacks(tinygltf);
+	BENCHMARK("Parse Sponza.gltf with tinygltf") {
+		return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), sponzaPath.string());
+	};
+#endif
+
+#ifdef HAS_TINYGLTF_V3
+	BENCHMARK("Parse Sponza.gltf with tinygltf v3") {
+		return tg3_parse_auto(&tg3_model, &errors, bytes.data(), bytes.size(), "", 0, &opts);
+	};
 #endif
 
 #ifdef HAS_CGLTF
-    BENCHMARK("Parse Sponza.gltf with cgltf") {
-        cgltf_options options = {};
-        cgltf_data* data = nullptr;
-        auto filePath = sponzaPath.string();
-        cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        REQUIRE(result == cgltf_result_success);
-        cgltf_free(data);
-        return result;
-    };
+	BENCHMARK("Parse Sponza.gltf with cgltf") {
+		cgltf_options options = {};
+		cgltf_data* data = nullptr;
+		auto filePath = sponzaPath.string();
+		cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
+		REQUIRE(result == cgltf_result_success);
+		cgltf_free(data);
+		return result;
+	};
 #endif
 
 #ifdef HAS_GLTFRS
@@ -247,47 +303,66 @@ TEST_CASE("Benchmark raw JSON parsing", "[!benchmark][gltf-benchmark]") {
 		return aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0, nullptr);
 	};
 #endif
+
+#ifdef HAS_TINYGLTF_V3
+	tg3_model_free(&tg3_model);
+	tg3_error_stack_free(&errors);
+#endif
 }
 
 TEST_CASE("Benchmark massive gltf file", "[!benchmark][gltf-benchmark]") {
-    if (!std::filesystem::exists(bistroPath / "bistro.gltf")) {
-        // Bistro is not part of gltf-Sample-Models, and therefore not always available.
-        SKIP("Amazon's Bistro (GLTF) is required for this benchmark.");
-    }
+	if (!std::filesystem::exists(bistroPath / "bistro.gltf")) {
+		// Bistro is not part of gltf-Sample-Models, and therefore not always available.
+		SKIP("Amazon's Bistro (GLTF) is required for this benchmark.");
+	}
 
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_mesh_quantization);
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_mesh_quantization);
 #ifdef HAS_TINYGLTF
-    tinygltf::TinyGLTF tinygltf;
-    tinygltf::Model model;
-    std::string warn, err;
+	tinygltf::TinyGLTF tinygltf;
+	tinygltf::Model model;
+	std::string warn, err;
+#endif
+#ifdef HAS_TINYGLTF_V3
+	tg3_parse_options opts;
+	tg3_error_stack errors;
+	tg3_model tg3_model;
+
+	tg3_parse_options_init(&opts);
+	tg3_error_stack_init(&errors);
 #endif
 
-    auto bytes = readFileAsBytes(bistroPath / "bistro.gltf");
+	auto bytes = readFileAsBytes(bistroPath / "bistro.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
-    BENCHMARK("Parse Bistro") {
+	BENCHMARK("Parse Bistro") {
 		return parser.loadGltfJson(jsonData.get(), bistroPath, benchmarkOptions);
-    };
+	};
 
 #ifdef HAS_TINYGLTF
-    setTinyGLTFCallbacks(tinygltf);
-    BENCHMARK("Parse Bistro with tinygltf") {
-        return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), bistroPath.string());
-    };
+	setTinyGLTFCallbacks(tinygltf);
+	BENCHMARK("Parse Bistro with tinygltf") {
+		return tinygltf.LoadASCIIFromString(&model, &err, &warn, reinterpret_cast<char*>(bytes.data()), bytes.size(), bistroPath.string());
+	};
+#endif
+
+#ifdef HAS_TINYGLTF_V3
+	BENCHMARK("Parse Bistro with tinygltf v3") {
+		return tg3_parse_auto(&tg3_model, &errors, bytes.data(), bytes.size(), "", 0, &opts);
+	};
 #endif
 
 #ifdef HAS_CGLTF
-    BENCHMARK("Parse Bistro with cgltf") {
-        cgltf_options options = {};
-        cgltf_data* data = nullptr;
-        auto filePath = bistroPath.string();
-        cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
-        REQUIRE(result == cgltf_result_success);
-        cgltf_free(data);
-        return result;
-    };
+	BENCHMARK("Parse Bistro with cgltf") {
+		cgltf_options options = {};
+		cgltf_data* data = nullptr;
+		auto filePath = bistroPath.string();
+		cgltf_result result = cgltf_parse(&options, bytes.data(), bytes.size(), &data);
+		REQUIRE(result == cgltf_result_success);
+		cgltf_free(data);
+		return result;
+	};
 #endif
 
 #ifdef HAS_GLTFRS
@@ -302,43 +377,48 @@ TEST_CASE("Benchmark massive gltf file", "[!benchmark][gltf-benchmark]") {
 		return aiImportFileFromMemory(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0, nullptr);
 	};
 #endif
+
+#ifdef HAS_TINYGLTF_V3
+	tg3_model_free(&tg3_model);
+	tg3_error_stack_free(&errors);
+#endif
 }
 
 TEST_CASE("Compare parsing performance with minified documents", "[!benchmark][gltf-benchmark]") {
-    auto sponzaPath = sampleAssets / "Models" / "Sponza" / "glTF";
-    auto bytes = readFileAsBytes(sponzaPath / "Sponza.gltf");
+	auto sponzaPath = sampleAssets / "Models" / "Sponza" / "glTF";
+	auto bytes = readFileAsBytes(sponzaPath / "Sponza.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
-    // Create a minified JSON string
-    std::vector<uint8_t> minified(bytes.size());
-    size_t dstLen = 0;
-    auto result = simdjson::minify(reinterpret_cast<const char*>(bytes.data()), bytes.size(),
-                                   reinterpret_cast<char*>(minified.data()), dstLen);
-    REQUIRE(result == simdjson::SUCCESS);
-    minified.resize(dstLen);
+	// Create a minified JSON string
+	std::vector<uint8_t> minified(bytes.size());
+	size_t dstLen = 0;
+	auto result = simdjson::minify(reinterpret_cast<const char*>(bytes.data()), bytes.size(),
+								   reinterpret_cast<char*>(minified.data()), dstLen);
+	REQUIRE(result == simdjson::SUCCESS);
+	minified.resize(dstLen);
 
-    // For completeness, benchmark minifying the JSON
-    BENCHMARK("Minify Sponza.gltf") {
-        auto result = simdjson::minify(reinterpret_cast<const char*>(bytes.data()), bytes.size(),
-                                       reinterpret_cast<char*>(minified.data()), dstLen);
-        REQUIRE(result == simdjson::SUCCESS);
-        return result;
-    };
+	// For completeness, benchmark minifying the JSON
+	BENCHMARK("Minify Sponza.gltf") {
+		auto result = simdjson::minify(reinterpret_cast<const char*>(bytes.data()), bytes.size(),
+									   reinterpret_cast<char*>(minified.data()), dstLen);
+		REQUIRE(result == simdjson::SUCCESS);
+		return result;
+	};
 
 	auto minifiedJsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(minifiedJsonData.error() == fastgltf::Error::None);
 
-    fastgltf::Parser parser;
-    BENCHMARK("Parse Sponza.gltf with normal JSON") {
-        return parser.loadGltfJson(jsonData.get(), sponzaPath, benchmarkOptions);
-    };
+	fastgltf::Parser parser;
+	BENCHMARK("Parse Sponza.gltf with normal JSON") {
+		return parser.loadGltfJson(jsonData.get(), sponzaPath, benchmarkOptions);
+	};
 
-    BENCHMARK("Parse Sponza.gltf with minified JSON") {
-        return parser.loadGltfJson(minifiedJsonData.get(), sponzaPath, benchmarkOptions);
-    };
+	BENCHMARK("Parse Sponza.gltf with minified JSON") {
+		return parser.loadGltfJson(minifiedJsonData.get(), sponzaPath, benchmarkOptions);
+	};
 }
 
 TEST_CASE("Small-string CRC32-C benchmark", "[!benchmark][gltf-benchmark][crc-benchmark]") {
