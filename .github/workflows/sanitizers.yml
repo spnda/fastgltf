@@ -22,7 +22,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # SmallVector is only used by the parser when FASTGLTF_USE_CUSTOM_SMALLVECTOR is enabled.
         custom_small_vector: ['OFF', 'ON']
 
     runs-on: ubuntu-26.04

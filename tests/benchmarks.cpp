@@ -81,13 +81,13 @@ void setTinyGLTFCallbacks(tinygltf::TinyGLTF& gltf) {
 #include <assimp/Base64.hpp>
 #endif
 
-fastgltf::StaticVector<std::uint8_t> readFileAsBytes(const std::filesystem::path& filePath) {
+fastgltf::static_vector<std::uint8_t> readFileAsBytes(const std::filesystem::path& filePath) {
 	std::ifstream file(filePath, std::ios::ate | std::ios::binary);
 	if (!file.is_open())
 		throw std::runtime_error(std::string { "Failed to open file: " } + filePath.string());
 
 	auto fileSize = file.tellg();
-	fastgltf::StaticVector<std::uint8_t> bytes(static_cast<std::size_t>(fileSize));
+	fastgltf::static_vector<std::uint8_t> bytes(static_cast<std::size_t>(fileSize));
 	file.seekg(0, std::ifstream::beg);
 	file.read(reinterpret_cast<char*>(bytes.data()), fileSize);
 	file.close();

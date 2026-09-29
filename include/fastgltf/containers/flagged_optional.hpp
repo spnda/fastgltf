@@ -35,37 +35,37 @@
 #include <fastgltf/util.hpp>
 
 namespace fastgltf {
-	FASTGLTF_EXPORT template<typename, typename = void>
-	struct OptionalFlagValue {
+	FASTGLTF_EXPORT template <typename, typename = void>
+	struct optional_flag_value {
 		static constexpr std::nullopt_t missing_value = std::nullopt;
 	};
 
 	template<>
-	struct OptionalFlagValue<std::size_t> {
+	struct optional_flag_value<std::size_t> {
 		static constexpr auto missing_value = std::numeric_limits<std::size_t>::max();
 	};
 
 	template<>
-	struct OptionalFlagValue<float, std::enable_if_t<std::numeric_limits<float>::is_iec559>> {
+	struct optional_flag_value<float, std::enable_if_t<std::numeric_limits<float>::is_iec559>> {
 		// This float is a quiet NaN with a specific bit pattern to be able to differentiate
 		// between this flag value and any result from FP operations.
 		static constexpr auto missing_value = std::bit_cast<float>(0x7fedb6db);
 	};
 
 	template<>
-	struct OptionalFlagValue<double, std::enable_if_t<std::numeric_limits<double>::is_iec559>> {
+	struct optional_flag_value<double, std::enable_if_t<std::numeric_limits<double>::is_iec559>> {
 		static constexpr auto missing_value = std::bit_cast<double>(0x7ffdb6db6db6db6d);
 	};
 
 	FASTGLTF_EXPORT template<typename T>
-	class OptionalWithFlagValue;
+	class flagged_optional;
 
 	namespace internal {
 		/** Excludes optional types and std::nullopt_t from the comparison operators taking a plain value, like std::optional does. */
 		template <typename T>
 		inline constexpr bool is_optional_impl_v = std::is_same_v<T, std::nullopt_t>;
 		template <typename T>
-		inline constexpr bool is_optional_impl_v<OptionalWithFlagValue<T>> = true;
+		inline constexpr bool is_optional_impl_v<flagged_optional<T>> = true;
 		template <typename T>
 		inline constexpr bool is_optional_impl_v<std::optional<T>> = true;
 
@@ -78,9 +78,9 @@ namespace fastgltf {
 	 * between fastgltf::OptionalWithFlagValue and std::optional.
 	 */
 	FASTGLTF_EXPORT template <typename T>
-	using Optional = std::conditional_t<
-		!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
-		OptionalWithFlagValue<T>,
+	using optional = std::conditional_t<
+		!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(optional_flag_value<T>::missing_value)>>,
+		flagged_optional<T>,
 		std::optional<T>>;
 
 	/**
@@ -94,9 +94,11 @@ namespace fastgltf {
 	 * In those cases, use std::optional or fastgltf::Optional instead.
 	 */
 	template<typename T>
-	class OptionalWithFlagValue final {
-		static_assert(!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(OptionalFlagValue<T>::missing_value)>>,
+	class flagged_optional final {
+		static_assert(!std::is_same_v<std::nullopt_t, std::remove_const_t<decltype(optional_flag_value<T>::missing_value)>>,
 			"OptionalWithFlagValue can only be used when there is an appropriate specialization of OptionalFlagValue<T>.");
+
+		static_assert(std::is_trivially_destructible_v<T>, "OptionalWithFlagValue only supports trivially destructible types.");
 
 		struct NonTrivialDummy {
 			constexpr NonTrivialDummy() noexcept {}
@@ -108,20 +110,20 @@ namespace fastgltf {
 		};
 
 	public:
-		constexpr OptionalWithFlagValue() noexcept { reset(); }
+		constexpr flagged_optional() noexcept { reset(); }
 
-		constexpr OptionalWithFlagValue(std::nullopt_t) noexcept { reset(); }
+		constexpr flagged_optional(std::nullopt_t) noexcept { reset(); }
 
 		static_assert(std::is_trivially_copyable_v<T>, "OptionalWithFlagValue only supports trivially copyable types.");
 
-		constexpr OptionalWithFlagValue(const OptionalWithFlagValue&) = default;
-		constexpr OptionalWithFlagValue(OptionalWithFlagValue&&) = default;
-		constexpr OptionalWithFlagValue& operator=(const OptionalWithFlagValue&) = default;
-		constexpr OptionalWithFlagValue& operator=(OptionalWithFlagValue&&) = default;
+		constexpr flagged_optional(const flagged_optional&) = default;
+		constexpr flagged_optional(flagged_optional&&) = default;
+		constexpr flagged_optional& operator=(const flagged_optional&) = default;
+		constexpr flagged_optional& operator=(flagged_optional&&) = default;
 
 		template <typename U = T>
 		requires std::is_copy_constructible_v<T>
-		constexpr OptionalWithFlagValue(const OptionalWithFlagValue<U>& other) {
+		constexpr flagged_optional(const flagged_optional<U>& other) {
 			if (other.has_value()) {
 				std::construct_at(std::addressof(_value), *other);
 			} else {
@@ -131,7 +133,7 @@ namespace fastgltf {
 
 		template <typename U = T>
 		requires std::is_move_constructible_v<T>
-		constexpr OptionalWithFlagValue(OptionalWithFlagValue<U>&& other) {
+		constexpr flagged_optional(flagged_optional<U>&& other) {
 			if (other.has_value()) {
 				std::construct_at(std::addressof(_value), std::move(*other));
 			} else {
@@ -141,27 +143,27 @@ namespace fastgltf {
 
 		template<typename... Args>
 		requires std::is_constructible_v<T, Args...>
-		constexpr explicit OptionalWithFlagValue(std::in_place_t, Args&&... args) noexcept(
+		constexpr explicit flagged_optional(std::in_place_t, Args&&... args) noexcept(
 			std::is_nothrow_constructible_v<T, Args...>)
 			: _value(std::forward<Args>(args)...) {}
 
 		template <typename U = T>
 		requires std::is_constructible_v<T, U&&>
-		constexpr OptionalWithFlagValue(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> &&
+		constexpr flagged_optional(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> &&
 														   std::is_nothrow_constructible_v<T, U>) {
 			std::construct_at(std::addressof(_value), std::forward<U>(_new));
 		}
 
-		constexpr ~OptionalWithFlagValue() { reset(); }
+		constexpr ~flagged_optional() = default;
 
-		constexpr OptionalWithFlagValue& operator=(std::nullopt_t) noexcept {
+		constexpr flagged_optional& operator=(std::nullopt_t) noexcept {
 			reset();
 			return *this;
 		}
 
 		template <typename U = T>
 		requires std::is_constructible_v<T, U&&>
-		constexpr OptionalWithFlagValue& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
+		constexpr flagged_optional& operator=(U&& _new) noexcept(std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_constructible_v<T, U>) {
 			if (has_value()) {
 				_value = std::forward<U>(_new);
 			} else {
@@ -173,7 +175,7 @@ namespace fastgltf {
 		template <typename U>
 		requires std::conjunction_v<std::is_constructible<T, const U&>,
 									std::is_assignable<T&, const U&>>
-		constexpr OptionalWithFlagValue& operator=(const OptionalWithFlagValue<U>& other) {
+		constexpr flagged_optional& operator=(const flagged_optional<U>& other) {
 			if (other.has_value()) {
 				if (has_value()) {
 					_value = *other;
@@ -188,7 +190,7 @@ namespace fastgltf {
 
 		template <typename U>
 		requires std::conjunction_v<std::is_constructible<T, U>, std::is_assignable<T&, U>>
-		constexpr OptionalWithFlagValue& operator=(OptionalWithFlagValue<U>&& other) noexcept(
+		constexpr flagged_optional& operator=(flagged_optional<U>&& other) noexcept(
 		std::is_nothrow_assignable_v<T&, T> && std::is_nothrow_constructible_v<T, T>) {
 			if (other.has_value()) {
 				if (has_value()) {
@@ -207,9 +209,10 @@ namespace fastgltf {
 				// The sentinels are NaNs, which never compare equal, so compare the bit patterns instead.
 				using Bits = std::conditional_t<sizeof(T) == sizeof(std::uint32_t), std::uint32_t, std::uint64_t>;
 				static_assert(sizeof(Bits) == sizeof(T));
-				return std::bit_cast<Bits>(_value) != std::bit_cast<Bits>(OptionalFlagValue<T>::missing_value);
+				return std::bit_cast<Bits>(_value) != std::bit_cast<Bits>(optional_flag_value<T>::missing_value);
+			} else {
+				return this->_value != optional_flag_value<T>::missing_value;
 			}
-			return this->_value != OptionalFlagValue<T>::missing_value;
 		}
 
 		[[nodiscard]] constexpr T& value() & {
@@ -286,45 +289,45 @@ namespace fastgltf {
 		[[nodiscard]] constexpr auto transform(F&& func) & {
 			using U = std::remove_cv_t<std::invoke_result_t<F, T&>>;
 			if (!has_value())
-				return Optional<U>(std::nullopt);
-			return Optional<U>(std::invoke(std::forward<F>(func), **this));
+				return optional<U>(std::nullopt);
+			return optional<U>(std::invoke(std::forward<F>(func), **this));
 		}
 
 		template <typename F>
 		[[nodiscard]] constexpr auto transform(F&& func) const& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, const T&>>;
 			if (!has_value())
-				return Optional<U>(std::nullopt);
-			return Optional<U>(std::invoke(std::forward<F>(func), **this));
+				return optional<U>(std::nullopt);
+			return optional<U>(std::invoke(std::forward<F>(func), **this));
 		}
 
 		template <typename F>
 		[[nodiscard]] constexpr auto transform(F&& func) && {
 			using U = std::remove_cv_t<std::invoke_result_t<F, T>>;
 			if (!has_value())
-				return Optional<U>(std::nullopt);
-			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
+				return optional<U>(std::nullopt);
+			return optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
 		}
 
 		template <typename F>
 		[[nodiscard]] constexpr auto transform(F&& func) const&& {
 			using U = std::remove_cv_t<std::invoke_result_t<F, const T>>;
 			if (!has_value())
-				return Optional<U>(std::nullopt);
-			return Optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
+				return optional<U>(std::nullopt);
+			return optional<U>(std::invoke(std::forward<F>(func), std::move(**this)));
 		}
 
 		template <typename F>
-		[[nodiscard]] constexpr Optional<T> or_else(F&& func) const& {
+		[[nodiscard]] constexpr optional<T> or_else(F&& func) const& {
 			return *this ? *this : std::invoke(std::forward<F>(func));
 		}
 
 		template <typename F>
-		[[nodiscard]] constexpr Optional<T> or_else(F&& func) && {
+		[[nodiscard]] constexpr optional<T> or_else(F&& func) && {
 			return *this ? std::move(*this) : std::invoke(std::forward<F>(func));
 		}
 
-		constexpr void swap(OptionalWithFlagValue<T>& other) noexcept(
+		constexpr void swap(flagged_optional<T>& other) noexcept(
 			std::is_nothrow_move_constructible_v<T> && std::is_nothrow_swappable_v<T>) {
 			static_assert(std::is_move_constructible_v<T>);
 			if (has_value() && other.has_value()) {
@@ -338,7 +341,7 @@ namespace fastgltf {
 			}
 		}
 
-		constexpr void reset() noexcept { this->_value = OptionalFlagValue<T>::missing_value; }
+		constexpr void reset() noexcept { this->_value = optional_flag_value<T>::missing_value; }
 
 		template <typename... Args>
 		constexpr T& emplace(Args&&... args) {
@@ -355,17 +358,35 @@ namespace fastgltf {
 
 		constexpr explicit operator bool() const noexcept { return has_value(); }
 
-		constexpr T* operator->() noexcept { return std::addressof(_value); }
+		constexpr T* operator->() noexcept {
+			assert(has_value());
+			return std::addressof(_value);
+		}
 
-		constexpr const T* operator->() const noexcept { return std::addressof(_value); }
+		constexpr const T* operator->() const noexcept {
+			assert(has_value());
+			return std::addressof(_value);
+		}
 
-		constexpr T& operator*() & noexcept { return _value; }
+		constexpr T& operator*() & noexcept {
+			assert(has_value());
+			return _value;
+		}
 
-		constexpr const T& operator*() const& noexcept { return _value; }
+		constexpr const T& operator*() const& noexcept {
+			assert(has_value());
+			return _value;
+		}
 
-		constexpr T&& operator*() && noexcept { return std::move(_value); }
+		constexpr T&& operator*() && noexcept {
+			assert(has_value());
+			return std::move(_value);
+		}
 
-		constexpr const T&& operator*() const&& noexcept { return std::move(_value); }
+		constexpr const T&& operator*() const&& noexcept {
+			assert(has_value());
+			return std::move(_value);
+		}
 
 		operator std::optional<T>() const& noexcept {
 			return has_value() ? std::optional<T>(_value) : std::nullopt;
@@ -377,58 +398,60 @@ namespace fastgltf {
 	};
 
 	// Containers like std::vector only move elements when reallocating if the move constructor is noexcept
-	static_assert(std::is_nothrow_move_constructible_v<OptionalWithFlagValue<std::size_t>>);
-	static_assert(std::is_nothrow_move_constructible_v<OptionalWithFlagValue<float>>);
+	static_assert(std::is_nothrow_move_constructible_v<flagged_optional<std::size_t>>);
+	static_assert(std::is_nothrow_move_constructible_v<flagged_optional<float>>);
+	static_assert(std::is_trivially_copyable_v<flagged_optional<std::size_t>>);
+	static_assert(std::is_trivially_copyable_v<flagged_optional<float>>);
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	constexpr bool operator==(const OptionalWithFlagValue<T>& lhs,
-							  const OptionalWithFlagValue<U>& rhs) {
+	constexpr bool operator==(const flagged_optional<T>& lhs,
+							  const flagged_optional<U>& rhs) {
 		return lhs.has_value() != rhs.has_value() ? false
 												  : (lhs.has_value() == false ? true : *lhs == *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	constexpr bool operator<(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
+	constexpr bool operator<(const flagged_optional<T>& lhs, const flagged_optional<U>& rhs) {
 		return !rhs ? false : (!lhs ? true : *lhs < *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	constexpr bool operator<=(const OptionalWithFlagValue<T>& lhs,
-							  const OptionalWithFlagValue<U>& rhs) {
+	constexpr bool operator<=(const flagged_optional<T>& lhs,
+							  const flagged_optional<U>& rhs) {
 		return !lhs ? true : (!rhs ? false : *lhs <= *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	constexpr bool operator>(const OptionalWithFlagValue<T>& lhs, const OptionalWithFlagValue<U>& rhs) {
+	constexpr bool operator>(const flagged_optional<T>& lhs, const flagged_optional<U>& rhs) {
 		return !lhs ? false : (!rhs ? true : *lhs > *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
-	constexpr bool operator>=(const OptionalWithFlagValue<T>& lhs,
-							  const OptionalWithFlagValue<U>& rhs) {
+	constexpr bool operator>=(const flagged_optional<T>& lhs,
+							  const flagged_optional<U>& rhs) {
 		return !rhs ? true : (!lhs ? false : *lhs >= *rhs);
 	}
 
 	FASTGLTF_EXPORT template <typename T, std::three_way_comparable_with<T> U>
-	constexpr std::compare_three_way_result_t<T, U> operator<=>(const OptionalWithFlagValue<T>& lhs,
-																const OptionalWithFlagValue<U>& rhs) {
+	constexpr std::compare_three_way_result_t<T, U> operator<=>(const flagged_optional<T>& lhs,
+																const flagged_optional<U>& rhs) {
 		return lhs && rhs ? *lhs <=> *rhs : lhs.has_value() <=> rhs.has_value();
 	}
 
 	FASTGLTF_EXPORT template <typename T>
-	constexpr bool operator==(const OptionalWithFlagValue<T>& opt, std::nullopt_t) noexcept {
+	constexpr bool operator==(const flagged_optional<T>& opt, std::nullopt_t) noexcept {
 		return !opt.has_value();
 	}
 
 	FASTGLTF_EXPORT template <typename T>
-	constexpr std::strong_ordering operator<=>(const OptionalWithFlagValue<T>& opt,
+	constexpr std::strong_ordering operator<=>(const flagged_optional<T>& opt,
 											   std::nullopt_t) noexcept {
 		return opt.has_value() <=> false;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	requires (!internal::is_optional_v<U>)
-	constexpr bool operator==(const OptionalWithFlagValue<T>& opt, const U& value) {
+	constexpr bool operator==(const flagged_optional<T>& opt, const U& value) {
 		return opt.has_value() && (*opt) == value;
 	}
 
@@ -437,31 +460,31 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	requires (!internal::is_optional_v<U>)
-	constexpr bool operator<(const OptionalWithFlagValue<T>& opt, const U& value) {
+	constexpr bool operator<(const flagged_optional<T>& opt, const U& value) {
 		return opt.has_value() ? *opt < value : true;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	requires (!internal::is_optional_v<U>)
-	constexpr bool operator<=(const OptionalWithFlagValue<T>& opt, const U& value) {
+	constexpr bool operator<=(const flagged_optional<T>& opt, const U& value) {
 		return opt.has_value() ? *opt <= value : true;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	requires (!internal::is_optional_v<U>)
-	constexpr bool operator>(const OptionalWithFlagValue<T>& opt, const U& value) {
+	constexpr bool operator>(const flagged_optional<T>& opt, const U& value) {
 		return opt.has_value() ? *opt > value : false;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	requires (!internal::is_optional_v<U>)
-	constexpr bool operator>=(const OptionalWithFlagValue<T>& opt, const U& value) {
+	constexpr bool operator>=(const flagged_optional<T>& opt, const U& value) {
 		return opt.has_value() ? *opt >= value : false;
 	}
 
 	FASTGLTF_EXPORT template <typename T, typename U>
 	requires (!internal::is_optional_v<U>) && std::three_way_comparable_with<T, U>
-	constexpr std::compare_three_way_result_t<T, U> operator<=>(const OptionalWithFlagValue<T>& opt,
+	constexpr std::compare_three_way_result_t<T, U> operator<=>(const flagged_optional<T>& opt,
 																const U& value) {
 		return opt.has_value() ? *opt <=> value : std::strong_ordering::less;
 	}

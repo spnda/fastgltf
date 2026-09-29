@@ -125,7 +125,7 @@ namespace fastgltf {
 		return bytes;
 	}
 
-	[[nodiscard, gnu::always_inline]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, Optional<std::size_t>& imageIndexOut) {
+	[[nodiscard, gnu::always_inline]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
 
 		dom::object source;
@@ -589,7 +589,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 
 	// Decode the base64 data into a traditional vector
 	auto padding = base64::getPadding(encodedData);
-	fg::StaticVector<std::byte> uriData(base64::getOutputSize(encodedData.size(), padding));
+	fg::static_vector<std::byte> uriData(base64::getOutputSize(encodedData.size(), padding));
 	if (config.decodeCallback != nullptr) {
 		config.decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(uriData.data()), padding, uriData.size(), config.userPointer);
 	} else {
@@ -691,7 +691,7 @@ template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, decltype(
 
 namespace fastgltf {
 template<typename T>
-static void writeIndices(StaticVector<std::byte>& generatedIndices,
+static void writeIndices(static_vector<std::byte>& generatedIndices,
 	const PrimitiveType type, const std::size_t primitiveCount) {
 
 	const std::span indices(reinterpret_cast<T*>(generatedIndices.data()),
@@ -727,22 +727,22 @@ static void writeIndices(StaticVector<std::byte>& generatedIndices,
 	}
 }
 
-static std::pair<StaticVector<std::byte>, ComponentType> writeIndices(
+static std::pair<static_vector<std::byte>, ComponentType> writeIndices(
 	const PrimitiveType type, const std::size_t indexCount, const std::size_t primitiveCount) {
 
 	if (indexCount < 255) {
-		StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint8_t));
+		static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint8_t));
 		writeIndices<std::uint8_t>(generatedIndices, type, primitiveCount);
 		return std::make_pair(generatedIndices, ComponentType::UnsignedByte);
 	}
 
 	if (indexCount < 65535) {
-		StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint16_t));
+		static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint16_t));
 		writeIndices<std::uint16_t>(generatedIndices, type, primitiveCount);
 		return std::make_pair(generatedIndices, ComponentType::UnsignedShort);
 	}
 
-	StaticVector<std::byte> generatedIndices(indexCount * sizeof(std::uint32_t));
+	static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint32_t));
 	writeIndices<std::uint32_t>(generatedIndices, type, primitiveCount);
 	return std::make_pair(generatedIndices, ComponentType::UnsignedInt);
 }
@@ -4352,8 +4352,10 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				dom::array linearAxesArray;
 				if (auto error = limitObject["linearAxes"].get_array().get(linearAxesArray); error == SUCCESS) {
-					limit.linearAxes.reserve(linearAxesArray.size());
 					for(auto axisValue : linearAxesArray) {
+						if (limit.linearAxes.size() == limit.linearAxes.max_size()) [[unlikely]]
+							return Error::InvalidGltf;
+
 						std::uint64_t axis;
 						if(axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
 							limit.linearAxes.emplace_back(static_cast<uint8_t>(axis));
@@ -4367,8 +4369,10 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				dom::array angularAxesArray;
 				if (auto error = limitObject["angularAxes"].get_array().get(angularAxesArray); error == SUCCESS) {
-					limit.angularAxes.reserve(angularAxesArray.size());
 					for (auto axisValue : angularAxesArray) {
+						if (limit.angularAxes.size() == limit.angularAxes.max_size()) [[unlikely]]
+							return Error::InvalidGltf;
+
 						std::uint64_t axis;
 						if (axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
 							limit.angularAxes.emplace_back(static_cast<uint8_t>(axis));
@@ -4917,7 +4921,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 					glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
 				}
 			} else {
-				StaticVector<std::byte> binaryData(binaryChunk.chunkLength);
+				static_vector<std::byte> binaryData(binaryChunk.chunkLength);
 				data.read(binaryData.data(), binaryChunk.chunkLength);
 
 				sources::Array vectorData = {

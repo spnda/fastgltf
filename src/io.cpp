@@ -393,7 +393,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 		}
 	}
 
-	StaticVector<std::byte> data(static_cast<std::size_t>(length));
+	static_vector<std::byte> data(static_cast<std::size_t>(length));
 	AAsset_read(file.get(), data.data(), length);
 	sources::Array arraySource {
 		std::move(data),
@@ -457,7 +457,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 		}
 	}
 
-	StaticVector<std::byte> data(static_cast<std::size_t>(length));
+	static_vector<std::byte> data(static_cast<std::size_t>(length));
 	file.read(reinterpret_cast<char*>(data.data()), length);
 	sources::Array arraySource {
 		std::move(data),

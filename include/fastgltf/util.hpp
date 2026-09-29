@@ -78,6 +78,12 @@
 #define FASTGLTF_UNREACHABLE assert(0);
 #endif
 
+#if defined(__cpp_lib_containers_ranges) && __cpp_lib_containers_ranges >= 202202L
+#define FASTGLTF_HAS_CONTAINERS_RANGES 1
+#else
+#define FASTGLTF_HAS_CONTAINERS_RANGES 0
+#endif
+
 #if defined(__has_builtin)
 #define FASTGLTF_HAS_BUILTIN(x) __has_builtin(x)
 #else

@@ -57,6 +57,7 @@ module;
 #include <memory>
 #include <memory_resource>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>

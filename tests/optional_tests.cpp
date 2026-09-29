@@ -5,13 +5,13 @@
 TEST_CASE("Test basic Optional interface", "[optional-tests]") {
 	// We have no specialization for std::uint32_t, and therefore this is just
 	// a std::optional with a bool field padded by 3 bytes.
-	fastgltf::Optional<std::uint32_t> optional;
+	fastgltf::optional<std::uint32_t> optional;
 	static_assert(sizeof(optional) > sizeof(std::uint32_t));
 }
 
 TEST_CASE("Test OptionalWithFlagValue copy and move operations", "[optional-tests]") {
-	fastgltf::OptionalWithFlagValue<std::size_t> value(std::size_t(5));
-	fastgltf::OptionalWithFlagValue<std::size_t> empty;
+	fastgltf::flagged_optional<std::size_t> value(std::size_t(5));
+	fastgltf::flagged_optional<std::size_t> empty;
 
 	auto copy = value;
 	auto moved = std::move(copy);
@@ -25,7 +25,7 @@ TEST_CASE("Test OptionalWithFlagValue copy and move operations", "[optional-test
 }
 
 TEST_CASE("Test Optional float specialization", "[optional-tests]") {
-	fastgltf::Optional<float> foptional;
+	fastgltf::optional<float> foptional;
 	REQUIRE(!foptional.has_value());
 	if constexpr (std::numeric_limits<float>::is_iec559) {
 		REQUIRE(sizeof(foptional) == sizeof(float));
@@ -33,7 +33,7 @@ TEST_CASE("Test Optional float specialization", "[optional-tests]") {
 		REQUIRE(sizeof(foptional) > sizeof(float));
 	}
 
-	fastgltf::Optional<double> doptional;
+	fastgltf::optional<double> doptional;
 	REQUIRE(!doptional.has_value());
 	if constexpr (std::numeric_limits<double>::is_iec559) {
 		REQUIRE(sizeof(doptional) == sizeof(double));
@@ -43,34 +43,34 @@ TEST_CASE("Test Optional float specialization", "[optional-tests]") {
 }
 
 TEST_CASE("Test OptionalWithFlagValue in constant expressions", "[optional-tests]") {
-	static_assert(!fastgltf::OptionalWithFlagValue<float>().has_value());
-	static_assert(!fastgltf::OptionalWithFlagValue<double>().has_value());
-	static_assert(!fastgltf::OptionalWithFlagValue<std::size_t>().has_value());
+	static_assert(!fastgltf::flagged_optional<float>().has_value());
+	static_assert(!fastgltf::flagged_optional<double>().has_value());
+	static_assert(!fastgltf::flagged_optional<std::size_t>().has_value());
 
-	static_assert(fastgltf::OptionalWithFlagValue<float>(1.0f).has_value());
-	static_assert(*fastgltf::OptionalWithFlagValue<float>(1.0f) == 1.0f);
-	static_assert(fastgltf::OptionalWithFlagValue<double>().value_or(2.0) == 2.0);
+	static_assert(fastgltf::flagged_optional<float>(1.0f).has_value());
+	static_assert(*fastgltf::flagged_optional<float>(1.0f) == 1.0f);
+	static_assert(fastgltf::flagged_optional<double>().value_or(2.0) == 2.0);
 
 	static_assert([] {
-		fastgltf::OptionalWithFlagValue<std::size_t> a;
+		fastgltf::flagged_optional<std::size_t> a;
 		a = std::size_t(5);
-		fastgltf::OptionalWithFlagValue<std::size_t> b;
+		fastgltf::flagged_optional<std::size_t> b;
 		b.emplace(std::size_t(7));
-		fastgltf::OptionalWithFlagValue<std::size_t> c;
+		fastgltf::flagged_optional<std::size_t> c;
 		c = std::move(b);
 		return a.has_value() && *a == 5 && c.has_value() && *c == 7;
 	}());
 
 	static_assert([] {
-		fastgltf::OptionalWithFlagValue<float> a(1.0f);
+		fastgltf::flagged_optional<float> a(1.0f);
 		a.reset();
 		return !a.has_value();
 	}());
 }
 
 TEST_CASE("Test OptionalWithFlagValue comparisons with std::nullopt", "[optional-tests]") {
-	const fastgltf::OptionalWithFlagValue<float> empty;
-	const fastgltf::OptionalWithFlagValue<float> value(1.0f);
+	const fastgltf::flagged_optional<float> empty;
+	const fastgltf::flagged_optional<float> value(1.0f);
 
 	REQUIRE(empty == std::nullopt);
 	REQUIRE(std::nullopt == empty);
@@ -88,8 +88,8 @@ TEST_CASE("Test OptionalWithFlagValue comparisons with std::nullopt", "[optional
 }
 
 TEST_CASE("Test OptionalWithFlagValue comparisons with values", "[optional-tests]") {
-	const fastgltf::OptionalWithFlagValue<float> empty;
-	const fastgltf::OptionalWithFlagValue<float> one(1.0f);
+	const fastgltf::flagged_optional<float> empty;
+	const fastgltf::flagged_optional<float> one(1.0f);
 
 	REQUIRE(one == 1.0f);
 	REQUIRE(1.0f == one);
@@ -111,17 +111,17 @@ TEST_CASE("Test OptionalWithFlagValue comparisons with values", "[optional-tests
 	REQUIRE(((one <=> 2.0f) < 0));
 	REQUIRE(((one <=> 0.0f) > 0));
 
-	const fastgltf::OptionalWithFlagValue<std::size_t> index(std::size_t(3));
+	const fastgltf::flagged_optional<std::size_t> index(std::size_t(3));
 	REQUIRE(index == std::size_t(3));
 	REQUIRE(index < std::size_t(4));
 	REQUIRE(((index <=> std::size_t(3)) == 0));
 }
 
 TEST_CASE("Test OptionalWithFlagValue comparisons between optionals", "[optional-tests]") {
-	const fastgltf::OptionalWithFlagValue<float> empty1;
-	const fastgltf::OptionalWithFlagValue<float> empty2;
-	const fastgltf::OptionalWithFlagValue<float> one(1.0f);
-	const fastgltf::OptionalWithFlagValue<float> two(2.0f);
+	const fastgltf::flagged_optional<float> empty1;
+	const fastgltf::flagged_optional<float> empty2;
+	const fastgltf::flagged_optional<float> one(1.0f);
+	const fastgltf::flagged_optional<float> two(2.0f);
 
 	REQUIRE(empty1 == empty2);
 	REQUIRE(!(empty1 != empty2));
@@ -129,7 +129,7 @@ TEST_CASE("Test OptionalWithFlagValue comparisons between optionals", "[optional
 	REQUIRE(empty1 <= empty2);
 	REQUIRE(((empty1 <=> empty2) == 0));
 
-	REQUIRE(one == fastgltf::OptionalWithFlagValue<float>(1.0f));
+	REQUIRE(one == fastgltf::flagged_optional<float>(1.0f));
 	REQUIRE(one != two);
 	REQUIRE(one != empty1);
 
@@ -145,38 +145,38 @@ TEST_CASE("Test OptionalWithFlagValue comparisons between optionals", "[optional
 
 TEST_CASE("Test OptionalWithFlagValue converting move assignment", "[optional-tests]") {
 	SECTION("Into an empty optional") {
-		fastgltf::OptionalWithFlagValue<double> target;
-		fastgltf::OptionalWithFlagValue<float> source(1.5f);
+		fastgltf::flagged_optional<double> target;
+		fastgltf::flagged_optional<float> source(1.5f);
 		target = std::move(source);
 		REQUIRE(target.has_value());
 		REQUIRE(*target == 1.5);
 	}
 
 	SECTION("Into an engaged optional") {
-		fastgltf::OptionalWithFlagValue<double> target(3.0);
-		fastgltf::OptionalWithFlagValue<float> source(1.5f);
+		fastgltf::flagged_optional<double> target(3.0);
+		fastgltf::flagged_optional<float> source(1.5f);
 		target = std::move(source);
 		REQUIRE(target.has_value());
 		REQUIRE(*target == 1.5);
 	}
 
 	SECTION("From an empty optional") {
-		fastgltf::OptionalWithFlagValue<double> target(3.0);
-		fastgltf::OptionalWithFlagValue<float> source;
+		fastgltf::flagged_optional<double> target(3.0);
+		fastgltf::flagged_optional<float> source;
 		target = std::move(source);
 		REQUIRE(!target.has_value());
 	}
 
 	static_assert([] {
-		fastgltf::OptionalWithFlagValue<double> target;
-		fastgltf::OptionalWithFlagValue<float> source(1.5f);
+		fastgltf::flagged_optional<double> target;
+		fastgltf::flagged_optional<float> source(1.5f);
 		target = std::move(source);
 		return target.has_value() && *target == 1.5;
 	}());
 }
 
 TEST_CASE("Test OptionalWithFlagValue swap", "[optional-tests]") {
-	using Opt = fastgltf::OptionalWithFlagValue<std::size_t>;
+	using Opt = fastgltf::flagged_optional<std::size_t>;
 
 	Opt a(std::size_t(1)), b(std::size_t(2));
 	a.swap(b);
@@ -197,7 +197,7 @@ TEST_CASE("Test OptionalWithFlagValue swap", "[optional-tests]") {
 }
 
 TEST_CASE("Test OptionalWithFlagValue or_else", "[optional-tests]") {
-	using Opt = fastgltf::OptionalWithFlagValue<std::size_t>;
+	using Opt = fastgltf::flagged_optional<std::size_t>;
 	const auto fallback = [] { return Opt(std::size_t(42)); };
 
 	const Opt value(std::size_t(1));

@@ -42,6 +42,7 @@
 #include <fastgltf/math.hpp>
 #include <fastgltf/uri.hpp>
 #include <fastgltf/containers/flagged_optional.hpp>
+#include <fastgltf/containers/inplace_vector.hpp>
 #include <fastgltf/containers/small_vector.hpp>
 #include <fastgltf/containers/static_vector.hpp>
 
@@ -186,7 +187,7 @@ namespace fastgltf {
 	};
 
 	template<>
-	struct OptionalFlagValue<Filter> {
+	struct optional_flag_value<Filter> {
 		static constexpr auto missing_value = static_cast<Filter>(
 			std::numeric_limits<std::underlying_type_t<Filter>>::max());
 	};
@@ -206,7 +207,7 @@ namespace fastgltf {
 	};
 
 	template<>
-	struct OptionalFlagValue<BufferTarget> {
+	struct optional_flag_value<BufferTarget> {
 		static constexpr auto missing_value = static_cast<BufferTarget>(
 			std::numeric_limits<std::underlying_type_t<BufferTarget>>::max());
 	};
@@ -774,7 +775,7 @@ namespace fastgltf {
 		};
 
 		FASTGLTF_EXPORT struct Array {
-			StaticVector<std::byte> bytes;
+			static_vector<std::byte> bytes;
 			MimeType mimeType = MimeType::None;
 		};
 
@@ -811,7 +812,7 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT struct AnimationChannel {
 		std::size_t samplerIndex;
-		Optional<std::size_t> nodeIndex;
+		optional<std::size_t> nodeIndex;
 		AnimationPath path;
 	};
 
@@ -843,10 +844,10 @@ namespace fastgltf {
 			num znear;
 		};
 		struct Perspective {
-			Optional<num> aspectRatio;
+			optional<num> aspectRatio;
 			num yfov;
 			// If omitted, use an infinite projection matrix.
-			Optional<num> zfar;
+			optional<num> zfar;
 			num znear;
 		};
 
@@ -859,16 +860,16 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Skin {
-		Optional<std::size_t> inverseBindMatrices;
-		Optional<std::size_t> skeleton;
+		optional<std::size_t> inverseBindMatrices;
+		optional<std::size_t> skeleton;
 		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
 
 		FASTGLTF_STD_PMR_NS::string name;
 	};
 
 	FASTGLTF_EXPORT struct Sampler {
-		Optional<Filter> magFilter;
-		Optional<Filter> minFilter;
+		optional<Filter> magFilter;
+		optional<Filter> minFilter;
 		Wrap wrapS = Wrap::Repeat;
 		Wrap wrapT = Wrap::Repeat;
 
@@ -941,7 +942,7 @@ namespace fastgltf {
 		/**
 		 * The mass of the rigid body. Larger values imply the rigid body is harder to move
 		 */
-		Optional<num> mass;
+		optional<num> mass;
 
 		/**
 		 * Center of mass of the rigid body in node space
@@ -951,12 +952,12 @@ namespace fastgltf {
 		/**
 		 * The principal moments of inertia. Larger values imply the rigid body is harder to rotate
 		 */
-		Optional<math::fvec3> inertialDiagonal;
+		optional<math::fvec3> inertialDiagonal;
 
 		/**
 		 * The quaternion rotating from inertia major axis space to node space
 		 */
-		Optional<math::fvec4> inertialOrientation;
+		optional<math::fvec4> inertialOrientation;
 
 		/**
 		 * Initial linear velocity of the rigid body in node space
@@ -978,12 +979,12 @@ namespace fastgltf {
 		/**
 		 * The index of a top-level `KHR_implicit_shapes.shape`, providing an implicit representation of the geometry
 		 */
-		Optional<size_t> shape;
+		optional<size_t> shape;
 
 		/**
 		 * The index of a glTF `mesh` which provides a mesh representation of the geometry
 		 */
-		Optional<size_t> mesh;
+		optional<size_t> mesh;
 
 		/**
 		 * Flag to indicate that the geometry should be a convex hull.
@@ -1029,12 +1030,12 @@ namespace fastgltf {
 		/**
 		 * Indexes into the top-level `physicsMaterials` and describes how the collider should respond to collisions
 		 */
-		Optional<std::size_t> physicsMaterial;
+		optional<std::size_t> physicsMaterial;
 
 		/**
 		 * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
 		 */
-		Optional<std::size_t> collisionFilter;
+		optional<std::size_t> collisionFilter;
 	};
 
 	FASTGLTF_EXPORT struct GeometryTrigger {
@@ -1046,7 +1047,7 @@ namespace fastgltf {
 		/**
 		 * Indexes into the top-level `collisionFilters` and describes a filter which determines if this collider should perform collision detection against another collider
 		 */
-		Optional<std::size_t> collisionFilter;
+		optional<std::size_t> collisionFilter;
 	};
 
 	FASTGLTF_EXPORT struct NodeTrigger {
@@ -1061,27 +1062,27 @@ namespace fastgltf {
 		/**
 		 * The linear axes to constrain (0=X, 1=Y, 2=Z)
 		 */
-		FASTGLTF_FG_PMR_NS::SmallVector<uint8_t, 3> linearAxes;
+		inplace_vector<uint8_t, 3> linearAxes;
 
 		/**
 		 * The angular axes to constrain (0=X, 1=Y, 2=Z)
 		 */
-		FASTGLTF_FG_PMR_NS::SmallVector<uint8_t, 3> angularAxes;
+		inplace_vector<uint8_t, 3> angularAxes;
 
 		/**
 		 * The minimum allowed relative distance/angle
 		 */
-		Optional<num> min;
+		optional<num> min;
 
 		/**
 		 * The maximum allowed relative distance/angle
 		 */
-		Optional<num> max;
+		optional<num> max;
 
 		/**
 		 * Optional softness of the limits when beyond the limits
 		 */
-		Optional<num> stiffness;
+		optional<num> stiffness;
 
 		/**
 		 * Optional spring damping applied when beyond the limits
@@ -1149,25 +1150,25 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct PhysicsRigidBody {
-		Optional<Motion> motion;
+		optional<Motion> motion;
 
-		Optional<Collider> collider;
+		optional<Collider> collider;
 
-		Optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
+		optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
 
-		Optional<Joint> joint;
+		optional<Joint> joint;
 	};
 #endif
 
 	FASTGLTF_EXPORT struct Node {
-		Optional<std::size_t> meshIndex;
-		Optional<std::size_t> skinIndex;
-		Optional<std::size_t> cameraIndex;
+		optional<std::size_t> meshIndex;
+		optional<std::size_t> skinIndex;
+		optional<std::size_t> cameraIndex;
 
 		/**
 		 * Only ever non-empty when KHR_lights_punctual is enabled and used by the asset.
 		 */
-		Optional<std::size_t> lightIndex;
+		optional<std::size_t> lightIndex;
 
 		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> children;
 		FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
@@ -1240,15 +1241,15 @@ namespace fastgltf {
 
 		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4>> targets;
 
-		Optional<std::size_t> indicesAccessor;
-		Optional<std::size_t> materialIndex;
+		optional<std::size_t> indicesAccessor;
+		optional<std::size_t> materialIndex;
 
 		/**
 		 * Represents the mappings data from KHR_material_variants.
 		 * Use the variant index to index into this array to get the corresponding material index to use.
 		 * If this vector is empty, the normal materialIndex should be used as a fallback.
 		 */
-		std::vector<Optional<std::size_t>> mappings;
+		std::vector<optional<std::size_t>> mappings;
 
 		std::unique_ptr<DracoCompressedPrimitive> dracoCompression;
 
@@ -1316,7 +1317,7 @@ namespace fastgltf {
 		/**
 		 * Overrides the textureInfo texCoord value if supplied.
 		 */
-		Optional<std::size_t> texCoordIndex;
+		optional<std::size_t> texCoordIndex;
 	};
 
 	FASTGLTF_EXPORT struct TextureInfo {
@@ -1353,14 +1354,14 @@ namespace fastgltf {
 		 */
 		num roughnessFactor = 1.0f;
 
-		Optional<TextureInfo> baseColorTexture;
-		Optional<TextureInfo> metallicRoughnessTexture;
+		optional<TextureInfo> baseColorTexture;
+		optional<TextureInfo> metallicRoughnessTexture;
 	};
 
 	FASTGLTF_EXPORT struct MaterialAnisotropy {
 		num anisotropyStrength = 0.0f;
 		num anisotropyRotation = 0.0f;
-		Optional<TextureInfo> anisotropyTexture;
+		optional<TextureInfo> anisotropyTexture;
 	};
 
 	/**
@@ -1368,9 +1369,9 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT struct MaterialDiffuseTransmission {
 		num diffuseTransmissionFactor = 0.0f;
-		Optional<TextureInfo> diffuseTransmissionTexture;
+		optional<TextureInfo> diffuseTransmissionTexture;
 		math::nvec3 diffuseTransmissionColorFactor = math::nvec3(1);
-		Optional<TextureInfo> diffuseTransmissionColorTexture;
+		optional<TextureInfo> diffuseTransmissionColorTexture;
 	};
 
 	/**
@@ -1378,9 +1379,9 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT struct MaterialSpecular {
 		num specularFactor = 1.0f;
-		Optional<TextureInfo> specularTexture;
+		optional<TextureInfo> specularTexture;
 		math::nvec3 specularColorFactor = math::nvec3(1);
-		Optional<TextureInfo> specularColorTexture;
+		optional<TextureInfo> specularColorTexture;
 	};
 
 	/**
@@ -1388,11 +1389,11 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT struct MaterialIridescence {
 		num iridescenceFactor = 0.0f;
-		Optional<TextureInfo> iridescenceTexture;
+		optional<TextureInfo> iridescenceTexture;
 		num iridescenceIor = 1.3f;
 		num iridescenceThicknessMinimum = 100.0f;
 		num iridescenceThicknessMaximum = 400.0f;
-		Optional<TextureInfo> iridescenceThicknessTexture;
+		optional<TextureInfo> iridescenceThicknessTexture;
 	};
 
 	/**
@@ -1400,29 +1401,29 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT struct MaterialVolume {
 		num thicknessFactor = 0.0f;
-		Optional<TextureInfo> thicknessTexture;
+		optional<TextureInfo> thicknessTexture;
 		num attenuationDistance = std::numeric_limits<num>::infinity();
 		math::nvec3 attenuationColor = math::nvec3(1);
 	};
 
 	FASTGLTF_EXPORT struct MaterialTransmission {
 		num transmissionFactor = 0.0f;
-		Optional<TextureInfo> transmissionTexture;
+		optional<TextureInfo> transmissionTexture;
 	};
 
 	FASTGLTF_EXPORT struct MaterialClearcoat {
 		num clearcoatFactor = 0.0f;
-		Optional<TextureInfo> clearcoatTexture;
+		optional<TextureInfo> clearcoatTexture;
 		num clearcoatRoughnessFactor = 0.0f;
-		Optional<TextureInfo> clearcoatRoughnessTexture;
-		Optional<NormalTextureInfo> clearcoatNormalTexture;
+		optional<TextureInfo> clearcoatRoughnessTexture;
+		optional<NormalTextureInfo> clearcoatNormalTexture;
 	};
 
 	FASTGLTF_EXPORT struct MaterialSheen {
 		math::nvec3 sheenColorFactor = math::nvec3(0);
-		Optional<TextureInfo> sheenColorTexture;
+		optional<TextureInfo> sheenColorTexture;
 		num sheenRoughnessFactor = 0.0f;
-		Optional<TextureInfo> sheenRoughnessTexture;
+		optional<TextureInfo> sheenRoughnessTexture;
 	};
 
 	/**
@@ -1430,15 +1431,15 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT struct MaterialSpecularGlossiness {
 		math::nvec4 diffuseFactor = math::nvec4(1);
-		Optional<TextureInfo> diffuseTexture;
+		optional<TextureInfo> diffuseTexture;
 		math::nvec3 specularFactor = math::nvec3(1);
 		num glossinessFactor = 1.0f;
-		Optional<TextureInfo> specularGlossinessTexture;
+		optional<TextureInfo> specularGlossinessTexture;
 	};
 	FASTGLTF_EXPORT struct MaterialPackedTextures {
-		Optional<TextureInfo> occlusionRoughnessMetallicTexture;
-		Optional<TextureInfo> roughnessMetallicOcclusionTexture;
-		Optional<TextureInfo> normalTexture;
+		optional<TextureInfo> occlusionRoughnessMetallicTexture;
+		optional<TextureInfo> roughnessMetallicOcclusionTexture;
+		optional<TextureInfo> normalTexture;
 	};
 
 	FASTGLTF_EXPORT struct Material {
@@ -1451,9 +1452,9 @@ namespace fastgltf {
 		/**
 		 * The tangent space normal texture.
 		 */
-		Optional<NormalTextureInfo> normalTexture;
-		Optional<OcclusionTextureInfo> occlusionTexture;
-		Optional<TextureInfo> emissiveTexture;
+		optional<NormalTextureInfo> normalTexture;
+		optional<OcclusionTextureInfo> occlusionTexture;
+		optional<TextureInfo> emissiveTexture;
 
 		/**
 		 * The factors for the emissive color of the material.
@@ -1536,7 +1537,7 @@ namespace fastgltf {
 		 * The index of a packed texture from the MSFT_packing_normalRoughnessMetallic extension,
 		 * providing normal, roughness and metallic data.
 		 */
-		Optional<TextureInfo> packedNormalMetallicRoughnessTexture;
+		optional<TextureInfo> packedNormalMetallicRoughnessTexture;
 
 		std::unique_ptr<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
 
@@ -1547,29 +1548,29 @@ namespace fastgltf {
 		/**
 		 * If no sampler is specified, use a default sampler with repeat wrap and auto filter.
 		 */
-		Optional<std::size_t> samplerIndex;
+		optional<std::size_t> samplerIndex;
 
 		/**
 		 * The index of the image used by this texture. Either this will have a value,
 		 * or one of the following extensions will define a texture index. If no extensions
 		 * were enabled while parsing, this will always have a value.
 		 */
-		Optional<std::size_t> imageIndex;
+		optional<std::size_t> imageIndex;
 
 		/**
 		 * An optional texture index from the KHR_texture_basisu extension.
 		 */
-		Optional<std::size_t> basisuImageIndex;
+		optional<std::size_t> basisuImageIndex;
 
 		/**
 		 * An optional texture index from the MSFT_texture_dds extension.
 		 */
-		Optional<std::size_t> ddsImageIndex;
+		optional<std::size_t> ddsImageIndex;
 
 		/**
 		 * An optional texture index from the EXT_texture_webp extension.
 		 */
-		Optional<std::size_t> webpImageIndex;
+		optional<std::size_t> webpImageIndex;
 
 		FASTGLTF_STD_PMR_NS::string name;
 	};
@@ -1600,9 +1601,9 @@ namespace fastgltf {
 		std::optional<AccessorBoundsArray> min;
 
 		// Could have no value for sparse morph targets
-		Optional<std::size_t> bufferViewIndex;
+		optional<std::size_t> bufferViewIndex;
 
-		Optional<SparseAccessor> sparse;
+		optional<SparseAccessor> sparse;
 
 		FASTGLTF_STD_PMR_NS::string name;
 
@@ -1670,8 +1671,8 @@ namespace fastgltf {
 		std::size_t byteOffset = 0;
 		std::size_t byteLength;
 
-		Optional<std::size_t> byteStride;
-		Optional<BufferTarget> target;
+		optional<std::size_t> byteStride;
+		optional<BufferTarget> target;
 
 		/**
 		 * Data from EXT_meshopt_compression or KHR_meshopt_compression, and nullptr if the extension was not enabled or used.
@@ -1697,11 +1698,11 @@ namespace fastgltf {
 		/** Point and spot lights use candela (lm/sr) while directional use lux (lm/m^2) */
 		num intensity;
 		/** Range for point and spot lights. If not present, range is infinite. */
-		Optional<num> range;
+		optional<num> range;
 
 		/** The inner and outer cone angles only apply to spot lights */
-		Optional<num> innerConeAngle;
-		Optional<num> outerConeAngle;
+		optional<num> innerConeAngle;
+		optional<num> outerConeAngle;
 
 		FASTGLTF_STD_PMR_NS::string name;
 	};
@@ -1722,11 +1723,11 @@ namespace fastgltf {
 		/**
 		 * This will only ever have no value if #Options::DontRequireValidAssetMember was specified.
 		 */
-		Optional<AssetInfo> assetInfo;
+		optional<AssetInfo> assetInfo;
 		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_STD_PMR_NS::string> extensionsUsed;
 		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_STD_PMR_NS::string> extensionsRequired;
 
-		Optional<std::size_t> defaultScene;
+		optional<std::size_t> defaultScene;
 		std::vector<Accessor> accessors;
 		std::vector<Animation> animations;
 		std::vector<Buffer> buffers;

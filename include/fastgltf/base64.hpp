@@ -79,13 +79,13 @@ namespace fastgltf::base64 {
 	// the issue properly. See https://github.com/spnda/fastgltf/issues/154
 #define FASTGLTF_ENABLE_NEON_BASE64 1
 	void neon_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
-	[[nodiscard]] StaticVector<std::uint8_t> neon_decode(std::string_view encoded);
+	[[nodiscard]] static_vector<std::uint8_t> neon_decode(std::string_view encoded);
 #endif
 	void fallback_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
 	FASTGLTF_EXPORT void decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
 
-	[[nodiscard]] StaticVector<std::uint8_t> fallback_decode(std::string_view encoded);
-	FASTGLTF_EXPORT [[nodiscard]] StaticVector<std::uint8_t> decode(std::string_view encoded);
+	[[nodiscard]] static_vector<std::uint8_t> fallback_decode(std::string_view encoded);
+	FASTGLTF_EXPORT [[nodiscard]] static_vector<std::uint8_t> decode(std::string_view encoded);
 
 	/**
 	 * Calculates the size of the base64-encoded string for a given input byte count.
