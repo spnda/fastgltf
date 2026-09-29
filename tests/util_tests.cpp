@@ -5,6 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <fastgltf/crc32.hpp>
 #include <fastgltf/util.hpp>
 
 TEST_CASE("Test all variants of CRC32-C hashing", "[gltf-loader]") {
