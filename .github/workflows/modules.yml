@@ -25,7 +25,7 @@ jobs:
         include:
           - { os: ubuntu-26.04, c_compiler: gcc-15, cxx_compiler: g++-15, generator: Ninja, executable: build/fastgltf_module_consumer }
           - { os: ubuntu-26.04, c_compiler: clang-22, cxx_compiler: clang++-22, generator: Ninja, executable: build/fastgltf_module_consumer }
-          - { os: windows-latest, c_compiler: cl, cxx_compiler: cl, generator: "Visual Studio 17 2022", executable: build/Release/fastgltf_module_consumer.exe }
+          - { os: windows-latest, c_compiler: cl, cxx_compiler: cl, generator: "Visual Studio 18 2026", executable: build/Release/fastgltf_module_consumer.exe }
 
     runs-on: ${{ matrix.os }}
     env:

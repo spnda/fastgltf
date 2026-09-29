@@ -341,44 +341,44 @@ namespace fastgltf {
 
 	// String representations of glTF 2.0 extension identifiers.
 	namespace extensions {
-		constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
-		constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
-		constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
-		constexpr std::string_view GODOT_single_root = "GODOT_single_root";
-		constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
-		constexpr std::string_view KHR_draco_mesh_compression = "KHR_draco_mesh_compression";
-		constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
-		constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
-		constexpr std::string_view KHR_materials_clearcoat = "KHR_materials_clearcoat";
-		constexpr std::string_view KHR_materials_diffuse_transmission = "KHR_materials_diffuse_transmission";
-		constexpr std::string_view KHR_materials_dispersion = "KHR_materials_dispersion";
-		constexpr std::string_view KHR_materials_emissive_strength = "KHR_materials_emissive_strength";
-		constexpr std::string_view KHR_materials_ior = "KHR_materials_ior";
-		constexpr std::string_view KHR_materials_iridescence = "KHR_materials_iridescence";
-		constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
-		constexpr std::string_view KHR_materials_sheen = "KHR_materials_sheen";
-		constexpr std::string_view KHR_materials_specular = "KHR_materials_specular";
-		constexpr std::string_view KHR_materials_transmission = "KHR_materials_transmission";
-		constexpr std::string_view KHR_materials_unlit = "KHR_materials_unlit";
-		constexpr std::string_view KHR_materials_variants = "KHR_materials_variants";
-		constexpr std::string_view KHR_materials_volume = "KHR_materials_volume";
-		constexpr std::string_view KHR_meshopt_compression = "KHR_meshopt_compression";
-		constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";
-		constexpr std::string_view KHR_node_visibility = "KHR_node_visibility";
-		constexpr std::string_view KHR_node_selectability = "KHR_node_selectability";
-		constexpr std::string_view KHR_node_hoverability = "KHR_node_hoverability";
-		constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
-		constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
-		constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
-		constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
-		constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
+		inline constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
+		inline constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
+		inline constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
+		inline constexpr std::string_view GODOT_single_root = "GODOT_single_root";
+		inline constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
+		inline constexpr std::string_view KHR_draco_mesh_compression = "KHR_draco_mesh_compression";
+		inline constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
+		inline constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
+		inline constexpr std::string_view KHR_materials_clearcoat = "KHR_materials_clearcoat";
+		inline constexpr std::string_view KHR_materials_diffuse_transmission = "KHR_materials_diffuse_transmission";
+		inline constexpr std::string_view KHR_materials_dispersion = "KHR_materials_dispersion";
+		inline constexpr std::string_view KHR_materials_emissive_strength = "KHR_materials_emissive_strength";
+		inline constexpr std::string_view KHR_materials_ior = "KHR_materials_ior";
+		inline constexpr std::string_view KHR_materials_iridescence = "KHR_materials_iridescence";
+		inline constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
+		inline constexpr std::string_view KHR_materials_sheen = "KHR_materials_sheen";
+		inline constexpr std::string_view KHR_materials_specular = "KHR_materials_specular";
+		inline constexpr std::string_view KHR_materials_transmission = "KHR_materials_transmission";
+		inline constexpr std::string_view KHR_materials_unlit = "KHR_materials_unlit";
+		inline constexpr std::string_view KHR_materials_variants = "KHR_materials_variants";
+		inline constexpr std::string_view KHR_materials_volume = "KHR_materials_volume";
+		inline constexpr std::string_view KHR_meshopt_compression = "KHR_meshopt_compression";
+		inline constexpr std::string_view KHR_mesh_quantization = "KHR_mesh_quantization";
+		inline constexpr std::string_view KHR_node_visibility = "KHR_node_visibility";
+		inline constexpr std::string_view KHR_node_selectability = "KHR_node_selectability";
+		inline constexpr std::string_view KHR_node_hoverability = "KHR_node_hoverability";
+		inline constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
+		inline constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
+		inline constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
+		inline constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
+		inline constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
+		inline constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		constexpr std::string_view KHR_physics_rigid_bodies = "KHR_physics_rigid_bodies";
+		inline constexpr std::string_view KHR_physics_rigid_bodies = "KHR_physics_rigid_bodies";
 #endif
 	} // namespace extensions
 
@@ -386,7 +386,7 @@ namespace fastgltf {
 	// An array of pairs of string representations of extension identifiers and their respective enum
 	// value used for enabling/disabling the loading of it. This also represents all extensions that
 	// fastgltf supports and understands.
-	static constexpr auto extensionStrings = to_array<std::pair<std::string_view, Extensions>>({
+	inline constexpr auto extensionStrings = to_array<std::pair<std::string_view, Extensions>>({
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
@@ -428,7 +428,7 @@ namespace fastgltf {
 #endif
 	});
 	// clang-format on
-	static constexpr std::size_t SUPPORTED_EXTENSION_COUNT = extensionStrings.size();
+	inline constexpr std::size_t SUPPORTED_EXTENSION_COUNT = extensionStrings.size();
 
 	/**
 	 * Returns the name of the passed glTF extension.

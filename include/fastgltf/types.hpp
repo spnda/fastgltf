@@ -415,7 +415,7 @@ namespace fastgltf {
 	 * Don't use this, use getComponentType instead.
 	 * This order matters as we assume that their glTF constant is ascending to index it.
 	 */
-	static constexpr std::array<ComponentType, 11> components = {
+	inline constexpr std::array<ComponentType, 11> components = {
 		ComponentType::Byte,
 		ComponentType::UnsignedByte,
 		ComponentType::Short,
@@ -438,7 +438,7 @@ namespace fastgltf {
 	}
 
 	// This order matters as we assume that their glTF constant is ascending to index it.
-	static constexpr std::array<AccessorType, 7> accessorTypes = {
+	inline constexpr std::array<AccessorType, 7> accessorTypes = {
 		AccessorType::Scalar,
 		AccessorType::Vec2,
 		AccessorType::Vec3,
@@ -474,7 +474,7 @@ namespace fastgltf {
 		}
 	}
 
-	static constexpr std::array<std::string_view, 7> accessorTypeNames = {
+	inline constexpr std::array<std::string_view, 7> accessorTypeNames = {
 		"SCALAR",
 		"VEC2",
 		"VEC3",
@@ -492,13 +492,13 @@ namespace fastgltf {
 		return accessorTypeNames[idx - 1];
 	}
 
-	constexpr std::string_view mimeTypeJpeg = "image/jpeg";
-	constexpr std::string_view mimeTypePng = "image/png";
-	constexpr std::string_view mimeTypeKtx = "image/ktx2";
-	constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
-	constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
-	constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
-	constexpr std::string_view mimeTypeWebp = "image/webp";
+	inline constexpr std::string_view mimeTypeJpeg = "image/jpeg";
+	inline constexpr std::string_view mimeTypePng = "image/png";
+	inline constexpr std::string_view mimeTypeKtx = "image/ktx2";
+	inline constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
+	inline constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
+	inline constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+	inline constexpr std::string_view mimeTypeWebp = "image/webp";
 
 	constexpr std::string_view getMimeTypeString(MimeType mimeType) noexcept {
 		switch (mimeType) {
@@ -542,7 +542,7 @@ namespace fastgltf {
 		return CombineMode::Invalid;
 	}
 
-	static constexpr std::array<std::string_view, 4> frictionCombineNames{
+	inline constexpr std::array<std::string_view, 4> frictionCombineNames{
 		"average",
 		"minimum",
 		"maximum",
@@ -709,7 +709,7 @@ namespace fastgltf {
 	 * The amount of items that the SmallVector can initially store in the storage
 	 * allocated within the object itself.
 	 */
-	static constexpr auto initialSmallVectorStorage = 8;
+	inline constexpr auto initialSmallVectorStorage = 8;
 
 	/**
 	 * A custom vector class for fastgltf, which can store up to N objects within itself.
