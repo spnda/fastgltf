@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790659971061,
+  "lastUpdate": 1790660166084,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -637,6 +637,93 @@ window.BENCHMARK_DATA = {
             "name": "Run fastgltf's Neon base64 decoder",
             "value": 486.265,
             "range": "± 4.61983",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "9003cdd1e9e50ea07d2d11dc82f4051bc05a0fb6",
+          "message": "Fix #86: Move ordinary includes before the module purview",
+          "timestamp": "2026-09-29T07:29:42+02:00",
+          "tree_id": "c2ca30dbda58ee2d0df6ab581f49640432a08a8b",
+          "url": "https://github.com/spnda/fastgltf/commit/9003cdd1e9e50ea07d2d11dc82f4051bc05a0fb6"
+        },
+        "date": 1790660165165,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Run fastgltf's fallback base64 decoder",
+            "value": 726.354,
+            "range": "± 3.67494",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's Neon base64 decoder",
+            "value": 487.248,
+            "range": "± 4.26901",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 15.7905,
+            "range": "± 0.15005",
+            "unit": "ns",
+            "extra": "50 samples\n2000 iterations"
+          },
+          {
+            "name": "ARMv8 hardware CRC32-C algorithm",
+            "value": 2.06421,
+            "range": "± 0.024666",
+            "unit": "ns",
+            "extra": "50 samples\n15262 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 7.7481,
+            "range": "± 30.0976",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 34.0305,
+            "range": "± 1.46314",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 285.723,
+            "range": "± 4.56377",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 284.319,
+            "range": "± 5.07497",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 285.409,
+            "range": "± 3.44822",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
           }
