@@ -107,6 +107,12 @@
 #define FASTGLTF_FORCEINLINE inline
 #endif
 
+#if defined(_MSC_VER)
+#define FASTGLTF_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#define FASTGLTF_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized

@@ -39,16 +39,27 @@ namespace fastgltf {
 	/**
 	 * A static vector which cannot be resized freely. When constructed, the backing array is allocated once.
 	 */
-	FASTGLTF_EXPORT template <typename T>
+	FASTGLTF_EXPORT template <typename T, typename Allocator = std::allocator<T>>
 	class StaticVector final {
 	public:
 		using value_type = T;
 		using size_type = std::size_t;
-		using array_t = value_type[];
 
 	private:
+		FASTGLTF_NO_UNIQUE_ADDRESS Allocator _allocator;
+		using traits = std::allocator_traits<Allocator>;
+
 		size_type _size = 0;
-		std::unique_ptr<array_t> _array;
+		T* _data = nullptr;
+
+		void clear_and_deallocate() {
+			if (_data != nullptr) [[likely]] {
+				std::destroy(begin(), end());
+				traits::deallocate(_allocator, _data, _size);
+				_data = nullptr;
+				_size = 0;
+			}
+		}
 
 	public:
 		using reference = value_type&;
@@ -58,43 +69,77 @@ namespace fastgltf {
 		using iterator = pointer;
 		using const_iterator = const_pointer;
 
-		explicit StaticVector(const std::size_t size) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {}
-		explicit StaticVector(const std::size_t size, const T& initialValue) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {
-			std::uninitialized_fill(begin(), end(), initialValue);
+		explicit StaticVector(const std::size_t size, const Allocator& allocator = Allocator()) : _allocator(allocator), _size(size) {
+			if (_size != 0) {
+				_data = traits::allocate(_allocator, size);
+				std::uninitialized_default_construct(begin(), end());
+			}
 		}
-
-		StaticVector(const StaticVector& other) {
-			if (other.empty()) {
-				_array.reset();
-				_size = 0;
-			} else {
-				_array.reset(new std::remove_extent_t<array_t>[other.size()]);
-				_size = other.size();
-				std::copy(other.begin(), other.end(), begin());
+		explicit StaticVector(const std::size_t size, const T& initialValue, const Allocator& allocator = Allocator()) : _allocator(allocator), _size(size) {
+			if (_size != 0) {
+				_data = traits::allocate(_allocator, size);
+				std::uninitialized_fill(begin(), end(), initialValue);
 			}
 		}
 
-		StaticVector(StaticVector&& other) noexcept {
-			_array = std::move(other._array);
-			_size = std::exchange(other.size(), 0);
+		StaticVector(const StaticVector& other) : _allocator(traits::select_on_container_copy_construction(other._allocator)) {
+			if (!other.empty()) [[likely]] {
+				_data = traits::allocate(_allocator, other.size());
+				_size = other.size();
+				std::uninitialized_copy(other.begin(), other.end(), begin());
+			}
 		}
 
-		StaticVector& operator=(const StaticVector& other) noexcept {
-			if (other.empty()) {
-				_array.reset();
-				_size = 0;
-			} else {
-				_array.reset(new std::remove_extent_t<array_t>[other.size()]);
+		StaticVector(StaticVector&& other) noexcept : _allocator(std::move(other._allocator)) {
+			_data = std::exchange(other._data, nullptr);
+			_size = std::exchange(other._size, 0);
+		}
+
+		StaticVector& operator=(const StaticVector& other) {
+			if (std::addressof(other) == this) [[unlikely]]{
+				return *this;
+			}
+
+			clear_and_deallocate();
+
+			if constexpr (traits::propagate_on_container_copy_assignment::value) {
+				_allocator = other._allocator;
+			}
+
+			if (!other.empty()) [[likely]] {
+				_data = traits::allocate(_allocator, other.size());
 				_size = other.size();
-				std::copy(other.begin(), other.end(), begin());
+				std::uninitialized_copy(other.begin(), other.end(), begin());
 			}
 			return *this;
 		}
 
-		StaticVector& operator=(StaticVector&& other) noexcept {
-			_array = std::move(other._array);
-			_size = other.size();
+		StaticVector& operator=(StaticVector&& other) noexcept(traits::propagate_on_container_move_assignment::value || traits::is_always_equal::value) {
+			if (std::addressof(other) == this) [[unlikely]] {
+				return *this;
+			}
+
+			clear_and_deallocate();
+
+			if (traits::propagate_on_container_move_assignment::value || _allocator == other._allocator) {
+				if constexpr (traits::propagate_on_container_move_assignment::value) {
+					_allocator = std::move(other._allocator);
+				}
+
+				_data = std::exchange(other._data, nullptr);
+				_size = std::exchange(other._size, 0);
+			} else if (!other.empty()) [[likely]] {
+				_data = traits::allocate(_allocator, other.size());
+				_size = other.size();
+				std::uninitialized_move(other.begin(), other.end(), begin());
+				other.clear_and_deallocate();
+			}
+
 			return *this;
+		}
+
+		~StaticVector() {
+			clear_and_deallocate();
 		}
 
 		/**
@@ -106,12 +151,16 @@ namespace fastgltf {
 			return staticVector;
 		}
 
+		[[nodiscard]] Allocator get_allocator() const noexcept {
+			return _allocator;
+		}
+
 		[[nodiscard]] pointer data() noexcept {
-			return _array.get();
+			return _data;
 		}
 
 		[[nodiscard]] const_pointer data() const noexcept {
-			return _array.get();
+			return _data;
 		}
 
 		[[nodiscard]] size_type size() const noexcept {
@@ -142,21 +191,25 @@ namespace fastgltf {
 			return begin()[idx];
 		}
 
+	private:
+		static constexpr auto compare_three_way = []<typename U, typename V>(const U& u, const V& v) {
+			if constexpr (std::three_way_comparable_with<U, V>) {
+				return u <=> v;
+			} else {
+				if (u < v) return std::weak_ordering::less;
+				if (v < u) return std::weak_ordering::greater;
+				return std::weak_ordering::equivalent;
+			}
+		};
+
+	public:
 		constexpr bool operator==(const StaticVector& other) const {
 			return size() == other.size() && std::equal(begin(), end(), other.begin());
 		}
 		constexpr auto operator<=>(const StaticVector& other) const {
 			return std::lexicographical_compare_three_way(
 				begin(), end(), other.begin(), other.end(),
-				[]<typename U, typename V>(const U& u, const V& v) {
-				if constexpr (std::three_way_comparable_with<U, V>) {
-					return u <=> v;
-				} else {
-					if (u < v) return std::weak_ordering::less;
-					if (v < u) return std::weak_ordering::greater;
-					return std::weak_ordering::equivalent;
-				}
-			});
+				compare_three_way);
 		}
 
 		constexpr bool operator==(const std::vector<value_type>& other) const {
@@ -165,17 +218,16 @@ namespace fastgltf {
 		constexpr auto operator<=>(const std::vector<value_type>& other) const {
 			return std::lexicographical_compare_three_way(
 				begin(), end(), other.begin(), other.end(),
-				[]<typename U, typename V>(const U& u, const V& v) {
-				if constexpr (std::three_way_comparable_with<U, V>) {
-					return u <=> v;
-				} else {
-					if (u < v) return std::weak_ordering::less;
-					if (v < u) return std::weak_ordering::greater;
-					return std::weak_ordering::equivalent;
-				}
-			});
+				compare_three_way);
 		}
 	};
+
+#if !FASTGLTF_MISSING_MEMORY_RESOURCE
+	namespace pmr {
+		FASTGLTF_EXPORT template <typename T>
+		using StaticVector = StaticVector<T, std::pmr::polymorphic_allocator<T>>;
+	} // namespace pmr
+#endif
 } // namespace fastgltf
 
 #endif

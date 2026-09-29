@@ -53,7 +53,7 @@ namespace fastgltf {
 
 		alignas(T) std::array<std::byte, N * sizeof(T)> storage = {};
 
-		[[no_unique_address]] Allocator allocator;
+		FASTGLTF_NO_UNIQUE_ADDRESS Allocator allocator;
 
 		T* _data;
 		std::size_t _size = 0, _capacity = N;
@@ -87,11 +87,11 @@ namespace fastgltf {
 
 		explicit SmallVector(const Allocator& allocator) noexcept : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {}
 
-		explicit SmallVector(std::size_t size, const Allocator& allocator = Allocator()) : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {
+		explicit SmallVector(const std::size_t size, const Allocator& allocator = Allocator()) : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {
 			resize(size);
 		}
 
-		SmallVector(std::size_t size, const T& value, const Allocator& allocator = Allocator()) : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {
+		SmallVector(const std::size_t size, const T& value, const Allocator& allocator = Allocator()) : allocator(allocator), _data(reinterpret_cast<T*>(storage.data())) {
 			assign(size, value);
 		}
 
@@ -354,7 +354,7 @@ namespace fastgltf {
 
 #if !FASTGLTF_MISSING_MEMORY_RESOURCE
 	namespace pmr {
-		FASTGLTF_EXPORT template<typename T, std::size_t N>
+		FASTGLTF_EXPORT template <typename T, std::size_t N>
 		using SmallVector = SmallVector<T, N, std::pmr::polymorphic_allocator<T>>;
 	} // namespace pmr
 #endif

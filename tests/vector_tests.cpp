@@ -296,16 +296,6 @@ TEST_CASE("Test vectors with polymorphic allocators", "[vector-tests]") {
 	}
 }
 
-TEST_CASE("Test initial value for StaticVector", "[vector-tests]") {
-	fastgltf::StaticVector<std::uint32_t> vector(10, 25);
-	std::size_t count = 0;
-	for (auto& i : vector) {
-		REQUIRE(i == 25);
-		++count;
-	}
-	REQUIRE(count == 10);
-}
-
 namespace {
 	struct MoveOnlyObject {
 		std::unique_ptr<int> ptr;
@@ -458,6 +448,166 @@ TEST_CASE("Test move-only types with SmallVector", "[vector-tests]") {
 		REQUIRE(vec.isUsingStack());
 		REQUIRE(*vec[0].ptr == 1);
 		REQUIRE(*vec[1].ptr == 2);
+	}
+}
+
+TEST_CASE("Test StaticVector constructors", "[vector-tests]") {
+	SECTION("Basic") {
+		fastgltf::StaticVector<std::uint32_t> vector(10);
+		REQUIRE(vector.size() == 10);
+		for (std::uint32_t i = 0; i < vector.size(); ++i) {
+			vector[i] = i;
+		}
+
+		for (std::uint32_t i = 0; auto& element : vector) {
+			REQUIRE(element == i++);
+		}
+	}
+
+	SECTION("Zero size") {
+		fastgltf::StaticVector<std::uint32_t> vector(0);
+		REQUIRE(vector.empty());
+		REQUIRE(vector.data() == nullptr);
+	}
+
+	SECTION("Initial value") {
+		fastgltf::StaticVector<std::uint32_t> vector(10, 25);
+		std::size_t count = 0;
+		for (auto& element : vector) {
+			REQUIRE(element == 25);
+			++count;
+		}
+		REQUIRE(count == 10);
+	}
+
+	SECTION("Copy vector") {
+		fastgltf::StaticVector<std::uint32_t> vector(10, 25);
+		fastgltf::StaticVector<std::uint32_t> copy(vector);
+
+		REQUIRE(copy.size() == 10);
+		for (auto& element : copy) {
+			REQUIRE(element == 25);
+		}
+	}
+
+	SECTION("Move vector") {
+		fastgltf::StaticVector<std::uint32_t> vector(10, 25);
+		fastgltf::StaticVector<std::uint32_t> moved(std::move(vector));
+		REQUIRE(vector.empty());
+		REQUIRE(vector.data() == nullptr);
+
+		REQUIRE(moved.size() == 10);
+		for (auto& element : moved) {
+			REQUIRE(element == 25);
+		}
+	}
+
+	SECTION("Copy into existing larger vector") {
+		fastgltf::StaticVector<std::uint32_t> vec1(20, 1);
+		fastgltf::StaticVector<std::uint32_t> vec2(10, 2);
+
+		vec1 = vec2;
+		REQUIRE(vec2.size() == 10);
+		REQUIRE(vec1.size() == 10);
+		for (auto& element : vec1) {
+			REQUIRE(element == 2);
+		}
+	}
+
+	SECTION("Copy into existing smaller vector") {
+		fastgltf::StaticVector<std::uint32_t> vec1(10, 1);
+		fastgltf::StaticVector<std::uint32_t> vec2(20, 2);
+
+		vec1 = vec2;
+		REQUIRE(vec2.size() == 20);
+		REQUIRE(vec1.size() == 20);
+		for (auto& element : vec1) {
+			REQUIRE(element == 2);
+		}
+	}
+
+	SECTION("Copy empty vector") {
+		fastgltf::StaticVector<std::uint32_t> vec1(10, 1);
+		fastgltf::StaticVector<std::uint32_t> vec2(0);
+
+		vec1 = vec2;
+		REQUIRE(vec2.empty());
+		REQUIRE(vec1.empty());
+		REQUIRE(vec1.data() == nullptr);
+	}
+
+	SECTION("Move into existing larger vector") {
+		fastgltf::StaticVector<std::uint32_t> vec1(20, 1);
+		fastgltf::StaticVector<std::uint32_t> vec2(10, 2);
+
+		vec1 = std::move(vec2);
+		REQUIRE(vec2.empty());
+		REQUIRE(vec2.data() == nullptr);
+		REQUIRE(vec1.size() == 10);
+		for (auto& element : vec1) {
+			REQUIRE(element == 2);
+		}
+	}
+
+	SECTION("Move into existing smaller vector") {
+		fastgltf::StaticVector<std::uint32_t> vec1(10, 1);
+		fastgltf::StaticVector<std::uint32_t> vec2(20, 2);
+
+		vec1 = std::move(vec2);
+		REQUIRE(vec2.empty());
+		REQUIRE(vec2.data() == nullptr);
+		REQUIRE(vec1.size() == 20);
+		for (auto& element : vec1) {
+			REQUIRE(element == 2);
+		}
+	}
+
+	SECTION("Move empty vector") {
+		fastgltf::StaticVector<std::uint32_t> vec1(10, 1);
+		fastgltf::StaticVector<std::uint32_t> vec2(0);
+
+		vec1 = std::move(vec2);
+		REQUIRE(vec2.empty());
+		REQUIRE(vec1.empty());
+		REQUIRE(vec1.data() == nullptr);
+	}
+}
+
+TEST_CASE("Test StaticVector allocator behaviour", "[vector-tests]") {
+	SECTION("Copy with two different polymorphic resources") {
+		std::array<std::byte, 256> buffer {};
+		std::pmr::monotonic_buffer_resource resource(buffer.data(), buffer.size(), std::pmr::null_memory_resource());
+
+		fastgltf::pmr::StaticVector<std::uint32_t> vec1(10, 1);
+		fastgltf::pmr::StaticVector<std::uint32_t> vec2(20, 2, &resource);
+
+		vec1 = vec2;
+		REQUIRE(vec1.size() == 20);
+		REQUIRE(vec1.data() != nullptr);
+		REQUIRE(vec1.get_allocator().resource() == std::pmr::get_default_resource());
+		REQUIRE(vec2.size() == 20);
+		REQUIRE(vec2.data() != nullptr);
+		for (auto& element : vec1) {
+			REQUIRE(element == 2);
+		}
+	}
+
+	SECTION("Move with two different polymorphic resources") {
+		std::array<std::byte, 256> buffer {};
+		std::pmr::monotonic_buffer_resource resource(buffer.data(), buffer.size(), std::pmr::null_memory_resource());
+
+		fastgltf::pmr::StaticVector<std::uint32_t> vec1(10, 1);
+		fastgltf::pmr::StaticVector<std::uint32_t> vec2(20, 2, &resource);
+
+		vec1 = std::move(vec2);
+		REQUIRE(vec1.size() == 20);
+		REQUIRE(vec1.data() != nullptr);
+		REQUIRE(vec1.get_allocator().resource() == std::pmr::get_default_resource());
+		REQUIRE(vec2.empty());
+		REQUIRE(vec2.data() == nullptr);
+		for (auto& element : vec1) {
+			REQUIRE(element == 2);
+		}
 	}
 }
 
