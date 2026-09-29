@@ -50,19 +50,6 @@ namespace fastgltf {
 		size_type _size = 0;
 		std::unique_ptr<array_t> _array;
 
-		void copy(const T* first, const size_type count, T* result) {
-			if (count > 0) {
-				if constexpr (std::is_trivially_copyable_v<T>) {
-					std::memcpy(result, first, count * sizeof(T));
-				} else {
-					*result++ = *first;
-					for (size_type i = 1; i < count; ++i) {
-						*result++ = *++first;
-					}
-				}
-			}
-		}
-
 	public:
 		using reference = value_type&;
 		using const_reference = const value_type&;
@@ -71,27 +58,37 @@ namespace fastgltf {
 		using iterator = pointer;
 		using const_iterator = const_pointer;
 
-        explicit StaticVector(std::size_t size) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {}
-		explicit StaticVector(std::size_t size, const T& initialValue) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {
-			for (auto& value : *this) {
-				value = initialValue;
-			}
+		explicit StaticVector(const std::size_t size) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {}
+		explicit StaticVector(const std::size_t size, const T& initialValue) : _size(size), _array(std::make_unique_for_overwrite<array_t>(size)) {
+			std::uninitialized_fill(begin(), end(), initialValue);
 		}
 
 		StaticVector(const StaticVector& other) {
-			if (other.size() == 0) {
+			if (other.empty()) {
 				_array.reset();
 				_size = 0;
 			} else {
 				_array.reset(new std::remove_extent_t<array_t>[other.size()]);
 				_size = other.size();
-				copy(other.begin(), _size, begin());
+				std::copy(other.begin(), other.end(), begin());
 			}
 		}
 
 		StaticVector(StaticVector&& other) noexcept {
 			_array = std::move(other._array);
-			_size = other.size();
+			_size = std::exchange(other.size(), 0);
+		}
+
+		StaticVector& operator=(const StaticVector& other) noexcept {
+			if (other.empty()) {
+				_array.reset();
+				_size = 0;
+			} else {
+				_array.reset(new std::remove_extent_t<array_t>[other.size()]);
+				_size = other.size();
+				std::copy(other.begin(), other.end(), begin());
+			}
+			return *this;
 		}
 
 		StaticVector& operator=(StaticVector&& other) noexcept {
@@ -110,11 +107,11 @@ namespace fastgltf {
 		}
 
 		[[nodiscard]] pointer data() noexcept {
-			return &_array.get()[0];
+			return _array.get();
 		}
 
 		[[nodiscard]] const_pointer data() const noexcept {
-			return &_array.get()[0];
+			return _array.get();
 		}
 
 		[[nodiscard]] size_type size() const noexcept {
