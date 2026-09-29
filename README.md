@@ -2,8 +2,10 @@
 
 ![vcpkg](https://img.shields.io/vcpkg/v/fastgltf?style=flat-square)
 ![conan center](https://img.shields.io/conan/v/fastgltf?style=flat-square)
-![CI_x64 workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_x64.yml?label=CI%20x64&style=flat-square)
-![CI_arm workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/ci_arm.yml?label=CI%20ARM&style=flat-square)
+![CI_x64 workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/x64.yml?label=CI%20x64&style=flat-square)
+![CI_arm workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/arm.yml?label=CI%20ARM&style=flat-square)
+![CI_macOS workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/macos.yml?label=CI%20macOS&style=flat-square)
+![CI_modules workflow status](https://img.shields.io/github/actions/workflow/status/spnda/fastgltf/modules.yml?label=CI%20Modules&style=flat-square)
 [![Documentation Status](https://readthedocs.org/projects/fastgltf/badge/?version=latest)](https://fastgltf.readthedocs.io/latest/?badge=latest)
 
 

@@ -1,0 +1,44 @@
+name: CI C++20 modules
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/workflows/**'
+      - '**.cpp'
+      - '**.hpp'
+      - '**.ixx'
+      - '**.txt'
+      - '**.cmake'
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build_modules:
+    name: build_modules (${{ matrix.os }}, ${{ matrix.cxx_compiler }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-26.04, c_compiler: gcc-15, cxx_compiler: g++-15, generator: Ninja, executable: build/fastgltf_module_consumer }
+          - { os: ubuntu-26.04, c_compiler: clang-22, cxx_compiler: clang++-22, generator: Ninja, executable: build/fastgltf_module_consumer }
+          - { os: windows-latest, c_compiler: cl, cxx_compiler: cl, generator: "Visual Studio 17 2022", executable: build/Release/fastgltf_module_consumer.exe }
+
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: ${{ matrix.c_compiler }}
+      CXX: ${{ matrix.cxx_compiler }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure CMake
+        run: cmake -S tests/cpp_modules -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --verbose
+
+      - name: Run consumer
+        run: ${{ matrix.executable }}
