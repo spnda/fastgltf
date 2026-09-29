@@ -39,7 +39,7 @@ TEST_CASE("Check all base64 decoders", "[base64]") {
     REQUIRE(bytes == fastgltf::base64::avx2_decode(testBase64));
     REQUIRE(bytes == fastgltf::base64::sse4_decode(testBase64));
 #endif
-#if defined(__aarch64__)
+#if defined(FASTGLTF_IS_A64)
 	REQUIRE(bytes == fastgltf::base64::neon_decode(testBase64));
 #endif
 }

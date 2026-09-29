@@ -53,8 +53,9 @@ set(FASTGLTF_HEADERS
 
 add_library(fastgltf
         ${FASTGLTF_HEADERS}
-        "src/fastgltf.cpp"
         "src/base64.cpp"
+        "src/crc32.cpp"
+        "src/fastgltf.cpp"
         "src/io.cpp"
 )
 add_library(fastgltf::fastgltf ALIAS fastgltf)

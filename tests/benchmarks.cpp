@@ -8,6 +8,7 @@
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
+#include <fastgltf/crc32.hpp>
 #include "gltf_path.hpp"
 
 constexpr auto benchmarkOptions = fastgltf::Options::DontRequireValidAssetMember;

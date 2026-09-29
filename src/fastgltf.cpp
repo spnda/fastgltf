@@ -50,16 +50,7 @@ static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, 
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
-
-#if defined(FASTGLTF_IS_X86)
-#include <nmmintrin.h> // SSE4.2 for the CRC-32C instructions
-#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
-// MSVC does not provide the arm crc32 intrinsics.
-#include <arm_acle.h>
-#ifdef __APPLE__
-#include <sys/sysctl.h>
-#endif
-#endif
+#include <fastgltf/crc32.hpp>
 
 namespace fg = fastgltf;
 namespace fs = std::filesystem;
@@ -134,110 +125,6 @@ namespace fastgltf {
 		return bytes;
 	}
 
-	using CRCStringFunction = std::uint32_t(*)(std::string_view str);
-
-#if defined(FASTGLTF_IS_X86)
-	[[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(std::string_view str) noexcept {
-		return sse_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
-	}
-
-	[[gnu::hot, gnu::const, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
-		std::uint32_t crc = 0;
-
-		// Ddecode as much as possible using 4 byte steps.
-		// We specifically don't use the 8 byte instruction here because it uses a 64-bit output integer.
-		auto length = static_cast<std::int64_t>(len);
-		while ((length -= sizeof(std::uint32_t)) >= 0) {
-			std::uint32_t v;
-			std::memcpy(&v, d, sizeof v);
-			crc = _mm_crc32_u32(crc, v);
-			d += sizeof v;
-		}
-
-		if (length & sizeof(std::uint16_t)) {
-			std::uint16_t v;
-			std::memcpy(&v, d, sizeof v);
-			crc = _mm_crc32_u16(crc, v);
-			d += sizeof v;
-		}
-
-		if (length & sizeof(std::uint8_t)) {
-			crc = _mm_crc32_u8(crc, *d);
-		}
-
-		return crc;
-	}
-#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
-	[[gnu::hot, gnu::const, gnu::target("+crc")]] std::uint32_t armv8_crc32c(std::string_view str) noexcept {
-		return armv8_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
-	}
-
-	[[gnu::hot, gnu::const, gnu::target("+crc")]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
-		std::uint32_t crc = 0;
-
-		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang
-		// than using a std::size_t i = 0.
-		auto length = static_cast<std::int64_t>(len);
-		while ((length -= sizeof(std::uint64_t)) >= 0) {
-			std::uint64_t value;
-			std::memcpy(&value, d, sizeof value);
-			crc = __crc32cd(crc, value);
-			d += sizeof value;
-		}
-
-		if (length & sizeof(std::uint32_t)) {
-			std::uint32_t value;
-			std::memcpy(&value, d, sizeof value);
-			crc = __crc32cw(crc, value);
-			d += sizeof value;
-		}
-
-		if (length & sizeof(std::uint16_t)) {
-			std::uint16_t value;
-			std::memcpy(&value, d, sizeof value);
-			crc = __crc32ch(crc, value);
-			d += sizeof value;
-		}
-
-		if (length & sizeof(std::uint8_t)) {
-			crc = __crc32cb(crc, *d);
-		}
-
-		return crc;
-	}
-#endif
-
-	/**
-	 * Points to the most 'optimal' CRC32-C encoding function. After initialiseCrc has been called,
-	 * this might also point to sse_crc32c or armv8_crc32c. We only use this for runtime evaluation of hashes, and is
-	 * intended to work for any length of data.
-	 */
-	static CRCStringFunction crcStringFunction = crc32c;
-
-	std::once_flag crcInitialisation;
-
-	/**
-	 * Checks if SSE4.2 is available to try and use the hardware accelerated version.
-	 */
-	void initialiseCrc() {
-#if defined(FASTGLTF_IS_X86)
-		const auto& impls = simdjson::get_available_implementations();
-		if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
-			crcStringFunction = sse_crc32c;
-		}
-#elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
-		const auto& impls = simdjson::get_available_implementations();
-		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
-#ifdef __APPLE__
-			std::int64_t ret = 0;
-			std::size_t size = sizeof(ret);
-			if (sysctlbyname("hw.optional.armv8_crc32", &ret, &size, nullptr, 0) == 0 && ret == 1)
-#endif
-			crcStringFunction = armv8_crc32c;
-		}
-#endif
-	}
-
 	[[nodiscard, gnu::always_inline]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, Optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
 
@@ -256,7 +143,7 @@ namespace fastgltf {
 
 	[[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
 		for (auto extension : extensions) {
-			switch (crcStringFunction(extension.key)) {
+			switch (crc32c_string(extension.key)) {
 				case force_consteval<crc32c(extensions::KHR_texture_basisu)>: {
 					if (!hasBit(extensionFlags, Extensions::KHR_texture_basisu))
 						break;
@@ -746,7 +633,7 @@ void fg::Parser::fillCategories(Category& inputCategories) noexcept {
 }
 
 fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
-	switch (crcStringFunction(mime)) {
+	switch (crc32c_string(mime)) {
 		case force_consteval<crc32c(mimeTypeJpeg)>: {
 			return MimeType::JPEG;
 		}
@@ -1545,7 +1432,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 	auto readCategories = Category::None;
 	for (const auto object : root) {
-		auto hashedKey = crcStringFunction(object.key);
+		auto hashedKey = crc32c_string(object.key);
 		if (hashedKey == force_consteval<crc32c("scene")>) {
 			std::uint64_t defaultScene;
 			if (object.value.get_uint64().get(defaultScene) != SUCCESS) [[unlikely]] {
@@ -2168,7 +2055,7 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 				if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) [[unlikely]] {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
-				switch (crcStringFunction(string)) {
+				switch (crc32c_string(string)) {
 					case force_consteval<crc32c("ATTRIBUTES")>: {
 						compression.mode = MeshoptCompressionMode::Attributes;
 						break;
@@ -2187,7 +2074,7 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 				}
 
                 if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) [[likely]] {
-					switch (crcStringFunction(string)) {
+					switch (crc32c_string(string)) {
 						case force_consteval<crc32c("NONE")>: {
 							compression.filter = MeshoptCompressionFilter::None;
 							break;
@@ -2374,7 +2261,7 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 			return Error::InvalidGltf;
 		}
 
-		switch (crcStringFunction(extensionValue.key)) {
+		switch (crc32c_string(extensionValue.key)) {
 			case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
 					break;
@@ -2581,7 +2468,7 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 
 		std::string_view type;
         if (lightObject["type"].get_string().get(type) == SUCCESS) [[likely]] {
-			switch (crcStringFunction(type.data())) {
+			switch (crc32c_string(type.data())) {
 				case force_consteval<crc32c("directional")>: {
 					light.type = LightType::Directional;
 					break;
@@ -2673,7 +2560,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 	using namespace simdjson;
 
 	for (auto extensionField : object) {
-		switch (crcStringFunction(extensionField.key)) {
+		switch (crc32c_string(extensionField.key)) {
 			case force_consteval<crc32c(extensions::KHR_materials_anisotropy)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_anisotropy))
 					break;
@@ -3436,7 +3323,7 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 	using namespace simdjson;
 
 	for (auto extension : object) {
-		switch (crcStringFunction(extension.key)) {
+		switch (crc32c_string(extension.key)) {
 			case force_consteval<crc32c(extensions::KHR_materials_variants)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
 					break;
@@ -4906,7 +4793,6 @@ fg::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 }
 
 fg::Parser::Parser(Extensions extensionsToLoad) noexcept {
-	std::call_once(crcInitialisation, initialiseCrc);
 	jsonParser = std::make_unique<simdjson::dom::parser>();
 	config.extensions = extensionsToLoad;
 }
