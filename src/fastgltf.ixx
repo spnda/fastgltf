@@ -25,11 +25,56 @@
  */
 module;
 
-export module fastgltf;
-
 #ifndef FASTGLTF_USE_STD_MODULE
 #define FASTGLTF_USE_STD_MODULE 0
 #endif
+
+#ifdef _MSVC_LANG
+#define FASTGLTF_CPLUSPLUS _MSVC_LANG
+#else
+#define FASTGLTF_CPLUSPLUS __cplusplus
+#endif
+
+#include <cassert> // we always need this for its macros
+
+#if !FASTGLTF_USE_STD_MODULE
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <cmath>
+#include <concepts>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <initializer_list>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <memory_resource>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <variant>
+#include <version>
+#include <vector>
+#endif
+
+#if FASTGLTF_CPLUSPLUS >= 202302L && __has_include(<stdfloat>)
+#include <stdfloat>
+#endif
+
+#if __has_include(<winapifamily.h>)
+#include <winapifamily.h>
+#endif
+
+export module fastgltf;
 
 #define FASTGLTF_EXPORT export
 
@@ -48,11 +93,6 @@ extern "C++" {
 #elif defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 5244) // Including header in the purview of module 'fastgltf' appears erroneous.
-#endif
-
-//  When using the define we use import std instead of normal includes, which does not include any macros.
-#if FASTGLTF_USE_STD_MODULE
-#include <cassert>
 #endif
 
 #include <fastgltf/core.hpp>

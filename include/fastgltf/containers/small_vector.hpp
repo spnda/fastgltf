@@ -27,7 +27,7 @@
 #ifndef FASTGLTF_SMALL_VECTOR_HPP
 #define FASTGLTF_SMALL_VECTOR_HPP
 
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_MODULE)
 #include <vector>
 #endif
 

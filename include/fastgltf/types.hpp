@@ -27,7 +27,7 @@
 #ifndef FASTGLTF_TYPES_HPP
 #define FASTGLTF_TYPES_HPP
 
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_MODULE)
 #include <cassert>
 #include <filesystem>
 #include <optional>
@@ -67,7 +67,7 @@
 #endif
 
 #if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_MODULE)
 #include <memory_resource>
 #endif
 #endif

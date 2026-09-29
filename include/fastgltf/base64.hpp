@@ -27,7 +27,7 @@
 #ifndef FASTGLTF_BASE_64_HPP
 #define FASTGLTF_BASE_64_HPP
 
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_MODULE)
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -35,7 +35,7 @@
 #include <string_view>
 #endif
 
-#include <fastgltf/types.hpp>
+#include <fastgltf/containers/static_vector.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(push) // attribute 'x' is not recognized

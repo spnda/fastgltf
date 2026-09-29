@@ -27,7 +27,7 @@
 #ifndef FASTGLTF_CORE_HPP
 #define FASTGLTF_CORE_HPP
 
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_MODULE)
 #include <fstream>
 #include <memory>
 #include <tuple>
@@ -665,7 +665,7 @@ namespace fastgltf {
 		}
 	};
 
-#if defined(_WIN32)
+#if !defined(FASTGLTF_MODULE) && defined(_WIN32)
 #include <winapifamily.h>
 #endif
 

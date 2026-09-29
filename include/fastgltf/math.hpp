@@ -27,7 +27,7 @@
 #ifndef FASTGLTF_MATH_HPP
 #define FASTGLTF_MATH_HPP
 
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_MODULE)
 #include <cmath>
 #include <functional>
 #include <initializer_list>

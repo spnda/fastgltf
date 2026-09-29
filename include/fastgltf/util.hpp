@@ -27,7 +27,7 @@
 #ifndef FASTGLTF_UTIL_HPP
 #define FASTGLTF_UTIL_HPP
 
-#if !defined(FASTGLTF_USE_STD_MODULE) || !FASTGLTF_USE_STD_MODULE
+#if !defined(FASTGLTF_MODULE)
 #include <array>
 #include <bit>
 #include <cmath>
@@ -47,13 +47,21 @@
 #define FASTGLTF_EXPORT
 #endif
 
+#ifndef FASTGLTF_CPLUSPLUS
+#ifdef _MSVC_LANG
+#define FASTGLTF_CPLUSPLUS _MSVC_LANG
+#else
+#define FASTGLTF_CPLUSPLUS __cplusplus
+#endif
+#endif
+
 // Macros to determine C++ standard version
-#if !((!defined(_MSVC_LANG) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)) || (defined(FASTGLTF_CPP_20) && !FASTGLTF_CPP_20)
+#if !(FASTGLTF_CPLUSPLUS >= 202002L) || (defined(FASTGLTF_CPP_20) && !FASTGLTF_CPP_20)
 #error "fastgltf requires C++20"
 #endif
 
 #ifndef FASTGLTF_CPP_23
-#if (!defined(_MSVC_LANG) && __cplusplus >= 202302L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
+#if FASTGLTF_CPLUSPLUS >= 202302L
 #define FASTGLTF_CPP_23 1
 #else
 #define FASTGLTF_CPP_23 0

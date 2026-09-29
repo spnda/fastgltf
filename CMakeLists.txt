@@ -126,6 +126,7 @@ if (FASTGLTF_ENABLE_CPP_MODULES AND FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION 
         FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/fastgltf.ixx
     )
     target_link_libraries(fastgltf_module PRIVATE fastgltf::fastgltf)
+    target_compile_definitions(fastgltf_module PRIVATE "FASTGLTF_MODULE=1")
     target_compile_definitions(fastgltf_module PUBLIC "FASTGLTF_USE_STD_MODULE=$<BOOL:${FASTGLTF_USE_STD_MODULE}>")
 elseif (FASTGLTF_ENABLE_CPP_MODULES)
     message(WARNING "FASTGLTF_ENABLE_CPP_MODULES is ON but compiler does not support them")

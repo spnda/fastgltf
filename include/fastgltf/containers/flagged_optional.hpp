@@ -27,7 +27,10 @@
 #ifndef FASTGLTF_FLAGGED_OPTIONAL_HPP
 #define FASTGLTF_FLAGGED_OPTIONAL_HPP
 
+#if !defined(FASTGLTF_MODULE)
 #include <functional>
+#include <optional>
+#endif
 
 #include <fastgltf/util.hpp>
 
