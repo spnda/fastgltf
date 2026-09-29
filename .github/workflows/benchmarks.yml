@@ -48,22 +48,21 @@ jobs:
         run: git clone https://github.com/KhronosGroup/glTF-Sample-Assets ${{ github.workspace }}/${{ env.SAMPLE_ASSETS_LOCATION }}
 
       - name: Configure CMake
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DFASTGLTF_ENABLE_TESTS=ON -DCATCH_CONFIG_CONSOLE_WIDTH=200
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config ${{ env.BUILD_TYPE }} --target fastgltf_tests
 
-      # github-action-benchmark parses Catch2's default console output, so don't change the reporter.
       - name: Run benchmarks
         run: |
-          ${{ github.workspace }}/build/tests/fastgltf_tests "[gltf-benchmark],[crc-benchmark]" --benchmark-samples 50 | tee benchmark_result.txt
+          ${{ github.workspace }}/build/tests/fastgltf_tests [gltf-benchmark] --benchmark-samples 50 | tee benchmark_result.txt
 
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: fastgltf (${{ matrix.name }})
           tool: catch2
-          output-file-path: benchmark_result.txt
+          output-file-path: ${{ github.workspace }}/benchmark_result.txt
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
           github-token: ${{ secrets.GITHUB_TOKEN }}
