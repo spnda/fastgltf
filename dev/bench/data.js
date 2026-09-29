@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790652722644,
+  "lastUpdate": 1790657503540,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -92,6 +92,100 @@ window.BENCHMARK_DATA = {
             "name": "Run fastgltf's AVX2 base64 decoder",
             "value": 99.5763,
             "range": "± 37.3489",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "d11e7b7622031c60d0413f876a3aaaf0f43a3f6c",
+          "message": "Add CI for C++20 modules, rename workflow files",
+          "timestamp": "2026-09-29T06:46:31+02:00",
+          "tree_id": "49a363e71628bafcafa8dcbcba1b8318363db9c1",
+          "url": "https://github.com/spnda/fastgltf/commit/d11e7b7622031c60d0413f876a3aaaf0f43a3f6c"
+        },
+        "date": 1790657502892,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 8.23962,
+            "range": "± 354.552",
+            "unit": "us",
+            "extra": "50 samples\n3 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 220.164,
+            "range": "± 8.84185",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 220.243,
+            "range": "± 8.25242",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 222.894,
+            "range": "± 8.0058",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 16.2611,
+            "range": "± 0.808329",
+            "unit": "ns",
+            "extra": "50 samples\n1486 iterations"
+          },
+          {
+            "name": "SSE4 hardware algorithm",
+            "value": 2.7279,
+            "range": "± 0.145542",
+            "unit": "ns",
+            "extra": "50 samples\n8810 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 2.10582,
+            "range": "± 27.3857",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's fallback base64 decoder",
+            "value": 0.8733630000000001,
+            "range": "± 0.006281310000000001",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's SSE4 base64 decoder",
+            "value": 118.97,
+            "range": "± 3.13458",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's AVX2 base64 decoder",
+            "value": 66.2434,
+            "range": "± 4.72696",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
           }
