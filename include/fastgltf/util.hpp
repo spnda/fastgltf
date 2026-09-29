@@ -162,7 +162,7 @@ namespace fastgltf {
 	 * always be evaluated to a constant.
 	 */
 	template <auto V>
-	static constexpr auto force_consteval = V;
+	inline constexpr auto force_consteval = V;
 
 	/**
 	 * Essentially the same as std::same<T, U> but it accepts multiple different types for U,
@@ -172,7 +172,7 @@ namespace fastgltf {
 	using is_any_of = std::disjunction<std::is_same<T, Ts>...>;
 
 	template <typename T, typename... Ts>
-	constexpr bool is_any_of_v = is_any_of<T, Ts...>::value;
+	inline constexpr bool is_any_of_v = is_any_of<T, Ts...>::value;
 
 	/**
 	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to

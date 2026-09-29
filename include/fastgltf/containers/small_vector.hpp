@@ -38,7 +38,7 @@ namespace fastgltf {
 	 * The amount of items that the SmallVector can initially store in the storage
 	 * allocated within the object itself.
 	 */
-	static constexpr auto initialSmallVectorStorage = 8;
+	inline constexpr auto initialSmallVectorStorage = 8;
 
 	/**
 	 * A custom vector class for fastgltf, which can store up to N objects within itself.
