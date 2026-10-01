@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790880135568,
+  "lastUpdate": 1790880949061,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -1363,6 +1363,93 @@ window.BENCHMARK_DATA = {
             "range": "± 3.38396",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43609023+spnda@users.noreply.github.com",
+            "name": "Sean Apeler",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8cd13ff1794159d447fdd8923ea2b04a85fc2578",
+          "message": "Merge pull request #155 from 1runeberg/fix/android-glb-directory-check\n\n[Android] Skip dir check on loadGltfBinary to match loadGltfJson",
+          "timestamp": "2026-10-01T20:39:47+02:00",
+          "tree_id": "67e393f15257637852b4390a0ab939fe2cef81a9",
+          "url": "https://github.com/spnda/fastgltf/commit/8cd13ff1794159d447fdd8923ea2b04a85fc2578"
+        },
+        "date": 1790880948397,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Run fastgltf's fallback base64 decoder",
+            "value": 727.878,
+            "range": "± 5.99878",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's Neon base64 decoder",
+            "value": 487.905,
+            "range": "± 5.55261",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 7.80157,
+            "range": "± 93.3246",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 33.9268,
+            "range": "± 577.33",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 285.436,
+            "range": "± 8.63586",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 282.387,
+            "range": "± 3.6825",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 283.231,
+            "range": "± 4.61486",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 15.7435,
+            "range": "± 0.156962",
+            "unit": "ns",
+            "extra": "50 samples\n2002 iterations"
+          },
+          {
+            "name": "ARMv8 hardware CRC32-C algorithm",
+            "value": 2.06388,
+            "range": "± 0.019388",
+            "unit": "ns",
+            "extra": "50 samples\n15252 iterations"
           }
         ]
       }
