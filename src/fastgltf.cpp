@@ -4853,10 +4853,12 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 	options = _options;
 	directory = std::move(_directory);
 
+#if !defined(__ANDROID__)
 	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
 	if (std::error_code ec; hasBit(options, Options::LoadExternalBuffers) && (!fs::is_directory(directory, ec) || ec)) {
 		return Error::InvalidPath;
 	}
+#endif
 
 	data.reset();
 
