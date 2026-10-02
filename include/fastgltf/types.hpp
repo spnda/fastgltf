@@ -979,12 +979,12 @@ namespace fastgltf {
 		/**
 		 * The index of a top-level `KHR_implicit_shapes.shape`, providing an implicit representation of the geometry
 		 */
-		optional<size_t> shape;
+		optional<std::size_t> shape;
 
 		/**
 		 * The index of a glTF `mesh` which provides a mesh representation of the geometry
 		 */
-		optional<size_t> mesh;
+		optional<std::size_t> mesh;
 
 		/**
 		 * Flag to indicate that the geometry should be a convex hull.
@@ -1337,6 +1337,23 @@ namespace fastgltf {
 	FASTGLTF_EXPORT struct OcclusionTextureInfo : TextureInfo {
 		num strength = 1.f;
 	};
+
+	template<>
+	struct optional_flag_value<TextureInfo> {
+		static constexpr bool is_empty(const TextureInfo& value) noexcept {
+			return optional_flag_value<std::size_t>::is_empty(value.textureIndex);
+		}
+		static void set_empty(TextureInfo& value) noexcept {
+			optional_flag_value<std::size_t>::set_empty(value.textureIndex);
+			value.transform.reset();
+		}
+	};
+	template <>
+	struct optional_flag_value<NormalTextureInfo> : optional_flag_value<TextureInfo> {};
+	template <>
+	struct optional_flag_value<OcclusionTextureInfo> : optional_flag_value<TextureInfo> {};
+
+	static_assert(has_flag_traits<TextureInfo>);
 
 	FASTGLTF_EXPORT struct PBRData {
 		/**
