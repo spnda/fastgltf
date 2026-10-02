@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790972170760,
+  "lastUpdate": 1790972359861,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -1906,6 +1906,93 @@ window.BENCHMARK_DATA = {
             "range": "± 7.22209",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "4cff6c82b51ab010bae58bec91c24e9a42c57b8e",
+          "message": "compare resources instead of relying on the conversion operator from allocators",
+          "timestamp": "2026-10-02T22:12:49+02:00",
+          "tree_id": "314cd5063a6de9722440e53b6f329f4428cf24ba",
+          "url": "https://github.com/spnda/fastgltf/commit/4cff6c82b51ab010bae58bec91c24e9a42c57b8e"
+        },
+        "date": 1790972359511,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 33.8722,
+            "range": "± 572.133",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 287.579,
+            "range": "± 5.94714",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 285.93,
+            "range": "± 4.08684",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 7.84266,
+            "range": "± 47.5685",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's fallback base64 decoder",
+            "value": 729.327,
+            "range": "± 4.75573",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's Neon base64 decoder",
+            "value": 487.988,
+            "range": "± 6.05137",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 285.965,
+            "range": "± 5.70666",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 15.7419,
+            "range": "± 0.136135",
+            "unit": "ns",
+            "extra": "50 samples\n2002 iterations"
+          },
+          {
+            "name": "ARMv8 hardware CRC32-C algorithm",
+            "value": 2.06136,
+            "range": "± 0.0142178",
+            "unit": "ns",
+            "extra": "50 samples\n15251 iterations"
           }
         ]
       }
