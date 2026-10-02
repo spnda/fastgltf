@@ -102,6 +102,16 @@ TEST_CASE("Percent decoding", "[uri-tests]") {
 		REQUIRE(uri.path() == "a%23%3Ab.png");
 		REQUIRE(uri.fspath() == "a#=b.png");
 	}
+
+	SECTION("Only decode valid characters") {
+		const std::string_view input = "100%test.png";
+		REQUIRE(fastgltf::decodePercents(input) == input);
+	}
+
+	SECTION("Don't out of bounds") {
+		const std::string_view input = "100%";
+		REQUIRE(fastgltf::decodePercents(input) == input);
+	}
 }
 
 TEST_CASE("Data URI parsing", "[uri-tests]") {
