@@ -513,7 +513,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 				REQUIRE(vec.get_allocator() == &resource);
 			}
 
-			fastgltf::pmr::small_vector default_copy(vecs);
+			decltype(vecs) default_copy(vecs);
 			REQUIRE(default_copy.get_allocator() != &resource);
 			REQUIRE(default_copy.get_allocator() == std::pmr::get_default_resource());
 			for (auto& vec : default_copy) {
@@ -527,7 +527,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 				REQUIRE(vec.get_allocator() == &resource);
 			}
 
-			fastgltf::pmr::small_vector moved(std::move(resource_copy));
+			decltype(vecs) moved(std::move(resource_copy));
 			REQUIRE(moved.get_allocator() == &resource);
 			for (auto& vec : resource_copy) {
 				REQUIRE(vec.get_allocator() == &resource);
