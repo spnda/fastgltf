@@ -568,6 +568,18 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 	}
 
 	auto encodedData = path.substr(encodingEnd + 1);
+    if (encodedData.size() < 4 || encodedData.size() % 4 != 0) {
+        return Error::InvalidURI;
+    }
+    for (std::size_t i = 0; i < encodedData.size(); ++i) {
+        const char c = encodedData[i];
+        const bool alphabet = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                              c == '+' || c == '/';
+        const bool padding = c == '=' && i + 2 >= encodedData.size();
+        if (!alphabet && !padding) {
+			return Error::InvalidURI;
+        }
+    }
 	if (config.mapCallback != nullptr) {
 		// If a map callback is specified, we use a pointer to memory specified by it.
 		auto padding = base64::getPadding(encodedData);
