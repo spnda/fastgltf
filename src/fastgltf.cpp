@@ -634,6 +634,10 @@ void fg::URI::decodePercents(std::string& x) noexcept {
 		if (x[i] != '%')
 			continue;
 
+		if (i + 2 >= x.size() || !std::isxdigit(static_cast<unsigned char>(x[i + 1])) ||
+		    !std::isxdigit(static_cast<unsigned char>(x[i + 2])))
+			continue;
+
 		// Read the next two chars and store them
 		std::array<char, 3> chars = {x[i + 1], x[i + 2]};
 		x[i] = static_cast<char>(std::strtoul(chars.data(), nullptr, 16));
