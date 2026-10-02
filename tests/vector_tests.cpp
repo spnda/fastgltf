@@ -454,7 +454,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 		std::pmr::monotonic_buffer_resource resource;
 		fastgltf::pmr::small_vector<std::uint32_t, 4> other(&resource);
 		other = std::move(ints);
-		REQUIRE(other.get_allocator() == &resource);
+		REQUIRE(other.get_allocator().resource() == &resource);
 
 		REQUIRE(ints.empty());
 		REQUIRE(other.size() == 10);
@@ -473,7 +473,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 
 		fastgltf::pmr::small_vector<std::uint32_t, 4> moved(std::move(source));
 		REQUIRE(moved.size() == 10);
-		REQUIRE(moved.get_allocator() == &resource);
+		REQUIRE(moved.get_allocator().resource() == &resource);
 
 		// Growing has to allocate from, and free the old allocation back to, the same resource.
 		REQUIRE(moved.capacity() < 17);
@@ -485,52 +485,52 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 		SECTION("Resize") {
 			std::pmr::monotonic_buffer_resource resource;
 			fastgltf::pmr::small_vector<fastgltf::pmr::small_vector<std::string, 4>, 4> vecs(&resource);
-			REQUIRE(vecs.get_allocator() == &resource);
+			REQUIRE(vecs.get_allocator().resource() == &resource);
 
 			vecs.resize(5);
 			for (auto& vec : vecs) {
-				REQUIRE(vec.get_allocator() == &resource);
+				REQUIRE(vec.get_allocator().resource() == &resource);
 			}
 		}
 
 		SECTION("emplace_back()") {
 			std::pmr::monotonic_buffer_resource resource;
 			fastgltf::pmr::small_vector<fastgltf::pmr::small_vector<std::string, 4>, 4> vecs(&resource);
-			REQUIRE(vecs.get_allocator() == &resource);
+			REQUIRE(vecs.get_allocator().resource() == &resource);
 
 			for (std::size_t i = 0; i < 2; ++i)
 				vecs.emplace_back();
 			for (auto& vec : vecs) {
-				REQUIRE(vec.get_allocator() == &resource);
+				REQUIRE(vec.get_allocator().resource() == &resource);
 			}
 		}
 
 		SECTION("Constructors") {
 			std::pmr::monotonic_buffer_resource resource;
 			fastgltf::pmr::small_vector<fastgltf::pmr::small_vector<std::string, 4>, 4> vecs(2, &resource);
-			REQUIRE(vecs.get_allocator() == &resource);
+			REQUIRE(vecs.get_allocator().resource() == &resource);
 			for (auto& vec : vecs) {
-				REQUIRE(vec.get_allocator() == &resource);
+				REQUIRE(vec.get_allocator().resource() == &resource);
 			}
 
 			decltype(vecs) default_copy(vecs);
-			REQUIRE(default_copy.get_allocator() != &resource);
-			REQUIRE(default_copy.get_allocator() == std::pmr::get_default_resource());
+			REQUIRE(default_copy.get_allocator().resource() != &resource);
+			REQUIRE(default_copy.get_allocator().resource() == std::pmr::get_default_resource());
 			for (auto& vec : default_copy) {
-				REQUIRE(vec.get_allocator() != &resource);
-				REQUIRE(vec.get_allocator() == std::pmr::get_default_resource());
+				REQUIRE(vec.get_allocator().resource() != &resource);
+				REQUIRE(vec.get_allocator().resource() == std::pmr::get_default_resource());
 			}
 
 			decltype(vecs) resource_copy(vecs, &resource);
-			REQUIRE(resource_copy.get_allocator() == &resource);
+			REQUIRE(resource_copy.get_allocator().resource() == &resource);
 			for (auto& vec : resource_copy) {
-				REQUIRE(vec.get_allocator() == &resource);
+				REQUIRE(vec.get_allocator().resource() == &resource);
 			}
 
 			decltype(vecs) moved(std::move(resource_copy));
-			REQUIRE(moved.get_allocator() == &resource);
+			REQUIRE(moved.get_allocator().resource() == &resource);
 			for (auto& vec : resource_copy) {
-				REQUIRE(vec.get_allocator() == &resource);
+				REQUIRE(vec.get_allocator().resource() == &resource);
 			}
 		}
 	}
