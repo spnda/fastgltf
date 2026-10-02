@@ -39,19 +39,19 @@
 
 namespace fastgltf {
 	/*
-	 * The amount of items that the SmallVector can initially store in the storage
+	 * The amount of items that the small_vector can initially store in the storage
 	 * allocated within the object itself.
 	 */
-	inline constexpr auto initialSmallVectorStorage = 8;
+	inline constexpr auto initial_small_vector_storage = 8;
 
 	/**
 	 * A custom vector class for fastgltf, which can store up to N objects within itself.
 	 * This is useful for cases where the vector is expected to only ever hold a tiny amount of small objects,
 	 * such as a node's children.
-	 * SmallVector is also mostly conformant to C++17's std::vector, and can therefore be used as a drop-in replacement.
+	 * small_vector is also mostly conformant to C++17's std::vector, and can therefore be used as a drop-in replacement.
 	 * @note It is also available with polymorphic allocators in the fastgltf::pmr namespace.
 	 */
-	FASTGLTF_EXPORT template <typename T, std::size_t N = initialSmallVectorStorage, typename Allocator = std::allocator<T>>
+	FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage, typename Allocator = std::allocator<T>>
 	class small_vector final {
 		using traits = std::allocator_traits<Allocator>;
 
@@ -73,7 +73,7 @@ namespace fastgltf {
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 	private:
-		static_assert(N != 0, "Cannot create a SmallVector with 0 initial capacity");
+		static_assert(N != 0, "Cannot create a small_vector with 0 initial capacity");
 
 		alignas(T) std::array<std::byte, N * sizeof(T)> _storage;
 
@@ -356,7 +356,7 @@ namespace fastgltf {
 			}
 
 			if (newCapacity > max_size()) {
-				raise<std::length_error>("SmallVector::reserve()");
+				raise<std::length_error>("small_vector::reserve()");
 			}
 
 			reallocate(std::bit_ceil(newCapacity));
@@ -554,8 +554,8 @@ namespace fastgltf {
 
 #if !FASTGLTF_MISSING_MEMORY_RESOURCE
 	namespace pmr {
-		FASTGLTF_EXPORT template <typename T, std::size_t N = initialSmallVectorStorage>
-		using SmallVector = small_vector<T, N, std::pmr::polymorphic_allocator<T>>;
+		FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
+		using small_vector = small_vector<T, N, std::pmr::polymorphic_allocator<T>>;
 	} // namespace pmr
 #endif
 
@@ -564,21 +564,21 @@ namespace fastgltf {
 #endif
 
 #if FASTGLTF_USE_CUSTOM_SMALLVECTOR
-	FASTGLTF_EXPORT template <typename T, std::size_t N = initialSmallVectorStorage>
-	using MaybeSmallVector = SmallVector<T, N>;
+	FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
+	using maybe_small_vector = SmallVector<T, N>;
 #else
 	FASTGLTF_EXPORT template <typename T, std::size_t N = 0>
-	using MaybeSmallVector = std::vector<T>;
+	using maybe_small_vector = std::vector<T>;
 #endif
 
 #if !FASTGLTF_MISSING_MEMORY_RESOURCE
 	namespace pmr {
 #if FASTGLTF_USE_CUSTOM_SMALLVECTOR
 		FASTGLTF_EXPORT template <typename T, std::size_t N = initialSmallVectorStorage>
-		using MaybeSmallVector = pmr::SmallVector<T, N>;
+		using maybe_small_vector = pmr::SmallVector<T, N>;
 #else
 		FASTGLTF_EXPORT template <typename T, std::size_t N = 0>
-		using MaybeSmallVector = std::pmr::vector<T>;
+		using maybe_small_vector = std::pmr::vector<T>;
 #endif
 	} // namespace pmr
 #endif

@@ -35,7 +35,7 @@
 
 namespace fastgltf {
 	// exception_guard is a helper class for writing code with the strong exception guarantee, such as containers like
-	// SmallVector, static_vector, and InplaceVector. This implementation is largely copied from libc++.
+	// small_vector, static_vector, and inplace_vector. This implementation is largely copied from libc++.
 
 	template <typename Rollback>
 	class exception_guard_exceptions {

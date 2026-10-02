@@ -15,6 +15,7 @@ To view the full changelogs for each release please see the `GitHub releases <ht
     - The containers now all offer the same exception guarantees that comparable ``std`` containers do.
     - The containers are now completely allocator compliant
     - Fixed a significant amount of memory and exception safety issues
+    - Renamed the containers and all of their member functions to snake_case to match the C++ standard containers
 - Removed macros: FASTGLTF_CPP_17, FASTGLTF_HAS_BIT, FASTGLTF_HAS_CONCEPTS, FASTGLTF_CONSTEXPR_BITCAST, FASTGLTF_LIKELY / FASTGLTF_UNLIKELY
 - Removed CMake option: FASTGLTF_COMPILE_AS_CPP20.
 

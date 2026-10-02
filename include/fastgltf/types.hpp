@@ -823,8 +823,8 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Animation {
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationChannel> channels;
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<AnimationSampler> samplers;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<AnimationChannel> channels;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<AnimationSampler> samplers;
 
 		FASTGLTF_STD_PMR_NS::string name;
 	};
@@ -862,7 +862,7 @@ namespace fastgltf {
 	FASTGLTF_EXPORT struct Skin {
 		optional<std::size_t> inverseBindMatrices;
 		optional<std::size_t> skeleton;
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> joints;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<std::size_t> joints;
 
 		FASTGLTF_STD_PMR_NS::string name;
 	};
@@ -877,7 +877,7 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Scene {
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodeIndices;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<std::size_t> nodeIndices;
 
 		FASTGLTF_STD_PMR_NS::string name;
 	};
@@ -1008,17 +1008,17 @@ namespace fastgltf {
 		/**
 		 * An array of arbitrary strings indicating the "system" a node is a member of
 		 */
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collisionSystems;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<FASTGLTF_STD_PMR_NS::string> collisionSystems;
 
 		/**
 		 * An array of strings representing the systems which this node can _not_ collide with
 		 */
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> notCollideWithSystems;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<FASTGLTF_STD_PMR_NS::string> notCollideWithSystems;
 
 		/**
 		 * An array of strings representing the systems which this node can collide with
 		 */
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<FASTGLTF_STD_PMR_NS::string> collideWithSystems;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<FASTGLTF_STD_PMR_NS::string> collideWithSystems;
 	};
 
 	FASTGLTF_EXPORT struct Collider {
@@ -1055,7 +1055,7 @@ namespace fastgltf {
 		/**
 		 * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
 		 */
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> nodes;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<std::size_t> nodes;
 	};
 
 	FASTGLTF_EXPORT struct JointLimit {
@@ -1133,12 +1133,12 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct PhysicsJoint {
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointLimit> limits;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<JointLimit> limits;
 
 		/**
 		 * Each drive specifies a force to apply along a single axis
 		 */
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<JointDrive> drives;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<JointDrive> drives;
 	};
 
 	FASTGLTF_EXPORT struct Joint {
@@ -1289,8 +1289,8 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Mesh {
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<Primitive, 2> primitives;
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<Primitive, 2> primitives;
+		FASTGLTF_FG_PMR_NS::maybe_small_vector<num> weights;
 
 		FASTGLTF_STD_PMR_NS::string name;
 	};
