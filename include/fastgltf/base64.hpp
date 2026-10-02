@@ -72,8 +72,8 @@ namespace fastgltf::base64 {
 	void sse4_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
 	void avx2_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
 
-	[[nodiscard]] StaticVector<std::uint8_t> sse4_decode(std::string_view encoded);
-	[[nodiscard]] StaticVector<std::uint8_t> avx2_decode(std::string_view encoded);
+	[[nodiscard]] static_vector<std::uint8_t> sse4_decode(std::string_view encoded);
+	[[nodiscard]] static_vector<std::uint8_t> avx2_decode(std::string_view encoded);
 #elif defined(FASTGLTF_IS_A64) && !defined(_MSC_VER)
 	// There is some bug with the NEON implementations with MSVC, and because I have no hardware myself I cannot debug
 	// the issue properly. See https://github.com/spnda/fastgltf/issues/154

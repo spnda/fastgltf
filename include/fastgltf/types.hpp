@@ -800,7 +800,7 @@ namespace fastgltf {
 
 	/**
 	 * Represents the data source of a buffer or image. These could be a buffer view, a file path
-	 * (including offsets), a StaticVector (if #Options::LoadExternalBuffers or #Options::LoadGLBBuffers
+	 * (including offsets), a static_vector (if #Options::LoadExternalBuffers or #Options::LoadGLBBuffers
 	 * was specified), or the ID of a custom buffer.
 	 *
 	 * @note As a user, you should never encounter this variant holding the std::monostate, as that would be an ill-formed glTF,
@@ -1170,8 +1170,8 @@ namespace fastgltf {
 		 */
 		optional<std::size_t> lightIndex;
 
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<std::size_t> children;
-		FASTGLTF_FG_PMR_NS::MaybeSmallVector<num> weights;
+		FASTGLTF_STD_PMR_NS::vector<std::size_t> children;
+		FASTGLTF_STD_PMR_NS::vector<num> weights;
 
 		/**
 		 * Variant holding either the three TRS components; transform, rotation, and scale, or a
@@ -1249,7 +1249,7 @@ namespace fastgltf {
 		 * Use the variant index to index into this array to get the corresponding material index to use.
 		 * If this vector is empty, the normal materialIndex should be used as a fallback.
 		 */
-		std::vector<optional<std::size_t>> mappings;
+		FASTGLTF_STD_PMR_NS::vector<optional<std::size_t>> mappings;
 
 		std::unique_ptr<DracoCompressedPrimitive> dracoCompression;
 

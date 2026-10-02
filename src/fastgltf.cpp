@@ -3338,6 +3338,7 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 					return Error::InvalidGltf;
 				}
 
+				primitive.mappings = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(primitive.mappings), resourceAllocator.get(), 0);
 				for (auto mapping : mappingsArray) {
 					dom::object mappingObject;
 					if (mapping.get_object().get(mappingObject) != SUCCESS) [[unlikely]] {
