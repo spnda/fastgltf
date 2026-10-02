@@ -302,7 +302,7 @@ TEST_CASE("Test constructors", "[small-vector]") {
 	}
 }
 
-TEST_CASE("Test reusing moved-from SmallVector", "[small-vector]") {
+TEST_CASE("Test reusing moved-from small_vector", "[small-vector]") {
 	auto fillAndCheck = [](fastgltf::small_vector<std::uint32_t, 4>& vec) {
 		for (uint32_t i = 0; i < 16; ++i) {
 			vec.emplace_back(i);
@@ -340,7 +340,7 @@ TEST_CASE("Test reusing moved-from SmallVector", "[small-vector]") {
 	}
 }
 
-TEST_CASE("Nested SmallVector", "[small-vector]") {
+TEST_CASE("Nested small_vector", "[small-vector]") {
 	fastgltf::small_vector<fastgltf::small_vector<std::uint32_t, 2>, 4> vectors(6, {4}); // This should heap allocate straight away.
 	REQUIRE(vectors.size() == 6);
 	for (auto& vector : vectors) {
@@ -362,7 +362,7 @@ namespace {
 			++aliveObjects;
 		}
 
-		// Deliberately not noexcept, so that SmallVector::reserve still uses the copy constructor.
+		// Deliberately not noexcept, so that small_vector::reserve still uses the copy constructor.
 		RefCountedObject(RefCountedObject&& other) {
 			++aliveObjects;
 		}
@@ -442,7 +442,7 @@ TEST_CASE("Test copying vectors", "[small-vector]") {
 }
 
 TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
-	fastgltf::pmr::SmallVector<std::uint32_t, 4> ints;
+	fastgltf::pmr::small_vector<std::uint32_t, 4> ints;
 	ints.assign(10, 5);
 	REQUIRE(ints.size() == 10);
 	REQUIRE(ints.data() != nullptr);
@@ -452,7 +452,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 
 	SECTION("Move assignment with unequal allocators") {
 		std::pmr::monotonic_buffer_resource resource;
-		fastgltf::pmr::SmallVector<std::uint32_t, 4> other(&resource);
+		fastgltf::pmr::small_vector<std::uint32_t, 4> other(&resource);
 		other = std::move(ints);
 		REQUIRE(other.get_allocator() == &resource);
 
@@ -467,11 +467,11 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 		// The memory comes from a buffer on the stack, so freeing it with any other allocator would be caught by ASan.
 		std::array<std::byte, 256> buffer {};
 		std::pmr::monotonic_buffer_resource resource(buffer.data(), buffer.size(), std::pmr::null_memory_resource());
-		fastgltf::pmr::SmallVector<std::uint32_t, 4> source(&resource);
+		fastgltf::pmr::small_vector<std::uint32_t, 4> source(&resource);
 		source.assign(10, 5);
 		REQUIRE(!source.is_using_stack());
 
-		fastgltf::pmr::SmallVector<std::uint32_t, 4> moved(std::move(source));
+		fastgltf::pmr::small_vector<std::uint32_t, 4> moved(std::move(source));
 		REQUIRE(moved.size() == 10);
 		REQUIRE(moved.get_allocator() == &resource);
 
@@ -484,7 +484,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 	SECTION("Nested vectors") {
 		SECTION("Resize") {
 			std::pmr::monotonic_buffer_resource resource;
-			fastgltf::pmr::SmallVector<fastgltf::pmr::SmallVector<std::string, 4>, 4> vecs(&resource);
+			fastgltf::pmr::small_vector<fastgltf::pmr::small_vector<std::string, 4>, 4> vecs(&resource);
 			REQUIRE(vecs.get_allocator() == &resource);
 
 			vecs.resize(5);
@@ -495,7 +495,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 
 		SECTION("emplace_back()") {
 			std::pmr::monotonic_buffer_resource resource;
-			fastgltf::pmr::SmallVector<fastgltf::pmr::SmallVector<std::string, 4>, 4> vecs(&resource);
+			fastgltf::pmr::small_vector<fastgltf::pmr::small_vector<std::string, 4>, 4> vecs(&resource);
 			REQUIRE(vecs.get_allocator() == &resource);
 
 			for (std::size_t i = 0; i < 2; ++i)
@@ -507,13 +507,13 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 
 		SECTION("Constructors") {
 			std::pmr::monotonic_buffer_resource resource;
-			fastgltf::pmr::SmallVector<fastgltf::pmr::SmallVector<std::string, 4>, 4> vecs(2, &resource);
+			fastgltf::pmr::small_vector<fastgltf::pmr::small_vector<std::string, 4>, 4> vecs(2, &resource);
 			REQUIRE(vecs.get_allocator() == &resource);
 			for (auto& vec : vecs) {
 				REQUIRE(vec.get_allocator() == &resource);
 			}
 
-			fastgltf::pmr::SmallVector default_copy(vecs);
+			fastgltf::pmr::small_vector default_copy(vecs);
 			REQUIRE(default_copy.get_allocator() != &resource);
 			REQUIRE(default_copy.get_allocator() == std::pmr::get_default_resource());
 			for (auto& vec : default_copy) {
@@ -527,7 +527,7 @@ TEST_CASE("Test vectors with polymorphic allocators", "[small-vector]") {
 				REQUIRE(vec.get_allocator() == &resource);
 			}
 
-			fastgltf::pmr::SmallVector moved(std::move(resource_copy));
+			fastgltf::pmr::small_vector moved(std::move(resource_copy));
 			REQUIRE(moved.get_allocator() == &resource);
 			for (auto& vec : resource_copy) {
 				REQUIRE(vec.get_allocator() == &resource);
@@ -550,7 +550,7 @@ namespace {
 	};
 }
 
-TEST_CASE("Test move-only types with SmallVector", "[small-vector]") {
+TEST_CASE("Test move-only types with small_vector", "[small-vector]") {
 	SECTION("Stack storage move constructor") {
 		fastgltf::small_vector<MoveOnlyObject, 4> vec;
 		vec.emplace_back(10);
@@ -749,7 +749,7 @@ namespace {
 	};
 }
 
-TEST_CASE("SmallVector exception behavior", "[small-vector]") {
+TEST_CASE("small_vector exception behavior", "[small-vector]") {
 	using vec_t = fastgltf::small_vector<throw_on_copy, 2>;
 	throw_on_copy::reset();
 
@@ -778,10 +778,10 @@ TEST_CASE("SmallVector exception behavior", "[small-vector]") {
 	}
 
 	SECTION("Copy assignment") {
-		for (const auto [target_count, source_count]
+		for (const auto& [target_count, source_count]
 			: { std::pair { 4, 2 }, std::pair { 2, 4 }, std::pair { 1, 6 } }) {
 
-			for (std::size_t i = 0; i < source_count; ++i) {
+			for (int i = 0; i < source_count; ++i) {
 				vec_t source;
 				for (int j = 0; j < source_count; ++j)
 					source.emplace_back(j);
@@ -813,8 +813,8 @@ TEST_CASE("SmallVector exception behavior", "[small-vector]") {
 #endif
 
 #if FASTGLTF_HAS_CONTAINERS_RANGES
-TEST_CASE("SmallVector containers ranges compatibility", "[small-vector]") {
-	static_assert(std::ranges::range<fastgltf::small_vector<std::uint32_t, 4>>, "SmallVector must satisfy range");
+TEST_CASE("small_vector containers ranges compatibility", "[small-vector]") {
+	static_assert(std::ranges::range<fastgltf::small_vector<std::uint32_t, 4>>, "small_vector must satisfy range");
 
 	SECTION("Constructors") {
 		SECTION("Initialise stack data from range") {

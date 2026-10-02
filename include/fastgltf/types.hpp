@@ -1214,7 +1214,7 @@ namespace fastgltf {
 
 	struct DracoCompressedPrimitive {
 		std::size_t bufferView;
-		FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4> attributes;
+		FASTGLTF_FG_PMR_NS::small_vector<Attribute, 4> attributes;
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
 			for (auto* it = attributes.begin(); it != attributes.end(); ++it) {
@@ -1236,10 +1236,10 @@ namespace fastgltf {
 	FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
-		FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4> attributes;
+		FASTGLTF_FG_PMR_NS::small_vector<Attribute, 4> attributes;
 		PrimitiveType type = PrimitiveType::Triangles;
 
-		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::SmallVector<Attribute, 4>> targets;
+		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::small_vector<Attribute, 4>> targets;
 
 		optional<std::size_t> indicesAccessor;
 		optional<std::size_t> materialIndex;

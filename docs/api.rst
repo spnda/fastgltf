@@ -427,10 +427,10 @@ URI
    :undoc-members:
 
 
-SmallVector
+small_vector
 -----------
 
-.. doxygenclass:: fastgltf::SmallVector
+.. doxygenclass:: fastgltf::small_vector
    :members:
    :undoc-members:
 
