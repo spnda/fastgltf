@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790981501613,
+  "lastUpdate": 1790981679229,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -2087,6 +2087,93 @@ window.BENCHMARK_DATA = {
             "range": "± 0.0142178",
             "unit": "ns",
             "extra": "50 samples\n15251 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "a03222c024e8a96bc00bbd675be1252769c3fb3c",
+          "message": "Allow complex types in flagged_optional through flag traits\n\nflagged_optional now uses optional_flag_value<T>::is_empty and optional_flag_value<T>::set_empty to check for or set the flags. This allows the type to store more complex types such as TextureInfo, where we allow the user to store the empty flag somewhere internally.",
+          "timestamp": "2026-10-03T00:48:40+02:00",
+          "tree_id": "e9fcc2f0ee41116f2c6fb2ef6f6b1887687aa80d",
+          "url": "https://github.com/spnda/fastgltf/commit/a03222c024e8a96bc00bbd675be1252769c3fb3c"
+        },
+        "date": 1790981678772,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 33.8834,
+            "range": "± 887.01",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 280.197,
+            "range": "± 5.86311",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 281.994,
+            "range": "± 5.24776",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 7.80018,
+            "range": "± 74.8997",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's fallback base64 decoder",
+            "value": 728.466,
+            "range": "± 5.34029",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's Neon base64 decoder",
+            "value": 486.733,
+            "range": "± 4.82404",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 15.7552,
+            "range": "± 0.161",
+            "unit": "ns",
+            "extra": "50 samples\n2005 iterations"
+          },
+          {
+            "name": "ARMv8 hardware CRC32-C algorithm",
+            "value": 2.1456,
+            "range": "± 0.070872",
+            "unit": "ns",
+            "extra": "50 samples\n15293 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 282.898,
+            "range": "± 6.28112",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
           }
         ]
       }
