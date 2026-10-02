@@ -290,6 +290,10 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 	}
 
 	auto encodedData = path.substr(encodingEnd + 1);
+	if (encodedData.size() < 4 || encodedData.size() % 4 != 0) {
+		return Error::InvalidURI;
+	}
+
 	if (config.mapCallback != nullptr) {
 		// If a map callback is specified, we use a pointer to memory specified by it.
 		auto padding = base64::getPadding(encodedData);
