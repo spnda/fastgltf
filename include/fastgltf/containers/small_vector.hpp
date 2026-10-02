@@ -348,7 +348,7 @@ namespace fastgltf {
 			return _allocator;
 		}
 
-		void reserve(size_type newCapacity) requires (std::is_move_constructible_v<value_type> || std::is_copy_constructible_v<value_type>) {
+		void reserve(const size_type newCapacity) requires (std::is_move_constructible_v<value_type> || std::is_copy_constructible_v<value_type>) {
 			// We don't want to reduce capacity with reserve, only with shrink_to_fit.
 			// This also covers everything that fits into the inline storage, whose capacity is always N.
 			if (newCapacity <= capacity()) {

@@ -220,15 +220,6 @@ namespace fastgltf {
 			clear_and_deallocate();
 		}
 
-		/**
-		 * Copies the contents of the given vector into a new StaticVector.
-		 */
-		static auto fromVector(const std::vector<T>& vector) {
-			static_vector staticVector(vector.size());
-			std::ranges::copy(vector.begin(), vector.end(), staticVector.begin());
-			return staticVector;
-		}
-
 		[[nodiscard]] Allocator get_allocator() const noexcept {
 			return _allocator;
 		}
