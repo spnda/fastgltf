@@ -10,9 +10,11 @@ To view the full changelogs for each release please see the `GitHub releases <ht
 =====
 
 - Upgrade repository to C++20
-- Fix SmallVector's move and copy constructors with regards to the allocator usage and compatibility between allocations of different vectors
-- Fix SmallVector's clear and shrink_to_fit behavior
-- Fix SmallVector's handling of arguments to resize/assign/emplace_back being a reference to an object of the vector
+- Completely rewrite ``fastgltf::small_vector``, ``fastgltf::static_vector``, and add ``fastgltf::inplace_vector``
+    - ``fastgltf::small_vector`` is now completely compatible with ``std::vector``
+    - The containers now all offer the same exception guarantees that comparable ``std`` containers do.
+    - The containers are now completely allocator compliant
+    - Fixed a significant amount of memory and exception safety issues
 - Removed macros: FASTGLTF_CPP_17, FASTGLTF_HAS_BIT, FASTGLTF_HAS_CONCEPTS, FASTGLTF_CONSTEXPR_BITCAST, FASTGLTF_LIKELY / FASTGLTF_UNLIKELY
 - Removed CMake option: FASTGLTF_COMPILE_AS_CPP20.
 
