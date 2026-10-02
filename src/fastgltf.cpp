@@ -143,7 +143,7 @@ namespace fastgltf {
 
 	[[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
 		for (auto extension : extensions) {
-			switch (crc32c_string(extension.key)) {
+			switch (crc32c(extension.key)) {
 				case force_consteval<crc32c(extensions::KHR_texture_basisu)>: {
 					if (!hasBit(extensionFlags, Extensions::KHR_texture_basisu))
 						break;
@@ -633,7 +633,7 @@ void fg::Parser::fillCategories(Category& inputCategories) noexcept {
 }
 
 fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
-	switch (crc32c_string(mime)) {
+	switch (crc32c(mime)) {
 		case force_consteval<crc32c(mimeTypeJpeg)>: {
 			return MimeType::JPEG;
 		}
@@ -1432,7 +1432,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 	auto readCategories = Category::None;
 	for (const auto object : root) {
-		auto hashedKey = crc32c_string(object.key);
+		auto hashedKey = crc32c(object.key);
 		if (hashedKey == force_consteval<crc32c("scene")>) {
 			std::uint64_t defaultScene;
 			if (object.value.get_uint64().get(defaultScene) != SUCCESS) [[unlikely]] {
@@ -2055,7 +2055,7 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 				if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) [[unlikely]] {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
-				switch (crc32c_string(string)) {
+				switch (crc32c(string)) {
 					case force_consteval<crc32c("ATTRIBUTES")>: {
 						compression.mode = MeshoptCompressionMode::Attributes;
 						break;
@@ -2074,7 +2074,7 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 				}
 
                 if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) [[likely]] {
-					switch (crc32c_string(string)) {
+					switch (crc32c(string)) {
 						case force_consteval<crc32c("NONE")>: {
 							compression.filter = MeshoptCompressionFilter::None;
 							break;
@@ -2261,7 +2261,7 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 			return Error::InvalidGltf;
 		}
 
-		switch (crc32c_string(extensionValue.key)) {
+		switch (crc32c(extensionValue.key)) {
 			case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
 					break;
@@ -2468,7 +2468,7 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 
 		std::string_view type;
         if (lightObject["type"].get_string().get(type) == SUCCESS) [[likely]] {
-			switch (crc32c_string(type.data())) {
+			switch (crc32c(type.data())) {
 				case force_consteval<crc32c("directional")>: {
 					light.type = LightType::Directional;
 					break;
@@ -2560,7 +2560,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 	using namespace simdjson;
 
 	for (auto extensionField : object) {
-		switch (crc32c_string(extensionField.key)) {
+		switch (crc32c(extensionField.key)) {
 			case force_consteval<crc32c(extensions::KHR_materials_anisotropy)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_anisotropy))
 					break;
@@ -3323,7 +3323,7 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 	using namespace simdjson;
 
 	for (auto extension : object) {
-		switch (crc32c_string(extension.key)) {
+		switch (crc32c(extension.key)) {
 			case force_consteval<crc32c(extensions::KHR_materials_variants)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
 					break;

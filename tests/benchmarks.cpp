@@ -429,7 +429,7 @@ TEST_CASE("Small-string CRC32-C benchmark", "[!benchmark][gltf-benchmark][crc-be
 		c = static_cast<char>(dist(gen));
 
 	BENCHMARK("Default 1-byte tabular algorithm") {
-		return fastgltf::crc32c(data);
+		return fastgltf::fallback_crc32c(data);
 	};
 #if defined(FASTGLTF_IS_X86)
 	BENCHMARK("SSE4 hardware algorithm") {
@@ -461,7 +461,7 @@ TEST_CASE("Large-string CRC32-C benchmark", "[!benchmark][crc-benchmark]") {
 		const auto suffix = "/" + std::to_string(len);
 
 		BENCHMARK("table" + suffix) {
-			return fastgltf::crc32c(str);
+			return fastgltf::fallback_crc32c(str);
 		};
 #if defined(FASTGLTF_IS_X86)
 		BENCHMARK("hw" + suffix) {

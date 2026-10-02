@@ -24,9 +24,9 @@ TEST_CASE("Test all variants of CRC32-C hashing", "[gltf-loader]") {
 
 		// We'll try and test if the hardware accelerated version generates the same, correct results.
 #if defined(FASTGLTF_IS_X86)
-		REQUIRE(fastgltf::crc32c(str) == fastgltf::sse_crc32c(str));
+		REQUIRE(fastgltf::fallback_crc32c(str) == fastgltf::sse_crc32c(str));
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
-		REQUIRE(fastgltf::crc32c(str) == fastgltf::armv8_crc32c(str));
+		REQUIRE(fastgltf::fallback_crc32c(str) == fastgltf::armv8_crc32c(str));
 #endif
 	}
 }

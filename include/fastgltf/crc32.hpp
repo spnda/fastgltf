@@ -68,14 +68,14 @@ namespace fastgltf {
 		0x79b737ba, 0x8bdcb4b9, 0x988c474d, 0x6ae7c44e, 0xbe2da0a5, 0x4c4623a6, 0x5f16d052, 0xad7d5351,
 	}};
 
-	[[gnu::hot, gnu::pure]] constexpr std::uint32_t crc32c(const std::string_view str) noexcept {
+	[[gnu::hot, gnu::pure]] constexpr std::uint32_t fallback_crc32c(const std::string_view str) noexcept {
 		std::uint32_t crc = ~0;
 		for (const auto c : str)
 			crc = (crc >> 8) ^ crcHashTable[(crc ^ static_cast<std::uint8_t>(c)) & 0xff];
 		return crc ^ 0xffffffff;
 	}
 
-	[[gnu::hot, gnu::pure]] constexpr std::uint32_t crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
+	[[gnu::hot, gnu::pure]] constexpr std::uint32_t fallback_crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
 		std::uint32_t crc = ~0;
 		for (std::size_t i = 0; i < len; ++i)
 			crc = (crc >> 8) ^ crcHashTable[(crc ^ d[i]) & 0xff];
@@ -108,14 +108,33 @@ namespace fastgltf {
 	 * TODO: Reimplement some kind of runtime dispatch for cases where this is only detectable at runtime, and compare
 	 *       the actual real cost?
 	 */
-	[[gnu::hot, gnu::pure]] FASTGLTF_FORCEINLINE std::uint32_t crc32c_string(const std::string_view str) noexcept {
+	[[gnu::hot, gnu::pure]] FASTGLTF_FORCEINLINE constexpr std::uint32_t crc32c(const std::uint8_t* d, std::size_t len) noexcept {
+		if (std::is_constant_evaluated()) {
+			return fallback_crc32c(d, len);
+		}
+
+#if defined(__SSE4_2__)
+		return sse_crc32c(d, len);
+#elif FASTGLTF_ENABLE_ARMV8_CRC && defined(__ARM_FEATURE_CRC32)
+		// GCC and Clang define __ARM_FEATURE_CRC32 when the target arch has `+crc` enabled.
+		return armv8_crc32c(d, len);
+#else
+		return fallback_crc32c(d, len);
+#endif
+	}
+
+	[[gnu::hot, gnu::pure]] FASTGLTF_FORCEINLINE constexpr std::uint32_t crc32c(const std::string_view str) noexcept {
+		if (std::is_constant_evaluated()) {
+			return fallback_crc32c(str);
+		}
+
 #if defined(__SSE4_2__)
 		return sse_crc32c(str);
 #elif FASTGLTF_ENABLE_ARMV8_CRC && defined(__ARM_FEATURE_CRC32)
 		// GCC and Clang define __ARM_FEATURE_CRC32 when the target arch has `+crc` enabled.
 		return armv8_crc32c(str);
 #else
-		return crc32c(str);
+		return fallback_crc32c(str);
 #endif
 	}
 } // namespace fastgltf
