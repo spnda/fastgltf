@@ -475,9 +475,17 @@ TEST_CASE("Large-string CRC32-C benchmark", "[!benchmark][crc-benchmark]") {
 	}
 }
 
-TEST_CASE("Compare base64 decoding performance", "[!benchmark][gltf-benchmark]") {
+TEST_CASE("Compare base64 decoding performance", "[!benchmark][base64-benchmark]") {
 	std::string base64Characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	constexpr std::size_t bufferSize = 2 * 1024 * 1024;
+
+	std::vector<std::size_t> lengths;
+	for (std::size_t i = 4; i <= 128; i += 4)
+		lengths.push_back(i);
+	// 25% increments, aligned to 4 bytes
+	for (std::size_t i = 160; i < bufferSize; i = (i + i / 4 + 4 - 1) / 4 * 4)
+		lengths.push_back(i);
+	lengths.push_back(bufferSize);
 
 	// We'll generate a random base64 buffer
 	std::random_device device;
@@ -489,60 +497,68 @@ TEST_CASE("Compare base64 decoding performance", "[!benchmark][gltf-benchmark]")
 		generatedData.push_back(base64Characters[distribution(gen)]);
 	}
 
+	for (const auto len : lengths) {
+		const std::string str(generatedData.data(), len);
+		const auto suffix = "/" + std::to_string(len);
+
 #ifdef HAS_TINYGLTF
-	BENCHMARK("Run tinygltf's base64 decoder") {
-		return tinygltf::base64_decode(generatedData);
-	};
+		BENCHMARK("tinygltf" + suffix) {
+			return tinygltf::base64_decode(str);
+		};
 #endif
 
-#ifdef HAS_CGLTF
-	cgltf_options options {};
-	BENCHMARK("Run cgltf's base64 decoder") {
-		auto padding = fastgltf::base64::getPadding(generatedData);
-		auto outputSize = fastgltf::base64::getOutputSize(generatedData.size(), padding);
+		const auto padding = fastgltf::base64::getPadding(str);
+		const auto outputSize = fastgltf::base64::getOutputSize(str.size(), padding);
 		std::string output;
 		output.resize(outputSize);
-		auto* outputData = output.data();
-		return cgltf_load_buffer_base64(&options, generatedData.size(), generatedData.data(), reinterpret_cast<void**>(&outputData));
-	};
+
+#ifdef HAS_CGLTF
+		cgltf_options options {};
+		BENCHMARK("cgltf" + suffix) {
+			auto* outputData = output.data();
+			return cgltf_load_buffer_base64(&options,
+				str.size(), str.data(), reinterpret_cast<void**>(&outputData));
+		};
 #endif
 
 #ifdef HAS_GLTFRS
-	BENCHMARK("Run base64 Rust library decoder") {
-		auto slice = rust::Slice<const std::uint8_t>(reinterpret_cast<std::uint8_t*>(generatedData.data()), generatedData.size());
-		return rust::gltf::run_base64(slice);
-	};
+		BENCHMARK("gltf-rs" + suffix) {
+			auto slice = rust::Slice<const std::uint8_t>(
+				reinterpret_cast<std::uint8_t*>(str.data()), str.size());
+			return rust::gltf::run_base64(slice);
+		};
 #endif
 
 #ifdef HAS_ASSIMP
-	BENCHMARK("Run Assimp's base64 decoder") {
-		return Assimp::Base64::Decode(generatedData);
-	};
+		BENCHMARK("assimp" + suffix) {
+			return Assimp::Base64::Decode(str);
+		};
 #endif
 
-	BENCHMARK("Run fastgltf's fallback base64 decoder") {
-		return fastgltf::base64::fallback_decode(generatedData);
-	};
+		BENCHMARK("fastgltf fallback" + suffix) {
+			return fastgltf::base64::fallback_decode(str);
+		};
 
 #if defined(FASTGLTF_IS_X86)
-	const auto& impls = simdjson::get_available_implementations();
-	if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
-		BENCHMARK("Run fastgltf's SSE4 base64 decoder") {
-			return fastgltf::base64::sse4_decode(generatedData);
-		};
-	}
+		const auto& impls = simdjson::get_available_implementations();
+		if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
+			BENCHMARK("fastgltf sse4" + suffix) {
+				return fastgltf::base64::sse4_decode(str);
+			};
+		}
 
-	if (const auto* avx2 = impls["haswell"]; avx2 != nullptr && avx2->supported_by_runtime_system()) {
-		BENCHMARK("Run fastgltf's AVX2 base64 decoder") {
-			return fastgltf::base64::avx2_decode(generatedData);
-		};
-	}
+		if (const auto* avx2 = impls["haswell"]; avx2 != nullptr && avx2->supported_by_runtime_system()) {
+			BENCHMARK("fastgltf avx2" + suffix) {
+				return fastgltf::base64::avx2_decode(str);
+			};
+		}
 #elif FASTGLTF_ENABLE_NEON_BASE64
-	const auto& impls = simdjson::get_available_implementations();
-	if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
-		BENCHMARK("Run fastgltf's Neon base64 decoder") {
-			return fastgltf::base64::neon_decode(generatedData);
-		};
-	}
+		const auto& impls = simdjson::get_available_implementations();
+		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
+			BENCHMARK("fastgltf neon" + suffix) {
+				return fastgltf::base64::neon_decode(str);
+			};
+		}
 #endif
+	}
 }
