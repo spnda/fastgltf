@@ -10,3 +10,5 @@ function (fastgltf_add_fuzzer NAME)
 endfunction()
 
 fastgltf_add_fuzzer(uri_fuzzer)
+fastgltf_add_fuzzer(base64_decode_fuzzer)
+fastgltf_add_fuzzer(base64_encode_fuzzer)
