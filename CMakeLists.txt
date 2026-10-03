@@ -19,8 +19,21 @@ option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's in
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
 option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
 option(FASTGLTF_ENABLE_DOCS "Enables the configuration of targets that build/generate documentation" OFF)
+option(FASTGLTF_ENABLE_FUZZING "Builds fuzzing targets (requires LLVM)" OFF)
 option(FASTGLTF_ENABLE_GLTF_RS "Enables the benchmark usage of gltf-rs" OFF)
 option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
+
+if (FASTGLTF_ENABLE_FUZZING)
+    if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        message(FATAL_ERROR "fastgltf: Fuzzing requires Clang")
+    endif()
+
+    set(FASTGLTF_SANITIZER_FLAGS
+        -fsanitize=address,undefined
+        -fno-sanitize-recover=undefined
+        -fno-omit-frame-pointer
+    )
+endif()
 
 set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
@@ -135,6 +148,13 @@ if (FASTGLTF_ENABLE_CPP_MODULES AND FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION 
 elseif (FASTGLTF_ENABLE_CPP_MODULES)
     message(WARNING "FASTGLTF_ENABLE_CPP_MODULES is ON but compiler does not support them")
 endif ()
+
+if (FASTGLTF_ENABLE_FUZZING)
+    target_compile_options(fastgltf PRIVATE
+        -fsanitize=fuzzer-no-link ${FASTGLTF_SANITIZER_FLAGS}
+    )
+    add_subdirectory(tests/fuzz)
+endif()
 
 write_basic_package_version_file(
     "${PROJECT_BINARY_DIR}/fastgltfConfigVersion.cmake"
