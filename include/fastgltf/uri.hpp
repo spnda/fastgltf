@@ -189,7 +189,9 @@ namespace fastgltf {
 			return internal::get(_uri, _components._fragment);
 		}
 
-		[[nodiscard]] auto fspath() const -> std::filesystem::path;
+		[[nodiscard]] auto fspath() const {
+			return URIView(*this).fspath();
+		}
 		[[nodiscard]] bool valid() const noexcept {
 			return _components._valid;
 		}

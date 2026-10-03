@@ -134,8 +134,22 @@ fs::path fg::URIView::fspath() const {
 	if (!isLocalPath())
 		return {};
 
-	std::string decodedPath = decodePercents(path());
-	return std::move(decodedPath);
+	const auto raw = path();
+	const auto u8 = [](const std::string_view s) {
+		return std::u8string_view(reinterpret_cast<const char8_t*>(s.data()), s.size());
+	};
+
+	// there's no percent in the path, no need to decode and potentially allocate twice
+	if (raw.find('%') == std::string_view::npos)
+		return u8(raw);
+
+	if constexpr (std::is_same_v<fs::path::value_type, std::string::value_type>) {
+		std::string decodedPath = decodePercents(raw);
+		return std::move(decodedPath);
+	} else {
+		const auto str = decodePercents(raw);
+		return u8(str);
+	}
 }
 
 fg::URI::URI(std::string uri) noexcept : _uri(std::move(uri)), _components(internal::parseURI(_uri)) {}
@@ -153,12 +167,4 @@ fg::URI& fg::URI::operator=(const URIView& other) {
 
 fg::URI::operator fg::URIView() const noexcept {
 	return { _uri, _components };
-}
-
-fs::path fg::URI::fspath() const {
-	if (!isLocalPath())
-		return {};
-
-	std::string decodedPath = decodePercents(path());
-	return std::move(decodedPath);
 }
