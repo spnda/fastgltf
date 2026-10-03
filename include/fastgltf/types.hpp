@@ -590,6 +590,10 @@ namespace fastgltf {
 #pragma endregion
 
 #pragma region Structs
+	namespace internal {
+		static constexpr std::size_t max_accessor_components = getNumComponents(AccessorType::Mat4);
+	}
+
 	/**
 	 * Represents the minimum and maximum bounds for glTF accessors in a better interface to avoid
 	 * heavy usage of std::variant, which can pollute the user's code needlessly.
@@ -597,10 +601,8 @@ namespace fastgltf {
 	FASTGLTF_EXPORT class AccessorBoundsArray {
 		friend struct optional_flag_value<AccessorBoundsArray>;
 
-		static constexpr std::size_t max_components = 16; // MAT4
-
 		template <typename T>
-		using buffer = inplace_vector<T, max_components>;
+		using buffer = inplace_vector<T, internal::max_accessor_components>;
 
 		std::variant<buffer<std::int64_t>, buffer<double>> _data;
 
@@ -618,7 +620,7 @@ namespace fastgltf {
 		AccessorBoundsArray() noexcept = default; // Empty state for flagged_optional
 
 		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type) {
-			assert(len != 0 && len <= max_components);
+			assert(len != 0 && len <= internal::max_accessor_components);
 			switch (type) {
 				case BoundsType::int64:
 					_data.emplace<buffer<std::int64_t>>(len);
