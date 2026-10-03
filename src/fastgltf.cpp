@@ -1582,7 +1582,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		}
 
 		// Type of min and max should always be the same.
-		auto parseMinMax = [&](const std::string_view key, std::optional<AccessorBoundsArray>& ref) -> Error {
+		auto parseMinMax = [&](const std::string_view key, optional<AccessorBoundsArray>& ref) -> Error {
 			dom::array elements;
 			if (accessorObject[key].get_array().get(elements) == SUCCESS) [[likely]] {
 				const auto num = getNumComponents(accessor.type);
@@ -5174,7 +5174,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 			json += "}}";
 		}
 
-		auto writeMinMax = [&](const std::optional<AccessorBoundsArray>& ref, const std::string_view name) {
+		auto writeMinMax = [&](const optional<AccessorBoundsArray>& ref, const std::string_view name) {
 			if (!ref.has_value())
 				return; // This is valid, since min/max are only required on specific accessors.
 			json += ",\"" + std::string(name) + "\":[";

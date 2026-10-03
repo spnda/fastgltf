@@ -595,33 +595,36 @@ namespace fastgltf {
 	 * heavy usage of std::variant, which can pollute the user's code needlessly.
 	 */
 	FASTGLTF_EXPORT class AccessorBoundsArray {
-	public:
-		enum class BoundsType {
-			int64,
-			float64,
-		};
+		friend struct optional_flag_value<AccessorBoundsArray>;
 
+		static constexpr std::size_t max_components = 16; // MAT4
+
+		template <typename T>
+		using buffer = inplace_vector<T, max_components>;
+
+		std::variant<buffer<std::int64_t>, buffer<double>> _data;
+
+	public:
 		template <typename T>
 		using is_valid_type = is_any_of<T, std::int64_t, double>;
 		template <typename T>
 		static constexpr auto is_valid_type_v = is_valid_type<T>::value;
 
-	private:
-		std::size_t len;
-		BoundsType dataType;
-		union {
-			std::unique_ptr<std::int64_t[]> int64_buffer;
-			std::unique_ptr<double[]> float64_buffer;
+		enum class BoundsType : std::uint8_t {
+			int64,
+			float64,
 		};
 
-	public:
-		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type) : len(len), dataType(type) {
-			switch (dataType) {
+		AccessorBoundsArray() noexcept = default; // Empty state for flagged_optional
+
+		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type) {
+			assert(len != 0 && len <= max_components);
+			switch (type) {
 				case BoundsType::int64:
-					new (&int64_buffer) std::unique_ptr<std::int64_t[]>(new std::int64_t[len]());
+					_data.emplace<buffer<std::int64_t>>(len);
 					break;
 				case BoundsType::float64:
-					new (&float64_buffer) std::unique_ptr<double[]>(new double[len]());
+					_data.emplace<buffer<double>>(len);
 					break;
 				default:
 					FASTGLTF_UNREACHABLE
@@ -639,118 +642,67 @@ namespace fastgltf {
 			FASTGLTF_UNREACHABLE
 		}
 
-		~AccessorBoundsArray() {
-			switch (dataType) {
-				case BoundsType::int64:
-					std::destroy_at(&int64_buffer);
-					break;
-				case BoundsType::float64:
-					std::destroy_at(&float64_buffer);
-					break;
-				default:
-					FASTGLTF_UNREACHABLE
-			}
-		}
+		~AccessorBoundsArray() = default;
 
 		AccessorBoundsArray(const AccessorBoundsArray& other) = delete;
-		AccessorBoundsArray(AccessorBoundsArray&& other) noexcept
-			: len(other.len), dataType(other.dataType) {
-			switch (other.dataType) {
-				case BoundsType::int64:
-					new (&int64_buffer) std::unique_ptr(std::move(other.int64_buffer));
-					break;
-				case BoundsType::float64:
-					new (&float64_buffer) std::unique_ptr(std::move(other.float64_buffer));
-					break;
-				default:
-					FASTGLTF_UNREACHABLE
-			}
-		}
+		AccessorBoundsArray(AccessorBoundsArray&& other) noexcept = default;
 
-		auto& operator=(const AccessorBoundsArray& other) = delete;
-		auto& operator=(AccessorBoundsArray&& other) noexcept {
-			len = other.len;
-			dataType = other.dataType;
-			switch (dataType) {
-				case BoundsType::int64:
-					std::destroy_at(&int64_buffer);
-					break;
-				case BoundsType::float64:
-					std::destroy_at(&float64_buffer);
-					break;
-				default:
-					FASTGLTF_UNREACHABLE
-			}
-			switch (other.dataType) {
-				case BoundsType::int64:
-					new (&int64_buffer) std::unique_ptr(std::move(other.int64_buffer));
-					break;
-				case BoundsType::float64:
-					new (&float64_buffer) std::unique_ptr(std::move(other.float64_buffer));
-					break;
-				default:
-					FASTGLTF_UNREACHABLE
-			}
-			return *this;
-		}
+		AccessorBoundsArray& operator=(const AccessorBoundsArray& other) = delete;
+		AccessorBoundsArray& operator=(AccessorBoundsArray&& other) noexcept = default;
 
 		[[nodiscard]] BoundsType type() const noexcept {
-			return dataType;
+			return static_cast<BoundsType>(_data.index());
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		[[nodiscard]] bool isType() const noexcept {
-			switch (dataType) {
-				case BoundsType::int64:
-					return std::is_same_v<T, std::int64_t>;
-				case BoundsType::float64:
-					return std::is_same_v<T, double>;
-				default:
-					return false;
-			}
+			return std::holds_alternative<buffer<T>>(_data);
 		}
 
 		[[nodiscard]] std::size_t size() const noexcept {
-			return len;
+			return std::visit([](const auto& buf) {
+				return buf.size();
+			}, _data);
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		[[nodiscard]] auto* data() noexcept {
 			assert(isType<T>());
-			if constexpr (std::is_same_v<T, std::int64_t>) {
-				return int64_buffer.get();
-			} else if constexpr (std::is_same_v<T, double>) {
-				return float64_buffer.get();
-			}
-			FASTGLTF_UNREACHABLE
+			return std::get_if<buffer<T>>(&_data)->data();
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		[[nodiscard]] const auto* data() const noexcept {
 			assert(isType<T>());
-			if constexpr (std::is_same_v<T, std::int64_t>) {
-				return int64_buffer.get();
-			} else if constexpr (std::is_same_v<T, double>) {
-				return float64_buffer.get();
-			}
-			FASTGLTF_UNREACHABLE
+			return std::get_if<buffer<T>>(&_data)->data();
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		[[nodiscard]] T get(const std::size_t pos) const {
-			assert(pos < len && isType<T>());
+			assert(pos < size() && isType<T>());
 			return data<T>()[pos];
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		void set(const std::size_t pos, const T value) {
-			assert(pos < len && isType<T>());
+			assert(pos < size() && isType<T>());
 			data<T>()[pos] = value;
+		}
+	};
+
+	template <>
+	struct optional_flag_value<AccessorBoundsArray> {
+		// An accessor bounds can never have a size of zero, so we use that as our sentinel
+		static bool is_empty(const AccessorBoundsArray& array) noexcept {
+			return array.size() == 0;
+		}
+		static void set_empty(AccessorBoundsArray& array) noexcept {
+			array._data.emplace<0>();
 		}
 	};
 
@@ -1595,8 +1547,8 @@ namespace fastgltf {
 		ComponentType componentType;
 		bool normalized = false;
 
-		std::optional<AccessorBoundsArray> max;
-		std::optional<AccessorBoundsArray> min;
+		optional<AccessorBoundsArray> max;
+		optional<AccessorBoundsArray> min;
 
 		// Could have no value for sparse morph targets
 		optional<std::size_t> bufferViewIndex;
