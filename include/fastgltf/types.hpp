@@ -187,10 +187,10 @@ namespace fastgltf {
 	};
 
 	template<>
-	struct optional_flag_value<Filter> {
-		static constexpr auto missing_value = static_cast<Filter>(
-			std::numeric_limits<std::underlying_type_t<Filter>>::max());
-	};
+	struct optional_flag_value<Filter>
+		: enum_sentinel_flag_value<Filter, std::numeric_limits<std::underlying_type_t<Filter>>::max()> {};
+
+	static_assert(has_flag_traits<Filter>);
 
 	FASTGLTF_EXPORT enum class Wrap : std::uint16_t {
 		ClampToEdge = 33071,
@@ -207,10 +207,10 @@ namespace fastgltf {
 	};
 
 	template<>
-	struct optional_flag_value<BufferTarget> {
-		static constexpr auto missing_value = static_cast<BufferTarget>(
-			std::numeric_limits<std::underlying_type_t<BufferTarget>>::max());
-	};
+	struct optional_flag_value<BufferTarget>
+		: enum_sentinel_flag_value<BufferTarget, std::numeric_limits<std::underlying_type_t<BufferTarget>>::max()> {};
+
+	static_assert(has_flag_traits<BufferTarget>);
 
 	FASTGLTF_EXPORT enum class MimeType : std::uint8_t {
 		None = 0,

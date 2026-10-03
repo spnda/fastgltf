@@ -48,6 +48,17 @@ namespace fastgltf {
 		}
 	};
 
+	FASTGLTF_EXPORT template <typename T, auto Sentinel>
+	requires std::is_enum_v<T> && std::same_as<decltype(Sentinel), std::underlying_type_t<T>>
+	struct enum_sentinel_flag_value {
+		static constexpr bool is_empty(const T& value) noexcept {
+			return to_underlying(value) == Sentinel;
+		}
+		static constexpr void set_empty(T& value) noexcept {
+			value = static_cast<T>(Sentinel);
+		}
+	};
+
 	template<>
 	struct optional_flag_value<std::size_t> :
 		sentinel_flag_value<std::size_t, std::numeric_limits<std::size_t>::max()> {};
