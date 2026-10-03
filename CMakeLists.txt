@@ -58,6 +58,7 @@ add_library(fastgltf
         "src/crc32.cpp"
         "src/fastgltf.cpp"
         "src/io.cpp"
+        "src/uri.cpp"
 )
 add_library(fastgltf::fastgltf ALIAS fastgltf)
 

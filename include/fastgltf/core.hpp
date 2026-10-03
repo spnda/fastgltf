@@ -839,7 +839,7 @@ namespace fastgltf {
 		Error parseAttributes(simdjson::dom::object& object, T& attributes);
 
 		[[nodiscard]] auto decodeDataUri(const URIView& uri) const noexcept -> Expected<DataSource>;
-		[[nodiscard]] auto loadFileFromUri(URIView& uri) const noexcept -> Expected<DataSource>;
+		[[nodiscard]] auto loadFileFromUri(const URIView& uri) const noexcept -> Expected<DataSource>;
 #if defined(__ANDROID__)
 		[[nodiscard]] auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> Expected<DataSource>;
 #endif
