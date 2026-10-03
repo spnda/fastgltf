@@ -12,31 +12,40 @@ TEST_CASE("Simple URIs", "[uri-tests]") {
 		REQUIRE(uri.path().empty());
 	}
 
-	std::string_view relpath = "path/somewhere.xyz";
-	SECTION("Basic local path") {
-		const fastgltf::URI uri(relpath);
-		REQUIRE(uri.scheme().empty());
-		REQUIRE(uri.path() == relpath);
-		REQUIRE(uri.isLocalPath());
-		REQUIRE(uri.fspath() == relpath);
-	}
+	SECTION("Local paths") {
+		std::string_view relpath = "path/somewhere.xyz";
+		SECTION("Basic local path") {
+			const fastgltf::URI uri(relpath);
+			REQUIRE(uri.scheme().empty());
+			REQUIRE(uri.path() == relpath);
+			REQUIRE(uri.isLocalPath());
+			REQUIRE(uri.fspath() == relpath);
+		}
 
-	std::string_view abspath = "/path/somewhere.xyz";
-	SECTION("File scheme path") {
-		const std::string_view filePath = "file:/path/somewhere.xyz";
-		const fastgltf::URI uri(filePath);
-		REQUIRE(uri.scheme() == "file");
-		REQUIRE(uri.isLocalPath());
-		REQUIRE(uri.path() == abspath);
-	}
+		std::string_view abspath = "/path/somewhere.xyz";
+		SECTION("File scheme path") {
+			const std::string_view filePath = "file:/path/somewhere.xyz";
+			const fastgltf::URI uri(filePath);
+			REQUIRE(uri.scheme() == "file");
+			REQUIRE(uri.isLocalPath());
+			REQUIRE(uri.path() == abspath);
+		}
 
-	SECTION("File scheme localhost path") {
-		const std::string_view localhostPath = "file://localhost/path/somewhere.xyz";
-		const fastgltf::URI uri(localhostPath);
-		REQUIRE(uri.scheme() == "file");
-		REQUIRE(uri.host() == "localhost");
-		REQUIRE(uri.path() == abspath);
-		REQUIRE(!uri.isLocalPath());
+		SECTION("File scheme localhost path") {
+			const std::string_view localhostPath = "file://localhost/path/somewhere.xyz";
+			const fastgltf::URI uri(localhostPath);
+			REQUIRE(uri.scheme() == "file");
+			REQUIRE(uri.host() == "localhost");
+			REQUIRE(uri.path() == abspath);
+			REQUIRE(!uri.isLocalPath());
+		}
+
+		SECTION("Empty authority") {
+			const fastgltf::URI uri(std::string_view("file:///"));
+			REQUIRE(uri.scheme() == "file");
+			REQUIRE(uri.isLocalPath());
+			REQUIRE(uri.path() == "/");
+		}
 	}
 
 	SECTION("Simple remote URI") {
@@ -45,7 +54,7 @@ TEST_CASE("Simple URIs", "[uri-tests]") {
 			const fastgltf::URI uri(url);
 			REQUIRE(uri.scheme() == "https");
 			REQUIRE(uri.host() == "example.com");
-			REQUIRE(uri.path() == "/");
+			REQUIRE(uri.path().empty());
 			REQUIRE(!uri.isLocalPath());
 		}
 
@@ -57,35 +66,101 @@ TEST_CASE("Simple URIs", "[uri-tests]") {
 			REQUIRE(uri.path() == "/path/somewhere");
 			REQUIRE(!uri.isLocalPath());
 		}
+
+		SECTION("Ports") {
+			const fastgltf::URI uri(std::string_view("https://host:80"));
+			REQUIRE(uri.scheme() == "https");
+			REQUIRE(uri.host() == "host");
+			REQUIRE(uri.port() == "80");
+		}
+
+		SECTION("Basic userinfo") {
+			const fastgltf::URI uri(std::string_view("https://user@host"));
+			REQUIRE(uri.scheme() == "https");
+			REQUIRE(uri.userinfo() == "user");
+			REQUIRE(uri.host() == "host");
+		}
+
+		SECTION("Basic query") {
+			const fastgltf::URI uri(std::string_view("https://host?q=1"));
+			REQUIRE(uri.scheme() == "https");
+			REQUIRE(uri.host() == "host");
+			REQUIRE(uri.query() == "q=1");
+		}
+
+		SECTION("Paths with colons") {
+			const fastgltf::URI uri(std::string_view("https://host/a:b"));
+			REQUIRE(uri.scheme() == "https");
+			REQUIRE(uri.host() == "host");
+			REQUIRE(uri.path() == "/a:b");
+		}
 	}
 }
 
 TEST_CASE("Test generic URIs", "[uri-tests]") {
 	// These are a bunch of example URIs from https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Example_URIs
-	const fastgltf::URI uri(std::string_view("https://john.doe@www.example.com:123/forum/questions/?tag=networking&order=newest#top"));
-	REQUIRE(uri.scheme() == "https");
-	REQUIRE(uri.userinfo() == "john.doe");
-	REQUIRE(uri.host() == "www.example.com");
-	REQUIRE(uri.port() == "123");
-	REQUIRE(uri.path() == "/forum/questions/");
-	REQUIRE(uri.query() == "tag=networking&order=newest");
-	REQUIRE(uri.fragment() == "top");
+	SECTION("Example 1") {
+		const fastgltf::URI uri(std::string_view("https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#top"));
+		REQUIRE(uri.scheme() == "https");
+		REQUIRE(uri.userinfo() == "john.doe");
+		REQUIRE(uri.host() == "www.example.com");
+		REQUIRE(uri.port() == "1234");
+		REQUIRE(uri.path() == "/forum/questions/");
+		REQUIRE(uri.query() == "tag=networking&order=newest");
+		REQUIRE(uri.fragment() == "top");
+	}
 
-	const fastgltf::URI uri1(std::string_view("ldap://[2001:db8::7]/c=GB?objectClass?one"));
-	REQUIRE(uri1.scheme() == "ldap");
-	REQUIRE(uri1.host() == "2001:db8::7");
-	REQUIRE(uri1.path() == "/c=GB");
-	REQUIRE(uri1.query() == "objectClass?one");
+	SECTION("Example 2") {
+		const fastgltf::URI uri(std::string_view(
+			"https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#:~:text=whatever"));
+		REQUIRE(uri.scheme() == "https");
+		REQUIRE(uri.userinfo() == "john.doe");
+		REQUIRE(uri.host() == "www.example.com");
+		REQUIRE(uri.port() == "1234");
+		REQUIRE(uri.path() == "/forum/questions/");
+		REQUIRE(uri.query() == "tag=networking&order=newest");
+		REQUIRE(uri.fragment() == ":~:text=whatever");
+	}
 
-	const fastgltf::URI uri2(std::string_view("mailto:John.Doe@example.com"));
-	REQUIRE(uri2.scheme() == "mailto");
-	REQUIRE(uri2.path() == "John.Doe@example.com");
+	SECTION("Example 3") {
+		const fastgltf::URI uri(std::string_view("ldap://[2001:db8::7]/c=GB?objectClass?one"));
+		REQUIRE(uri.scheme() == "ldap");
+		REQUIRE(uri.host() == "[2001:db8::7]");
+		REQUIRE(uri.path() == "/c=GB");
+		REQUIRE(uri.query() == "objectClass?one");
+	}
 
-	const fastgltf::URI uri3(std::string_view("telnet://192.0.2.16:80/"));
-	REQUIRE(uri3.scheme() == "telnet");
-	REQUIRE(uri3.host() == "192.0.2.16");
-	REQUIRE(uri3.port() == "80");
-	REQUIRE(uri3.path() == "/");
+	SECTION("Example 4") {
+		const fastgltf::URI uri(std::string_view("mailto:John.Doe@example.com"));
+		REQUIRE(uri.scheme() == "mailto");
+		REQUIRE(uri.path() == "John.Doe@example.com");
+	}
+
+	SECTION("Example 5") {
+		const fastgltf::URI uri(std::string_view("news:comp.infosystems.www.servers.unix"));
+		REQUIRE(uri.scheme() == "news");
+		REQUIRE(uri.path() == "comp.infosystems.www.servers.unix");
+	}
+
+	SECTION("Example 6") {
+		const fastgltf::URI uri(std::string_view("tel:+1-816-555-1212"));
+		REQUIRE(uri.scheme() == "tel");
+		REQUIRE(uri.path() == "+1-816-555-1212");
+	}
+
+	SECTION("Example 7") {
+		const fastgltf::URI uri(std::string_view("telnet://192.0.2.16:80/"));
+		REQUIRE(uri.scheme() == "telnet");
+		REQUIRE(uri.host() == "192.0.2.16");
+		REQUIRE(uri.port() == "80");
+		REQUIRE(uri.path() == "/");
+	}
+
+	SECTION("Example 8") {
+		const fastgltf::URI uri(std::string_view("urn:oasis:names:specification:docbook:dtd:xml:4.1.2"));
+		REQUIRE(uri.scheme() == "urn");
+		REQUIRE(uri.path() == "oasis:names:specification:docbook:dtd:xml:4.1.2");
+	}
 }
 
 TEST_CASE("Percent decoding", "[uri-tests]") {
@@ -100,7 +175,7 @@ TEST_CASE("Percent decoding", "[uri-tests]") {
 		const std::string_view path = "a%23%3Ab.png";
 		const fastgltf::URI uri(path);
 		REQUIRE(uri.path() == "a%23%3Ab.png");
-		REQUIRE(uri.fspath() == "a#=b.png");
+		REQUIRE(uri.fspath() == "a#:b.png");
 	}
 
 	SECTION("Only decode valid characters") {
@@ -165,8 +240,8 @@ TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 	// This only tests wether the default ctor of fastgltf::URI can handle percent-encoding correctly.
 	const fastgltf::URI original(std::string_view("grande_sphère.png"));
 	const fastgltf::URI encoded(std::string_view("grande_sph%C3%A8re.png"));
-	REQUIRE(original.string() == escaped.uri.string());
-	REQUIRE(original.string() == encoded.string());
+	REQUIRE(original.fspath() == escaped.uri.fspath());
+	REQUIRE(original.fspath() == encoded.fspath());
 }
 
 TEST_CASE("Test percent-encoded URIs in glTF", "[uri-tests]") {
@@ -184,17 +259,17 @@ TEST_CASE("Test percent-encoded URIs in glTF", "[uri-tests]") {
 
 	auto* image0 = std::get_if<fastgltf::sources::URI>(&asset->images[0].data);
 	REQUIRE(image0 != nullptr);
-	REQUIRE(image0->uri.path() == "Normal Map.png");
+	REQUIRE(image0->uri.fspath() == "Normal Map.png");
 
 	auto* image1 = std::get_if<fastgltf::sources::URI>(&asset->images[1].data);
 	REQUIRE(image1 != nullptr);
-	REQUIRE(image1->uri.path() == "glTF Logo With Spaces.png");
+	REQUIRE(image1->uri.fspath() == "glTF Logo With Spaces.png");
 
 	auto* image2 = std::get_if<fastgltf::sources::URI>(&asset->images[2].data);
 	REQUIRE(image2 != nullptr);
-	REQUIRE(image2->uri.path() == "Roughness Metallic.png");
+	REQUIRE(image2->uri.fspath() == "Roughness Metallic.png");
 
 	auto* buffer0 = std::get_if<fastgltf::sources::URI>(&asset->buffers[0].data);
 	REQUIRE(buffer0 != nullptr);
-	REQUIRE(buffer0->uri.path() == "Box With Spaces.bin");
+	REQUIRE(buffer0->uri.fspath() == "Box With Spaces.bin");
 }

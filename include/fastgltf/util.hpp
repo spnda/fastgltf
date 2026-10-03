@@ -275,7 +275,7 @@ namespace fastgltf {
 	/**
 	 * Simple function to check if the given string starts with a given set of characters.
 	 */
-	inline bool startsWith(std::string_view str, std::string_view search) {
+	[[nodiscard]] inline bool startsWith(const std::string_view str, const std::string_view search) {
 		return str.rfind(search, 0) == 0;
 	}
 

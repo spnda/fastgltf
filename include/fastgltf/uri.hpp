@@ -55,7 +55,7 @@ namespace fastgltf {
 			URIRange _query;
 			URIRange _fragment;
 
-			bool _valid = true;
+			bool _valid = false;
 		};
 
 		[[nodiscard]] inline auto get(const std::string_view view, const URIRange range) noexcept {
@@ -65,7 +65,7 @@ namespace fastgltf {
 		[[nodiscard]] URIComponents parseURI(std::string_view str) noexcept;
 	}
 
-	std::string decodePercents(std::string_view x);
+	FASTGLTF_EXPORT std::string decodePercents(std::string_view x);
 
 	/**
 	 * Custom URI class for fastgltf's needs. glTF 2.0 only allows two types of URIs:
@@ -87,7 +87,7 @@ namespace fastgltf {
 			: _view(str), _components(components) {}
 
 	public:
-		explicit URIView() noexcept = default;
+		URIView() noexcept = default;
 		explicit URIView(std::string_view uri) noexcept;
 		URIView(const URIView& other) noexcept = default;
 
@@ -148,7 +148,7 @@ namespace fastgltf {
 		internal::URIComponents _components;
 
 	public:
-		explicit URI() noexcept = default;
+		URI() noexcept = default;
 
 		explicit URI(std::string uri) noexcept;
 		explicit URI(std::string_view uri) noexcept;
@@ -159,7 +159,7 @@ namespace fastgltf {
 
 		URI& operator=(const URI& other) = default;
 		URI& operator=(const URIView& other);
-		URI& operator=(URI&& other) noexcept = default;;
+		URI& operator=(URI&& other) noexcept = default;
 
 		operator URIView() const noexcept;
 
