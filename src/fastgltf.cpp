@@ -666,7 +666,7 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 
 	// We iterate through the JSON object and write each key/pair value into the
 	// attribute map. The keys are only validated in the validate() method.
-	attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(std::remove_reference_t<decltype(attributes)>, resourceAllocator.get(), 0);
+	attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(T, resourceAllocator.get(), 0);
 	attributes.reserve(object.size());
 	for (const auto field : object) {
 		const auto key = field.key;
@@ -682,12 +682,6 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 	}
 	return Error::None;
 }
-
-// TODO: Is there some nicer way of declaring a templated version parseAttributes?
-//       Currently, this exists because resourceAllocator is a optional field of Parser, which we can't unconditionally
-//       pass as a parameter to a function, so parseAttributes needs to be a member function of Parser.
-template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, FASTGLTF_STD_PMR_NS::vector<Attribute>&);
-template fg::Error fg::Parser::parseAttributes(simdjson::dom::object&, decltype(fastgltf::Primitive::attributes)&);
 
 namespace fastgltf {
 template<typename T>
@@ -754,7 +748,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			if (primitive.indicesAccessor.has_value())
 				continue;
 
-			auto* positionAttribute = primitive.findAttribute("POSITION");
+			auto positionAttribute = primitive.findAttribute("POSITION");
 			if (positionAttribute == primitive.attributes.end()) {
 				return Error::InvalidGltf;
 			}
@@ -1043,8 +1037,8 @@ fg::Error fg::validate(const Asset& asset) {
 	}
 
 	for (const auto& material : asset.materials) {
-		auto isInvalidTexture = [&textures = asset.textures](std::optional<std::size_t> textureIndex) {
-			return textureIndex.has_value() && textureIndex.value() >= textures.size();
+		auto isInvalidTexture = [&textures = asset.textures](const std::size_t textureIndex) {
+			return textureIndex >= textures.size();
 		};
 		if (material.normalTexture.has_value() && isInvalidTexture(material.normalTexture->textureIndex))
 			return Error::InvalidGltf;
@@ -1247,8 +1241,8 @@ fg::Error fg::validate(const Asset& asset) {
 			// "When the node contains skin, all mesh.primitives MUST contain JOINTS_0 and WEIGHTS_0 attributes."
 			const auto& mesh = asset.meshes[node.meshIndex.value()];
 			for (const auto& primitive : mesh.primitives) {
-				const auto* joints0 = primitive.findAttribute("JOINTS_0");
-				const auto* weights0 = primitive.findAttribute("WEIGHTS_0");
+				const auto joints0 = primitive.findAttribute("JOINTS_0");
+				const auto weights0 = primitive.findAttribute("WEIGHTS_0");
 				if (joints0 == primitive.attributes.end() || weights0 == primitive.attributes.end())
 					return Error::InvalidGltf;
 			}

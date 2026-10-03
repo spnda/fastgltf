@@ -1213,7 +1213,11 @@ namespace fastgltf {
 
 	struct DracoCompressedPrimitive {
 		std::size_t bufferView;
-		FASTGLTF_FG_PMR_NS::small_vector<Attribute, 4> attributes;
+#if FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
+		small_vector<Attribute, 4> attributes;
+#else
+		FASTGLTF_STD_PMR_NS::vector<Attribute> attributes;
+#endif
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
 			return internal::findByName(attributes, name);
@@ -1227,10 +1231,14 @@ namespace fastgltf {
 	FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
-		FASTGLTF_FG_PMR_NS::small_vector<Attribute, 4> attributes;
+#if FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
+		small_vector<Attribute, 4> attributes;
+#else
+		FASTGLTF_STD_PMR_NS::vector<Attribute> attributes;
+#endif
 		PrimitiveType type = PrimitiveType::Triangles;
 
-		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_FG_PMR_NS::small_vector<Attribute, 4>> targets;
+		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_STD_PMR_NS::vector<Attribute>> targets;
 
 		optional<std::size_t> indicesAccessor;
 		optional<std::size_t> materialIndex;
@@ -1697,7 +1705,6 @@ namespace fastgltf {
 		FASTGLTF_STD_PMR_NS::string name;
 	};
 
-	class ChunkMemoryResource;
 	FASTGLTF_EXPORT class Parser;
 
 	FASTGLTF_EXPORT class Asset {
