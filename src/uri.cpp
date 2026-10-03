@@ -44,7 +44,7 @@ namespace fastgltf::internal {
 				authEnd = str.size();
 			const auto authority = str.substr(idx, authEnd - idx);
 
-			if (const auto at = authority.rfind('@', idx);
+			if (const auto at = authority.rfind('@');
 				at != std::string_view::npos) {
 				c._userinfo = { .pos = idx, .len = at };
 				idx += at + 1;
@@ -58,8 +58,6 @@ namespace fastgltf::internal {
 					return c;
 				}
 				hostEnd = bracket + 1;
-				// IPv6 addresses are made up of colons, so we need to search after its address.
-				// This will just be hostEnd or std::string::npos.
 				if (hostEnd != authEnd && str[hostEnd] != ':') {
 					c._valid = false;
 					return c;

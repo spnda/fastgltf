@@ -81,6 +81,13 @@ TEST_CASE("Simple URIs", "[uri-tests]") {
 			REQUIRE(uri.host() == "host");
 		}
 
+		SECTION("Long userinfo") {
+			const fastgltf::URI uri(std::string_view("https://verylongusername@host"));
+			REQUIRE(uri.scheme() == "https");
+			REQUIRE(uri.userinfo() == "verylongusername");
+			REQUIRE(uri.host() == "host");
+		}
+
 		SECTION("Basic query") {
 			const fastgltf::URI uri(std::string_view("https://host?q=1"));
 			REQUIRE(uri.scheme() == "https");
