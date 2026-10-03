@@ -21,7 +21,7 @@ option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which u
 option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
 
 option(FASTGLTF_DOWNLOAD_SIMDJSON "Download simdjson if not found" ON)
-option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install(). Should be disabled when you want to use your own version of simdjson" ON)
+option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install()" ON)
 
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
 option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
@@ -31,13 +31,14 @@ option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
 
 set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 
-
-set(FASTGLTF_SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
+set(FASTGLTF_SIMDJSON_DL_DIR "${CMAKE_CURRENT_BINARY_DIR}/simdjson")
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies.cmake)
-
 
 # Create the library target
 set(FASTGLTF_HEADERS
@@ -74,18 +75,13 @@ target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIS
 set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
 set_target_properties(fastgltf PROPERTIES VERSION ${PROJECT_VERSION})
 
-if (ANDROID)
-    target_link_libraries(fastgltf PRIVATE android)
-endif ()
-
-if (TARGET simdjson::simdjson)
-    target_link_libraries(fastgltf PRIVATE simdjson::simdjson)
-else ()
-    fastgltf_add_source_directory(TARGET fastgltf FOLDER ${SIMDJSON_DL_DIR})
-    target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/deps/simdjson> $<INSTALL_INTERFACE:include>)
-endif ()
+target_link_libraries(fastgltf PRIVATE ${FASTGLTF_SIMDJSON_TARGET})
 if (FASTGLTF_SIMDJSON_TARGET_VERSION)
     target_compile_definitions(fastgltf PRIVATE FASTGLTF_SIMDJSON_TARGET_VERSION="${FASTGLTF_SIMDJSON_TARGET_VERSION}")
+endif ()
+
+if (ANDROID)
+    target_link_libraries(fastgltf PRIVATE android)
 endif ()
 
 # Old versions of GCC and Clang require linking with the standard filesystem library
@@ -138,10 +134,6 @@ elseif (FASTGLTF_ENABLE_CPP_MODULES)
     message(WARNING "FASTGLTF_ENABLE_CPP_MODULES is ON but compiler does not support them")
 endif ()
 
-
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-
 write_basic_package_version_file(
     "${PROJECT_BINARY_DIR}/fastgltfConfigVersion.cmake"
     VERSION ${PACKAGE_VERSION}
@@ -150,17 +142,26 @@ write_basic_package_version_file(
 
 if (FASTGLTF_ENABLE_INSTALL)
     install(
-        FILES ${FASTGLTF_HEADERS}
-        DESTINATION include/fastgltf
+        DIRECTORY include/fastgltf
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.hpp"
     )
 
-    install(FILES
-        "${CMAKE_CURRENT_BINARY_DIR}/fastgltfConfigVersion.cmake"
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
-    )
+    set(FASTGLTF_INSTALL_TARGETS fastgltf)
+    if (TARGET fastgltf_simdjson)
+        # We downloaded simdjson so we need to also install simdjson.h alongside the fastgltf headers
+        list(APPEND FASTGLTF_INSTALL_TARGETS fastgltf_simdjson)
+        install(
+            FILES "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h"
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/fastgltf/simdjson
+        )
+        set(FASTGLTF_FIND_SIMDJSON OFF)
+    else ()
+        set(FASTGLTF_FIND_SIMDJSON ON)
+    endif ()
 
     install(
-        TARGETS fastgltf
+        TARGETS ${FASTGLTF_INSTALL_TARGETS}
         EXPORT fastgltf-targets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -168,11 +169,25 @@ if (FASTGLTF_ENABLE_INSTALL)
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 
+    set(FASTGLTF_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf")
+
     install(
         EXPORT fastgltf-targets
-        FILE fastgltfConfig.cmake
+        FILE fastgltf-targets.cmake
         NAMESPACE fastgltf::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/fastgltf
+        DESTINATION ${FASTGLTF_CONFIG_INSTALL_DIR}
+    )
+
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/fastgltfConfig.cmake.in"
+        "${PROJECT_BINARY_DIR}/fastgltfConfig.cmake"
+        INSTALL_DESTINATION ${FASTGLTF_CONFIG_INSTALL_DIR}
+    )
+
+    install(FILES
+        "${PROJECT_BINARY_DIR}/fastgltfConfig.cmake"
+        "${PROJECT_BINARY_DIR}/fastgltfConfigVersion.cmake"
+        DESTINATION ${FASTGLTF_CONFIG_INSTALL_DIR}
     )
 endif ()
 

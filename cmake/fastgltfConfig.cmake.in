@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# When fastgltf downloads simdjson it is part of this package, but we need to find it again if not.
+if (@FASTGLTF_FIND_SIMDJSON@)
+    find_dependency(simdjson)
+endif ()
+
+include("${CMAKE_CURRENT_LIST_DIR}/fastgltf-targets.cmake")
+
+check_required_components(fastgltf)

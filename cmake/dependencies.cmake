@@ -1,6 +1,6 @@
 include(FetchContent)
 
-macro(fastgltf_download_and_check_for_errors URL DEST_FILE)
+function(fastgltf_download_and_check_for_errors URL DEST_FILE)
     file(DOWNLOAD "${URL}" "${DEST_FILE}" STATUS DOWNLOAD_STATUS)
 
     list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
@@ -11,9 +11,9 @@ macro(fastgltf_download_and_check_for_errors URL DEST_FILE)
     else()
         message(STATUS "fastgltf: Successfully downloaded: ${DEST_FILE}")
     endif()
-endmacro()
+endfunction()
 
-macro(fastgltf_download_simdjson)
+function(fastgltf_download_simdjson)
     fastgltf_download_and_check_for_errors(
             "https://raw.githubusercontent.com/simdjson/simdjson/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h"
             ${FASTGLTF_SIMDJSON_HEADER_FILE}
@@ -23,14 +23,17 @@ macro(fastgltf_download_simdjson)
             "https://raw.githubusercontent.com/simdjson/simdjson/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/singleheader/simdjson.cpp"
             ${FASTGLTF_SIMDJSON_SOURCE_FILE}
     )
-endmacro()
+endfunction()
 
 # If the target already exists due to the parent script already including it as a dependency, just directly link it.
-if (NOT TARGET simdjson::simdjson)
+if (TARGET simdjson::simdjson)
+    set(FASTGLTF_SIMDJSON_TARGET simdjson::simdjson)
+else()
     # Try to find simdjson through a find_package call.
-    find_package(simdjson CONFIG)
+    find_package(simdjson CONFIG QUIET)
     if (simdjson_FOUND)
-        message(STATUS "fastgltf: Found simdjson config")
+        message(STATUS "fastgltf: Found simdjson config (${simdjson_VERSION})")
+        set(FASTGLTF_SIMDJSON_TARGET simdjson::simdjson)
     elseif (FASTGLTF_DOWNLOAD_SIMDJSON)
         # Download and configure simdjson
         set(FASTGLTF_SIMDJSON_TARGET_VERSION "4.6.11")
@@ -38,9 +41,6 @@ if (NOT TARGET simdjson::simdjson)
 
         set(FASTGLTF_SIMDJSON_HEADER_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h")
         set(FASTGLTF_SIMDJSON_SOURCE_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.cpp")
-
-        set(FASTGLTF_SIMDJSON_LOCK_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson_download.lock")
-        file(LOCK "${FASTGLTF_SIMDJSON_LOCK_FILE}" GUARD PROCESS TIMEOUT 30)
 
         if (EXISTS ${FASTGLTF_SIMDJSON_HEADER_FILE})
             # Look for the SIMDJSON_VERSION define in the header to check the version.
@@ -70,7 +70,17 @@ if (NOT TARGET simdjson::simdjson)
             endif ()
         endif ()
 
-        file(LOCK "${FASTGLTF_SIMDJSON_LOCK_FILE}" RELEASE)
+        # create a static library for simdjson in the fastgltf "namespace"
+        add_library(fastgltf_simdjson STATIC "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.cpp")
+        fastgltf_compiler_flags(fastgltf_simdjson)
+        target_include_directories(fastgltf_simdjson PUBLIC
+                $<BUILD_INTERFACE:${FASTGLTF_SIMDJSON_DL_DIR}>
+                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/fastgltf/simdjson>)
+        target_compile_features(fastgltf_simdjson PUBLIC ${FASTGLTF_COMPILE_TARGET})
+        set_target_properties(fastgltf_simdjson PROPERTIES POSITION_INDEPENDENT_CODE ON EXPORT_NAME simdjson)
+
+        add_library(fastgltf::simdjson ALIAS fastgltf_simdjson)
+        set(FASTGLTF_SIMDJSON_TARGET fastgltf::simdjson)
     else()
         message(FATAL_ERROR "fastgltf: Failed to find simdjson")
     endif ()
