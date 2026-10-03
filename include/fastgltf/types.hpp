@@ -893,6 +893,13 @@ namespace fastgltf {
 		std::size_t accessorIndex;
 	};
 
+	namespace internal {
+		template <std::ranges::forward_range R>
+		[[nodiscard]] auto findByName(R&& range, const std::string_view name) noexcept {
+			return std::ranges::find(std::forward<R>(range), name, &Attribute::name);
+		}
+	} // namespace internal
+
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 	FASTGLTF_EXPORT struct SphereShape {
 		num radius = 0.5;
@@ -1196,19 +1203,11 @@ namespace fastgltf {
 		bool hoverable = true;
 
 		[[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) noexcept {
-			for (auto it = instancingAttributes.begin(); it != instancingAttributes.end(); ++it) {
-				if (it->name == attributeName)
-					return it;
-			}
-			return instancingAttributes.end();
+			return internal::findByName(instancingAttributes, attributeName);
 		}
 
 		[[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) const noexcept {
-			for (auto it = instancingAttributes.cbegin(); it != instancingAttributes.cend(); ++it) {
-				if (it->name == attributeName)
-					return it;
-			}
-			return instancingAttributes.cend();
+			return internal::findByName(instancingAttributes, attributeName);
 		}
 	};
 
@@ -1217,19 +1216,11 @@ namespace fastgltf {
 		FASTGLTF_FG_PMR_NS::small_vector<Attribute, 4> attributes;
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
-			for (auto* it = attributes.begin(); it != attributes.end(); ++it) {
-				if (it->name == name)
-					return it;
-			}
-			return attributes.end();
+			return internal::findByName(attributes, name);
 		}
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) const noexcept {
-			for (const auto* it = attributes.cbegin(); it != attributes.cend(); ++it) {
-				if (it->name == name)
-					return it;
-			}
-			return attributes.cend();
+			return internal::findByName(attributes, name);
 		}
 	};
 
@@ -1253,38 +1244,20 @@ namespace fastgltf {
 
 		std::unique_ptr<DracoCompressedPrimitive> dracoCompression;
 
-		[[nodiscard]] auto findAttribute(std::string_view name) noexcept {
-			for (auto* it = attributes.begin(); it != attributes.end(); ++it) {
-				if (it->name == name)
-					return it;
-			}
-			return attributes.end();
+		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
+			return internal::findByName(attributes, name);
 		}
 
-		[[nodiscard]] auto findAttribute(std::string_view name) const noexcept {
-			for (const auto* it = attributes.cbegin(); it != attributes.cend(); ++it) {
-				if (it->name == name)
-					return it;
-			}
-			return attributes.cend();
+		[[nodiscard]] auto findAttribute(const std::string_view name) const noexcept {
+			return internal::findByName(attributes, name);
 		}
 
-		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) noexcept {
-			auto& targetAttributes = targets[targetIndex];
-			for (auto* it = targetAttributes.begin(); it != targetAttributes.end(); ++it) {
-				if (it->name == name)
-					return it;
-			}
-			return targetAttributes.end();
+		[[nodiscard]] auto findTargetAttribute(const std::size_t targetIndex, const std::string_view name) noexcept {
+			return internal::findByName(targets[targetIndex], name);
 		}
 
-		[[nodiscard]] auto findTargetAttribute(std::size_t targetIndex, std::string_view name) const noexcept {
-			const auto& targetAttributes = targets[targetIndex];
-			for (const auto* it = targetAttributes.cbegin(); it != targetAttributes.cend(); ++it) {
-				if (it->name == name)
-					return it;
-			}
-			return targetAttributes.cend();
+		[[nodiscard]] auto findTargetAttribute(const std::size_t targetIndex, const std::string_view name) const noexcept {
+			return internal::findByName(targets[targetIndex], name);
 		}
 	};
 
