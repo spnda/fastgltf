@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790998960894,
+  "lastUpdate": 1791007852086,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -1502,6 +1502,100 @@ window.BENCHMARK_DATA = {
             "name": "Run fastgltf's AVX2 base64 decoder",
             "value": 82.907,
             "range": "± 16.0041",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "timothee.denizou@epita.fr",
+            "name": "Timothee Denizou",
+            "username": "tim-tim707"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "075c41a57eac64c607443435ba7e760a632d4e3a",
+          "message": "a '%' without two hex digits after it read past the string and erase()d past its end, which throws from this noexcept function.",
+          "timestamp": "2026-10-03T08:08:09+02:00",
+          "tree_id": "3dc22ccb776a28a34f06a7850aa0033549a65a34",
+          "url": "https://github.com/spnda/fastgltf/commit/075c41a57eac64c607443435ba7e760a632d4e3a"
+        },
+        "date": 1791007851278,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 2.08676,
+            "range": "± 27.7798",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's fallback base64 decoder",
+            "value": 0.874847,
+            "range": "± 0.00537169",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's SSE4 base64 decoder",
+            "value": 118.863,
+            "range": "± 6.15639",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's AVX2 base64 decoder",
+            "value": 65.9026,
+            "range": "± 5.03065",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 216.006,
+            "range": "± 8.7011",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 16.2156,
+            "range": "± 0.64193",
+            "unit": "ns",
+            "extra": "50 samples\n1489 iterations"
+          },
+          {
+            "name": "SSE4 hardware algorithm",
+            "value": 2.18061,
+            "range": "± 0.104341",
+            "unit": "ns",
+            "extra": "50 samples\n11014 iterations"
+          },
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 8.35351,
+            "range": "± 341.15",
+            "unit": "us",
+            "extra": "50 samples\n3 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 215.91,
+            "range": "± 9.08968",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 216.085,
+            "range": "± 9.45033",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
           }
