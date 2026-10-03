@@ -1356,6 +1356,8 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	asset.memoryResource = resourceAllocator = std::make_shared<std::pmr::monotonic_buffer_resource>();
 #endif
 
+	asset.materialVariants = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(asset.materialVariants), resourceAllocator.get(), 0);
+
 	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
 		dom::object assetInfo;
 		AssetInfo info = {};
@@ -1377,27 +1379,28 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		if (major != 2U) {
 			return Error::UnsupportedVersion;
 		}
-		info.gltfVersion = std::string { version };
+		info.gltfVersion = version;
 
 		std::string_view copyright;
 		if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) [[likely]] {
-			info.copyright = std::string { copyright };
+			info.copyright = copyright;
 		}
 
 		std::string_view generator;
 		if (assetInfo["generator"].get_string().get(generator) == SUCCESS) [[likely]] {
-			info.generator = std::string { generator };
+			info.generator = generator;
 		}
 
 		std::string_view minVersion;
 		if (assetInfo["minVersion"].get_string().get(minVersion) == SUCCESS) [[likely]] {
-			info.minVersion = std::string { minVersion };
+			info.minVersion = minVersion;
 		}
 
 		asset.assetInfo = std::move(info);
 	}
 
 	if (dom::array extensionsRequired; root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) [[likely]] {
+		asset.extensionsRequired = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(asset.extensionsRequired), resourceAllocator.get(), 0);
 		for (auto extension : extensionsRequired) {
 			std::string_view string;
 			if (extension.get_string().get(string) != SUCCESS) [[unlikely]] {
@@ -1478,6 +1481,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			KEY_SWITCH_CASE(Skins, skins)
 			KEY_SWITCH_CASE(Textures, textures)
 			case force_consteval<crc32c("extensionsUsed")>: {
+				asset.extensionsUsed = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(asset.extensionsUsed), resourceAllocator.get(), 0);
 				for (auto usedValue : array) {
 					std::string_view usedString;
 					if (auto eError = usedValue.get_string().get(usedString); eError == SUCCESS) [[likely]] {
@@ -1522,6 +1526,10 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			}
 		}
 	}
+
+	// Release resources from the parser and let them live only in the asset
+	resourceAllocator.reset();
+	glbBuffer = std::monostate {};
 
 	return asset;
 }
