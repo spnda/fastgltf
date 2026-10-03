@@ -25,6 +25,9 @@ To learn more about fastgltf, its features, performance and API you can read [th
 > [!NOTE]
 > For C++17 compatibility, please use v0.9.x. Later versions require C++20.
 
+> [!IMPORTANT]
+> Always use a released version, either through vcpkg or Conan or by checking out a [tagged release](../../releases). The `main` branch is under active development and may contain broken or incomplete changes.
+
 ## Examples and real-world usage
 
 The `examples/` directory contains some small demos showing how to integrate fastgltf into a 3D renderer.
