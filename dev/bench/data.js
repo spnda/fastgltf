@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791050122029,
+  "lastUpdate": 1791050311111,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -3533,6 +3533,93 @@ window.BENCHMARK_DATA = {
             "name": "Run fastgltf's Neon base64 decoder",
             "value": 486.84,
             "range": "± 5.36329",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "timothee.denizou@epita.fr",
+            "name": "Timothee Denizou",
+            "username": "tim-tim707"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "a9f4ead8f990f006f70cca6c549c78fecb108dbc",
+          "message": " getPadding / getOutputSize and the decoders assume a positive multiple of 4 characters from the base64 alphabet and only assert it, so malformed data URIs read out of bounds or overflow the output.",
+          "timestamp": "2026-10-03T19:52:42+02:00",
+          "tree_id": "500dcfa4015926a1d139bd5d18e486546b6db856",
+          "url": "https://github.com/spnda/fastgltf/commit/a9f4ead8f990f006f70cca6c549c78fecb108dbc"
+        },
+        "date": 1791050310781,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 15.7976,
+            "range": "± 0.139167",
+            "unit": "ns",
+            "extra": "50 samples\n1999 iterations"
+          },
+          {
+            "name": "ARMv8 hardware CRC32-C algorithm",
+            "value": 2.06374,
+            "range": "± 0.0226622",
+            "unit": "ns",
+            "extra": "50 samples\n15280 iterations"
+          },
+          {
+            "name": "Run fastgltf's fallback base64 decoder",
+            "value": 733.618,
+            "range": "± 7.20936",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Run fastgltf's Neon base64 decoder",
+            "value": 488.173,
+            "range": "± 8.68578",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 280.366,
+            "range": "± 4.92207",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 8.41496,
+            "range": "± 137.529",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 33.8702,
+            "range": "± 527.334",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 281.797,
+            "range": "± 7.40222",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 280.119,
+            "range": "± 5.22481",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
           }
