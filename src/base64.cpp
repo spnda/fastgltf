@@ -62,12 +62,12 @@
 namespace fg = fastgltf;
 
 namespace fastgltf::base64 {
-	using DecodeFunctionInplace = std::function<void(std::string_view, std::uint8_t*, std::size_t)>;
-	using DecodeFunction = std::function<fg::static_vector<std::uint8_t>(std::string_view)>;
+	using DecodeFunctionInplace = void(std::string_view, std::uint8_t*, std::size_t);
+	using DecodeFunction = static_vector<std::uint8_t>(std::string_view);
 
 	struct DecodeFunctionGetter {
-		DecodeFunction func;
-		DecodeFunctionInplace inplace;
+		DecodeFunction* func;
+		DecodeFunctionInplace* inplace;
 
 		explicit DecodeFunctionGetter() {
 			// We use simdjson's helper functions to determine which SIMD intrinsics are available at runtime.
