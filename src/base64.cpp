@@ -188,7 +188,7 @@ namespace fastgltf::base64 {
 	const auto encodedSize = encoded.size();
 	const auto padding = getPadding(encoded);
 
-	fg::static_vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+	fg::static_vector<std::uint8_t> ret(for_overwrite, getOutputSize(encodedSize, padding));
 	avx2_decode_inplace(encoded, ret.data(), padding);
 
 	return ret;
@@ -263,7 +263,7 @@ namespace fastgltf::base64 {
 	const auto encodedSize = encoded.size();
 	const auto padding = getPadding(encoded);
 
-	fg::static_vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+	fg::static_vector<std::uint8_t> ret(for_overwrite, getOutputSize(encodedSize, padding));
 	sse4_decode_inplace(encoded, ret.data(), padding);
 
 	return ret;
@@ -355,7 +355,7 @@ fg::static_vector<std::uint8_t> fg::base64::neon_decode(std::string_view encoded
 	const auto encodedSize = encoded.size();
 	const auto padding = getPadding(encoded);
 
-	static_vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+	static_vector<std::uint8_t> ret(for_overwrite, getOutputSize(encodedSize, padding));
 	neon_decode_inplace(encoded, ret.data(), padding);
 
 	return ret;
@@ -418,7 +418,7 @@ fg::static_vector<std::uint8_t> fg::base64::fallback_decode(std::string_view enc
 	const auto encodedSize = encoded.size();
 	const auto padding = getPadding(encoded);
 
-	fg::static_vector<std::uint8_t> ret(getOutputSize(encodedSize, padding));
+	fg::static_vector<std::uint8_t> ret(for_overwrite, getOutputSize(encodedSize, padding));
 	fallback_decode_inplace(encoded, ret.data(), padding);
 
 	return ret;

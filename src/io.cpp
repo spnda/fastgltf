@@ -130,15 +130,17 @@ void fg::GltfFileStream::read(void *ptr, std::size_t count) {
 			static_cast<std::streamsize>(count));
 }
 
-std::span<std::byte> fg::GltfFileStream::read(std::size_t count, std::size_t padding) {
-	static_assert(sizeof(decltype(buf)::value_type) == sizeof(std::byte));
+std::span<std::byte> fg::GltfFileStream::read(const std::size_t count, const std::size_t padding) {
+	if (const auto n = count + padding; buf.size() < n) {
+		buf = static_vector<std::byte>(for_overwrite, n);
+	}
 
-	buf.resize(count + padding);
 	fileStream.read(
 			reinterpret_cast<char*>(buf.data()),
 			static_cast<std::streamsize>(count));
 
-	return {reinterpret_cast<std::byte*>(buf.data()), buf.size()};
+	std::memset(buf.data() + count, 0, padding);
+	return { buf.data(), count };
 }
 
 void fg::GltfFileStream::reset() {
@@ -394,7 +396,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 		}
 	}
 
-	static_vector<std::byte> data(static_cast<std::size_t>(length));
+	static_vector<std::byte> data(for_overwrite, static_cast<std::size_t>(length));
 	AAsset_read(file.get(), data.data(), length);
 	sources::Array arraySource {
 		std::move(data),
@@ -458,7 +460,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(URIView& uri) const noe
 		}
 	}
 
-	static_vector<std::byte> data(static_cast<std::size_t>(length));
+	static_vector<std::byte> data(for_overwrite, static_cast<std::size_t>(length));
 	file.read(reinterpret_cast<char*>(data.data()), length);
 	sources::Array arraySource {
 		std::move(data),

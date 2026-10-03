@@ -48,7 +48,7 @@ TEST_CASE("Test normalized accessor data conversion", "[gltf-tools]") {
 	// copyFromAccessor has to denormalize a normalized accessor, just like iterateAccessor and getAccessorElement.
 	constexpr std::array<std::int16_t, 6> components {{ 32767, 0, -32767, -32767, 16384, 32767 }};
 
-	fastgltf::static_vector<std::byte> bytes(sizeof(components));
+	fastgltf::static_vector<std::byte> bytes(fastgltf::for_overwrite, sizeof(components));
 	std::memcpy(bytes.data(), components.data(), sizeof(components));
 
 	fastgltf::Buffer buffer = {};

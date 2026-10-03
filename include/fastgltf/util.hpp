@@ -278,6 +278,9 @@ namespace fastgltf {
 	inline bool startsWith(std::string_view str, std::string_view search) {
 		return str.rfind(search, 0) == 0;
 	}
+
+	FASTGLTF_EXPORT struct for_overwrite_t { explicit for_overwrite_t() = default; };
+	FASTGLTF_EXPORT inline constexpr for_overwrite_t for_overwrite {};
 } // namespace fastgltf
 
 #ifdef _MSC_VER

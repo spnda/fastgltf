@@ -725,7 +725,7 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT class GltfFileStream : public GltfDataGetter {
 		std::ifstream fileStream;
-		std::vector<std::ifstream::char_type> buf;
+		static_vector<std::byte> buf;
 
 		std::size_t fileSize;
 

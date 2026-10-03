@@ -1014,9 +1014,21 @@ TEST_CASE("Test static_vector constructors", "[static-vector]") {
 		fastgltf::static_vector<std::uint32_t> vector(10);
 		REQUIRE(vector.size() == 10);
 		for (std::uint32_t i = 0; i < vector.size(); ++i) {
+			REQUIRE(vector[i] == 0);
 			vector[i] = i;
 		}
 
+		for (std::uint32_t i = 0; auto& element : vector) {
+			REQUIRE(element == i++);
+		}
+	}
+
+	SECTION("for_overwrite") {
+		fastgltf::static_vector<std::uint32_t> vector(fastgltf::for_overwrite, 10);
+		REQUIRE(vector.size() == 10);
+		for (std::uint32_t i = 0; i < vector.size(); ++i) {
+			vector[i] = i;
+		}
 		for (std::uint32_t i = 0; auto& element : vector) {
 			REQUIRE(element == i++);
 		}

@@ -111,11 +111,13 @@ namespace fastgltf {
 
 		explicit static_vector(const size_type size, const Allocator& allocator = Allocator()) : _allocator(allocator) {
 			allocate_and_construct(size, [&](pointer data) {
-				if constexpr (std::is_trivially_default_constructible_v<T> && !std::uses_allocator_v<T, Allocator>) {
-					std::uninitialized_default_construct_n(data, size);
-				} else {
-					internal::allocator_construct_n(_allocator, data, size);
-				}
+				internal::allocator_construct_n(_allocator, data, size);
+			});
+		}
+		explicit static_vector(for_overwrite_t, const size_type size, const Allocator& allocator = Allocator())
+			requires std::is_trivially_default_constructible_v<T> : _allocator(allocator) {
+			allocate_and_construct(size, [&](pointer data) {
+				std::uninitialized_default_construct_n(data, size);
 			});
 		}
 		explicit static_vector(const size_type size, const T& initialValue, const Allocator& allocator = Allocator()) : _allocator(allocator) {

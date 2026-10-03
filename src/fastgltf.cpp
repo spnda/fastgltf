@@ -454,7 +454,7 @@ fg::URI::URI(const URI& other) {
 }
 
 fg::URI::URI(URI&& other) noexcept {
-	*this = other;
+	*this = std::move(other);
 }
 
 fg::URI& fg::URI::operator=(const URI& other) {
@@ -588,8 +588,8 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 	}
 
 	// Decode the base64 data into a traditional vector
-	auto padding = base64::getPadding(encodedData);
-	fg::static_vector<std::byte> uriData(base64::getOutputSize(encodedData.size(), padding));
+	const auto padding = base64::getPadding(encodedData);
+	static_vector<std::byte> uriData(for_overwrite, base64::getOutputSize(encodedData.size(), padding));
 	if (config.decodeCallback != nullptr) {
 		config.decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(uriData.data()), padding, uriData.size(), config.userPointer);
 	} else {
@@ -725,18 +725,18 @@ static std::pair<static_vector<std::byte>, ComponentType> writeIndices(
 	const PrimitiveType type, const std::size_t indexCount, const std::size_t primitiveCount) {
 
 	if (indexCount < 255) {
-		static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint8_t));
+		static_vector<std::byte> generatedIndices(for_overwrite, indexCount * sizeof(std::uint8_t));
 		writeIndices<std::uint8_t>(generatedIndices, type, primitiveCount);
 		return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedByte);
 	}
 
 	if (indexCount < 65535) {
-		static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint16_t));
+		static_vector<std::byte> generatedIndices(for_overwrite, indexCount * sizeof(std::uint16_t));
 		writeIndices<std::uint16_t>(generatedIndices, type, primitiveCount);
 		return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedShort);
 	}
 
-	static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint32_t));
+	static_vector<std::byte> generatedIndices(for_overwrite, indexCount * sizeof(std::uint32_t));
 	writeIndices<std::uint32_t>(generatedIndices, type, primitiveCount);
 	return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedInt);
 }
@@ -4924,7 +4924,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 					glbBuffer = sources::CustomBuffer{info.customId, MimeType::None};
 				}
 			} else {
-				static_vector<std::byte> binaryData(binaryChunk.chunkLength);
+				static_vector<std::byte> binaryData(for_overwrite, binaryChunk.chunkLength);
 				data.read(binaryData.data(), binaryChunk.chunkLength);
 
 				sources::Array vectorData = {

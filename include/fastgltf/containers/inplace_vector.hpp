@@ -106,6 +106,14 @@ namespace fastgltf {
 			_size = count;
 		}
 
+		explicit inplace_vector(for_overwrite_t, const size_type count)
+		requires std::is_trivially_default_constructible_v<T> {
+			if (count > max_size()) [[unlikely]]
+				raise<std::bad_alloc>();
+			std::uninitialized_default_construct_n(begin(), count);
+			_size = count;
+		}
+
 		inplace_vector(const size_type count, const T& value) {
 			if (count > max_size()) [[unlikely]]
 				raise<std::bad_alloc>();
