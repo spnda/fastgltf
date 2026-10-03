@@ -20,12 +20,14 @@ endif ()
 option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which uses C++20 modules" OFF)
 option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
 
+option(FASTGLTF_DOWNLOAD_SIMDJSON "Download simdjson if not found" ON)
+option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install(). Should be disabled when you want to use your own version of simdjson" ON)
+
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
 option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
 option(FASTGLTF_ENABLE_DOCS "Enables the configuration of targets that build/generate documentation" OFF)
 option(FASTGLTF_ENABLE_GLTF_RS "Enables the benchmark usage of gltf-rs" OFF)
 option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
-option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install(). Should be disabled when you want to use your own version of simdjson" ON)
 
 set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
@@ -33,7 +35,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 
 
-set(SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
+set(FASTGLTF_SIMDJSON_DL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/simdjson")
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies.cmake)
 
 
@@ -82,8 +84,8 @@ else ()
     fastgltf_add_source_directory(TARGET fastgltf FOLDER ${SIMDJSON_DL_DIR})
     target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/deps/simdjson> $<INSTALL_INTERFACE:include>)
 endif ()
-if (SIMDJSON_TARGET_VERSION)
-    target_compile_definitions(fastgltf PRIVATE SIMDJSON_TARGET_VERSION="${SIMDJSON_TARGET_VERSION}")
+if (FASTGLTF_SIMDJSON_TARGET_VERSION)
+    target_compile_definitions(fastgltf PRIVATE FASTGLTF_SIMDJSON_TARGET_VERSION="${FASTGLTF_SIMDJSON_TARGET_VERSION}")
 endif ()
 
 # Old versions of GCC and Clang require linking with the standard filesystem library
