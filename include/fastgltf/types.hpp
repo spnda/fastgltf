@@ -2841,7 +2841,7 @@ namespace fastgltf {
 		std::vector<Skin> skins;
 		std::vector<Texture> textures;
 
-		std::vector<std::string> materialVariants;
+		FASTGLTF_STD_PMR_NS::vector<std::string> materialVariants;
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 		std::vector<Shape> shapes;
