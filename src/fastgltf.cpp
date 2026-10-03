@@ -1254,7 +1254,9 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	}
 
 	// Release resources from the parser and let them live only in the asset
+#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 	resourceAllocator.reset();
+#endif
 	glbBuffer = std::monostate {};
 
 	return asset;

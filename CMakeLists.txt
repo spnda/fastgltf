@@ -19,6 +19,15 @@ option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modu
 option(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES "Enable support for the experimental KHR_implicit_shapes extension" OFF)
 option(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES "Enable support for the experimental KHR_physics_rigid_bodies extension" OFF)
 option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install(). Should be disabled when you want to use your own version of simdjson" ON)
+option(FASTGLTF_ENABLE_FUZZING "Builds fuzzing targets (requires LLVM)" OFF)
+
+if (FASTGLTF_ENABLE_FUZZING)
+    if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        message(FATAL_ERROR "fastgltf: Fuzzing requires Clang")
+    endif()
+    set(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL ON) # otherwise asan can't always detect issues
+    set(FASTGLTF_SANITIZER_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
+endif()
 
 set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
@@ -134,6 +143,10 @@ elseif (FASTGLTF_ENABLE_CPP_MODULES)
     message(WARNING "FASTGLTF_ENABLE_CPP_MODULES is ON but compiler does not support them")
 endif ()
 
+if (FASTGLTF_ENABLE_FUZZING)
+    target_compile_options(fastgltf PRIVATE -fsanitize=fuzzer-no-link ${FASTGLTF_SANITIZER_FLAGS})
+    add_subdirectory(tests/fuzz)
+endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
