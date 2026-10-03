@@ -7,25 +7,27 @@ endif ()
 project(fastgltf VERSION 1.0.0 LANGUAGES C CXX)
 
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom small_vector type optimised for small arrays" OFF)
-option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
-option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
-option(FASTGLTF_ENABLE_DOCS "Enables the configuration of targets that build/generate documentation" OFF)
-option(FASTGLTF_ENABLE_GLTF_RS "Enables the benchmark usage of gltf-rs" OFF)
-option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
 option(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL "Disables the memory allocation algorithm based on polymorphic resources" OFF)
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
-option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which uses C++20 modules" OFF)
-option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
 option(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES "Enable support for the experimental KHR_implicit_shapes extension" OFF)
 option(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES "Enable support for the experimental KHR_physics_rigid_bodies extension" OFF)
-option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install(). Should be disabled when you want to use your own version of simdjson" ON)
-
-set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
 # physics rigid bodies depends on implicit shapes
 if (FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES)
     set(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES ON)
 endif ()
+
+option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which uses C++20 modules" OFF)
+option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
+
+option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
+option(FASTGLTF_ENABLE_EXAMPLES "Enables example targets for fastgltf" OFF)
+option(FASTGLTF_ENABLE_DOCS "Enables the configuration of targets that build/generate documentation" OFF)
+option(FASTGLTF_ENABLE_GLTF_RS "Enables the benchmark usage of gltf-rs" OFF)
+option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
+option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install(). Should be disabled when you want to use your own version of simdjson" ON)
+
+set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
