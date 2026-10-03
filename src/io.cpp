@@ -203,6 +203,7 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept : mappedFile(M
 	struct stat statInfo {};
 	if (fstat(fd, &statInfo) != 0) {
 		error = Error::InvalidPath;
+		close(fd);
 		return;
 	}
 
