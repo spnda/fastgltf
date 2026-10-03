@@ -727,18 +727,18 @@ static std::pair<static_vector<std::byte>, ComponentType> writeIndices(
 	if (indexCount < 255) {
 		static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint8_t));
 		writeIndices<std::uint8_t>(generatedIndices, type, primitiveCount);
-		return std::make_pair(generatedIndices, ComponentType::UnsignedByte);
+		return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedByte);
 	}
 
 	if (indexCount < 65535) {
 		static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint16_t));
 		writeIndices<std::uint16_t>(generatedIndices, type, primitiveCount);
-		return std::make_pair(generatedIndices, ComponentType::UnsignedShort);
+		return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedShort);
 	}
 
 	static_vector<std::byte> generatedIndices(indexCount * sizeof(std::uint32_t));
 	writeIndices<std::uint32_t>(generatedIndices, type, primitiveCount);
-	return std::make_pair(generatedIndices, ComponentType::UnsignedInt);
+	return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedInt);
 }
 }
 
