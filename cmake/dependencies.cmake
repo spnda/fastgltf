@@ -1,7 +1,11 @@
 include(FetchContent)
 
-function(fastgltf_download_and_check_for_errors URL DEST_FILE)
-    file(DOWNLOAD "${URL}" "${DEST_FILE}" STATUS DOWNLOAD_STATUS)
+function(fastgltf_download_and_check_for_errors URL DEST_FILE HASH)
+    file(
+            DOWNLOAD "${URL}" "${DEST_FILE}"
+            STATUS DOWNLOAD_STATUS
+            EXPECTED_HASH SHA256=${HASH}
+    )
 
     list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
     list(GET DOWNLOAD_STATUS 1 ERROR_MESSAGE)
@@ -17,11 +21,13 @@ function(fastgltf_download_simdjson)
     fastgltf_download_and_check_for_errors(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.h"
             ${FASTGLTF_SIMDJSON_HEADER_FILE}
+            a5c467c33c7871262eb4c82775490430758939c1c516fbdaeb662f8255860a60
     )
 
     fastgltf_download_and_check_for_errors(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.cpp"
             ${FASTGLTF_SIMDJSON_SOURCE_FILE}
+            66c818d1a6b3841febef7a8336ff297f0a52e250a436b598bcdecf010d626243
     )
 endfunction()
 
@@ -29,11 +35,13 @@ function(fastgltf_download_simdutf)
     fastgltf_download_and_check_for_errors(
             "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.h"
             ${FASTGLTF_SIMDUTF_HEADER_FILE}
+            27cbcc731b268c36932fabeccd8b7a940804cc51b1325e2221a76b26c5bfab23
     )
 
     fastgltf_download_and_check_for_errors(
             "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.cpp"
             ${FASTGLTF_SIMDUTF_SOURCE_FILE}
+            9d99344ce132040987d11841b1d69900a90ab902efcda61b6552fc6c4515589d
     )
 endfunction()
 
@@ -60,7 +68,7 @@ else()
         set(FASTGLTF_SIMDJSON_HEADER_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h")
         set(FASTGLTF_SIMDJSON_SOURCE_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.cpp")
 
-        if (EXISTS ${FASTGLTF_SIMDJSON_HEADER_FILE})
+        if (EXISTS ${FASTGLTF_SIMDJSON_HEADER_FILE} AND EXISTS ${FASTGLTF_SIMDJSON_SOURCE_FILE})
             # Look for the SIMDJSON_VERSION define in the header to check the version.
             fastgltf_find_header_semantic_version(
                     ${FASTGLTF_SIMDJSON_HEADER_FILE} "SIMDJSON_VERSION" FASTGLTF_SIMDJSON_HEADER_VERSION)
@@ -117,7 +125,7 @@ else()
         set(FASTGLTF_SIMDUTF_HEADER_FILE "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.h")
         set(FASTGLTF_SIMDUTF_SOURCE_FILE "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.cpp")
 
-        if (EXISTS ${FASTGLTF_SIMDUTF_HEADER_FILE})
+        if (EXISTS ${FASTGLTF_SIMDUTF_HEADER_FILE} AND EXISTS ${FASTGLTF_SIMDUTF_SOURCE_FILE})
             fastgltf_find_header_semantic_version(
                     ${FASTGLTF_SIMDUTF_HEADER_FILE} "SIMDUTF_VERSION" FASTGLTF_SIMDUTF_HEADER_VERSION)
             message(STATUS "fastgltf: Found local simdutf (${FASTGLTF_SIMDUTF_HEADER_VERSION})")
