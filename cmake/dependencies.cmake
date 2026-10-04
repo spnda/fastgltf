@@ -159,6 +159,17 @@ else()
         target_compile_features(fastgltf_simdutf PUBLIC ${FASTGLTF_COMPILE_TARGET})
         set_target_properties(fastgltf_simdutf PROPERTIES POSITION_INDEPENDENT_CODE ON EXPORT_NAME simdutf)
 
+        # Disable all features except for the base64 feature to save compile time and binary size
+        target_compile_definitions(fastgltf_simdutf PUBLIC
+                SIMDUTF_FEATURE_BASE64=1
+                SIMDUTF_FEATURE_DETECT_ENCODING=0
+                SIMDUTF_FEATURE_ASCII=0
+                SIMDUTF_FEATURE_LATIN1=0
+                SIMDUTF_FEATURE_UTF8=0
+                SIMDUTF_FEATURE_UTF16=0
+                SIMDUTF_FEATURE_UTF32=0
+        )
+
         add_library(fastgltf::simdutf ALIAS fastgltf_simdutf)
         set(FASTGLTF_SIMDUTF_TARGET fastgltf::simdutf)
     else()
