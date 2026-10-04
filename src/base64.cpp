@@ -51,7 +51,7 @@ void fg::base64::decode_inplace(const std::string_view encoded, std::uint8_t* ou
 
 fg::static_vector<std::uint8_t> fg::base64::decode(const std::string_view encoded) {
 	const auto padding = getPadding(encoded);
-	static_vector<std::uint8_t> ret(for_overwrite, getOutputSize(encoded.size(), padding));
+	static_vector<std::uint8_t> ret(for_overwrite, getDecodedSize(encoded.size(), padding));
 	decode_inplace(encoded, ret.data(), padding);
 	return ret;
 }

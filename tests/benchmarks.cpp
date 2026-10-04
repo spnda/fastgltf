@@ -508,7 +508,7 @@ TEST_CASE("Compare base64 decoding performance", "[!benchmark][base64-benchmark]
 #endif
 
 		const auto padding = fastgltf::base64::getPadding(str);
-		const auto outputSize = fastgltf::base64::getOutputSize(str.size(), padding);
+		const auto outputSize = fastgltf::base64::getDecodedSize(str.size(), padding);
 		std::string output;
 		output.resize(outputSize);
 

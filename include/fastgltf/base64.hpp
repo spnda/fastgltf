@@ -62,10 +62,14 @@ namespace fastgltf::base64 {
 	 * Calculates the size of the decoded string based on the size of the base64 encoded string and
 	 * the amount of padding the encoded data contains.
 	 */
-	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getOutputSize(
-			const std::size_t encodedSize, const std::size_t padding) noexcept {
+	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getDecodedSize(
+			const std::size_t encodedSize, const std::size_t padding) {
 		assert(encodedSize % 4 == 0);
 		return (encodedSize / 4) * 3 - padding;
+	}
+	FASTGLTF_EXPORT [[deprecated, gnu::always_inline]] constexpr std::size_t getOutputSize(
+			const std::size_t encodedSize, const std::size_t padding) noexcept {
+		return getDecodedSize(encodedSize, padding);
 	}
 
 	FASTGLTF_EXPORT void decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);

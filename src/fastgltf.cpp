@@ -298,7 +298,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 	if (config.mapCallback != nullptr) {
 		// If a map callback is specified, we use a pointer to memory specified by it.
 		const auto padding = base64::getPadding(encodedData);
-		const auto size = base64::getOutputSize(encodedData.size(), padding);
+		const auto size = base64::getDecodedSize(encodedData.size(), padding);
 
 		auto info = config.mapCallback(size, config.userPointer);
 		if (info.mappedMemory != nullptr) {
@@ -321,7 +321,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 
 	// Decode the base64 data into a traditional vector
 	const auto padding = base64::getPadding(encodedData);
-	static_vector<std::byte> uriData(for_overwrite, base64::getOutputSize(encodedData.size(), padding));
+	static_vector<std::byte> uriData(for_overwrite, base64::getDecodedSize(encodedData.size(), padding));
 	if (const auto result = simdutf::base64_to_binary(
 			encodedData.data(), encodedData.size(), reinterpret_cast<char*>(uriData.data()));
 		result.is_err()) {
