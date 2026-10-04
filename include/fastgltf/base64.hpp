@@ -62,29 +62,17 @@ namespace fastgltf::base64 {
 	 * Calculates the size of the decoded string based on the size of the base64 encoded string and
 	 * the amount of padding the encoded data contains.
 	 */
-	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getOutputSize(
-			const std::size_t encodedSize, const std::size_t padding) noexcept {
+	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getDecodedSize(
+			const std::size_t encodedSize, const std::size_t padding) {
 		assert(encodedSize % 4 == 0);
 		return (encodedSize / 4) * 3 - padding;
 	}
+	FASTGLTF_EXPORT [[deprecated, gnu::always_inline]] constexpr std::size_t getOutputSize(
+			const std::size_t encodedSize, const std::size_t padding) noexcept {
+		return getDecodedSize(encodedSize, padding);
+	}
 
-#if defined(FASTGLTF_IS_X86)
-	void sse4_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
-	void avx2_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
-
-	[[nodiscard]] static_vector<std::uint8_t> sse4_decode(std::string_view encoded);
-	[[nodiscard]] static_vector<std::uint8_t> avx2_decode(std::string_view encoded);
-#elif defined(FASTGLTF_IS_A64) && !defined(_MSC_VER)
-	// There is some bug with the NEON implementations with MSVC, and because I have no hardware myself I cannot debug
-	// the issue properly. See https://github.com/spnda/fastgltf/issues/154
-#define FASTGLTF_ENABLE_NEON_BASE64 1
-	void neon_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
-	[[nodiscard]] static_vector<std::uint8_t> neon_decode(std::string_view encoded);
-#endif
-	void fallback_decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
 	FASTGLTF_EXPORT void decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
-
-	[[nodiscard]] static_vector<std::uint8_t> fallback_decode(std::string_view encoded);
 	FASTGLTF_EXPORT [[nodiscard]] static_vector<std::uint8_t> decode(std::string_view encoded);
 
 	/**

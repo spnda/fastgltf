@@ -566,7 +566,6 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
 	FASTGLTF_EXPORT using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
-	FASTGLTF_EXPORT using Base64DecodeCallback = void(std::string_view base64, std::uint8_t* dataOutput, std::size_t padding, std::size_t dataOutputSize, void* userPointer);
 	FASTGLTF_EXPORT using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
 	FASTGLTF_EXPORT using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
 
@@ -806,7 +805,6 @@ namespace fastgltf {
 	struct ParserInternalConfig {
 		BufferMapCallback* mapCallback = nullptr;
 		BufferUnmapCallback* unmapCallback = nullptr;
-		Base64DecodeCallback* decodeCallback = nullptr;
 		ExtrasParseCallback* extrasCallback = nullptr;
 
 		void* userPointer = nullptr;
@@ -923,19 +921,6 @@ namespace fastgltf {
 		 * @note This is likely only useful for advanced users who know what they're doing.
 		 */
 		void setBufferAllocationCallback(BufferMapCallback* mapCallback, BufferUnmapCallback* unmapCallback = nullptr) noexcept;
-
-		/**
-		 * Allows setting callbacks for base64 decoding.
-		 * This can be useful if you have another base64 decoder optimised for a certain platform or architecture,
-		 * or want to use your own scheduler to schedule multiple threads for working on decoding individual chunks of the data.
-		 * Using Parser::setUserPointer you can also set a user pointer to access your own class or other data you may need.
-		 *
-		 * It is still recommended to use fastgltf's base64 decoding features as they're highly optimised
-		 * for SSE4, AVX2, and ARM Neon.
-		 *
-		 * @param decodeCallback function called when the parser tries to decode a base64 buffer
-		 */
-		void setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept;
 
 		void setExtrasParseCallback(ExtrasParseCallback* extrasCallback) noexcept;
 
