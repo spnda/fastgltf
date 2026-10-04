@@ -535,30 +535,8 @@ TEST_CASE("Compare base64 decoding performance", "[!benchmark][base64-benchmark]
 		};
 #endif
 
-		BENCHMARK("fastgltf fallback" + suffix) {
-			return fastgltf::base64::fallback_decode(str);
+		BENCHMARK("simdutf" + suffix) {
+			return fastgltf::base64::decode(str);
 		};
-
-#if defined(FASTGLTF_IS_X86)
-		const auto& impls = simdjson::get_available_implementations();
-		if (const auto* sse4 = impls["westmere"]; sse4 != nullptr && sse4->supported_by_runtime_system()) {
-			BENCHMARK("fastgltf sse4" + suffix) {
-				return fastgltf::base64::sse4_decode(str);
-			};
-		}
-
-		if (const auto* avx2 = impls["haswell"]; avx2 != nullptr && avx2->supported_by_runtime_system()) {
-			BENCHMARK("fastgltf avx2" + suffix) {
-				return fastgltf::base64::avx2_decode(str);
-			};
-		}
-#elif FASTGLTF_ENABLE_NEON_BASE64
-		const auto& impls = simdjson::get_available_implementations();
-		if (const auto* neon = impls["arm64"]; neon != nullptr && neon->supported_by_runtime_system()) {
-			BENCHMARK("fastgltf neon" + suffix) {
-				return fastgltf::base64::neon_decode(str);
-			};
-		}
-#endif
 	}
 }

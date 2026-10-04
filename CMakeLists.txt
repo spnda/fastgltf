@@ -21,6 +21,7 @@ option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which u
 option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
 
 option(FASTGLTF_DOWNLOAD_SIMDJSON "Download simdjson if not found" ON)
+option(FASTGLTF_DOWNLOAD_SIMDUTF "Download simdutf if not found" ON)
 option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install()" ON)
 
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
@@ -38,6 +39,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/add_source_directory.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/compilers.cmake)
 
 set(FASTGLTF_SIMDJSON_DL_DIR "${CMAKE_CURRENT_BINARY_DIR}/simdjson")
+set(FASTGLTF_SIMDUTF_DL_DIR "${CMAKE_CURRENT_BINARY_DIR}/simdutf")
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies.cmake)
 
 # Create the library target
@@ -75,7 +77,7 @@ target_include_directories(fastgltf PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIS
 set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
 set_target_properties(fastgltf PROPERTIES VERSION ${PROJECT_VERSION})
 
-target_link_libraries(fastgltf PRIVATE ${FASTGLTF_SIMDJSON_TARGET})
+target_link_libraries(fastgltf PRIVATE ${FASTGLTF_SIMDJSON_TARGET} ${FASTGLTF_SIMDUTF_TARGET})
 if (FASTGLTF_SIMDJSON_TARGET_VERSION)
     target_compile_definitions(fastgltf PRIVATE FASTGLTF_SIMDJSON_TARGET_VERSION="${FASTGLTF_SIMDJSON_TARGET_VERSION}")
 endif ()
@@ -152,12 +154,23 @@ if (FASTGLTF_ENABLE_INSTALL)
         # We downloaded simdjson so we need to also install simdjson.h alongside the fastgltf headers
         list(APPEND FASTGLTF_INSTALL_TARGETS fastgltf_simdjson)
         install(
-            FILES "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/fastgltf/simdjson
+                FILES "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h"
+                DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/fastgltf/simdjson
         )
         set(FASTGLTF_FIND_SIMDJSON OFF)
     else ()
         set(FASTGLTF_FIND_SIMDJSON ON)
+    endif ()
+
+    if (TARGET fastgltf_simdutf)
+        list(APPEND FASTGLTF_INSTALL_TARGETS fastgltf_simdutf)
+        install(
+                FILES "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.h"
+                DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/fastgltf/simdutf
+        )
+        set(FASTGLTF_FIND_SIMDUTF OFF)
+    else ()
+        set(FASTGLTF_FIND_SIMDUTF ON)
     endif ()
 
     install(

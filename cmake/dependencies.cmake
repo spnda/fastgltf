@@ -15,14 +15,32 @@ endfunction()
 
 function(fastgltf_download_simdjson)
     fastgltf_download_and_check_for_errors(
-            "https://raw.githubusercontent.com/simdjson/simdjson/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/singleheader/simdjson.h"
+            "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.h"
             ${FASTGLTF_SIMDJSON_HEADER_FILE}
     )
 
     fastgltf_download_and_check_for_errors(
-            "https://raw.githubusercontent.com/simdjson/simdjson/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/singleheader/simdjson.cpp"
+            "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.cpp"
             ${FASTGLTF_SIMDJSON_SOURCE_FILE}
     )
+endfunction()
+
+function(fastgltf_download_simdutf)
+    fastgltf_download_and_check_for_errors(
+            "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.h"
+            ${FASTGLTF_SIMDUTF_HEADER_FILE}
+    )
+
+    fastgltf_download_and_check_for_errors(
+            "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.cpp"
+            ${FASTGLTF_SIMDUTF_SOURCE_FILE}
+    )
+endfunction()
+
+function(fastgltf_find_header_semantic_version HEADER_FILE VERSION_CONSTANT VERSION_OUT_VAR)
+    file(STRINGS ${HEADER_FILE} HEADER_VERSION_LINE REGEX "^#define ${VERSION_CONSTANT} ")
+    string(REGEX MATCH "\"?([0-9]+\\.[0-9]+\\.[0-9]+)\"?" _ "${HEADER_VERSION_LINE}")
+    set(${VERSION_OUT_VAR} "${CMAKE_MATCH_1}" PARENT_SCOPE)
 endfunction()
 
 # If the target already exists due to the parent script already including it as a dependency, just directly link it.
@@ -44,10 +62,9 @@ else()
 
         if (EXISTS ${FASTGLTF_SIMDJSON_HEADER_FILE})
             # Look for the SIMDJSON_VERSION define in the header to check the version.
-            file(STRINGS ${FASTGLTF_SIMDJSON_HEADER_FILE} FASTGLTF_SIMDJSON_HEADER_VERSION_LINE REGEX "^#define SIMDJSON_VERSION ")
-            string(REGEX MATCH "\"?([0-9]+\\.[0-9]+\\.[0-9]+)\"?" _ "${FASTGLTF_SIMDJSON_HEADER_VERSION_LINE}")
-            set(FASTGLTF_SIMDJSON_HEADER_VERSION "${CMAKE_MATCH_1}")
-            message(STATUS "fastgltf: Found simdjson (Version ${FASTGLTF_SIMDJSON_HEADER_VERSION})")
+            fastgltf_find_header_semantic_version(
+                    ${FASTGLTF_SIMDJSON_HEADER_FILE} "SIMDJSON_VERSION" FASTGLTF_SIMDJSON_HEADER_VERSION)
+            message(STATUS "fastgltf: Found local simdjson (${FASTGLTF_SIMDJSON_HEADER_VERSION})")
 
             if (FASTGLTF_SIMDJSON_HEADER_VERSION STREQUAL "")
                 message(FATAL_ERROR "fastgltf: Failed to download simdjson")
@@ -85,6 +102,61 @@ else()
         message(FATAL_ERROR "fastgltf: Failed to find simdjson")
     endif ()
 endif ()
+
+if (TARGET simdutf::simdutf)
+    set(FASTGLTF_SIMDUTF_TARGET simdutf::simdutf)
+else()
+    find_package(simdutf CONFIG QUIET)
+    if (simdutf_FOUND)
+        message(STATUS "fastgltf: Found simdutf config (${simdutf_VERSION})")
+        set(FASTGLTF_SIMDUTF_TARGET simdutf::simdutf)
+    elseif(FASTGLTF_DOWNLOAD_SIMDUTF)
+        set(FASTGLTF_SIMDUTF_TARGET_VERSION "9.2.1")
+        file(MAKE_DIRECTORY ${FASTGLTF_SIMDUTF_DL_DIR})
+
+        set(FASTGLTF_SIMDUTF_HEADER_FILE "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.h")
+        set(FASTGLTF_SIMDUTF_SOURCE_FILE "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.cpp")
+
+        if (EXISTS ${FASTGLTF_SIMDUTF_HEADER_FILE})
+            fastgltf_find_header_semantic_version(
+                    ${FASTGLTF_SIMDUTF_HEADER_FILE} "SIMDUTF_VERSION" FASTGLTF_SIMDUTF_HEADER_VERSION)
+            message(STATUS "fastgltf: Found local simdutf (${FASTGLTF_SIMDUTF_HEADER_VERSION})")
+
+            if (FASTGLTF_SIMDUTF_HEADER_VERSION STREQUAL "")
+                message(FATAL_ERROR "fastgltf: Failed to download simdutf")
+            endif ()
+
+            if (FASTGLTF_SIMDUTF_HEADER_VERSION VERSION_LESS FASTGLTF_SIMDUTF_TARGET_VERSION)
+                message(STATUS "fastgltf: simdutf outdated, downloading...")
+                fastgltf_download_simdutf()
+            endif ()
+
+            if (FASTGLTF_SIMDUTF_HEADER_VERSION VERSION_GREATER FASTGLTF_SIMDUTF_TARGET_VERSION)
+                message(STATUS "fastgltf: Detected a more recent version of simdutf, leaving as is.")
+            endif ()
+        else()
+            message(STATUS "fastgltf: Did not find simdutf, downloading...")
+            fastgltf_download_simdutf()
+
+            if (NOT EXISTS "${FASTGLTF_SIMDUTF_HEADER_FILE}")
+                message(FATAL_ERROR "fastgltf: Failed to download simdutf.")
+            endif ()
+        endif ()
+
+        add_library(fastgltf_simdutf STATIC "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.cpp")
+        fastgltf_compiler_flags(fastgltf_simdutf)
+        target_include_directories(fastgltf_simdutf PUBLIC
+                $<BUILD_INTERFACE:${FASTGLTF_SIMDUTF_DL_DIR}>
+                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/fastgltf/simdutf>)
+        target_compile_features(fastgltf_simdutf PUBLIC ${FASTGLTF_COMPILE_TARGET})
+        set_target_properties(fastgltf_simdutf PROPERTIES POSITION_INDEPENDENT_CODE ON EXPORT_NAME simdutf)
+
+        add_library(fastgltf::simdutf ALIAS fastgltf_simdutf)
+        set(FASTGLTF_SIMDUTF_TARGET fastgltf::simdutf)
+    else()
+        message(FATAL_ERROR "fastgltf: Failed to find simdutf")
+    endif()
+endif()
 
 # glm
 if (FASTGLTF_ENABLE_TESTS OR FASTGLTF_ENABLE_EXAMPLES)
