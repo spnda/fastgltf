@@ -1,30 +1,42 @@
 include(FetchContent)
 
-function(fastgltf_download_and_check_for_errors URL DEST_FILE HASH)
+function(fastgltf_fetch_file URL DEST HASH)
+    # check if the existing file on disk has the correct hash
+    if (EXISTS "${DEST}")
+        file(SHA256 "${DEST}" EXISTING_HASH)
+        if (EXISTING_HASH STREQUAL HASH)
+            return()
+        endif ()
+        message(STATUS "fastgltf: ${DEST} has an unexpected hash")
+    endif()
+
+    message(STATUS "fastgltf: Downloading ${URL}...")
     file(
-            DOWNLOAD "${URL}" "${DEST_FILE}"
+            DOWNLOAD "${URL}" "${DEST}.tmp"
             STATUS DOWNLOAD_STATUS
             EXPECTED_HASH SHA256=${HASH}
+            TLS_VERIFY ON
     )
 
     list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
-    list(GET DOWNLOAD_STATUS 1 ERROR_MESSAGE)
 
-    if(NOT STATUS_CODE EQUAL 0)
+    if (NOT STATUS_CODE EQUAL 0)
+        list(GET DOWNLOAD_STATUS 1 ERROR_MESSAGE)
+        file(REMOVE "${DEST}.tmp")
         message(FATAL_ERROR "fastgltf: Error downloading ${URL}: ${ERROR_MESSAGE}")
-    else()
-        message(STATUS "fastgltf: Successfully downloaded: ${DEST_FILE}")
     endif()
+
+    file(RENAME "${DEST}.tmp" "${DEST}")
 endfunction()
 
 function(fastgltf_download_simdjson)
-    fastgltf_download_and_check_for_errors(
+    fastgltf_fetch_file(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.h"
             ${FASTGLTF_SIMDJSON_HEADER_FILE}
             a5c467c33c7871262eb4c82775490430758939c1c516fbdaeb662f8255860a60
     )
 
-    fastgltf_download_and_check_for_errors(
+    fastgltf_fetch_file(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.cpp"
             ${FASTGLTF_SIMDJSON_SOURCE_FILE}
             66c818d1a6b3841febef7a8336ff297f0a52e250a436b598bcdecf010d626243
@@ -32,13 +44,13 @@ function(fastgltf_download_simdjson)
 endfunction()
 
 function(fastgltf_download_simdutf)
-    fastgltf_download_and_check_for_errors(
+    fastgltf_fetch_file(
             "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.h"
             ${FASTGLTF_SIMDUTF_HEADER_FILE}
             27cbcc731b268c36932fabeccd8b7a940804cc51b1325e2221a76b26c5bfab23
     )
 
-    fastgltf_download_and_check_for_errors(
+    fastgltf_fetch_file(
             "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.cpp"
             ${FASTGLTF_SIMDUTF_SOURCE_FILE}
             9d99344ce132040987d11841b1d69900a90ab902efcda61b6552fc6c4515589d
@@ -68,32 +80,12 @@ else()
         set(FASTGLTF_SIMDJSON_HEADER_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h")
         set(FASTGLTF_SIMDJSON_SOURCE_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.cpp")
 
-        if (EXISTS ${FASTGLTF_SIMDJSON_HEADER_FILE} AND EXISTS ${FASTGLTF_SIMDJSON_SOURCE_FILE})
-            # Look for the SIMDJSON_VERSION define in the header to check the version.
-            fastgltf_find_header_semantic_version(
-                    ${FASTGLTF_SIMDJSON_HEADER_FILE} "SIMDJSON_VERSION" FASTGLTF_SIMDJSON_HEADER_VERSION)
-            message(STATUS "fastgltf: Found local simdjson (${FASTGLTF_SIMDJSON_HEADER_VERSION})")
+        # this will check the hash of existing files and re-download if necessary
+        fastgltf_download_simdjson()
 
-            if (FASTGLTF_SIMDJSON_HEADER_VERSION STREQUAL "")
-                message(FATAL_ERROR "fastgltf: Failed to download simdjson")
-            endif ()
-
-            if (FASTGLTF_SIMDJSON_HEADER_VERSION VERSION_LESS FASTGLTF_SIMDJSON_TARGET_VERSION)
-                message(STATUS "fastgltf: simdjson outdated, downloading...")
-                fastgltf_download_simdjson()
-            endif ()
-
-            if (FASTGLTF_SIMDJSON_HEADER_VERSION VERSION_GREATER FASTGLTF_SIMDJSON_TARGET_VERSION)
-                message(STATUS "fastgltf: Detected a more recent version of simdjson, leaving as is.")
-            endif ()
-        else ()
-            message(STATUS "fastgltf: Did not find simdjson, downloading...")
-            fastgltf_download_simdjson()
-
-            if (NOT EXISTS "${FASTGLTF_SIMDJSON_HEADER_FILE}")
-                message(FATAL_ERROR "fastgltf: Failed to download simdjson.")
-            endif ()
-        endif ()
+        fastgltf_find_header_semantic_version(
+                ${FASTGLTF_SIMDJSON_HEADER_FILE} "SIMDJSON_VERSION" FASTGLTF_SIMDJSON_HEADER_VERSION)
+        message(STATUS "fastgltf: Found local simdjson (${FASTGLTF_SIMDJSON_HEADER_VERSION})")
 
         # create a static library for simdjson in the fastgltf "namespace"
         add_library(fastgltf_simdjson STATIC "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.cpp")
@@ -125,31 +117,12 @@ else()
         set(FASTGLTF_SIMDUTF_HEADER_FILE "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.h")
         set(FASTGLTF_SIMDUTF_SOURCE_FILE "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.cpp")
 
-        if (EXISTS ${FASTGLTF_SIMDUTF_HEADER_FILE} AND EXISTS ${FASTGLTF_SIMDUTF_SOURCE_FILE})
-            fastgltf_find_header_semantic_version(
-                    ${FASTGLTF_SIMDUTF_HEADER_FILE} "SIMDUTF_VERSION" FASTGLTF_SIMDUTF_HEADER_VERSION)
-            message(STATUS "fastgltf: Found local simdutf (${FASTGLTF_SIMDUTF_HEADER_VERSION})")
+        # this will check the hash of existing files and re-download if necessary
+        fastgltf_download_simdutf()
 
-            if (FASTGLTF_SIMDUTF_HEADER_VERSION STREQUAL "")
-                message(FATAL_ERROR "fastgltf: Failed to download simdutf")
-            endif ()
-
-            if (FASTGLTF_SIMDUTF_HEADER_VERSION VERSION_LESS FASTGLTF_SIMDUTF_TARGET_VERSION)
-                message(STATUS "fastgltf: simdutf outdated, downloading...")
-                fastgltf_download_simdutf()
-            endif ()
-
-            if (FASTGLTF_SIMDUTF_HEADER_VERSION VERSION_GREATER FASTGLTF_SIMDUTF_TARGET_VERSION)
-                message(STATUS "fastgltf: Detected a more recent version of simdutf, leaving as is.")
-            endif ()
-        else()
-            message(STATUS "fastgltf: Did not find simdutf, downloading...")
-            fastgltf_download_simdutf()
-
-            if (NOT EXISTS "${FASTGLTF_SIMDUTF_HEADER_FILE}")
-                message(FATAL_ERROR "fastgltf: Failed to download simdutf.")
-            endif ()
-        endif ()
+        fastgltf_find_header_semantic_version(
+                ${FASTGLTF_SIMDUTF_HEADER_FILE} "SIMDUTF_VERSION" FASTGLTF_SIMDUTF_HEADER_VERSION)
+        message(STATUS "fastgltf: Found local simdutf (${FASTGLTF_SIMDUTF_HEADER_VERSION})")
 
         add_library(fastgltf_simdutf STATIC "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.cpp")
         fastgltf_compiler_flags(fastgltf_simdutf)
