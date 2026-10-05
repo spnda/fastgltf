@@ -9,7 +9,7 @@
 #include <fastgltf/util.hpp>
 
 namespace fastgltf {
-	enum class [[nodiscard]] Error : std::uint64_t {
+	FASTGLTF_EXPORT enum class [[nodiscard]] Error : std::uint64_t {
 		None = 0,
 		InvalidPath = 1, ///< The glTF directory passed to load*GLTF is invalid.
 		MissingExtensions = 2, ///< One or more extensions are required by the glTF but not enabled in the Parser.
@@ -80,7 +80,7 @@ namespace fastgltf {
 	 * If @ref hasError() returned false or @ref error() return @ref Error::None then one of the value getters,
 	 * such as @ref get() or @ref operator*() can be used.
 	 */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	class [[nodiscard]] Expected {
 		static_assert(!std::is_same_v<Error, T>);
 
