@@ -1650,19 +1650,19 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 			}
 
 			if (uriView.isDataUri()) {
-				auto [error, source] = decodeDataUri(uriView);
-				if (error != Error::None) {
-					return error;
+				auto decoded = decodeDataUri(uriView);
+				if (decoded.hasError()) {
+					return decoded.error();
 				}
 
-				buffer.data = std::move(source);
+				buffer.data = std::move(decoded.get());
 			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
-				auto [error, source] = loadFileFromUri(uriView);
-				if (error != Error::None) {
-					return error;
+				auto file = loadFileFromUri(uriView);
+				if (file.hasError()) {
+					return file.error();
 				}
 
-				buffer.data = std::move(source);
+				buffer.data = std::move(file.get());
 			} else {
 				sources::URI filePath;
 				filePath.fileByteOffset = 0;
@@ -2117,19 +2117,19 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 			}
 
 			if (uriView.isDataUri()) {
-				auto [error, source] = decodeDataUri(uriView);
-				if (error != Error::None) {
-					return error;
+				auto decoded = decodeDataUri(uriView);
+				if (decoded.hasError()) {
+					return decoded.error();
 				}
 
-				image.data = std::move(source);
+				image.data = std::move(decoded.get());
 			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
-				auto [error, source] = loadFileFromUri(uriView);
-				if (error != Error::None) {
-					return error;
+				auto file = loadFileFromUri(uriView);
+				if (file.hasError()) {
+					return file.error();
 				}
 
-				image.data = std::move(source);
+				image.data = std::move(file.get());
 			} else {
 				sources::URI filePath;
 				filePath.fileByteOffset = 0;

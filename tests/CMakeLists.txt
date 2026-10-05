@@ -4,8 +4,22 @@ message(STATUS "fastgltf: Bulding tests")
 
 # We want these tests to be a optional executable.
 add_executable(fastgltf_tests EXCLUDE_FROM_ALL "main.cpp"
-    "base64_tests.cpp" "basic_test.cpp" "benchmarks.cpp" "glb_tests.cpp" "gltf_path.hpp" "util_tests.cpp" "optional_tests.cpp"
-    "vector_tests.cpp" "uri_tests.cpp" "extension_tests.cpp" "accessor_tests.cpp" "write_tests.cpp" "math_tests.cpp")
+        "accessor_tests.cpp"
+        "base64_tests.cpp"
+        "basic_test.cpp"
+        "benchmarks.cpp"
+        "expected_tests.cpp"
+        "extension_tests.cpp"
+        "glb_tests.cpp"
+        "gltf_path.hpp"
+        "math_tests.cpp"
+        "optional_tests.cpp"
+        "uri_tests.cpp"
+        "util_tests.cpp"
+        "vector_tests.cpp"
+        "write_tests.cpp"
+)
+
 target_compile_features(fastgltf_tests PRIVATE ${FASTGLTF_COMPILE_TARGET})
 if (TARGET simdjson::simdjson)
     # TODO: If the target exists, fastgltf will link it privately, and will not add it to it's public include directories.

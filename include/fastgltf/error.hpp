@@ -9,7 +9,7 @@
 #include <fastgltf/util.hpp>
 
 namespace fastgltf {
-	enum class Error : std::uint64_t {
+	enum class [[nodiscard]] Error : std::uint64_t {
 		None = 0,
 		InvalidPath = 1, ///< The glTF directory passed to load*GLTF is invalid.
 		MissingExtensions = 2, ///< One or more extensions are required by the glTF but not enabled in the Parser.
@@ -31,7 +31,7 @@ namespace fastgltf {
 		FileBufferAllocationFailed = 14, ///< The constructor of GltfDataBuffer failed to allocate a sufficiently large buffer.
 	};
 
-	FASTGLTF_EXPORT constexpr std::string_view getErrorName(const Error error) {
+	FASTGLTF_EXPORT [[nodiscard]] constexpr std::string_view getErrorName(const Error error) {
 		switch (error) {
 			case Error::None: return "None";
 			case Error::InvalidPath: return "InvalidPath";
@@ -52,7 +52,7 @@ namespace fastgltf {
 		}
 	}
 
-	FASTGLTF_EXPORT constexpr std::string_view getErrorMessage(const Error error) {
+	FASTGLTF_EXPORT [[nodiscard]] constexpr std::string_view getErrorMessage(const Error error) {
 		switch (error) {
 			case Error::None: return "";
 			case Error::InvalidPath: return "The glTF directory passed to load*GLTF is invalid";
@@ -74,104 +74,179 @@ namespace fastgltf {
 	}
 
 	/**
-	 * A type that stores an error together with an expected value.
-	 * To use this type, first call error() to inspect if any errors have occurred.
-	 * If error() is not fastgltf::Error::None,
-	 * calling get(), operator->(), and operator*() is undefined behaviour.
+	 * A tagged union that stores either T or an Error.
+	 *
+	 * To inspect if an error has occurred, use @ref hasError(), @ref error(), or @ref operator bool().
+	 * If @ref hasError() returned false or @ref error() return @ref Error::None then one of the value getters,
+	 * such as @ref get() or @ref operator*() can be used.
 	 */
 	template <typename T>
-	class Expected {
-		static_assert(std::is_default_constructible_v<T>);
+	class [[nodiscard]] Expected {
 		static_assert(!std::is_same_v<Error, T>);
 
-		Error err;
-		T value;
+		template <typename> friend class Expected;
 
-	public:
-		Expected(Error error) : err(error) {}
-		Expected(T&& value) : err(Error::None), value(std::forward<T>(value)) {}
+		static constexpr bool isRef = std::is_reference_v<T>;
 
-		Expected(const Expected& other) = delete;
-		Expected(Expected&& other) noexcept : err(other.err), value(std::move(other.value)) {}
+		using wrap = std::reference_wrapper<std::remove_reference_t<T>>;
 
-		Expected& operator=(const Expected& other) = delete;
-		Expected& operator=(Expected&& other) noexcept {
-			err = other.err;
-			value = std::move(other.value);
-			return *this;
+		using storage_type = std::conditional_t<isRef, wrap, T>;
+		using value_type = T;
+		using error_type = Error;
+
+		union {
+			storage_type _valueStorage;
+			error_type _errorStorage;
+		};
+		bool _hasError;
+
+		using pointer = std::remove_reference_t<T>*;
+		using const_pointer = const std::remove_reference_t<T>*;
+		using reference = std::remove_reference_t<T>&;
+		using const_reference = const std::remove_reference_t<T>&;
+
+		[[nodiscard]] storage_type* getValueStorage() {
+			assert(!_hasError && "Cannot get value when an error exists!");
+			return &_valueStorage;
 		}
 
-		[[nodiscard]] Error error() const noexcept {
-			return err;
+		[[nodiscard]] const storage_type* getValueStorage() const {
+			assert(!_hasError && "Cannot get value when an error exists!");
+			return &_valueStorage;
+		}
+
+		[[nodiscard]] error_type* getErrorStorage() {
+			assert(_hasError && "Cannot get error when a value exists!");
+			return &_errorStorage;
+		}
+
+		[[nodiscard]] const error_type* getErrorStorage() const {
+			assert(_hasError && "Cannot get error when a value exists!");
+			return &_errorStorage;
+		}
+
+		[[nodiscard]] pointer toPointer(pointer value) {
+			return value;
+		}
+		[[nodiscard]] const_pointer toPointer(const_pointer value) const {
+			return value;
+		}
+
+		[[nodiscard]] pointer toPointer(wrap* value) {
+			return &value->get();
+		}
+		[[nodiscard]] const_pointer toPointer(const wrap* value) const {
+			return &value->get();
+		}
+
+		template <typename U>
+		void moveConstruct(Expected<U>&& other) {
+			_hasError = other._hasError;
+
+			if (!_hasError)
+				std::construct_at(getValueStorage(), std::move(*other.getValueStorage()));
+			else
+				std::construct_at(getErrorStorage(), std::move(*other.getErrorStorage()));
+		}
+
+	public:
+		Expected(Error error) : _hasError(true) {
+			assert(error != Error::None && "Cannot create Expected from successful Error");
+			std::construct_at(getErrorStorage(), error);
+		}
+
+		Expected(T&& value)  noexcept(std::is_nothrow_move_constructible_v<T>) : _hasError(false) {
+			std::construct_at(getValueStorage(), std::forward<T>(value));
+		}
+		template <typename U>
+		requires std::is_convertible_v<U, T>
+		Expected(U&& other) noexcept(std::is_nothrow_move_constructible_v<T>) : _hasError(false) {
+			std::construct_at(getValueStorage(), std::forward<U>(other));
+		}
+
+		Expected(const Expected& other) = delete;
+		Expected(Expected&& other) noexcept {
+			moveConstruct(std::move(other));
+		}
+		template <typename U>
+		requires std::is_convertible_v<U, T>
+		explicit Expected(Expected<U>&& other) noexcept(std::is_nothrow_move_constructible_v<T>) {
+			moveConstruct(std::move(other));
+		}
+
+		Expected& operator=(const Expected& other) = delete;
+		Expected& operator=(Expected&& other) noexcept = delete;
+
+		~Expected() {
+			if (_hasError)
+				getErrorStorage()->~error_type();
+			else
+				getValueStorage()->~storage_type();
+		}
+
+		[[nodiscard]] bool hasError() const {
+			return _hasError;
+		}
+		[[nodiscard]] Error error() const {
+			// TODO: Is this reasonable?
+			return _hasError ? *getErrorStorage() : Error::None;
 		}
 
 		/**
 		 * Returns a reference to the value of T.
 		 * When error() returns anything but Error::None, the returned value is undefined.
 		 */
-		[[nodiscard]] T& get() noexcept {
-			assert(err == Error::None);
-			return value;
+		[[nodiscard]] reference get() {
+			assert(!_hasError);
+			return *getValueStorage();
+		}
+		[[nodiscard]] const_reference get() const {
+			assert(!_hasError);
+			return *getValueStorage();
 		}
 
 		/**
 		 * Returns the address of the value of T, or nullptr if error() returns anything but Error::None.
 		 */
-		[[nodiscard]] T* get_if() noexcept {
-			if (err != Error::None)
+		[[nodiscard]] pointer get_if() noexcept {
+			if (_hasError)
 				return nullptr;
-			return std::addressof(value);
+			return toPointer(getValueStorage());
+		}
+		[[nodiscard]] const_pointer get_if() const noexcept {
+			if (_hasError)
+				return nullptr;
+			return toPointer(getValueStorage());
 		}
 
-		template <std::size_t I>
-		[[nodiscard]] auto& get() noexcept {
-			if constexpr (I == 0) return err;
-			else if constexpr (I == 1) return value;
+		[[nodiscard]] pointer operator->() {
+			assert(!_hasError);
+			return toPointer(getValueStorage());
+		}
+		[[nodiscard]] const_pointer operator->() const {
+			assert(!_hasError);
+			return toPointer(getValueStorage());
 		}
 
-		template <std::size_t I>
-		[[nodiscard]] const auto& get() const noexcept {
-			if constexpr (I == 0) return err;
-			else if constexpr (I == 1) return value;
+		[[nodiscard]] reference operator*() {
+			assert(!_hasError);
+			return *getValueStorage();
 		}
-
-		/**
-		 * Returns the address of the value of T.
-		 * When error() returns anything but Error::None, the returned value is undefined.
-		 */
-		[[nodiscard]] T* operator->() noexcept {
-			assert(err == Error::None);
-			return std::addressof(value);
-		}
-
-		/**
-		 * Returns the address of the const value of T.
-		 * When error() returns anything but Error::None, the returned value is undefined.
-		 */
-		[[nodiscard]] const T* operator->() const noexcept {
-			assert(err == Error::None);
-			return std::addressof(value);
-		}
-
-		[[nodiscard]] T&& operator*() && noexcept {
-			assert(err == Error::None);
-			return std::move(value);
+		[[nodiscard]] const_reference operator*() const {
+			assert(!_hasError);
+			return *getValueStorage();
 		}
 
 		[[nodiscard]] operator bool() const noexcept {
-			return err == Error::None;
+			return !_hasError;
 		}
 	};
+
+	// If a reference_wrapper is passed explicitly, deduce it instead to T&
+	template <typename T>
+	Expected(std::reference_wrapper<T>) -> Expected<T&>;
+
+	static_assert(!std::is_constructible_v<Expected<int&>, int>, "Cannot construct reference Expected from rvalue");
 }
-
-namespace std {
-	template <typename T>
-	struct tuple_size<fastgltf::Expected<T>> : std::integral_constant<std::size_t, 2> {};
-
-	template <typename T>
-	struct tuple_element<0, fastgltf::Expected<T>> { using type = fastgltf::Error; };
-	template <typename T>
-	struct tuple_element<1, fastgltf::Expected<T>> { using type = T; };
-} // namespace std
 
 #endif
