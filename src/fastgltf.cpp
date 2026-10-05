@@ -3420,7 +3420,8 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 		dom::object extensionsObject;
 		if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
-			parseMaterialExtensions(extensionsObject, material);
+			if (const auto err = parseMaterialExtensions(extensionsObject, material); err != Error::None)
+				return err;
 		} else if (extensionError != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidJson;
 		}
