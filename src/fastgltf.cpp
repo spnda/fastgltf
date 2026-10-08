@@ -482,6 +482,9 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 			if (positionAttribute == primitive.attributes.end()) {
 				return Error::InvalidGltf;
 			}
+			if (positionAttribute->accessorIndex >= asset.accessors.size()) {
+				return Error::InvalidGltf;
+			}
 			auto positionCount = asset.accessors[positionAttribute->accessorIndex].count;
 
 			auto primitiveCount = [&]() -> std::size_t {
@@ -509,7 +512,8 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 				}
 			}();
 
-			auto [generatedIndices, componentType] = writeIndices(primitive.type, indexCount, primitiveCount);
+			auto [generatedIndices, componentType] =
+				writeIndices(primitive.type, indexCount, primitiveCount);
 
 			auto bufferIdx = asset.buffers.size();
 			auto& buffer = asset.buffers.emplace_back();
