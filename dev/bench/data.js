@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791168152548,
+  "lastUpdate": 1791487080857,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -2026,6 +2026,79 @@ window.BENCHMARK_DATA = {
             "range": "± 16.0857",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "8e9d0a01ed035fc6debf1723969ac5600d02600e",
+          "message": "Fix #160: Guard against invalid accessor indices when generating mesh indices",
+          "timestamp": "2026-10-08T21:14:54+02:00",
+          "tree_id": "115b0228b2186cd6b1ccaf41ab19203f7a62a59e",
+          "url": "https://github.com/spnda/fastgltf/commit/8e9d0a01ed035fc6debf1723969ac5600d02600e"
+        },
+        "date": 1791487080220,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 3.12357,
+            "range": "± 325.567",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 8.91454,
+            "range": "± 472.939",
+            "unit": "us",
+            "extra": "50 samples\n3 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 237.783,
+            "range": "± 14.0387",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 236.773,
+            "range": "± 8.85387",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 235.695,
+            "range": "± 6.96219",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 15.6439,
+            "range": "± 0.480929",
+            "unit": "ns",
+            "extra": "50 samples\n1423 iterations"
+          },
+          {
+            "name": "SSE4 hardware algorithm",
+            "value": 3.89297,
+            "range": "± 0.11682",
+            "unit": "ns",
+            "extra": "50 samples\n5935 iterations"
           }
         ]
       }
