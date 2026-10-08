@@ -61,7 +61,7 @@ TEST_CASE("Check big base64 data decoding", "[base64]") {
     output.seekg(0);
     output.read(reinterpret_cast<char*>(decodedBytes.data()), static_cast<std::streamsize>(decodedBytes.size()));
 
-    REQUIRE(bytes == decodedBytes);
+	REQUIRE(std::ranges::equal(bytes, decodedBytes));
 }
 
 TEST_CASE("Test base64 buffer decoding", "[base64]") {

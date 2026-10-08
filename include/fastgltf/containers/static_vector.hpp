@@ -261,37 +261,20 @@ namespace fastgltf {
 			assert(idx < size());
 			return begin()[idx];
 		}
-
-	private:
-		static constexpr auto compare_three_way = []<typename U, typename V>(const U& u, const V& v) {
-			if constexpr (std::three_way_comparable_with<U, V>) {
-				return u <=> v;
-			} else {
-				if (u < v) return std::weak_ordering::less;
-				if (v < u) return std::weak_ordering::greater;
-				return std::weak_ordering::equivalent;
-			}
-		};
-
-	public:
-		constexpr bool operator==(const static_vector& other) const {
-			return size() == other.size() && std::equal(begin(), end(), other.begin());
-		}
-		constexpr auto operator<=>(const static_vector& other) const {
-			return std::lexicographical_compare_three_way(
-				begin(), end(), other.begin(), other.end(),
-				compare_three_way);
-		}
-
-		constexpr bool operator==(const std::vector<value_type>& other) const {
-			return size() == other.size() && std::equal(begin(), end(), other.begin());
-		}
-		constexpr auto operator<=>(const std::vector<value_type>& other) const {
-			return std::lexicographical_compare_three_way(
-				begin(), end(), other.begin(), other.end(),
-				compare_three_way);
-		}
 	};
+
+	template <typename T, typename Allocator>
+	[[nodiscard]] constexpr bool operator==(const static_vector<T, Allocator>& lhs, const static_vector<T, Allocator>& rhs) {
+		return std::ranges::equal(lhs, rhs);
+	}
+
+	template <typename T, typename Allocator>
+	[[nodiscard]] constexpr synth_three_way_result<T>
+	operator<=>(const static_vector<T, Allocator>& lhs, const static_vector<T, Allocator>& rhs) {
+		return std::lexicographical_compare_three_way(
+			lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+			synth_three_way);
+	}
 
 #if !FASTGLTF_MISSING_MEMORY_RESOURCE
 	namespace pmr {

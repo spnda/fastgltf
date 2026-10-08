@@ -5071,7 +5071,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 				bufferPaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
-				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"' + ',';
+				json += std::string(R"("uri":")") + fg::escapeString(uri.uri->string()) + '"' + ',';
 				bufferPaths.emplace_back(std::nullopt);
 			},
 			[&]([[maybe_unused]] const sources::Fallback& fallback) {
@@ -5265,7 +5265,7 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 				imagePaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
-				json += std::string(R"("uri":")") + fg::escapeString(uri.uri.string()) + '"';
+				json += std::string(R"("uri":")") + fg::escapeString(uri.uri->string()) + '"';
 				if (uri.mimeType != MimeType::None) {
 					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(uri.mimeType)) + '"';
 				}

@@ -41,6 +41,7 @@
 #include <fastgltf/util.hpp>
 #include <fastgltf/math.hpp>
 #include <fastgltf/uri.hpp>
+#include <fastgltf/containers/box.hpp>
 #include <fastgltf/containers/flagged_optional.hpp>
 #include <fastgltf/containers/inplace_vector.hpp>
 #include <fastgltf/containers/small_vector.hpp>
@@ -716,40 +717,40 @@ namespace fastgltf {
 	/**
 	 * Namespace for structs that describe individual sources of data for images and/or buffers.
 	 */
-	namespace sources {
-		FASTGLTF_EXPORT struct BufferView {
+	FASTGLTF_EXPORT namespace sources {
+		struct BufferView {
 			std::size_t bufferViewIndex;
 			MimeType mimeType = MimeType::None;
 		};
 
-		FASTGLTF_EXPORT struct URI {
+		struct URI {
 			std::size_t fileByteOffset;
-			fastgltf::URI uri;
+			box<fastgltf::URI> uri;
 			MimeType mimeType = MimeType::None;
 		};
 
-		FASTGLTF_EXPORT struct Array {
+		struct Array {
 			static_vector<std::byte> bytes;
 			MimeType mimeType = MimeType::None;
 		};
 
 		/** @note This type is not used by the fastgltf parser and is only used for exporting. Use sources::Array instead when importing intead. */
-		FASTGLTF_EXPORT struct Vector {
+		struct Vector {
 			std::vector<std::byte> bytes;
 			MimeType mimeType = MimeType::None;
 		};
 
-		FASTGLTF_EXPORT struct CustomBuffer {
+		struct CustomBuffer {
 			CustomBufferId id;
 			MimeType mimeType = MimeType::None;
 		};
 
-		FASTGLTF_EXPORT struct ByteView {
-            std::span<const std::byte> bytes;
+		struct ByteView {
+			std::span<const std::byte> bytes;
 			MimeType mimeType = MimeType::None;
 		};
 
-		FASTGLTF_EXPORT struct Fallback {};
+		struct Fallback {};
 	} // namespace sources
 
 	/**

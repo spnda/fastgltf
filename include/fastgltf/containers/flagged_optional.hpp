@@ -73,8 +73,8 @@ namespace fastgltf {
 		static constexpr bool is_empty(const float& value) noexcept {
 			return std::bit_cast<std::uint32_t>(value) == nan_sentinel;
 		}
-		static constexpr void set_empty(float& v) noexcept {
-			v = std::bit_cast<float>(nan_sentinel);
+		static constexpr void set_empty(float& value) noexcept {
+			value = std::bit_cast<float>(nan_sentinel);
 		}
 	};
 
@@ -86,8 +86,8 @@ namespace fastgltf {
 		static constexpr bool is_empty(const double& value) noexcept {
 			return std::bit_cast<std::uint64_t>(value) == nan_sentinel;
 		}
-		static constexpr void set_empty(double& v) noexcept {
-			v = std::bit_cast<double>(nan_sentinel);
+		static constexpr void set_empty(double& value) noexcept {
+			value = std::bit_cast<double>(nan_sentinel);
 		}
 	};
 
@@ -180,9 +180,7 @@ namespace fastgltf {
 		}
 
 		template <typename U = std::remove_cv_t<T>>
-		requires std::is_constructible_v<T, U&&> &&
-			(!std::same_as<std::remove_cvref_t<U>, std::in_place_t>) &&
-			(!std::same_as<std::remove_cvref_t<U>, flagged_optional>)
+		requires std::is_constructible_v<T, U&&> && is_none_of_v<std::remove_cvref_t<U>, std::in_place_t, flagged_optional>
 		constexpr explicit(!std::is_convertible_v<U&&, T>) flagged_optional(U&& value)
 		noexcept(std::is_nothrow_constructible_v<T, U>)
 			: _value(std::forward<U>(value)) {
@@ -357,6 +355,7 @@ namespace fastgltf {
 		}
 
 		template <typename... Args>
+		requires std::is_constructible_v<T, Args...>
 		constexpr value_type& emplace(Args&&... args) {
 			_value = value_type(std::forward<Args>(args)...);
 			assert(has_value());
@@ -364,6 +363,7 @@ namespace fastgltf {
 		}
 
 		template <typename U, typename... Args>
+		requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
 		constexpr value_type& emplace(std::initializer_list<U> list, Args&&... args) {
 			static_assert(std::is_constructible_v<value_type, std::initializer_list<U>&, Args&&...>);
 			_value = value_type(list, std::forward<Args>(args)...);

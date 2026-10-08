@@ -1214,16 +1214,6 @@ TEST_CASE("Test static_vector three-way comparison", "[static-vector]") {
 
 	static_assert(std::is_same_v<decltype(a <=> b), std::strong_ordering>);
 
-	SECTION("Against std::vector") {
-		const std::vector<int> equal = {1, 2, 3};
-		const std::vector<int> greater = {1, 3};
-
-		REQUIRE(((a <=> equal) == 0));
-		REQUIRE(((a <=> greater) < 0));
-		REQUIRE(a < greater);
-		REQUIRE(greater > a);
-	}
-
 	SECTION("Floating point") {
 		const auto f1 = makestatic_vector({1.0f, 2.0f});
 		const auto f2 = makestatic_vector({1.0f, 2.5f});

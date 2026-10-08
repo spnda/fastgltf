@@ -51,8 +51,8 @@ TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
         auto& image = asset->images.front();
         auto* filePath = std::get_if<fastgltf::sources::URI>(&image.data);
         REQUIRE(filePath != nullptr);
-        REQUIRE(filePath->uri.valid());
-        REQUIRE(filePath->uri.isLocalPath());
+        REQUIRE(filePath->uri->valid());
+        REQUIRE(filePath->uri->isLocalPath());
         REQUIRE(filePath->mimeType == fastgltf::MimeType::KTX2);
     }
 

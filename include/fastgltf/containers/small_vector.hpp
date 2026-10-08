@@ -552,6 +552,19 @@ namespace fastgltf {
 		}
 	};
 
+	template <typename T, std::size_t N, typename Allocator>
+	[[nodiscard]] constexpr bool operator==(const small_vector<T, N, Allocator>& lhs, const small_vector<T, N, Allocator>& rhs) {
+		return std::ranges::equal(lhs, rhs);
+	}
+
+	template <typename T, std::size_t N, typename Allocator>
+	[[nodiscard]] constexpr synth_three_way_result<T>
+	operator<=>(const small_vector<T, N, Allocator>& lhs, const small_vector<T, N, Allocator>& rhs) {
+		return std::lexicographical_compare_three_way(
+			lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+			synth_three_way);
+	}
+
 #if !FASTGLTF_MISSING_MEMORY_RESOURCE
 	namespace pmr {
 		FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
