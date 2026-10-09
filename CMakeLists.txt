@@ -46,7 +46,7 @@ set(FASTGLTF_HEADERS
         "include/fastgltf/util.hpp"
         "include/fastgltf/uri.hpp"
         "include/fastgltf/math.hpp"
-        "include/fastgltf/containers/flagged_optional.hpp"
+        "include/fastgltf/containers/optional.hpp"
         "include/fastgltf/containers/inplace_vector.hpp"
         "include/fastgltf/containers/small_vector.hpp"
         "include/fastgltf/containers/static_vector.hpp"

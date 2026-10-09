@@ -236,16 +236,16 @@ namespace fastgltf {
 		if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) [[likely]] {
 			dom::object textureTransform;
 			if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) [[likely]] {
-				auto transform = std::make_unique<TextureTransform>();
-				transform->rotation = 0.0F;
+				auto& transform = info->transform.emplace();
+				transform.rotation = 0.0F;
 
 				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) [[likely]] {
-					transform->texCoordIndex = index;
+					transform.texCoordIndex = index;
 				}
 
 				double rotation = 0.0F;
 				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) [[likely]] {
-					transform->rotation = static_cast<num>(rotation);
+					transform.rotation = static_cast<num>(rotation);
 				}
 
 				dom::array array;
@@ -255,7 +255,7 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						transform->uvOffset[i] = static_cast<num>(val);
+						transform.uvOffset[i] = static_cast<num>(val);
 					}
 				}
 
@@ -265,11 +265,9 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						transform->uvScale[i] = static_cast<num>(val);
+						transform.uvScale[i] = static_cast<num>(val);
 					}
 				}
-
-				info->transform = std::move(transform);
 			}
 		}
 
@@ -700,7 +698,7 @@ fg::Error fg::validate(const Asset& asset) {
 			bufferView.byteOffset + bufferView.byteLength > buffer.byteLength)
 			return Error::InvalidGltf;
 
-		if (bufferView.meshoptCompression != nullptr &&
+		if (bufferView.meshoptCompression.has_value() &&
 			!(isExtensionUsed(extensions::EXT_meshopt_compression) || isExtensionUsed(extensions::KHR_meshopt_compression)))
 			return Error::InvalidGltf;
 
@@ -1837,19 +1835,17 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 			if (hasBit(config.extensions, Extensions::KHR_meshopt_compression) &&
 				extensionObject[extensions::KHR_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
 
-				auto compression = std::make_unique<CompressedBufferView>();
-				if (const auto error = parseMeshoptCompression(*compression, meshoptCompression); error != Error::None) [[unlikely]] {
+				auto& compression = view.meshoptCompression.emplace();
+				if (const auto error = parseMeshoptCompression(compression, meshoptCompression); error != Error::None) [[unlikely]] {
 					return error;
 				}
-				view.meshoptCompression = std::move(compression);
 			} else if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) &&
 				extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
 
-				auto compression = std::make_unique<CompressedBufferView>();
-				if (const auto error = parseMeshoptCompression(*compression, meshoptCompression); error != Error::None) [[unlikely]] {
+				auto& compression = view.meshoptCompression.emplace();
+				if (const auto error = parseMeshoptCompression(compression, meshoptCompression); error != Error::None) [[unlikely]] {
 					return error;
 				}
-				view.meshoptCompression = std::move(compression);
 			}
 		}
 
@@ -2296,12 +2292,12 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto anisotropy = std::make_unique<MaterialAnisotropy>();
+				auto& anisotropy = material.anisotropy.emplace();
 
 				double anisotropyStrength;
 				if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength);
 						error == SUCCESS) [[likely]] {
-					anisotropy->anisotropyStrength = static_cast<num>(anisotropyStrength);
+					anisotropy.anisotropyStrength = static_cast<num>(anisotropyStrength);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -2309,7 +2305,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double anisotropyRotation;
 				if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation);
 						error == SUCCESS) [[likely]] {
-					anisotropy->anisotropyRotation = static_cast<num>(anisotropyRotation);
+					anisotropy.anisotropyRotation = static_cast<num>(anisotropyRotation);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -2317,12 +2313,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo anisotropyTexture;
 				if (auto error = parseTextureInfo(anisotropyObject, "anisotropyTexture", &anisotropyTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					anisotropy->anisotropyTexture = std::move(anisotropyTexture);
+					anisotropy.anisotropyTexture = std::move(anisotropyTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.anisotropy = std::move(anisotropy);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_clearcoat)>: {
@@ -2335,12 +2329,12 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto clearcoat = std::make_unique<MaterialClearcoat>();
+				auto& clearcoat = material.clearcoat.emplace();
 
 				double clearcoatFactor;
 				if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error ==
 																									   SUCCESS) {
-					clearcoat->clearcoatFactor = static_cast<num>(clearcoatFactor);
+					clearcoat.clearcoatFactor = static_cast<num>(clearcoatFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -2348,7 +2342,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo clearcoatTexture;
 				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatTexture", &clearcoatTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					clearcoat->clearcoatTexture = std::move(clearcoatTexture);
+					clearcoat.clearcoatTexture = std::move(clearcoatTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
@@ -2356,7 +2350,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double clearcoatRoughnessFactor;
 				if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(
 							clearcoatRoughnessFactor); error == SUCCESS) [[likely]] {
-					clearcoat->clearcoatRoughnessFactor = static_cast<num>(clearcoatRoughnessFactor);
+					clearcoat.clearcoatRoughnessFactor = static_cast<num>(clearcoatRoughnessFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -2365,7 +2359,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatRoughnessTexture",
 												  &clearcoatRoughnessTexture, config.extensions); error ==
 																								  Error::None) {
-					clearcoat->clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
+					clearcoat.clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
@@ -2374,12 +2368,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatNormalTexture",
 												  &clearcoatNormalTexture, config.extensions, TextureInfoType::NormalTexture); error ==
 																							   Error::None) {
-					clearcoat->clearcoatNormalTexture = std::move(clearcoatNormalTexture);
+					clearcoat.clearcoatNormalTexture = std::move(clearcoatNormalTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.clearcoat = std::move(clearcoat);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_dispersion)>: {
@@ -2449,12 +2441,12 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto iridescence = std::make_unique<MaterialIridescence>();
+				auto& iridescence = material.iridescence.emplace();
 
 				double iridescenceFactor;
 				if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor);
 						error == SUCCESS) [[likely]] {
-					iridescence->iridescenceFactor = static_cast<num>(iridescenceFactor);
+					iridescence.iridescenceFactor = static_cast<num>(iridescenceFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2462,7 +2454,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo iridescenceTexture;
 				if (auto error = parseTextureInfo(iridescenceObject, "iridescenceTexture", &iridescenceTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					iridescence->iridescenceTexture = std::move(iridescenceTexture);
+					iridescence.iridescenceTexture = std::move(iridescenceTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
@@ -2470,7 +2462,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double iridescenceIor;
 				if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error ==
 																									   SUCCESS) {
-					iridescence->iridescenceIor = static_cast<num>(iridescenceIor);
+					iridescence.iridescenceIor = static_cast<num>(iridescenceIor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2478,7 +2470,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double iridescenceThicknessMinimum;
 				if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(
 							iridescenceThicknessMinimum); error == SUCCESS) [[likely]] {
-					iridescence->iridescenceThicknessMinimum = static_cast<num>(iridescenceThicknessMinimum);
+					iridescence.iridescenceThicknessMinimum = static_cast<num>(iridescenceThicknessMinimum);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2486,7 +2478,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double iridescenceThicknessMaximum;
 				if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(
 							iridescenceThicknessMaximum); error == SUCCESS) [[likely]] {
-					iridescence->iridescenceThicknessMaximum = static_cast<num>(iridescenceThicknessMaximum);
+					iridescence.iridescenceThicknessMaximum = static_cast<num>(iridescenceThicknessMaximum);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2495,12 +2487,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (auto error = parseTextureInfo(iridescenceObject, "iridescenceThicknessTexture",
 												  &iridescenceThicknessTexture, config.extensions); error ==
 																									Error::None) {
-					iridescence->iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
+					iridescence.iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.iridescence = std::move(iridescence);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_diffuse_transmission)>: {
@@ -2513,18 +2503,18 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto diffuseTransmission = std::make_unique<MaterialDiffuseTransmission>();
+				auto& diffuseTransmission = material.diffuseTransmission.emplace();
 
 				double diffuseTransmissionFactor;
 				if (auto error = diffuseTransmissionObject["diffuseTransmissionFactor"].get_double().get(diffuseTransmissionFactor); error == SUCCESS) [[likely]] {
-					diffuseTransmission->diffuseTransmissionFactor = static_cast<num>(diffuseTransmissionFactor);
+					diffuseTransmission.diffuseTransmissionFactor = static_cast<num>(diffuseTransmissionFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo diffuseTransmissionTexture;
 				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionTexture", &diffuseTransmissionTexture, config.extensions); error == Error::None) [[likely]] {
-					diffuseTransmission->diffuseTransmissionTexture = std::move(diffuseTransmissionTexture);
+					diffuseTransmission.diffuseTransmissionTexture = std::move(diffuseTransmissionTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
@@ -2533,25 +2523,23 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (auto error = diffuseTransmissionObject["diffuseTransmissionColorFactor"].get_array().get(diffuseTransmissionColorFactor); error == SUCCESS) [[likely]] {
 					std::size_t i = 0;
 					for (auto factor: diffuseTransmissionColorFactor) {
-						if (i >= diffuseTransmission->diffuseTransmissionColorFactor.size()) {
+						if (i >= diffuseTransmission.diffuseTransmissionColorFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						diffuseTransmission->diffuseTransmissionColorFactor[i++] = static_cast<num>(value);
+						diffuseTransmission.diffuseTransmissionColorFactor[i++] = static_cast<num>(value);
 					}
 				}
 
 				TextureInfo diffuseTransmissionColorTexture;
 				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionColorTexture", &diffuseTransmissionColorTexture, config.extensions); error == Error::None) [[likely]] {
-					diffuseTransmission->diffuseTransmissionColorTexture = std::move(diffuseTransmissionColorTexture);
+					diffuseTransmission.diffuseTransmissionColorTexture = std::move(diffuseTransmissionColorTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.diffuseTransmission = std::move(diffuseTransmission);
 				break;
 			}
 
@@ -2565,21 +2553,21 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto sheen = std::make_unique<MaterialSheen>();
+				auto& sheen = material.sheen.emplace();
 
 				dom::array sheenColorFactor;
 				if (auto error = sheenObject["sheenColorFactor"].get_array().get(sheenColorFactor); error ==
 																									SUCCESS) {
 					std::size_t i = 0;
 					for (auto factor: sheenColorFactor) {
-						if (i >= sheen->sheenColorFactor.size()) {
+						if (i >= sheen.sheenColorFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						sheen->sheenColorFactor[i++] = static_cast<num>(value);
+						sheen.sheenColorFactor[i++] = static_cast<num>(value);
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2588,7 +2576,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo sheenColorTexture;
 				if (auto error = parseTextureInfo(sheenObject, "sheenColorTexture", &sheenColorTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					sheen->sheenColorTexture = std::move(sheenColorTexture);
+					sheen.sheenColorTexture = std::move(sheenColorTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
@@ -2596,7 +2584,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double sheenRoughnessFactor;
 				if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor);
 						error == SUCCESS) [[likely]] {
-					sheen->sheenRoughnessFactor = static_cast<num>(sheenRoughnessFactor);
+					sheen.sheenRoughnessFactor = static_cast<num>(sheenRoughnessFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2604,12 +2592,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo sheenRoughnessTexture;
 				if (auto error = parseTextureInfo(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					sheen->sheenRoughnessTexture = std::move(sheenRoughnessTexture);
+					sheen.sheenRoughnessTexture = std::move(sheenRoughnessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.sheen = std::move(sheen);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_specular)>: {
@@ -2622,12 +2608,12 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto specular = std::make_unique<MaterialSpecular>();
+				auto& specular = material.specular.emplace();
 
 				double specularFactor;
 				if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error ==
 																									SUCCESS) {
-					specular->specularFactor = static_cast<num>(specularFactor);
+					specular.specularFactor = static_cast<num>(specularFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2635,7 +2621,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo specularTexture;
 				if (auto error = parseTextureInfo(specularObject, "specularTexture", &specularTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					specular->specularTexture = std::move(specularTexture);
+					specular.specularTexture = std::move(specularTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
@@ -2645,14 +2631,14 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 						error == SUCCESS) [[likely]] {
 					std::size_t i = 0;
 					for (auto factor: specularColorFactor) {
-						if (i >= specular->specularColorFactor.size()) {
+						if (i >= specular.specularColorFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						specular->specularColorFactor[i++] = static_cast<num>(value);
+						specular.specularColorFactor[i++] = static_cast<num>(value);
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2661,12 +2647,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo specularColorTexture;
 				if (auto error = parseTextureInfo(specularObject, "specularColorTexture", &specularColorTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					specular->specularColorTexture = std::move(specularColorTexture);
+					specular.specularColorTexture = std::move(specularColorTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.specular = std::move(specular);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_transmission)>: {
@@ -2679,12 +2663,12 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto transmission = std::make_unique<MaterialTransmission>();
+				auto& transmission = material.transmission.emplace();
 
 				double transmissionFactor;
 				if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor);
 						error == SUCCESS) [[likely]] {
-					transmission->transmissionFactor = static_cast<num>(transmissionFactor);
+					transmission.transmissionFactor = static_cast<num>(transmissionFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2692,12 +2676,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				TextureInfo transmissionTexture;
 				if (auto error = parseTextureInfo(transmissionObject, "transmissionTexture", &transmissionTexture,
 												  config.extensions); error == Error::None) [[likely]] {
-					transmission->transmissionTexture = std::move(transmissionTexture);
+					transmission.transmissionTexture = std::move(transmissionTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.transmission = std::move(transmission);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_unlit)>: {
@@ -2723,25 +2705,25 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 
-				auto volume = std::make_unique<MaterialVolume>();
+				auto& volume = material.volume.emplace();
 
 				double thicknessFactor;
 				if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) [[likely]] {
-					volume->thicknessFactor = static_cast<num>(thicknessFactor);
+					volume.thicknessFactor = static_cast<num>(thicknessFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo thicknessTexture;
 				if (auto error = parseTextureInfo(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) [[likely]] {
-					volume->thicknessTexture = std::move(thicknessTexture);
+					volume.thicknessTexture = std::move(thicknessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
 
 				double attenuationDistance;
 				if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) [[likely]] {
-					volume->attenuationDistance = static_cast<num>(attenuationDistance);
+					volume.attenuationDistance = static_cast<num>(attenuationDistance);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2750,20 +2732,18 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (auto error = volumeObject["attenuationColor"].get_array().get(attenuationColor); error == SUCCESS) [[likely]] {
 					std::size_t i = 0;
 					for (auto factor : attenuationColor) {
-						if (i >= volume->attenuationColor.size()) {
+						if (i >= volume.attenuationColor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						(volume->attenuationColor)[i++] = static_cast<num>(value);
+						(volume.attenuationColor)[i++] = static_cast<num>(value);
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-
-				material.volume = std::move(volume);
 				break;
 			}
 			case force_consteval<crc32c(extensions::MSFT_packing_normalRoughnessMetallic)>: {
@@ -2790,27 +2770,25 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (extensionField.value.get_object().get(occlusionRoughnessMetallic) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				auto packedTextures = std::make_unique<MaterialPackedTextures>();
+				auto& packedTextures = material.packedOcclusionRoughnessMetallicTextures.emplace();
 				TextureInfo textureInfo {};
 				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-					packedTextures->occlusionRoughnessMetallicTexture = std::move(textureInfo);
+					packedTextures.occlusionRoughnessMetallicTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
 
 				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "roughnessMetallicOcclusionTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-					packedTextures->roughnessMetallicOcclusionTexture = std::move(textureInfo);
+					packedTextures.roughnessMetallicOcclusionTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
 
 				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "normalTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-					packedTextures->normalTexture = std::move(textureInfo);
+					packedTextures.normalTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.packedOcclusionRoughnessMetallicTextures = std::move(packedTextures);
 				break;
 			}
 			case force_consteval<crc32c(extensions::KHR_materials_pbrSpecularGlossiness)>: {
@@ -2822,20 +2800,20 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (specularGlossinessError != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				auto specularGlossiness = std::make_unique<MaterialSpecularGlossiness>();
+				auto& specularGlossiness = material.specularGlossiness.emplace();
 
 				dom::array diffuseFactor;
 				if (auto error = specularGlossinessObject["diffuseFactor"].get_array().get(diffuseFactor); error == SUCCESS) [[likely]] {
 					std::size_t i = 0;
 					for (auto factor : diffuseFactor) {
-						if (i >= specularGlossiness->diffuseFactor.size()) {
+						if (i >= specularGlossiness.diffuseFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						specularGlossiness->diffuseFactor[i++] = static_cast<num>(value);
+						specularGlossiness.diffuseFactor[i++] = static_cast<num>(value);
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2843,7 +2821,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 
 				TextureInfo diffuseTexture;
 				if (auto error = parseTextureInfo(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) [[likely]] {
-					specularGlossiness->diffuseTexture = std::move(diffuseTexture);
+					specularGlossiness.diffuseTexture = std::move(diffuseTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
@@ -2852,14 +2830,14 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (auto error = specularGlossinessObject["specularFactor"].get_array().get(specularFactor); error == SUCCESS) [[likely]] {
 					std::size_t i = 0;
 					for (auto factor : specularFactor) {
-						if (i >= specularGlossiness->specularFactor.size()) {
+						if (i >= specularGlossiness.specularFactor.size()) {
 							return Error::InvalidGltf;
 						}
 						double value;
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						specularGlossiness->specularFactor[i++] = static_cast<num>(value);
+						specularGlossiness.specularFactor[i++] = static_cast<num>(value);
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2867,19 +2845,17 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 
 				double glossinessFactor;
 				if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) [[likely]] {
-					specularGlossiness->glossinessFactor = static_cast<num>(glossinessFactor);
+					specularGlossiness.glossinessFactor = static_cast<num>(glossinessFactor);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				TextureInfo specularGlossinessTexture;
 				if (auto error = parseTextureInfo(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) [[likely]] {
-					specularGlossiness->specularGlossinessTexture = std::move(specularGlossinessTexture);
+					specularGlossiness.specularGlossinessTexture = std::move(specularGlossinessTexture);
 				} else if (error != Error::MissingField) {
 					return error;
 				}
-
-				material.specularGlossiness = std::move(specularGlossiness);
 				break;
 			}
 			default:
@@ -3101,23 +3077,21 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 					return Error::InvalidGltf;
 				}
 
-				auto dracoCompression = std::make_unique<DracoCompressedPrimitive>();
+				auto& dracoCompression = primitive.dracoCompression.emplace();
 
 				std::uint64_t value;
 				if (auto error = dracoObject["bufferView"].get_uint64().get(value); error != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				dracoCompression->bufferView = static_cast<std::size_t>(value);
+				dracoCompression.bufferView = static_cast<std::size_t>(value);
 
 				dom::object attributesObject;
 				if (dracoObject["attributes"].get_object().get(attributesObject) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				if (auto attributesError = parseAttributes(attributesObject, dracoCompression->attributes); attributesError != Error::None) {
+				if (auto attributesError = parseAttributes(attributesObject, dracoCompression.attributes); attributesError != Error::None) {
 					return attributesError;
 				}
-
-				primitive.dracoCompression = std::move(dracoCompression);
 				break;
 			}
 		}
@@ -4219,8 +4193,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node) {
 	using namespace simdjson;
 
-	node.physicsRigidBody = std::make_unique<PhysicsRigidBody>();
-	auto& rigidBody = *node.physicsRigidBody;
+	auto& rigidBody = node.physicsRigidBody.emplace();
 
 	dom::object motionObject;
 	if (auto error = khr_physics_rigid_bodies["motion"].get_object().get(motionObject); error == SUCCESS) {
@@ -4790,7 +4763,7 @@ namespace fastgltf {
 			json += ",\"strength\":" + to_string_fp(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
 		}
 
-		if (info->transform != nullptr) {
+		if (info->transform.has_value()) {
 			json += R"(,"extensions":{"KHR_texture_transform":{)";
 			const auto& transform = *info->transform;
 			if (transform.uvOffset[0] != 0.0 || transform.uvOffset[1] != 0.0) {
@@ -5102,7 +5075,7 @@ void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
 			json += ",\"target\":" + std::to_string(to_underlying(it->target.value()));
 		}
 
-		if (it->meshoptCompression != nullptr) {
+		if (it->meshoptCompression.has_value()) {
 			json += R"(,"extensions":{"EXT_meshopt_compression":{)";
 			const auto& meshopt = *it->meshoptCompression;
 			json += "\"buffer\":" + std::to_string(meshopt.bufferIndex);

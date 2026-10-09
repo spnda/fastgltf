@@ -22,7 +22,7 @@ TEST_CASE("Extension KHR_texture_transform", "[gltf-loader]") {
 
 	auto& material = asset->materials.front();
 	REQUIRE(material.pbrData.baseColorTexture.has_value());
-	REQUIRE(material.pbrData.baseColorTexture->transform != nullptr);
+	REQUIRE(material.pbrData.baseColorTexture->transform.has_value());
 	REQUIRE(material.pbrData.baseColorTexture->transform->uvOffset[0] == 0.705f);
 	REQUIRE(material.pbrData.baseColorTexture->transform->rotation == Catch::Approx(1.5707963705062866f));
 }
@@ -222,18 +222,18 @@ TEST_CASE("Extension KHR_materials_specular", "[gltf-loader]") {
     REQUIRE(asset->materials.size() >= 12);
 
     auto& materials = asset->materials;
-    REQUIRE(materials[1].specular != nullptr);
+    REQUIRE(materials[1].specular.has_value());
     REQUIRE(materials[1].specular->specularFactor == 0.0f);
 
-    REQUIRE(materials[2].specular != nullptr);
+    REQUIRE(materials[2].specular.has_value());
 	REQUIRE(materials[2].specular->specularFactor == Catch::Approx(0.051269f));
 
-    REQUIRE(materials[8].specular != nullptr);
+    REQUIRE(materials[8].specular.has_value());
 	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
 	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
 	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
 
-    REQUIRE(materials[12].specular != nullptr);
+    REQUIRE(materials[12].specular.has_value());
     REQUIRE(materials[12].specular->specularColorTexture.has_value());
     REQUIRE(materials[12].specular->specularColorTexture.value().textureIndex == 2);
 }
@@ -251,7 +251,7 @@ TEST_CASE("Extension KHR_materials_ior and KHR_materials_iridescence", "[gltf-lo
     REQUIRE(asset->materials.size() >= 50);
 
     auto& materials = asset->materials;
-    REQUIRE(materials[0].iridescence != nullptr);
+    REQUIRE(materials[0].iridescence.has_value());
     REQUIRE(materials[0].iridescence->iridescenceFactor == 1.0f);
     REQUIRE(materials[0].iridescence->iridescenceIor == 1.0f);
     REQUIRE(materials[0].iridescence->iridescenceThicknessMaximum == 100.0f);
@@ -260,7 +260,7 @@ TEST_CASE("Extension KHR_materials_ior and KHR_materials_iridescence", "[gltf-lo
 
     REQUIRE(materials[7].ior == 1.17f);
 
-    REQUIRE(materials[50].iridescence != nullptr);
+    REQUIRE(materials[50].iridescence.has_value());
     REQUIRE(materials[50].iridescence->iridescenceFactor == 1.0f);
     REQUIRE(materials[50].iridescence->iridescenceIor == 1.17f);
     REQUIRE(materials[50].iridescence->iridescenceThicknessMaximum == 200.0f);
@@ -280,13 +280,13 @@ TEST_CASE("Extension KHR_materials_volume and KHR_materials_transmission", "[glt
     REQUIRE(asset->materials.size() >= 5);
 
     auto& materials = asset->materials;
-    REQUIRE(materials[5].volume != nullptr);
+    REQUIRE(materials[5].volume.has_value());
 	REQUIRE(materials[5].volume->thicknessFactor == Catch::Approx(0.2199999988079071f));
 	REQUIRE(materials[5].volume->attenuationColor[0] == Catch::Approx(0.800000011920929f));
 	REQUIRE(materials[5].volume->attenuationColor[1] == Catch::Approx(0.800000011920929f));
 	REQUIRE(materials[5].volume->attenuationColor[2] == Catch::Approx(0.800000011920929f));
 
-    REQUIRE(materials[5].transmission != nullptr);
+    REQUIRE(materials[5].transmission.has_value());
     REQUIRE(materials[5].transmission->transmissionFactor == 1.0f);
 }
 
@@ -303,11 +303,11 @@ TEST_CASE("Extension KHR_materials_clearcoat", "[gltf-loader]") {
     REQUIRE(asset->materials.size() >= 7);
 
     auto& materials = asset->materials;
-    REQUIRE(materials[1].clearcoat != nullptr);
+    REQUIRE(materials[1].clearcoat.has_value());
     REQUIRE(materials[1].clearcoat->clearcoatFactor == 1.0f);
     REQUIRE(materials[1].clearcoat->clearcoatRoughnessFactor == 0.03f);
 
-    REQUIRE(materials[7].clearcoat != nullptr);
+    REQUIRE(materials[7].clearcoat.has_value());
     REQUIRE(materials[7].clearcoat->clearcoatFactor == 1.0f);
     REQUIRE(materials[7].clearcoat->clearcoatRoughnessFactor == 1.0f);
     REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture.has_value());
@@ -417,7 +417,7 @@ TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
     REQUIRE(asset->materials.size() == 4);
 
     auto& materials = asset->materials;
-    REQUIRE(materials[0].specularGlossiness != nullptr);
+    REQUIRE(materials[0].specularGlossiness.has_value());
 	REQUIRE(materials[0].specularGlossiness->diffuseFactor == fastgltf::math::nvec4(1));
 	REQUIRE(materials[0].specularGlossiness->specularFactor == fastgltf::math::nvec3(1));
     REQUIRE(materials[0].specularGlossiness->glossinessFactor == 1.0f);
@@ -426,7 +426,7 @@ TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
     REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.has_value());
     REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.value().textureIndex == 6);
 
-    REQUIRE(materials[3].specularGlossiness != nullptr);
+    REQUIRE(materials[3].specularGlossiness.has_value());
 	REQUIRE(materials[3].specularGlossiness->diffuseFactor == fastgltf::math::nvec4(1));
 	REQUIRE(materials[3].specularGlossiness->specularFactor == fastgltf::math::nvec3(0));
     REQUIRE(materials[3].specularGlossiness->glossinessFactor == 0.0f);

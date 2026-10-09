@@ -42,7 +42,7 @@
 #include <fastgltf/math.hpp>
 #include <fastgltf/uri.hpp>
 #include <fastgltf/containers/box.hpp>
-#include <fastgltf/containers/flagged_optional.hpp>
+#include <fastgltf/containers/optional.hpp>
 #include <fastgltf/containers/inplace_vector.hpp>
 #include <fastgltf/containers/small_vector.hpp>
 #include <fastgltf/containers/static_vector.hpp>
@@ -1213,7 +1213,7 @@ namespace fastgltf {
 		std::vector<Attribute> instancingAttributes;
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
+		boxed_optional<PhysicsRigidBody> physicsRigidBody;
 #endif
 
 		std::string name;
@@ -1258,7 +1258,7 @@ namespace fastgltf {
 		 */
 		std::vector<optional<std::size_t>> mappings;
 
-		std::unique_ptr<DracoCompressedPrimitive> dracoCompression;
+		boxed_optional<DracoCompressedPrimitive> dracoCompression;
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
 			return internal::findByName(attributes, name);
@@ -1315,9 +1315,9 @@ namespace fastgltf {
 		std::size_t texCoordIndex = 0;
 
 		/**
-		 * Data from KHR_texture_transform, and nullptr if the extension wasn't enabled or used.
+		 * Data from KHR_texture_transform, or empty if the extension wasn't enabled or used.
 		 */
-		std::unique_ptr<TextureTransform> transform;
+		boxed_optional<TextureTransform> transform;
 	};
 
 	FASTGLTF_EXPORT struct NormalTextureInfo : TextureInfo {
@@ -1460,8 +1460,8 @@ namespace fastgltf {
 		 * The tangent space normal texture.
 		 */
 		optional<NormalTextureInfo> normalTexture;
-		optional<OcclusionTextureInfo> occlusionTexture;
-		optional<TextureInfo> emissiveTexture;
+		boxed_optional<OcclusionTextureInfo> occlusionTexture;
+		boxed_optional<TextureInfo> emissiveTexture;
 
 		/**
 		 * The factors for the emissive color of the material.
@@ -1504,49 +1504,49 @@ namespace fastgltf {
 		 */
 		num dispersion = 0.0f;
 
-		std::unique_ptr<MaterialAnisotropy> anisotropy;
+		boxed_optional<MaterialAnisotropy> anisotropy;
 
-		std::unique_ptr<MaterialClearcoat> clearcoat;
+		boxed_optional<MaterialClearcoat> clearcoat;
 
 		/**
 		 * Diffuse transmission information from KHR_materials_diffuse_transmission.
 		 */
-		std::unique_ptr<MaterialDiffuseTransmission> diffuseTransmission;
+		boxed_optional<MaterialDiffuseTransmission> diffuseTransmission;
 
 		/**
 		 * Iridescence information from KHR_materials_iridescence.
 		 */
-		std::unique_ptr<MaterialIridescence> iridescence;
+		boxed_optional<MaterialIridescence> iridescence;
 
-		std::unique_ptr<MaterialSheen> sheen;
+		boxed_optional<MaterialSheen> sheen;
 
 		/**
 		 * Specular information from KHR_materials_specular.
 		 */
-		std::unique_ptr<MaterialSpecular> specular;
+		boxed_optional<MaterialSpecular> specular;
 
 		/**
 		 * Specular/Glossiness information from KHR_materials_pbrSpecularGlossiness.
 		 */
-		std::unique_ptr<MaterialSpecularGlossiness> specularGlossiness;
+		boxed_optional<MaterialSpecularGlossiness> specularGlossiness;
 
 		/**
 		 * Specular information from KHR_materials_transmission.
 		 */
-		std::unique_ptr<MaterialTransmission> transmission;
+		boxed_optional<MaterialTransmission> transmission;
 
 		/**
 		 * Volume information from KHR_materials_volume
 		 */
-		std::unique_ptr<MaterialVolume> volume;
+		boxed_optional<MaterialVolume> volume;
 
 		/**
 		 * The index of a packed texture from the MSFT_packing_normalRoughnessMetallic extension,
 		 * providing normal, roughness and metallic data.
 		 */
-		optional<TextureInfo> packedNormalMetallicRoughnessTexture;
+		boxed_optional<TextureInfo> packedNormalMetallicRoughnessTexture;
 
-		std::unique_ptr<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
+		boxed_optional<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
 
 		std::string name;
 	};
@@ -1597,24 +1597,12 @@ namespace fastgltf {
 		ComponentType indexComponentType;
 	};
 
-	template<>
-	struct optional_flag_value<SparseAccessor> {
-		static constexpr bool is_empty(const SparseAccessor& value) noexcept {
-			return value.indexComponentType == ComponentType::Invalid;
-		}
-		static void set_empty(SparseAccessor& value) noexcept {
-			value.indexComponentType = ComponentType::Invalid;
-		}
-	};
-
-	static_assert(has_flag_traits<SparseAccessor>);
-
 	FASTGLTF_EXPORT struct Accessor {
 		std::size_t byteOffset = 0;
 		std::size_t count;
+		bool normalized = false;
 		AccessorType type;
 		ComponentType componentType;
-		bool normalized = false;
 
 		optional<AccessorBoundsArray> max;
 		optional<AccessorBoundsArray> min;
@@ -1622,7 +1610,7 @@ namespace fastgltf {
 		// Could have no value for sparse morph targets
 		optional<std::size_t> bufferViewIndex;
 
-		optional<SparseAccessor> sparse;
+		boxed_optional<SparseAccessor> sparse;
 
 		std::string name;
 
@@ -1694,9 +1682,9 @@ namespace fastgltf {
 		optional<BufferTarget> target;
 
 		/**
-		 * Data from EXT_meshopt_compression or KHR_meshopt_compression, and nullptr if the extension was not enabled or used.
+		 * Data from EXT_meshopt_compression or KHR_meshopt_compression, or empty if the extension was not enabled or used.
 		 */
-		std::unique_ptr<CompressedBufferView> meshoptCompression;
+		boxed_optional<CompressedBufferView> meshoptCompression;
 
 		std::string name;
 	};

@@ -36,6 +36,13 @@
 #include <fastgltf/containers/exception_guard.hpp>
 
 namespace fastgltf {
+	struct valueless_tag_t {};
+	inline constexpr valueless_tag_t valueless_tag {};
+
+	// not the biggest fan of this being here ngl
+	FASTGLTF_EXPORT template <typename T, typename Allocator>
+	class boxed_storage;
+
 	/**
 	 * A wrapper for a dynamically allocated object with value-like semantics, similar to std::indirect (C++26).
 	 */
@@ -47,6 +54,9 @@ namespace fastgltf {
 		std::same_as<typename std::allocator_traits<Allocator>::value_type, T>
 	class box {
 		using traits = std::allocator_traits<Allocator>;
+
+		template <typename, typename>
+		friend class boxed_storage;
 
 	public:
 		using value_type = T;
@@ -73,6 +83,8 @@ namespace fastgltf {
 			traits::deallocate(a, p, 1);
 			p = nullptr;
 		}
+
+		constexpr explicit box(valueless_tag_t) noexcept {}
 
 	public:
 		constexpr explicit box()
@@ -151,14 +163,16 @@ namespace fastgltf {
 			static_assert(std::is_copy_assignable_v<T> && std::is_copy_constructible_v<T>);
 			if (std::addressof(other) != this) {
 				constexpr auto need_update = traits::propagate_on_container_copy_assignment::value;
+				Allocator alloc = need_update ? other._allocator : _allocator;
+
 				if (other._ptr == nullptr) {
 					if (_ptr != nullptr) {
 						dispose(_allocator, _ptr);
 					}
-				} else if (_allocator == other._allocator && _ptr != nullptr) {
+				} else if (_allocator == alloc && _ptr != nullptr) {
 					**this = *other;
 				} else {
-					pointer ptr = create(need_update ? other._allocator : _allocator, *other);
+					pointer ptr = create(alloc, *other);
 
 					if (_ptr != nullptr) {
 						dispose(_allocator, _ptr);
