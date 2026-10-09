@@ -1425,7 +1425,12 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
             if (child["componentType"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
-			sparse.indexComponentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
+			if (const auto componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
+				componentType != ComponentType::Invalid) {
+				sparse.indexComponentType = componentType;
+			} else [[unlikely]] {
+				return Error::InvalidGltf;
+			}
 
 			// Accessor Sparse Values
             if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) [[unlikely]] {

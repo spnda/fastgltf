@@ -1203,20 +1203,20 @@ namespace fastgltf {
 		 */
 		std::variant<TRS, math::fmat4x4> transform;
 
+		bool visible = true;
+		bool selectable = true;
+		bool hoverable = true;
+
 		/**
 		 * Only ever non-empty when EXT_mesh_gpu_instancing is enabled and used by the asset.
 		 */
 		std::vector<Attribute> instancingAttributes;
 
-		std::string name;
-
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
 #endif
 
-		bool visible = true;
-		bool selectable = true;
-		bool hoverable = true;
+		std::string name;
 
 		[[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) noexcept {
 			return internal::findByName(instancingAttributes, attributeName);
@@ -1596,6 +1596,18 @@ namespace fastgltf {
 		std::size_t valuesByteOffset = 0;
 		ComponentType indexComponentType;
 	};
+
+	template<>
+	struct optional_flag_value<SparseAccessor> {
+		static constexpr bool is_empty(const SparseAccessor& value) noexcept {
+			return value.indexComponentType == ComponentType::Invalid;
+		}
+		static void set_empty(SparseAccessor& value) noexcept {
+			value.indexComponentType = ComponentType::Invalid;
+		}
+	};
+
+	static_assert(has_flag_traits<SparseAccessor>);
 
 	FASTGLTF_EXPORT struct Accessor {
 		std::size_t byteOffset = 0;
