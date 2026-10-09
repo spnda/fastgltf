@@ -255,12 +255,10 @@ namespace fastgltf {
 		}
 	};
 
-#if !FASTGLTF_MISSING_MEMORY_RESOURCE
 	namespace pmr {
 		FASTGLTF_EXPORT template< class T >
 		using box = box<T, std::pmr::polymorphic_allocator<T>>;
 	}
-#endif
 
 	FASTGLTF_EXPORT template <typename T, typename A1, typename U, typename A2>
 	[[nodiscard]] constexpr bool operator==(const box<T, A1>& lhs, const box<U, A2>& rhs) noexcept(noexcept(*lhs == *rhs)) {

@@ -47,47 +47,6 @@
 #include <fastgltf/containers/small_vector.hpp>
 #include <fastgltf/containers/static_vector.hpp>
 
-#if defined(_GLIBCXX_USE_CXX11_ABI) && !_GLIBCXX_USE_CXX11_ABI
-// polymorphic allocators are only supported with the 'new' GCC ABI.
-// Older compilers (older than GCC 5.1) default to the old ABI and sometimes the old ABI is
-// explicitly selected on even the newest compilers, which we want to support.
-#define FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL 1
-#endif
-
-#ifndef FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-#define FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL 0
-#endif
-
-#if __has_include(<memory_resource>)
-#define FASTGLTF_MISSING_MEMORY_RESOURCE 0
-#else
-#define FASTGLTF_MISSING_MEMORY_RESOURCE 1
-#if defined(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL)
-#undef FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-#endif
-#define FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL 1
-#endif
-
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-#if !defined(FASTGLTF_MODULE)
-#include <memory_resource>
-#endif
-#endif
-
-#if FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-#define FASTGLTF_STD_PMR_NS ::std
-#define FASTGLTF_FG_PMR_NS ::fastgltf
-
-#define FASTGLTF_CONSTRUCT_PMR_RESOURCE(type, memoryResource, ...) type(__VA_ARGS__)
-#define FASTGLTF_IF_PMR(expr)
-#else
-#define FASTGLTF_STD_PMR_NS ::std::pmr
-#define FASTGLTF_FG_PMR_NS ::fastgltf::pmr
-
-#define FASTGLTF_CONSTRUCT_PMR_RESOURCE(type, memoryResource, ...) type(__VA_ARGS__, memoryResource)
-#define FASTGLTF_IF_PMR(expr) expr
-#endif
-
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -778,17 +737,17 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Animation {
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<AnimationChannel> channels;
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<AnimationSampler> samplers;
+		maybe_small_vector<AnimationChannel> channels;
+		maybe_small_vector<AnimationSampler> samplers;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct AssetInfo {
-		FASTGLTF_STD_PMR_NS::string copyright;
-		FASTGLTF_STD_PMR_NS::string generator;
-		FASTGLTF_STD_PMR_NS::string gltfVersion;
-		FASTGLTF_STD_PMR_NS::string minVersion;
+		std::string copyright;
+		std::string generator;
+		std::string gltfVersion;
+		std::string minVersion;
 	};
 
 	FASTGLTF_EXPORT struct Camera {
@@ -811,15 +770,15 @@ namespace fastgltf {
 		 * and/or std::get_if to figure out which camera type is being used.
 		 */
 		std::variant<Perspective, Orthographic> camera;
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct Skin {
 		optional<std::size_t> inverseBindMatrices;
 		optional<std::size_t> skeleton;
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<std::size_t> joints;
+		maybe_small_vector<std::size_t> joints;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct Sampler {
@@ -828,13 +787,13 @@ namespace fastgltf {
 		Wrap wrapS = Wrap::Repeat;
 		Wrap wrapT = Wrap::Repeat;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct Scene {
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<std::size_t> nodeIndices;
+		maybe_small_vector<std::size_t> nodeIndices;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct TRS {
@@ -844,7 +803,7 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Attribute {
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 		std::size_t accessorIndex;
 	};
 
@@ -970,17 +929,17 @@ namespace fastgltf {
 		/**
 		 * An array of arbitrary strings indicating the "system" a node is a member of
 		 */
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<FASTGLTF_STD_PMR_NS::string> collisionSystems;
+		maybe_small_vector<std::string> collisionSystems;
 
 		/**
 		 * An array of strings representing the systems which this node can _not_ collide with
 		 */
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<FASTGLTF_STD_PMR_NS::string> notCollideWithSystems;
+		maybe_small_vector<std::string> notCollideWithSystems;
 
 		/**
 		 * An array of strings representing the systems which this node can collide with
 		 */
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<FASTGLTF_STD_PMR_NS::string> collideWithSystems;
+		maybe_small_vector<std::string> collideWithSystems;
 	};
 
 	FASTGLTF_EXPORT struct Collider {
@@ -1017,7 +976,7 @@ namespace fastgltf {
 		/**
 		 * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
 		 */
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<std::size_t> nodes;
+		maybe_small_vector<std::size_t> nodes;
 	};
 
 	FASTGLTF_EXPORT struct JointLimit {
@@ -1095,12 +1054,12 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct PhysicsJoint {
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<JointLimit> limits;
+		maybe_small_vector<JointLimit> limits;
 
 		/**
 		 * Each drive specifies a force to apply along a single axis
 		 */
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<JointDrive> drives;
+		maybe_small_vector<JointDrive> drives;
 	};
 
 	FASTGLTF_EXPORT struct Joint {
@@ -1132,8 +1091,8 @@ namespace fastgltf {
 		 */
 		optional<std::size_t> lightIndex;
 
-		FASTGLTF_STD_PMR_NS::vector<std::size_t> children;
-		FASTGLTF_STD_PMR_NS::vector<num> weights;
+		std::vector<std::size_t> children;
+		std::vector<num> weights;
 
 		/**
 		 * Variant holding either the three TRS components; transform, rotation, and scale, or a
@@ -1145,9 +1104,9 @@ namespace fastgltf {
 		/**
 		 * Only ever non-empty when EXT_mesh_gpu_instancing is enabled and used by the asset.
 		 */
-		FASTGLTF_STD_PMR_NS::vector<Attribute> instancingAttributes;
+		std::vector<Attribute> instancingAttributes;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		std::unique_ptr<PhysicsRigidBody> physicsRigidBody;
@@ -1168,11 +1127,7 @@ namespace fastgltf {
 
 	struct DracoCompressedPrimitive {
 		std::size_t bufferView;
-#if FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 		small_vector<Attribute, 4> attributes;
-#else
-		FASTGLTF_STD_PMR_NS::vector<Attribute> attributes;
-#endif
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
 			return internal::findByName(attributes, name);
@@ -1186,14 +1141,10 @@ namespace fastgltf {
 	FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
-#if FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
 		small_vector<Attribute, 4> attributes;
-#else
-		FASTGLTF_STD_PMR_NS::vector<Attribute> attributes;
-#endif
 		PrimitiveType type = PrimitiveType::Triangles;
 
-		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_STD_PMR_NS::vector<Attribute>> targets;
+		std::vector<std::vector<Attribute>> targets;
 
 		optional<std::size_t> indicesAccessor;
 		optional<std::size_t> materialIndex;
@@ -1203,7 +1154,7 @@ namespace fastgltf {
 		 * Use the variant index to index into this array to get the corresponding material index to use.
 		 * If this vector is empty, the normal materialIndex should be used as a fallback.
 		 */
-		FASTGLTF_STD_PMR_NS::vector<optional<std::size_t>> mappings;
+		std::vector<optional<std::size_t>> mappings;
 
 		std::unique_ptr<DracoCompressedPrimitive> dracoCompression;
 
@@ -1225,10 +1176,10 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Mesh {
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<Primitive, 2> primitives;
-		FASTGLTF_FG_PMR_NS::maybe_small_vector<num> weights;
+		maybe_small_vector<Primitive, 2> primitives;
+		maybe_small_vector<num> weights;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	/**
@@ -1494,7 +1445,7 @@ namespace fastgltf {
 
 		std::unique_ptr<MaterialPackedTextures> packedOcclusionRoughnessMetallicTextures;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct Texture {
@@ -1525,13 +1476,13 @@ namespace fastgltf {
 		 */
 		optional<std::size_t> webpImageIndex;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct Image {
 		DataSource data;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct SparseAccessor {
@@ -1558,7 +1509,7 @@ namespace fastgltf {
 
 		optional<SparseAccessor> sparse;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 
 		/**
 		 * Helper function that updates the max/min variables dynamically.
@@ -1632,7 +1583,7 @@ namespace fastgltf {
 		 */
 		std::unique_ptr<CompressedBufferView> meshoptCompression;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct Buffer {
@@ -1640,7 +1591,7 @@ namespace fastgltf {
 
 		DataSource data;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT struct Light {
@@ -1657,7 +1608,7 @@ namespace fastgltf {
 		optional<num> innerConeAngle;
 		optional<num> outerConeAngle;
 
-		FASTGLTF_STD_PMR_NS::string name;
+		std::string name;
 	};
 
 	FASTGLTF_EXPORT class Parser;
@@ -1665,19 +1616,13 @@ namespace fastgltf {
 	FASTGLTF_EXPORT class Asset {
 		friend class Parser;
 
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-		// This has to be first in this struct so that it gets destroyed last, leaving all allocations
-		// alive until the end.
-		std::shared_ptr<std::pmr::monotonic_buffer_resource> memoryResource;
-#endif
-
 	public:
 		/**
 		 * This will only ever have no value if #Options::DontRequireValidAssetMember was specified.
 		 */
 		optional<AssetInfo> assetInfo;
-		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_STD_PMR_NS::string> extensionsUsed;
-		FASTGLTF_STD_PMR_NS::vector<FASTGLTF_STD_PMR_NS::string> extensionsRequired;
+		std::vector<std::string> extensionsUsed;
+		std::vector<std::string> extensionsRequired;
 
 		optional<std::size_t> defaultScene;
 		std::vector<Accessor> accessors;
@@ -1695,7 +1640,7 @@ namespace fastgltf {
 		std::vector<Skin> skins;
 		std::vector<Texture> textures;
 
-		FASTGLTF_STD_PMR_NS::vector<std::string> materialVariants;
+		std::vector<std::string> materialVariants;
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 		std::vector<Shape> shapes;
@@ -1712,75 +1657,10 @@ namespace fastgltf {
 
 		explicit Asset() = default;
 		explicit Asset(const Asset& other) = delete;
-		Asset(Asset&& other) noexcept :
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-				memoryResource(std::move(other.memoryResource)),
-#endif
-				assetInfo(std::move(other.assetInfo)),
-				extensionsUsed(std::move(other.extensionsUsed)),
-				extensionsRequired(std::move(other.extensionsRequired)),
-				defaultScene(other.defaultScene),
-				accessors(std::move(other.accessors)),
-				animations(std::move(other.animations)),
-				buffers(std::move(other.buffers)),
-				bufferViews(std::move(other.bufferViews)),
-				cameras(std::move(other.cameras)),
-				images(std::move(other.images)),
-				lights(std::move(other.lights)),
-				materials(std::move(other.materials)),
-				meshes(std::move(other.meshes)),
-				nodes(std::move(other.nodes)),
-				samplers(std::move(other.samplers)),
-				scenes(std::move(other.scenes)),
-				skins(std::move(other.skins)),
-				textures(std::move(other.textures)),
-				materialVariants(std::move(other.materialVariants)),
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-				shapes(std::move(other.shapes)),
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-				physicsMaterials(std::move(other.physicsMaterials)),
-				physicsJoints(std::move(other.physicsJoints)),
-				collisionFilters(std::move(other.collisionFilters)),
-#endif
-				availableCategories(other.availableCategories) {}
+		Asset(Asset&& other) noexcept = default;
 
 		Asset& operator=(const Asset& other) = delete;
-		Asset& operator=(Asset&& other) noexcept {
-			assetInfo = std::move(other.assetInfo);
-			extensionsUsed = std::move(other.extensionsUsed);
-			extensionsRequired = std::move(other.extensionsRequired);
-			defaultScene = other.defaultScene;
-			accessors = std::move(other.accessors);
-			animations = std::move(other.animations);
-			buffers = std::move(other.buffers);
-			bufferViews = std::move(other.bufferViews);
-			cameras = std::move(other.cameras);
-			images = std::move(other.images);
-			lights = std::move(other.lights);
-			materials = std::move(other.materials);
-			meshes = std::move(other.meshes);
-			nodes = std::move(other.nodes);
-			samplers = std::move(other.samplers);
-			scenes = std::move(other.scenes);
-			skins = std::move(other.skins);
-			textures = std::move(other.textures);
-			materialVariants = std::move(other.materialVariants);
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-			shapes = std::move(other.shapes);
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-			physicsMaterials = std::move(other.physicsMaterials);
-			physicsJoints = std::move(other.physicsJoints);
-			collisionFilters = std::move(other.collisionFilters);
-#endif
-			availableCategories = other.availableCategories;
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-			// This needs to be last to not destroy the old memoryResource for the current data.
-			memoryResource = std::move(other.memoryResource);
-#endif
-			return *this;
-		}
+		Asset& operator=(Asset&& other) noexcept = default;
 	};
 #pragma endregion
 } // namespace fastgltf

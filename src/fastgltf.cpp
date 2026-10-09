@@ -87,7 +87,7 @@ namespace fastgltf {
 		std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
 		getter.read(bytes.data(), bytes.size());
 
-		BinaryGltfHeader header = {};
+		BinaryGltfHeader header {};
 		readUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
 		readUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
 		readUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
@@ -112,7 +112,7 @@ namespace fastgltf {
 		std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
 		getter.read(bytes.data(), bytes.size());
 
-		BinaryGltfChunk chunk = {};
+		BinaryGltfChunk chunk {};
 		readUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
 		readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
 		return chunk;
@@ -310,7 +310,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 				config.unmapCallback(&info, config.userPointer);
 			}
 
-			sources::CustomBuffer source = {};
+			sources::CustomBuffer source {};
 			source.id = info.customId;
 			source.mimeType = getMimeTypeFromString(mime);
 			return { source };
@@ -396,7 +396,6 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 
 	// We iterate through the JSON object and write each key/pair value into the
 	// attribute map. The keys are only validated in the validate() method.
-	attributes = FASTGLTF_CONSTRUCT_PMR_RESOURCE(T, resourceAllocator.get(), 0);
 	attributes.reserve(object.size());
 	for (const auto field : object) {
 		const auto key = field.key;
@@ -406,8 +405,8 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 			return Error::InvalidGltf;
 		}
 		attributes.emplace_back(Attribute {
-			FASTGLTF_CONSTRUCT_PMR_RESOURCE(FASTGLTF_STD_PMR_NS::string, resourceAllocator.get(), key),
-			static_cast<std::size_t>(accessorIndex),
+			.name = std::string(key),
+			.accessorIndex = static_cast<std::size_t>(accessorIndex),
 		});
 	}
 	return Error::None;
@@ -1085,16 +1084,9 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 
 	Asset asset {};
 
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-	// Create a new chunk memory resource for each asset we parse.
-	asset.memoryResource = resourceAllocator = std::make_shared<std::pmr::monotonic_buffer_resource>();
-#endif
-
-	asset.materialVariants = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(asset.materialVariants), resourceAllocator.get(), 0);
-
 	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
 		dom::object assetInfo;
-		AssetInfo info = {};
+		AssetInfo info {};
 		auto error = root["asset"].get_object().get(assetInfo);
 		if (error == NO_SUCH_FIELD) {
 			return Error::InvalidOrMissingAssetField;
@@ -1134,7 +1126,6 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	}
 
 	if (dom::array extensionsRequired; root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) [[likely]] {
-		asset.extensionsRequired = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(asset.extensionsRequired), resourceAllocator.get(), 0);
 		for (auto extension : extensionsRequired) {
 			std::string_view string;
 			if (extension.get_string().get(string) != SUCCESS) [[unlikely]] {
@@ -1156,8 +1147,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 				return Error::UnknownRequiredExtension;
 			}
 
-			FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(requiredExtension, resourceAllocator.get(), string);
-			asset.extensionsRequired.emplace_back(std::move(requiredExtension));
+			asset.extensionsRequired.emplace_back(string);
 		}
 	}
 
@@ -1215,12 +1205,10 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			KEY_SWITCH_CASE(Skins, skins)
 			KEY_SWITCH_CASE(Textures, textures)
 			case force_consteval<crc32c("extensionsUsed")>: {
-				asset.extensionsUsed = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(asset.extensionsUsed), resourceAllocator.get(), 0);
 				for (auto usedValue : array) {
 					std::string_view usedString;
 					if (auto eError = usedValue.get_string().get(usedString); eError == SUCCESS) [[likely]] {
-						FASTGLTF_STD_PMR_NS::string FASTGLTF_CONSTRUCT_PMR_RESOURCE(string, resourceAllocator.get(), usedString);
-						asset.extensionsUsed.emplace_back(std::move(string));
+						asset.extensionsUsed.emplace_back(usedString);
 					} else {
 						error = Error::InvalidGltf;
 					}
@@ -1261,10 +1249,6 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 	}
 
-	// Release resources from the parser and let them live only in the asset
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-	resourceAllocator.reset();
-#endif
 	glbBuffer = std::monostate {};
 
 	return asset;
@@ -1276,7 +1260,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 	asset.accessors.reserve(accessors.size());
 	for (auto accessorValue : accessors) {
 		// Required fields: "componentType", "count"
-		Accessor accessor = {};
+		Accessor accessor {};
 		dom::object accessorObject;
         if (accessorValue.get_object().get(accessorObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -1414,7 +1398,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 
 		dom::object sparseAccessorObject;
         if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) [[likely]] {
-			SparseAccessor sparse = {};
+			SparseAccessor sparse {};
 			std::uint64_t value;
 			dom::object child;
             if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
@@ -1473,7 +1457,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 
 		std::string_view name;
 		if (accessorObject["name"].get_string().get(name) == SUCCESS) {
-			accessor.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(accessor.name), resourceAllocator.get(), name);
+			accessor.name.assign(name);
 		}
 
 		asset.accessors.emplace_back(std::move(accessor));
@@ -1488,7 +1472,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 	asset.animations.reserve(animations.size());
 	for (auto animationValue : animations) {
 		dom::object animationObject;
-		Animation animation = {};
+		Animation animation {};
         if (animationValue.get_object().get(animationObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
@@ -1499,11 +1483,10 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 			return Error::InvalidGltf;
 		}
 
-		animation.channels = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.channels), resourceAllocator.get(), 0);
 		animation.channels.reserve(channels.size());
 		for (auto channelValue : channels) {
 			dom::object channelObject;
-			AnimationChannel channel = {};
+			AnimationChannel channel {};
             if (channelValue.get_object().get(channelObject) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -1553,11 +1536,10 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 			return Error::InvalidGltf;
 		}
 
-		animation.samplers = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.samplers), resourceAllocator.get(), 0);
 		animation.samplers.reserve(samplers.size());
 		for (auto samplerValue : samplers) {
 			dom::object samplerObject;
-			AnimationSampler sampler = {};
+			AnimationSampler sampler {};
             if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -1604,7 +1586,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 
 		std::string_view name;
 		if (animationObject["name"].get_string().get(name) == SUCCESS) {
-			animation.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(animation.name), resourceAllocator.get(), name);
+			animation.name.assign(name);
 		}
 
 		asset.animations.emplace_back(std::move(animation));
@@ -1620,7 +1602,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 	std::size_t bufferIndex = 0;
 	for (auto bufferValue : buffers) {
 		// Required fields: "byteLength"
-		Buffer buffer = {};
+		Buffer buffer {};
 		dom::object bufferObject;
         if (bufferValue.get_object().get(bufferObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -1700,7 +1682,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 
 		std::string_view name;
 		if (bufferObject["name"].get_string().get(name) == SUCCESS) {
-			buffer.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(buffer.name), resourceAllocator.get(), name);
+			buffer.name.assign(name);
 		}
 
 		++bufferIndex;
@@ -1721,7 +1703,7 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 		}
 
 		std::uint64_t number;
-		BufferView view;
+		BufferView view {};
         if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 		}
@@ -1752,7 +1734,7 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 
 		std::string_view string;
 		if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
-			view.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(view.name), resourceAllocator.get(), string);
+			view.name.assign(string);
         } else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
 		}
@@ -1886,7 +1868,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 
 	asset.cameras.reserve(cameras.size());
 	for (auto cameraValue : cameras) {
-		Camera camera = {};
+		Camera camera {};
 		dom::object cameraObject;
         if (cameraValue.get_object().get(cameraObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -1894,7 +1876,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 
 		std::string_view name;
 		if (cameraObject["name"].get_string().get(name) == SUCCESS) {
-			camera.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(camera.name), resourceAllocator.get(), name);
+			camera.name.assign(name);
 		}
 
 		std::string_view type;
@@ -1908,7 +1890,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 				return Error::InvalidGltf;
 			}
 
-			Camera::Perspective perspective = {};
+			Camera::Perspective perspective {};
 			double value;
             if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) [[likely]] {
 				perspective.aspectRatio = static_cast<num>(value);
@@ -1941,7 +1923,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 				return Error::InvalidGltf;
 			}
 
-			Camera::Orthographic orthographic = {};
+			Camera::Orthographic orthographic {};
 			double value;
             if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) [[likely]] {
 				orthographic.xmag = static_cast<num>(value);
@@ -2104,7 +2086,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 
 	asset.images.reserve(images.size());
 	for (auto imageValue : images) {
-		Image image = {};
+		Image image {};
 		dom::object imageObject;
         if (imageValue.get_object().get(imageObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -2184,7 +2166,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 		// name is optional.
 		std::string_view name;
 		if (imageObject["name"].get_string().get(name) == SUCCESS) {
-			image.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(image.name), resourceAllocator.get(), name);
+			image.name.assign(name);
 		}
 
 		asset.images.emplace_back(std::move(image));
@@ -2199,10 +2181,10 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 	asset.lights.reserve(lights.size());
 	for (auto lightValue : lights) {
 		dom::object lightObject;
-        if (lightValue.get_object().get(lightObject) != SUCCESS) [[unlikely]] {
+		if (lightValue.get_object().get(lightObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		Light light = {};
+		Light light {};
 
 		std::string_view type;
         if (lightObject["type"].get_string().get(type) == SUCCESS) [[likely]] {
@@ -2285,7 +2267,7 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 
 		std::string_view name;
 		if (lightObject["name"].get_string().get(name) == SUCCESS) {
-			light.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(light.name), resourceAllocator.get(), name);
+			light.name.assign(name);
 		}
 
 		asset.lights.emplace_back(std::move(light));
@@ -2787,7 +2769,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				if (extensionField.value.get_object().get(normalRoughnessMetallic) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				TextureInfo textureInfo = {};
+				TextureInfo textureInfo {};
 				if (auto error = parseTextureInfo(normalRoughnessMetallic, "normalRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
 					material.packedNormalMetallicRoughnessTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
@@ -2804,7 +2786,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 					return Error::InvalidGltf;
 				}
 				auto packedTextures = std::make_unique<MaterialPackedTextures>();
-				TextureInfo textureInfo = {};
+				TextureInfo textureInfo {};
 				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
 					packedTextures->occlusionRoughnessMetallicTexture = std::move(textureInfo);
 				} else if (error != Error::MissingField) {
@@ -2910,10 +2892,10 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 	asset.materials.reserve(materials.size());
 	for (auto materialValue : materials) {
 		dom::object materialObject;
-        if (materialValue.get_object().get(materialObject) != SUCCESS) [[unlikely]] {
+		if (materialValue.get_object().get(materialObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		Material material = {};
+		Material material {};
 
 		dom::array emissiveFactor;
         if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) [[likely]] {
@@ -2932,7 +2914,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 		}
 
 		{
-			NormalTextureInfo normalTextureInfo = {};
+			NormalTextureInfo normalTextureInfo {};
 		    if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) [[likely]] {
 				material.normalTexture = std::move(normalTextureInfo);
 			} else if (error != Error::MissingField) {
@@ -2941,7 +2923,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 		}
 
 		{
-			OcclusionTextureInfo occlusionTextureInfo = {};
+			OcclusionTextureInfo occlusionTextureInfo {};
 	        if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) [[likely]] {
 				material.occlusionTexture = std::move(occlusionTextureInfo);
 			} else if (error != Error::MissingField) {
@@ -2950,7 +2932,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 		}
 
 		{
-			TextureInfo textureInfo = {};
+			TextureInfo textureInfo {};
 	        if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
 				material.emissiveTexture = std::move(textureInfo);
 			} else if (error != Error::MissingField) {
@@ -2960,7 +2942,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 		dom::object pbrMetallicRoughness;
         if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) [[likely]] {
-			PBRData pbr = {};
+			PBRData pbr {};
 
 			dom::array baseColorFactor;
             if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) [[likely]] {
@@ -3032,7 +3014,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 		std::string_view name;
 		if (materialObject["name"].get_string().get(name) == SUCCESS) {
-			material.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(material.name), resourceAllocator.get(), name);
+			material.name.assign(name);
 		}
 
 		dom::object extensionsObject;
@@ -3077,7 +3059,6 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 					return Error::InvalidGltf;
 				}
 
-				primitive.mappings = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(primitive.mappings), resourceAllocator.get(), 0);
 				for (auto mapping : mappingsArray) {
 					dom::object mappingObject;
 					if (mapping.get_object().get(mappingObject) != SUCCESS) [[unlikely]] {
@@ -3150,7 +3131,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
         if (meshValue.get_object().get(meshObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		Mesh mesh = {};
+		Mesh mesh {};
 
 		dom::array array;
 		auto meshError = getJsonArray(meshObject, "primitives", &array);
@@ -3158,11 +3139,10 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 			return meshError == Error::MissingField ? Error::InvalidGltf : meshError;
 		}
 
-		mesh.primitives = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.primitives), resourceAllocator.get(), 0);
 		mesh.primitives.reserve(array.size());
 		for (auto primitiveValue : array) {
 			// Required fields: "attributes"
-			Primitive primitive = {};
+			Primitive primitive {};
 			dom::object primitiveObject;
 			if (primitiveValue.get_object().get(primitiveObject) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
@@ -3178,7 +3158,6 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
 			dom::array targets;
 			if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) [[likely]] {
-				primitive.targets = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(primitive.targets), resourceAllocator.get(), 0);
 				primitive.targets.reserve(targets.size());
 				for (auto targetValue : targets) {
 					if (targetValue.get_object().get(attributesObject) != SUCCESS) [[unlikely]] {
@@ -3224,7 +3203,6 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 		}
 
         if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) [[likely]] {
-			mesh.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.weights), resourceAllocator.get(), 0);
 			mesh.weights.reserve(array.size());
 			for (auto weightValue : array) {
 				double val;
@@ -3248,7 +3226,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
 		std::string_view name;
 		if (meshObject["name"].get_string().get(name) == SUCCESS) {
-			mesh.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(mesh.name), resourceAllocator.get(), name);
+			mesh.name.assign(name);
 		}
 
 		asset.meshes.emplace_back(std::move(mesh));
@@ -3262,7 +3240,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
 	asset.nodes.reserve(nodes.size());
 	for (auto nodeValue : nodes) {
-		Node node = {};
+		Node node {};
 		dom::object nodeObject;
         if (nodeValue.get_object().get(nodeObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -3288,7 +3266,6 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 		dom::array array;
 		auto childError = getJsonArray(nodeObject, "children", &array);
         if (childError == Error::None) [[likely]] {
-			node.children = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.children), resourceAllocator.get(), 0);
 			node.children.reserve(array.size());
 			for (auto childValue : array) {
                 if (childValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
@@ -3304,7 +3281,6 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 		auto weightsError = getJsonArray(nodeObject, "weights", &array);
 		if (weightsError != Error::MissingField) {
 			if (weightsError == Error::None) {
-				node.weights = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.weights), resourceAllocator.get(), 0);
 				node.weights.reserve(array.size());
 				for (auto weightValue : array) {
 					double val;
@@ -3338,14 +3314,14 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			}
 
 			if (hasBit(options, Options::DecomposeNodeMatrices)) {
-				TRS trs = {};
+				TRS trs {};
 				math::decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
 				node.transform = trs;
 			} else {
 				node.transform = transformMatrix;
 			}
 		} else if (error == NO_SUCH_FIELD) {
-			TRS trs = {};
+			TRS trs {};
 
 			// There's no matrix, let's see if there's scale, rotation, or rotation fields.
             if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) [[likely]] {
@@ -3494,7 +3470,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
 		std::string_view name;
 		if (nodeObject["name"].get_string().get(name) == SUCCESS) {
-			node.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(node.name), resourceAllocator.get(), name);
+			node.name.assign(name);
 		}
 
 		asset.nodes.emplace_back(std::move(node));
@@ -3509,7 +3485,7 @@ fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset&
 	std::uint64_t number;
 	asset.samplers.reserve(samplers.size());
 	for (auto samplerValue : samplers) {
-		Sampler sampler = {};
+		Sampler sampler {};
 		dom::object samplerObject;
         if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -3548,7 +3524,7 @@ fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset&
 
 		std::string_view name;
 		if (samplerObject["name"].get_string().get(name) == SUCCESS) {
-			sampler.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(sampler.name), resourceAllocator.get(), name);
+			sampler.name.assign(name);
 		}
 
 		asset.samplers.emplace_back(std::move(sampler));
@@ -3563,7 +3539,7 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 	asset.scenes.reserve(scenes.size());
 	for (auto sceneValue : scenes) {
 		// The scene object can be completely empty
-		Scene scene = {};
+		Scene scene {};
 		dom::object sceneObject;
         if (sceneValue.get_object().get(sceneObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -3571,7 +3547,7 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 
 		std::string_view name;
 		if (sceneObject["name"].get_string().get(name) == SUCCESS) {
-			scene.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.name), resourceAllocator.get(), name);
+			scene.name.assign(name);
 		}
 
 		if (config.extrasCallback != nullptr) {
@@ -3587,7 +3563,6 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 		dom::array nodes;
 		auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
         if (nodeError == Error::None) [[likely]] {
-			scene.nodeIndices = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(scene.nodeIndices), resourceAllocator.get(), 0);
 			scene.nodeIndices.reserve(nodes.size());
 			for (auto nodeValue : nodes) {
 				std::uint64_t index;
@@ -3612,7 +3587,7 @@ fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset
 
 	asset.skins.reserve(skins.size());
 	for (auto skinValue : skins) {
-		Skin skin = {};
+		Skin skin {};
 		dom::object skinObject;
         if (skinValue.get_object().get(skinObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -3634,7 +3609,6 @@ fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset
         if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		skin.joints = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.joints), resourceAllocator.get(), 0);
 		skin.joints.reserve(jointsArray.size());
 		for (auto jointValue : jointsArray) {
             if (jointValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
@@ -3654,7 +3628,7 @@ fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset
 
 		std::string_view name;
 		if (skinObject["name"].get_string().get(name) == SUCCESS) {
-			skin.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(skin.name), resourceAllocator.get(), name);
+			skin.name.assign(name);
 		}
 		asset.skins.emplace_back(std::move(skin));
 	}
@@ -3667,7 +3641,7 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 
 	asset.textures.reserve(textures.size());
 	for (auto textureValue : textures) {
-		Texture texture;
+		Texture texture {};
 		dom::object textureObject;
         if (textureValue.get_object().get(textureObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -3709,7 +3683,7 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 
 		std::string_view name;
 		if (textureObject["name"].get_string().get(name) == SUCCESS) {
-			texture.name = FASTGLTF_CONSTRUCT_PMR_RESOURCE(decltype(texture.name), resourceAllocator.get(), name);
+			texture.name.assign(name);
 		}
 
 		asset.textures.emplace_back(std::move(texture));
@@ -4523,7 +4497,7 @@ fg::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 	}
 
 	// First, check if any of the first four characters is a '{'.
-	std::array<std::uint8_t, 4> begin = {};
+	std::array<std::uint8_t, 4> begin {};
 	data.read(begin.data(), begin.size());
 	data.reset();
 	for (const auto& i : begin) {
@@ -4664,7 +4638,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 				static_vector<std::byte> binaryData(for_overwrite, binaryChunk.chunkLength);
 				data.read(binaryData.data(), binaryChunk.chunkLength);
 
-				sources::Array vectorData = {
+				sources::Array vectorData {
 					std::move(binaryData),
 					MimeType::GltfBuffer,
 				};

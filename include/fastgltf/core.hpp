@@ -655,9 +655,6 @@ namespace fastgltf {
 
 		ParserInternalConfig config = {};
 		DataSource glbBuffer;
-#if !FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL
-		std::shared_ptr<std::pmr::monotonic_buffer_resource> resourceAllocator;
-#endif
 		std::filesystem::path directory;
 		Options options = Options::None;
 

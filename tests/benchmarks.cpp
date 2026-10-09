@@ -95,7 +95,7 @@ fastgltf::static_vector<std::uint8_t> readFileAsBytes(const std::filesystem::pat
 }
 
 TEST_CASE("Benchmark loading of NewSponza", "[!benchmark][gltf-benchmark]") {
-	if (!std::filesystem::exists(intelSponza / "NewSponza_Main_glTF_002.gltf")) {
+	if (!std::filesystem::exists(intelSponza / "NewSponza_Main_glTF_003.gltf")) {
 		// NewSponza is not part of gltf-Sample-Models, and therefore not always available.
 		SKIP("Intel's NewSponza (GLTF) is required for this benchmark.");
 	}
@@ -115,7 +115,7 @@ TEST_CASE("Benchmark loading of NewSponza", "[!benchmark][gltf-benchmark]") {
 	tg3_error_stack_init(&errors);
 #endif
 
-	auto bytes = readFileAsBytes(intelSponza / "NewSponza_Main_glTF_002.gltf");
+	auto bytes = readFileAsBytes(intelSponza / "NewSponza_Main_glTF_003.gltf");
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);

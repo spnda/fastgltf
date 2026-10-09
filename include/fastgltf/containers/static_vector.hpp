@@ -276,12 +276,10 @@ namespace fastgltf {
 			synth_three_way);
 	}
 
-#if !FASTGLTF_MISSING_MEMORY_RESOURCE
 	namespace pmr {
 		FASTGLTF_EXPORT template <typename T>
 		using static_vector = static_vector<T, std::pmr::polymorphic_allocator<T>>;
 	} // namespace pmr
-#endif
 } // namespace fastgltf
 
 #endif

@@ -25,14 +25,6 @@ this option instead makes fastgltf use 64-bit ``double``.
 While fastgltf uses its custom ``SmallVector`` class in various areas by default, it might be useful to enable it in more places.
 
 
-``FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL``
----------------------------------------
-
-fastgltf by default comes with a custom memory allocator which makes use of ``std::pmr`` functionality.
-This allocator allocates fixed-size blocks of memory as needed and divides them up for all heap allocations fastgltf performs.
-All of this functionality can be disabled using this flag.
-All types will then be normal ``std`` containers and use standard heap allocation with new and malloc.
-
 ``FASTGLTF_ENABLE_CPP_MODULES``
 -------------------------------
 
