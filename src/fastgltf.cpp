@@ -297,14 +297,15 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 
 		auto info = config.mapCallback(size, config.userPointer);
 		if (info.mappedMemory != nullptr) {
-			if (const auto result = simdutf::base64_to_binary(
+			const auto result = simdutf::base64_to_binary(
 				encodedData.data(), encodedData.size(), static_cast<char*>(info.mappedMemory));
-				result.is_err()) {
-				return Error::InvalidURI;
-			}
 
 			if (config.unmapCallback != nullptr) {
 				config.unmapCallback(&info, config.userPointer);
+			}
+
+			if (result.is_err() || result.count != size) [[unlikely]] {
+				return Error::InvalidURI;
 			}
 
 			sources::CustomBuffer source = {};
@@ -315,11 +316,13 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 	}
 
 	// Decode the base64 data into a traditional vector
+	// also check if the decoded byte count matches the size. they usually only differ when the input has
+	// whitespace which we just don't handle atm (simdutf does, tbf) because of static_vector not being resizeable
 	const auto padding = base64::getPadding(encodedData);
 	static_vector<std::byte> uriData(for_overwrite, base64::getDecodedSize(encodedData.size(), padding));
 	if (const auto result = simdutf::base64_to_binary(
 			encodedData.data(), encodedData.size(), reinterpret_cast<char*>(uriData.data()));
-		result.is_err()) {
+		result.is_err() || result.count != uriData.size()) [[unlikely]] {
 		return Error::InvalidURI;
 	}
 
