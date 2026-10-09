@@ -569,28 +569,6 @@ namespace fastgltf {
 		FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
 		using small_vector = small_vector<T, N, std::pmr::polymorphic_allocator<T>>;
 	} // namespace pmr
-
-#ifndef FASTGLTF_USE_CUSTOM_SMALLVECTOR
-#define FASTGLTF_USE_CUSTOM_SMALLVECTOR 0
-#endif
-
-#if FASTGLTF_USE_CUSTOM_SMALLVECTOR
-	FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
-	using maybe_small_vector = small_vector<T, N>;
-#else
-	FASTGLTF_EXPORT template <typename T, std::size_t N = 0>
-	using maybe_small_vector = std::vector<T>;
-#endif
-
-	namespace pmr {
-#if FASTGLTF_USE_CUSTOM_SMALLVECTOR
-		FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
-		using maybe_small_vector = pmr::small_vector<T, N>;
-#else
-		FASTGLTF_EXPORT template <typename T, std::size_t N = 0>
-		using maybe_small_vector = std::pmr::vector<T>;
-#endif
-	} // namespace pmr
 } // namespace fastgltf
 
 #endif

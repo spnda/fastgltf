@@ -737,8 +737,8 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Animation {
-		maybe_small_vector<AnimationChannel> channels;
-		maybe_small_vector<AnimationSampler> samplers;
+		std::vector<AnimationChannel> channels;
+		std::vector<AnimationSampler> samplers;
 
 		std::string name;
 	};
@@ -776,7 +776,7 @@ namespace fastgltf {
 	FASTGLTF_EXPORT struct Skin {
 		optional<std::size_t> inverseBindMatrices;
 		optional<std::size_t> skeleton;
-		maybe_small_vector<std::size_t> joints;
+		std::vector<std::size_t> joints;
 
 		std::string name;
 	};
@@ -791,7 +791,7 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Scene {
-		maybe_small_vector<std::size_t> nodeIndices;
+		std::vector<std::size_t> nodeIndices;
 
 		std::string name;
 	};
@@ -929,17 +929,17 @@ namespace fastgltf {
 		/**
 		 * An array of arbitrary strings indicating the "system" a node is a member of
 		 */
-		maybe_small_vector<std::string> collisionSystems;
+		std::vector<std::string> collisionSystems;
 
 		/**
 		 * An array of strings representing the systems which this node can _not_ collide with
 		 */
-		maybe_small_vector<std::string> notCollideWithSystems;
+		std::vector<std::string> notCollideWithSystems;
 
 		/**
 		 * An array of strings representing the systems which this node can collide with
 		 */
-		maybe_small_vector<std::string> collideWithSystems;
+		std::vector<std::string> collideWithSystems;
 	};
 
 	FASTGLTF_EXPORT struct Collider {
@@ -976,7 +976,7 @@ namespace fastgltf {
 		/**
 		 * For compound triggers, the set of descendant glTF nodes with a trigger property that make up this compound trigger
 		 */
-		maybe_small_vector<std::size_t> nodes;
+		std::vector<std::size_t> nodes;
 	};
 
 	FASTGLTF_EXPORT struct JointLimit {
@@ -1054,12 +1054,12 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct PhysicsJoint {
-		maybe_small_vector<JointLimit> limits;
+		std::vector<JointLimit> limits;
 
 		/**
 		 * Each drive specifies a force to apply along a single axis
 		 */
-		maybe_small_vector<JointDrive> drives;
+		std::vector<JointDrive> drives;
 	};
 
 	FASTGLTF_EXPORT struct Joint {
@@ -1127,7 +1127,7 @@ namespace fastgltf {
 
 	struct DracoCompressedPrimitive {
 		std::size_t bufferView;
-		small_vector<Attribute, 4> attributes;
+		std::vector<Attribute> attributes;
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
 			return internal::findByName(attributes, name);
@@ -1141,7 +1141,7 @@ namespace fastgltf {
 	FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
-		small_vector<Attribute, 4> attributes;
+		std::vector<Attribute> attributes;
 		PrimitiveType type = PrimitiveType::Triangles;
 
 		std::vector<std::vector<Attribute>> targets;
@@ -1176,8 +1176,9 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Mesh {
-		maybe_small_vector<Primitive, 2> primitives;
-		maybe_small_vector<num> weights;
+		// Across all glTF sample assets 91% of meshes use a single primitive.
+		small_vector<Primitive, 1> primitives;
+		std::vector<num> weights;
 
 		std::string name;
 	};

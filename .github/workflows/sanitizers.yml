@@ -18,11 +18,7 @@ env:
 
 jobs:
   build_linux_sanitizers:
-    name: ASan + UBSan (custom small_vector ${{ matrix.custom_small_vector }})
-    strategy:
-      fail-fast: false
-      matrix:
-        custom_small_vector: ['OFF', 'ON']
+    name: ASan + UBSan
 
     runs-on: ubuntu-26.04
     env:

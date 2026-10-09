@@ -19,12 +19,6 @@ Instead of using a normal 32-bit ``float`` for all of the types the glTF spec re
 this option instead makes fastgltf use 64-bit ``double``.
 
 
-``FASTGLTF_USE_CUSTOM_SMALLVECTOR``
------------------------------------
-
-While fastgltf uses its custom ``SmallVector`` class in various areas by default, it might be useful to enable it in more places.
-
-
 ``FASTGLTF_ENABLE_CPP_MODULES``
 -------------------------------
 
