@@ -553,15 +553,69 @@ namespace fastgltf {
 	/**
 	 * Represents the minimum and maximum bounds for glTF accessors in a better interface to avoid
 	 * heavy usage of std::variant, which can pollute the user's code needlessly.
+	 *
+	 * This stores up to @ref internal_array_size in itself to reduce additional heap usage.
 	 */
 	FASTGLTF_EXPORT class AccessorBoundsArray {
 		friend struct optional_flag_value<AccessorBoundsArray>;
 
-		// In the glTF sample assets nearly 99% of accessors use bounds only for scalar or vector types.
-		template <typename T>
-		using buffer = small_vector<T, getNumComponents(AccessorType::Vec4)>;
+	public:
+		enum class BoundsType : std::uint8_t {
+			int64,
+			float64,
+		};
 
-		std::variant<buffer<std::int64_t>, buffer<double>> _data;
+	private:
+		static constexpr auto max_accessor_components = getNumComponents(AccessorType::Mat4);
+
+		// In the glTF sample assets nearly 99% of accessors use bounds only for scalar or vector types.
+		// This way we can skip the extra alloc for nearly every accessor
+		static constexpr auto internal_array_size = getNumComponents(AccessorType::Vec4);
+
+		union {
+			std::int64_t _ints[internal_array_size];
+			double _doubles[internal_array_size];
+
+			std::int64_t* _heap_ints;
+			double* _heap_doubles;
+		};
+		std::uint8_t _size = 0;
+		BoundsType _type = BoundsType::int64;
+
+		void clear() noexcept {
+			if (_size > internal_array_size) {
+				switch (_type) {
+					case BoundsType::int64:
+						delete[] _heap_ints;
+						break;
+					case BoundsType::float64:
+						delete[] _heap_doubles;
+						break;
+					default:
+						FASTGLTF_UNREACHABLE
+				}
+			}
+			_size = 0;
+		}
+
+		void steal(AccessorBoundsArray& other) noexcept {
+			switch (_type) {
+				case BoundsType::int64:
+					if (_size > internal_array_size)
+						_heap_ints = std::exchange(other._heap_ints, nullptr);
+					else
+						std::memcpy(_ints, other._ints, _size * sizeof(std::int64_t));
+					break;
+				case BoundsType::float64:
+					if (_size > internal_array_size)
+						_heap_doubles = std::exchange(other._heap_doubles, nullptr);
+					else
+						std::memcpy(_doubles, other._doubles, _size * sizeof(double));
+					break;
+				default:
+					FASTGLTF_UNREACHABLE
+			}
+		}
 
 	public:
 		template <typename T>
@@ -569,24 +623,36 @@ namespace fastgltf {
 		template <typename T>
 		static constexpr auto is_valid_type_v = is_valid_type<T>::value;
 
-		enum class BoundsType : std::uint8_t {
-			int64,
-			float64,
-		};
-
 		AccessorBoundsArray() noexcept = default; // Empty state for flagged_optional
 
-		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type) {
-			assert(len != 0 && len <= internal::max_accessor_components);
-			switch (type) {
-				case BoundsType::int64:
-					_data.emplace<buffer<std::int64_t>>(len);
-					break;
-				case BoundsType::float64:
-					_data.emplace<buffer<double>>(len);
-					break;
-				default:
-					FASTGLTF_UNREACHABLE
+		explicit AccessorBoundsArray(const std::size_t len, const BoundsType type)
+			: _size(static_cast<std::uint8_t>(len)), _type(type) {
+			assert(len != 0 && len <= max_accessor_components);
+
+			if (_size > internal_array_size) {
+				switch (_type) {
+					case BoundsType::int64:
+						_heap_ints = new std::int64_t[_size]();
+						break;
+					case BoundsType::float64:
+						_heap_doubles = new double[_size]();
+						break;
+					default:
+						FASTGLTF_UNREACHABLE
+				}
+			} else {
+				switch (_type) {
+					case BoundsType::int64:
+						for (std::size_t i = 0; i < internal_array_size; ++i)
+							_ints[i] = 0;
+						break;
+					case BoundsType::float64:
+						for (std::size_t i = 0; i < internal_array_size; ++i)
+							_doubles[i] = 0;
+						break;
+					default:
+						FASTGLTF_UNREACHABLE
+				}
 			}
 		}
 
@@ -595,48 +661,87 @@ namespace fastgltf {
 		static AccessorBoundsArray ForType(const std::size_t len) {
 			if constexpr (std::is_same_v<T, std::int64_t>) {
 				return AccessorBoundsArray(len, BoundsType::int64);
-			} else if constexpr(std::is_same_v<T, double>) {
+			} else if constexpr (std::is_same_v<T, double>) {
 				return AccessorBoundsArray(len, BoundsType::float64);
 			}
 			FASTGLTF_UNREACHABLE
 		}
 
-		~AccessorBoundsArray() = default;
+		~AccessorBoundsArray() noexcept {
+			clear();
+		}
 
 		AccessorBoundsArray(const AccessorBoundsArray& other) = delete;
-		AccessorBoundsArray(AccessorBoundsArray&& other) noexcept = default;
+		AccessorBoundsArray(AccessorBoundsArray&& other) noexcept
+			: _size(std::exchange(other._size, 0)), _type(other._type) {
+			steal(other);
+		}
 
 		AccessorBoundsArray& operator=(const AccessorBoundsArray& other) = delete;
-		AccessorBoundsArray& operator=(AccessorBoundsArray&& other) noexcept = default;
+		AccessorBoundsArray& operator=(AccessorBoundsArray&& other) noexcept {
+			if (std::addressof(other) != this) {
+				clear();
+
+				_size = std::exchange(other._size, 0);
+				_type = other._type;
+
+				steal(other);
+			}
+			return *this;
+		}
 
 		[[nodiscard]] BoundsType type() const noexcept {
-			return static_cast<BoundsType>(_data.index());
+			return _type;
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		[[nodiscard]] bool isType() const noexcept {
-			return std::holds_alternative<buffer<T>>(_data);
+			if constexpr (std::is_same_v<T, std::int64_t>) {
+				return _type == BoundsType::int64;
+			} else if constexpr (std::is_same_v<T, double>) {
+				return _type == BoundsType::float64;
+			} else {
+				FASTGLTF_UNREACHABLE
+			}
 		}
 
 		[[nodiscard]] std::size_t size() const noexcept {
-			return std::visit([](const auto& buf) {
-				return buf.size();
-			}, _data);
+			return _size;
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		[[nodiscard]] auto* data() noexcept {
 			assert(isType<T>());
-			return std::get_if<buffer<T>>(&_data)->data();
+			if constexpr (std::is_same_v<T, std::int64_t>) {
+				if (_size > internal_array_size)
+					return _heap_ints;
+				return _ints;
+			} else if constexpr (std::is_same_v<T, double>) {
+				if (_size > internal_array_size)
+					return _heap_doubles;
+				return _doubles;
+			} else {
+				FASTGLTF_UNREACHABLE
+			}
 		}
 
 		template <typename T>
 		requires is_valid_type_v<T>
 		[[nodiscard]] const auto* data() const noexcept {
 			assert(isType<T>());
-			return std::get_if<buffer<T>>(&_data)->data();
+			if constexpr (std::is_same_v<T, std::int64_t>) {
+				if (_size > internal_array_size)
+					return _heap_ints;
+				return _ints;
+			} else if constexpr (std::is_same_v<T, double>) {
+				if (_size > internal_array_size)
+					return _heap_doubles;
+				return _doubles;
+			} else {
+				FASTGLTF_UNREACHABLE
+			}
 		}
 
 		template <typename T>
@@ -661,7 +766,7 @@ namespace fastgltf {
 			return array.size() == 0;
 		}
 		static void set_empty(AccessorBoundsArray& array) noexcept {
-			array._data.emplace<0>();
+			array.clear();
 		}
 	};
 
