@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791487290534,
+  "lastUpdate": 1791518607483,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -2099,6 +2099,79 @@ window.BENCHMARK_DATA = {
             "range": "± 0.11682",
             "unit": "ns",
             "extra": "50 samples\n5935 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "sean165@outlook.de",
+            "name": "sean",
+            "username": "spnda"
+          },
+          "distinct": true,
+          "id": "9b115fa8679cd59ecb13c98844832e69ff9d782d",
+          "message": "Implement a boxed_optional type as a heap allocated optional",
+          "timestamp": "2026-10-09T05:57:29+02:00",
+          "tree_id": "b8cfc8c25367b05198ab2c1002424b0335d7a928",
+          "url": "https://github.com/spnda/fastgltf/commit/9b115fa8679cd59ecb13c98844832e69ff9d782d"
+        },
+        "date": 1791518606615,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 19.2669,
+            "range": "± 0.705145",
+            "unit": "ns",
+            "extra": "50 samples\n1532 iterations"
+          },
+          {
+            "name": "SSE4 hardware algorithm",
+            "value": 3.10106,
+            "range": "± 0.115934",
+            "unit": "ns",
+            "extra": "50 samples\n9301 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 3.04002,
+            "range": "± 71.6548",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 311.359,
+            "range": "± 7.94558",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 28.8305,
+            "range": "± 1.56149",
+            "unit": "us",
+            "extra": "50 samples\n2 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 311.208,
+            "range": "± 8.47328",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 312.073,
+            "range": "± 10.7298",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
           }
         ]
       }
