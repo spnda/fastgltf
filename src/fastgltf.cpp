@@ -44,11 +44,6 @@
 #include <simdjson.h>
 #include <simdutf.h>
 
-#ifdef SIMDJSON_TARGET_VERSION
-// Make sure that SIMDJSON_TARGET_VERSION is equal to SIMDJSON_VERSION.
-static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, "Outdated version of simdjson. Reconfigure project to update.");
-#endif
-
 #include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
 #include <fastgltf/crc32.hpp>

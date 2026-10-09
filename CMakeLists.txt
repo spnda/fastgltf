@@ -78,9 +78,6 @@ set_target_properties(fastgltf PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS YES)
 set_target_properties(fastgltf PROPERTIES VERSION ${PROJECT_VERSION})
 
 target_link_libraries(fastgltf PRIVATE ${FASTGLTF_SIMDJSON_TARGET} ${FASTGLTF_SIMDUTF_TARGET})
-if (FASTGLTF_SIMDJSON_TARGET_VERSION)
-    target_compile_definitions(fastgltf PRIVATE FASTGLTF_SIMDJSON_TARGET_VERSION="${FASTGLTF_SIMDJSON_TARGET_VERSION}")
-endif ()
 
 if (ANDROID)
     target_link_libraries(fastgltf PRIVATE android)
