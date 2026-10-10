@@ -346,27 +346,6 @@ TEST_CASE("Test allocation callbacks for embedded buffers", "[gltf-loader]") {
     }
 }
 
-TEST_CASE("Test base64 decoding callbacks", "[gltf-loader]") {
-    auto boxPath = sampleAssets / "Models" / "Box" / "glTF-Embedded";
-	fastgltf::GltfFileStream jsonData(boxPath / "Box.gltf");
-	REQUIRE(jsonData.isOpen());
-
-    size_t decodeCounter = 0;
-    auto decodeCallback = [](const std::string_view encodedData, uint8_t* outputData,
-        const size_t padding, [[maybe_unused]] size_t outputSize, void* userPointer) {
-        (*static_cast<size_t*>(userPointer))++;
-        fastgltf::base64::decode_inplace(encodedData, outputData, padding);
-    };
-
-    fastgltf::Parser parser;
-    parser.setUserPointer(&decodeCounter);
-    parser.setBase64DecodeCallback(decodeCallback);
-    auto model = parser.loadGltfJson(jsonData, boxPath, noOptions, fastgltf::Category::Buffers);
-    REQUIRE(model.error() == fastgltf::Error::None);
-	REQUIRE(fastgltf::validate(model.get()) == fastgltf::Error::None);
-    REQUIRE(decodeCounter != 0);
-}
-
 TEST_CASE("Validate sparse accessor parsing", "[gltf-loader]") {
     auto simpleSparseAccessor = sampleAssets / "Models" / "SimpleSparseAccessor" / "glTF";
 	fastgltf::GltfFileStream jsonData(simpleSparseAccessor / "SimpleSparseAccessor.gltf");

@@ -53,7 +53,8 @@ The **fastgltf** library is licensed under the MIT License.
 ----
 
 Libraries embedded in fastgltf:
-- [simdjson](https://github.com/simdjson/simdjson): Licensed under Apache 2.0.
+- [simdjson](https://github.com/simdjson/simdjson): Licensed under MIT.
+- [simdutf](https://github.com/simdutf/simdutf): Licensed under MIT.
 
 Libraries used in examples and tests:
 - [Catch2](https://github.com/catchorg/Catch2): Licensed under BSL-1.0.

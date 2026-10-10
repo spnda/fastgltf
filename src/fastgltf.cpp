@@ -42,11 +42,7 @@
 #endif
 
 #include <simdjson.h>
-
-#ifdef SIMDJSON_TARGET_VERSION
-// Make sure that SIMDJSON_TARGET_VERSION is equal to SIMDJSON_VERSION.
-static_assert(std::string_view { SIMDJSON_TARGET_VERSION } == SIMDJSON_VERSION, "Outdated version of simdjson. Reconfigure project to update.");
-#endif
+#include <simdutf.h>
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/base64.hpp>
@@ -278,34 +274,35 @@ namespace fastgltf {
 #pragma region glTF parsing
 fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const noexcept {
 	auto path = uri.path();
-	auto mimeEnd = path.find(';');
-	auto mime = path.substr(0, mimeEnd);
+	const auto mimeEnd = path.find(';');
+	const auto mime = path.substr(0, mimeEnd);
 
-	auto encodingEnd = path.find(',');
-	auto encoding = path.substr(mimeEnd + 1, encodingEnd - mimeEnd - 1);
+	const auto encodingEnd = path.find(',');
+	const auto encoding = path.substr(mimeEnd + 1, encodingEnd - mimeEnd - 1);
 	if (encoding != "base64") {
 		return Error::InvalidURI;
 	}
 
-	auto encodedData = path.substr(encodingEnd + 1);
+	const auto encodedData = path.substr(encodingEnd + 1);
 	if (encodedData.size() < 4 || encodedData.size() % 4 != 0) {
 		return Error::InvalidURI;
 	}
 
 	if (config.mapCallback != nullptr) {
 		// If a map callback is specified, we use a pointer to memory specified by it.
-		auto padding = base64::getPadding(encodedData);
-		auto size = base64::getOutputSize(encodedData.size(), padding);
+		const auto padding = base64::getPadding(encodedData);
+		const auto size = base64::getDecodedSize(encodedData.size(), padding);
+
 		auto info = config.mapCallback(size, config.userPointer);
 		if (info.mappedMemory != nullptr) {
-			if (config.decodeCallback != nullptr) {
-				config.decodeCallback(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding, size, config.userPointer);
-			} else {
-				base64::decode_inplace(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding);
-			}
+			const auto success = base64::decode_inplace(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding);
 
 			if (config.unmapCallback != nullptr) {
 				config.unmapCallback(&info, config.userPointer);
+			}
+
+			if (!success) [[unlikely]] {
+				return Error::InvalidURI;
 			}
 
 			sources::CustomBuffer source {};
@@ -316,17 +313,17 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 	}
 
 	// Decode the base64 data into a traditional vector
+	// also check if the decoded byte count matches the size. they usually only differ when the input has
+	// whitespace which we just don't handle atm (simdutf does, tbf) because of static_vector not being resizeable
 	const auto padding = base64::getPadding(encodedData);
-	static_vector<std::byte> uriData(for_overwrite, base64::getOutputSize(encodedData.size(), padding));
-	if (config.decodeCallback != nullptr) {
-		config.decodeCallback(encodedData, reinterpret_cast<std::uint8_t*>(uriData.data()), padding, uriData.size(), config.userPointer);
-	} else {
-		base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(uriData.data()), padding);
+	static_vector<std::byte> uriData(for_overwrite, base64::getDecodedSize(encodedData.size(), padding));
+	if (!base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(uriData.data()), padding)) [[unlikely]] {
+		return Error::InvalidURI;
 	}
 
 	sources::Array source {
-		std::move(uriData),
-		getMimeTypeFromString(mime),
+		.bytes = std::move(uriData),
+		.mimeType = getMimeTypeFromString(mime),
 	};
 	return { std::move(source) };
 }
@@ -4633,10 +4630,6 @@ void fg::Parser::setBufferAllocationCallback(BufferMapCallback* mapCallback, Buf
 		unmapCallback = nullptr;
 	config.mapCallback = mapCallback;
 	config.unmapCallback = unmapCallback;
-}
-
-void fg::Parser::setBase64DecodeCallback(Base64DecodeCallback* decodeCallback) noexcept {
-	config.decodeCallback = decodeCallback;
 }
 
 void fg::Parser::setExtrasParseCallback(ExtrasParseCallback *extrasCallback) noexcept {
