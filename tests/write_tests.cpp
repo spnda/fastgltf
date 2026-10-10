@@ -252,7 +252,7 @@ TEST_CASE("Test Unicode exporting", "[write-tests]") {
 	REQUIRE(!asset->buffers.empty());
 	REQUIRE(std::holds_alternative<fastgltf::sources::URI>(asset->buffers.front().data));
 	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers.front().data);
-	REQUIRE(bufferUri.uri.path() == "Unicode❤♻Binary.bin");
+	REQUIRE(bufferUri.uri->path() == "Unicode❤♻Binary.bin");
 }
 
 TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {

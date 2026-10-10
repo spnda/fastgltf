@@ -365,3 +365,29 @@ TEST_CASE("Test sparse accessor", "[gltf-tools]") {
 		REQUIRE(std::memcmp(dstCopy.get(), checkValues.get(), secondAccessor.count * sizeof(fastgltf::math::fvec3)) == 0);
 	}
 }
+
+TEST_CASE("Generate mesh indices", "[gltf-loader]") {
+	SECTION("Invalid accessors") {
+		// See https://github.com/spnda/fastgltf/issues/160
+		// This checks that the generateMeshIndices function guards correctly against invalid
+		// accessor indices
+		static constexpr std::string_view json = R"({
+	"asset": {"version": "2.0"},
+	"accessors": [
+		{"componentType": 5126, "count": 3, "type": "VEC3", "max": [1,1,0], "min": [0,0,0]}
+	],
+	"meshes": [
+		{"primitives": [{"attributes": {"POSITION": 5}}]}
+	]
+})";
+
+		auto buf = fastgltf::GltfDataBuffer::FromBytes(
+			reinterpret_cast<const std::byte*>(json.data()), json.size());
+
+		fastgltf::Parser parser;
+		auto asset = parser.loadGltf(
+			buf.get(), {}, fastgltf::Options::GenerateMeshIndices);
+
+		REQUIRE(asset.error() == fastgltf::Error::InvalidGltf);
+	}
+}

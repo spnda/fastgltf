@@ -552,36 +552,23 @@ namespace fastgltf {
 		}
 	};
 
-#if !FASTGLTF_MISSING_MEMORY_RESOURCE
+	template <typename T, std::size_t N, typename Allocator>
+	[[nodiscard]] constexpr bool operator==(const small_vector<T, N, Allocator>& lhs, const small_vector<T, N, Allocator>& rhs) {
+		return std::ranges::equal(lhs, rhs);
+	}
+
+	template <typename T, std::size_t N, typename Allocator>
+	[[nodiscard]] constexpr synth_three_way_result<T>
+	operator<=>(const small_vector<T, N, Allocator>& lhs, const small_vector<T, N, Allocator>& rhs) {
+		return std::lexicographical_compare_three_way(
+			lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+			synth_three_way);
+	}
+
 	namespace pmr {
 		FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
 		using small_vector = small_vector<T, N, std::pmr::polymorphic_allocator<T>>;
 	} // namespace pmr
-#endif
-
-#ifndef FASTGLTF_USE_CUSTOM_SMALLVECTOR
-#define FASTGLTF_USE_CUSTOM_SMALLVECTOR 0
-#endif
-
-#if FASTGLTF_USE_CUSTOM_SMALLVECTOR
-	FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
-	using maybe_small_vector = small_vector<T, N>;
-#else
-	FASTGLTF_EXPORT template <typename T, std::size_t N = 0>
-	using maybe_small_vector = std::vector<T>;
-#endif
-
-#if !FASTGLTF_MISSING_MEMORY_RESOURCE
-	namespace pmr {
-#if FASTGLTF_USE_CUSTOM_SMALLVECTOR
-		FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
-		using maybe_small_vector = pmr::small_vector<T, N>;
-#else
-		FASTGLTF_EXPORT template <typename T, std::size_t N = 0>
-		using maybe_small_vector = std::pmr::vector<T>;
-#endif
-	} // namespace pmr
-#endif
 } // namespace fastgltf
 
 #endif

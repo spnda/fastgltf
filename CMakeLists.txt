@@ -6,8 +6,6 @@ endif ()
 
 project(fastgltf VERSION 1.0.0 LANGUAGES C CXX)
 
-option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom small_vector type optimised for small arrays" OFF)
-option(FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL "Disables the memory allocation algorithm based on polymorphic resources" OFF)
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
 option(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES "Enable support for the experimental KHR_implicit_shapes extension" OFF)
 option(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES "Enable support for the experimental KHR_physics_rigid_bodies extension" OFF)
@@ -53,7 +51,7 @@ set(FASTGLTF_HEADERS
         "include/fastgltf/util.hpp"
         "include/fastgltf/uri.hpp"
         "include/fastgltf/math.hpp"
-        "include/fastgltf/containers/flagged_optional.hpp"
+        "include/fastgltf/containers/optional.hpp"
         "include/fastgltf/containers/inplace_vector.hpp"
         "include/fastgltf/containers/small_vector.hpp"
         "include/fastgltf/containers/static_vector.hpp"
@@ -97,8 +95,6 @@ if(FILESYSTEM_LIB)
     target_link_libraries(fastgltf PRIVATE ${FILESYSTEM_LIB})
 endif()
 
-target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_CUSTOM_SMALLVECTOR=$<BOOL:${FASTGLTF_USE_CUSTOM_SMALLVECTOR}>")
-target_compile_definitions(fastgltf PUBLIC "FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL=$<BOOL:${FASTGLTF_DISABLE_CUSTOM_MEMORY_POOL}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_64BIT_FLOAT=$<BOOL:${FASTGLTF_USE_64BIT_FLOAT}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES=$<BOOL:${FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES}>")
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES=$<BOOL:${FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES}>")

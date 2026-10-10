@@ -31,6 +31,7 @@
 #include <array>
 #include <bit>
 #include <cmath>
+#include <compare>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -194,6 +195,12 @@ namespace fastgltf {
 	template <typename T, typename... Ts>
 	inline constexpr bool is_any_of_v = is_any_of<T, Ts...>::value;
 
+	template <typename T, typename... Ts>
+	using is_none_of = std::conjunction<std::negation<std::is_same<T, Ts>>...>;
+
+	template <typename T, typename... Ts>
+	inline constexpr bool is_none_of_v = is_none_of<T, Ts...>::value;
+
 	/**
 	 * Helper type in order to allow building a visitor out of multiple lambdas within a call to
 	 * std::visit
@@ -281,6 +288,23 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT struct for_overwrite_t { explicit for_overwrite_t() = default; };
 	FASTGLTF_EXPORT inline constexpr for_overwrite_t for_overwrite {};
+
+	// See expos.only.entity
+	inline constexpr auto synth_three_way = []<typename T, typename U>(const T& t, const U& u)
+	requires requires {
+		{ t < u } -> std::convertible_to<bool>;
+		{ u < t } -> std::convertible_to<bool>;
+	} {
+		if constexpr (std::three_way_comparable_with<T, U>) {
+			return t <=> u;
+		} else {
+			if (t < u) return std::weak_ordering::less;
+			if (u < t) return std::weak_ordering::greater;
+			return std::weak_ordering::equivalent;
+		}
+	};
+	template <typename T, typename U = T>
+	using synth_three_way_result = decltype(synth_three_way(std::declval<T&>(), std::declval<U&>()));
 } // namespace fastgltf
 
 #ifdef _MSC_VER

@@ -247,7 +247,7 @@ TEST_CASE("Validate escaped/percent-encoded URI", "[uri-tests]") {
 	// This only tests wether the default ctor of fastgltf::URI can handle percent-encoding correctly.
 	const fastgltf::URI original(std::string_view("grande_sphère.png"));
 	const fastgltf::URI encoded(std::string_view("grande_sph%C3%A8re.png"));
-	REQUIRE(original.fspath() == escaped.uri.fspath());
+	REQUIRE(original.fspath() == escaped.uri->fspath());
 	REQUIRE(original.fspath() == encoded.fspath());
 }
 
@@ -266,17 +266,17 @@ TEST_CASE("Test percent-encoded URIs in glTF", "[uri-tests]") {
 
 	auto* image0 = std::get_if<fastgltf::sources::URI>(&asset->images[0].data);
 	REQUIRE(image0 != nullptr);
-	REQUIRE(image0->uri.fspath() == "Normal Map.png");
+	REQUIRE(image0->uri->fspath() == "Normal Map.png");
 
 	auto* image1 = std::get_if<fastgltf::sources::URI>(&asset->images[1].data);
 	REQUIRE(image1 != nullptr);
-	REQUIRE(image1->uri.fspath() == "glTF Logo With Spaces.png");
+	REQUIRE(image1->uri->fspath() == "glTF Logo With Spaces.png");
 
 	auto* image2 = std::get_if<fastgltf::sources::URI>(&asset->images[2].data);
 	REQUIRE(image2 != nullptr);
-	REQUIRE(image2->uri.fspath() == "Roughness Metallic.png");
+	REQUIRE(image2->uri->fspath() == "Roughness Metallic.png");
 
 	auto* buffer0 = std::get_if<fastgltf::sources::URI>(&asset->buffers[0].data);
 	REQUIRE(buffer0 != nullptr);
-	REQUIRE(buffer0->uri.fspath() == "Box With Spaces.bin");
+	REQUIRE(buffer0->uri->fspath() == "Box With Spaces.bin");
 }

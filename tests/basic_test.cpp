@@ -487,8 +487,8 @@ TEST_CASE("Test unicode characters", "[gltf-loader]") {
 
 	REQUIRE(!asset->buffers.empty());
 	auto bufferUri = std::get<fastgltf::sources::URI>(asset->buffers[0].data);
-	REQUIRE(bufferUri.uri.path() == "Unicode❤♻Binary.bin");
-	REQUIRE(bufferUri.uri.fspath() == std::filesystem::path{ u8"Unicode❤♻Binary.bin" });
+	REQUIRE(bufferUri.uri->path() == "Unicode❤♻Binary.bin");
+	REQUIRE(bufferUri.uri->fspath() == std::filesystem::path{ u8"Unicode❤♻Binary.bin" });
 }
 
 TEST_CASE("Test extras callback", "[gltf-loader]") {

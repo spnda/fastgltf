@@ -342,6 +342,19 @@ namespace fastgltf {
 			_size = 0;
 		}
 	};
+
+	template <typename T, std::size_t N>
+	[[nodiscard]] constexpr bool operator==(const inplace_vector<T, N>& lhs, const inplace_vector<T, N>& rhs) {
+		return std::ranges::equal(lhs, rhs);
+	}
+
+	template <typename T, std::size_t N>
+	[[nodiscard]] constexpr synth_three_way_result<T>
+	operator<=>(const inplace_vector<T, N>& lhs, const inplace_vector<T, N>& rhs) {
+		return std::lexicographical_compare_three_way(
+			lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+			synth_three_way);
+	}
 }
 
 #endif
