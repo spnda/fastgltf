@@ -35,6 +35,7 @@
 #include <string_view>
 #endif
 
+#include <fastgltf/core.hpp>
 #include <fastgltf/containers/static_vector.hpp>
 
 #ifdef _MSC_VER
@@ -72,8 +73,8 @@ namespace fastgltf::base64 {
 		return getDecodedSize(encodedSize, padding);
 	}
 
-	FASTGLTF_EXPORT void decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
-	FASTGLTF_EXPORT [[nodiscard]] static_vector<std::uint8_t> decode(std::string_view encoded);
+	FASTGLTF_EXPORT [[nodiscard]] bool decode_inplace(std::string_view encoded, std::uint8_t* output, std::size_t padding);
+	FASTGLTF_EXPORT [[nodiscard]] Expected<static_vector<std::uint8_t>> decode(std::string_view encoded);
 
 	/**
 	 * Calculates the size of the base64-encoded string for a given input byte count.

@@ -297,14 +297,13 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 
 		auto info = config.mapCallback(size, config.userPointer);
 		if (info.mappedMemory != nullptr) {
-			const auto result = simdutf::base64_to_binary(
-				encodedData.data(), encodedData.size(), static_cast<char*>(info.mappedMemory));
+			const auto success = base64::decode_inplace(encodedData, static_cast<std::uint8_t*>(info.mappedMemory), padding);
 
 			if (config.unmapCallback != nullptr) {
 				config.unmapCallback(&info, config.userPointer);
 			}
 
-			if (result.is_err() || result.count != size) [[unlikely]] {
+			if (!success) [[unlikely]] {
 				return Error::InvalidURI;
 			}
 
@@ -320,9 +319,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 	// whitespace which we just don't handle atm (simdutf does, tbf) because of static_vector not being resizeable
 	const auto padding = base64::getPadding(encodedData);
 	static_vector<std::byte> uriData(for_overwrite, base64::getDecodedSize(encodedData.size(), padding));
-	if (const auto result = simdutf::base64_to_binary(
-			encodedData.data(), encodedData.size(), reinterpret_cast<char*>(uriData.data()));
-		result.is_err() || result.count != uriData.size()) [[unlikely]] {
+	if (!base64::decode_inplace(encodedData, reinterpret_cast<std::uint8_t*>(uriData.data()), padding)) [[unlikely]] {
 		return Error::InvalidURI;
 	}
 

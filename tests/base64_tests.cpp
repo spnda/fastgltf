@@ -25,7 +25,8 @@ TEST_CASE("Check base64 decoding", "[base64]") {
 	// This is "Hello World. Hello World.". The decode function
 	// uses the best possible SIMD version of the algorithm.
 	auto bytes = fastgltf::base64::decode(testBase64);
-	std::string strings(bytes.begin(), bytes.end());
+	REQUIRE(bytes.error() == fastgltf::Error::None);
+	std::string strings(bytes->begin(), bytes->end());
 	REQUIRE(strings == "Hello World. Hello World. Hello World.");
 }
 
