@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791518775031,
+  "lastUpdate": 1791591391428,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -2170,6 +2170,79 @@ window.BENCHMARK_DATA = {
             "name": "Parse Sponza.gltf with minified JSON",
             "value": 312.073,
             "range": "± 10.7298",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43609023+spnda@users.noreply.github.com",
+            "name": "Sean Apeler",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "36e05da6ac6658d58e49fa6e672309db25a19420",
+          "message": "Merge pull request #159 from spnda/simdutf_base64\n\nReplace custom base64 decoders/encoders with simdutf",
+          "timestamp": "2026-10-10T02:13:12+02:00",
+          "tree_id": "5af53a4bd4acaa84d1ce62e72d67df9326078850",
+          "url": "https://github.com/spnda/fastgltf/commit/36e05da6ac6658d58e49fa6e672309db25a19420"
+        },
+        "date": 1791591390661,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 30.0568,
+            "range": "± 2.32939",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 315.14,
+            "range": "± 12.6574",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 319.678,
+            "range": "± 21.4466",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 3.12072,
+            "range": "± 61.647",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 19.3719,
+            "range": "± 0.943291",
+            "unit": "ns",
+            "extra": "50 samples\n1540 iterations"
+          },
+          {
+            "name": "SSE4 hardware algorithm",
+            "value": 3.11175,
+            "range": "± 0.127873",
+            "unit": "ns",
+            "extra": "50 samples\n9345 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 314.798,
+            "range": "± 10.6479",
             "unit": "us",
             "extra": "50 samples\n1 iterations"
           }
