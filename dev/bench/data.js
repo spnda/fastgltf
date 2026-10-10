@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791591391428,
+  "lastUpdate": 1791591585267,
   "repoUrl": "https://github.com/spnda/fastgltf",
   "entries": {
     "fastgltf (Linux x64)": [
@@ -4279,6 +4279,79 @@ window.BENCHMARK_DATA = {
             "range": "± 0.0229811",
             "unit": "ns",
             "extra": "50 samples\n15248 iterations"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43609023+spnda@users.noreply.github.com",
+            "name": "Sean Apeler",
+            "username": "spnda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "36e05da6ac6658d58e49fa6e672309db25a19420",
+          "message": "Merge pull request #159 from spnda/simdutf_base64\n\nReplace custom base64 decoders/encoders with simdutf",
+          "timestamp": "2026-10-10T02:13:12+02:00",
+          "tree_id": "5af53a4bd4acaa84d1ce62e72d67df9326078850",
+          "url": "https://github.com/spnda/fastgltf/commit/36e05da6ac6658d58e49fa6e672309db25a19420"
+        },
+        "date": 1791591584949,
+        "tool": "catch2",
+        "benches": [
+          {
+            "name": "Parse MetalRoughSpheres and decode base64",
+            "value": 7.37993,
+            "range": "± 221.696",
+            "unit": "ms",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf",
+            "value": 280.83,
+            "range": "± 4.86481",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Default 1-byte tabular algorithm",
+            "value": 15.7439,
+            "range": "± 0.164732",
+            "unit": "ns",
+            "extra": "50 samples\n1997 iterations"
+          },
+          {
+            "name": "ARMv8 hardware CRC32-C algorithm",
+            "value": 2.19643,
+            "range": "± 0.0439891",
+            "unit": "ns",
+            "extra": "50 samples\n14838 iterations"
+          },
+          {
+            "name": "Minify Sponza.gltf",
+            "value": 33.9018,
+            "range": "± 514.169",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with normal JSON",
+            "value": 281.682,
+            "range": "± 3.70408",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
+          },
+          {
+            "name": "Parse Sponza.gltf with minified JSON",
+            "value": 282.467,
+            "range": "± 6.59374",
+            "unit": "us",
+            "extra": "50 samples\n1 iterations"
           }
         ]
       }
