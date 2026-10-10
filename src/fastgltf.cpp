@@ -306,7 +306,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 
 			sources::CustomBuffer source {};
 			source.id = info.customId;
-			source.mimeType = getMimeTypeFromString(mime);
+			source.mimeType = internal::getMimeTypeFromString(mime);
 			return { source };
 		}
 	}
@@ -322,7 +322,7 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 
 	sources::Array source {
 		.bytes = std::move(uriData),
-		.mimeType = getMimeTypeFromString(mime),
+		.mimeType = internal::getMimeTypeFromString(mime),
 	};
 	return { std::move(source) };
 }
@@ -354,35 +354,6 @@ void fg::Parser::fillCategories(Category& inputCategories) noexcept {
 		inputCategories |= Category::BufferViews;
 	if (hasBit(inputCategories, Category::BufferViews))
 		inputCategories |= Category::Buffers;
-}
-
-fg::MimeType fg::Parser::getMimeTypeFromString(std::string_view mime) {
-	switch (crc32c(mime)) {
-		case force_consteval<crc32c(mimeTypeJpeg)>: {
-			return MimeType::JPEG;
-		}
-		case force_consteval<crc32c(mimeTypePng)>: {
-			return MimeType::PNG;
-		}
-		case force_consteval<crc32c(mimeTypeKtx)>: {
-			return MimeType::KTX2;
-		}
-		case force_consteval<crc32c(mimeTypeDds)>: {
-			return MimeType::DDS;
-		}
-		case force_consteval<crc32c(mimeTypeGltfBuffer)>: {
-			return MimeType::GltfBuffer;
-		}
-		case force_consteval<crc32c(mimeTypeOctetStream)>: {
-			return MimeType::OctetStream;
-		}
-		case force_consteval<crc32c(mimeTypeWebp)>: {
-			return MimeType::WEBP;
-		}
-		default: {
-			return MimeType::None;
-		}
-	}
 }
 
 template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::object& object, T& attributes) {
@@ -1264,7 +1235,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
         if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		accessor.componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
+		accessor.componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
 		if (accessor.componentType == ComponentType::Double && (!hasBit(options, Options::AllowDouble) || !hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
 			return Error::InvalidGltf;
 		}
@@ -1273,7 +1244,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
         if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		accessor.type = getAccessorType(accessorType);
+		accessor.type = internal::getAccessorType(accessorType);
 
 		std::uint64_t accessorCount;
         if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) [[unlikely]] {
@@ -1419,7 +1390,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
             if (child["componentType"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
-			if (const auto componentType = getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
+			if (const auto componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
 				componentType != ComponentType::Invalid) {
 				sparse.indexComponentType = componentType;
 			} else [[unlikely]] {
@@ -2127,7 +2098,7 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
                 std::visit([&]<typename T>(T& arg) {
 					// This is kinda cursed
 					if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>) {
-						arg.mimeType = getMimeTypeFromString(mimeType);
+						arg.mimeType = internal::getMimeTypeFromString(mimeType);
 					}
 				}, image.data);
 			}
@@ -2142,8 +2113,8 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 			}
 
 			image.data = sources::BufferView {
-				static_cast<std::size_t>(bufferViewIndex),
-				getMimeTypeFromString(mimeType),
+				.bufferViewIndex = static_cast<std::size_t>(bufferViewIndex),
+				.mimeType = internal::getMimeTypeFromString(mimeType),
 			};
 		}
 
@@ -3879,14 +3850,14 @@ fg::Error fg::Parser::parsePhysicsMaterials(const simdjson::dom::array& physicsM
 
 		std::string_view frictionCombine;
 		if (auto error = materialObject["frictionCombine"].get_string().get(frictionCombine); error == SUCCESS) {
-			material.frictionCombine = getCombineMode(frictionCombine);
+			material.frictionCombine = internal::getCombineMode(frictionCombine);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::string_view restitutionCombine;
 		if (auto error = materialObject["restitutionCombine"].get_string().get(restitutionCombine); error == SUCCESS) {
-		   material.restitutionCombine = getCombineMode(restitutionCombine);
+		   material.restitutionCombine = internal::getCombineMode(restitutionCombine);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
@@ -4089,7 +4060,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				std::string_view type;
 				if (driveValue["type"].get_string().get(type) == SUCCESS) [[likely]] {
-					drive.type = getDriveType(type);
+					drive.type = internal::getDriveType(type);
 					if (drive.type == DriveType::Invalid) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
@@ -4099,7 +4070,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				std::string_view mode;
 				if (driveValue["mode"].get_string().get(mode) == SUCCESS) [[likely]] {
-					drive.mode = getDriveMode(mode);
+					drive.mode = internal::getDriveMode(mode);
 					if (drive.mode == DriveMode::Invalid) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
@@ -4823,7 +4794,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
 		}
 
 		json += "\"count\":" + std::to_string(it->count) + ',';
-		json += R"("type":")" + std::string(getAccessorTypeName(it->type)) + "\",";
+		json += R"("type":")" + std::string(internal::getAccessorTypeName(it->type)) + "\",";
 		json += "\"componentType\":" + std::to_string(getGLComponentType(it->componentType));
 
 		if (it->normalized) {
@@ -5189,14 +5160,14 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 			},
 			[&](const sources::BufferView& bufferView) {
 				json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + ',';
-				json += std::string(R"("mimeType":")") + std::string(getMimeTypeString(bufferView.mimeType)) + '"';
+				json += std::string(R"("mimeType":")") + std::string(internal::getMimeTypeString(bufferView.mimeType)) + '"';
 				imagePaths.emplace_back(std::nullopt);
 			},
 			[&](const sources::Array& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
 				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
-					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
+					json += std::string(R"(,"mimeType":")") + std::string(internal::getMimeTypeString(vector.mimeType)) + '"';
 				}
 				imagePaths.emplace_back(path);
 			},
@@ -5204,14 +5175,14 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
 				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
 				if (vector.mimeType != MimeType::None) {
-					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(vector.mimeType)) + '"';
+					json += std::string(R"(,"mimeType":")") + std::string(internal::getMimeTypeString(vector.mimeType)) + '"';
 				}
 				imagePaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
 				json += std::string(R"("uri":")") + fg::escapeString(uri.uri->string()) + '"';
 				if (uri.mimeType != MimeType::None) {
-					json += std::string(R"(,"mimeType":")") + std::string(getMimeTypeString(uri.mimeType)) + '"';
+					json += std::string(R"(,"mimeType":")") + std::string(internal::getMimeTypeString(uri.mimeType)) + '"';
 				}
 				imagePaths.emplace_back(std::nullopt);
 			},

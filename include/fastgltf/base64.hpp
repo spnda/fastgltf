@@ -35,7 +35,7 @@
 #include <string_view>
 #endif
 
-#include <fastgltf/core.hpp>
+#include <fastgltf/error.hpp>
 #include <fastgltf/containers/static_vector.hpp>
 
 #ifdef _MSC_VER

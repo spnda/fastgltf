@@ -656,7 +656,6 @@ namespace fastgltf {
 		std::filesystem::path directory;
 		Options options = Options::None;
 
-		static auto getMimeTypeFromString(std::string_view mime) -> MimeType;
 		static void fillCategories(Category& inputCategories) noexcept;
 
 		template <typename T>

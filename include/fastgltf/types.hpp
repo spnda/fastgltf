@@ -39,6 +39,7 @@
 
 // Utils header already includes some headers, which we'll try and avoid including twice.
 #include <fastgltf/util.hpp>
+#include <fastgltf/crc32.hpp>
 #include <fastgltf/math.hpp>
 #include <fastgltf/uri.hpp>
 #include <fastgltf/containers/box.hpp>
@@ -383,170 +384,196 @@ namespace fastgltf {
 		return static_cast<std::uint32_t>(to_underlying(type) & 0x1FFF); // 2^13 - 1 in hex, to mask the lower 13 bits.
 	}
 
-	/**
-	 * Don't use this, use getComponentType instead.
-	 * This order matters as we assume that their glTF constant is ascending to index it.
-	 */
-    inline constexpr std::array components = {
-		ComponentType::Byte,
-		ComponentType::UnsignedByte,
-		ComponentType::Short,
-		ComponentType::UnsignedShort,
-		ComponentType::Int,
-		ComponentType::UnsignedInt,
-		ComponentType::Float,
-		ComponentType::Invalid,
-		ComponentType::Invalid,
-		ComponentType::Invalid,
-		ComponentType::Double,
-	};
+	namespace internal {
+		/**
+		 * This order matters as we assume that their glTF constant is ascending to index it.
+		 */
+		inline constexpr std::array components = {
+			ComponentType::Byte,
+			ComponentType::UnsignedByte,
+			ComponentType::Short,
+			ComponentType::UnsignedShort,
+			ComponentType::Int,
+			ComponentType::UnsignedInt,
+			ComponentType::Float,
+			ComponentType::Invalid,
+			ComponentType::Invalid,
+			ComponentType::Invalid,
+			ComponentType::Double,
+		};
 
-	constexpr auto getComponentType(std::underlying_type_t<ComponentType> componentType) noexcept {
-		const auto index = static_cast<std::size_t>(componentType - getGLComponentType(ComponentType::Byte));
-		if (index >= components.size()) {
-			return ComponentType::Invalid;
-		}
-		return components[index];
-	}
-
-	// This order matters as we assume that their glTF constant is ascending to index it.
-    inline constexpr std::array accessorTypes = {
-		AccessorType::Scalar,
-		AccessorType::Vec2,
-		AccessorType::Vec3,
-		AccessorType::Vec4,
-		AccessorType::Mat2,
-		AccessorType::Mat3,
-		AccessorType::Mat4,
-	};
-
-	/**
-	 * Gets the AccessorType by its string representation found in glTF files.
-	 */
-	constexpr auto getAccessorType(std::string_view accessorTypeName) noexcept {
-		assert(!accessorTypeName.empty());
-		switch (accessorTypeName[0]) {
-			case 'S': return AccessorType::Scalar;
-			case 'V': {
-				const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-				if (componentCount + 1 >= accessorTypes.size()) {
-					return AccessorType::Invalid;
-				}
-				return accessorTypes[componentCount + 1];
+		[[nodiscard]] constexpr auto getComponentType(const std::underlying_type_t<ComponentType> componentType) noexcept {
+			const auto index = static_cast<std::size_t>(componentType - getGLComponentType(ComponentType::Byte));
+			if (index >= components.size()) {
+				return ComponentType::Invalid;
 			}
-			case 'M': {
-				const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-				if (componentCount + 4 >= accessorTypes.size()) {
-					return AccessorType::Invalid;
-				}
-				return accessorTypes[componentCount + 4];
-			}
-			default:
-				return AccessorType::Invalid;
+			return components[index];
 		}
-	}
 
-	inline constexpr std::array<std::string_view, 7> accessorTypeNames = {
-		"SCALAR",
-		"VEC2",
-		"VEC3",
-		"VEC4",
-		"MAT2",
-		"MAT3",
-		"MAT4"
-	};
+		// This order matters as we assume that their glTF constant is ascending to index it.
+		inline constexpr std::array accessorTypes = {
+			AccessorType::Scalar,
+			AccessorType::Vec2,
+			AccessorType::Vec3,
+			AccessorType::Vec4,
+			AccessorType::Mat2,
+			AccessorType::Mat3,
+			AccessorType::Mat4,
+		};
 
-	constexpr std::string_view getAccessorTypeName(AccessorType type) noexcept {
-		static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
-		if (type == AccessorType::Invalid)
-			return "";
-		auto idx = to_underlying(type) & 0x7;
-		return accessorTypeNames[idx - 1];
-	}
+		/**
+		 * Gets the AccessorType by its string representation found in glTF files.
+		 */
+		[[nodiscard]] constexpr auto getAccessorType(const std::string_view accessorTypeName) noexcept {
+			assert(!accessorTypeName.empty());
+			switch (accessorTypeName[0]) {
+				case 'S': return AccessorType::Scalar;
+				case 'V': {
+					const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
+					if (componentCount + 1 >= accessorTypes.size()) {
+						return AccessorType::Invalid;
+					}
+					return accessorTypes[componentCount + 1];
+				}
+				case 'M': {
+					const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
+					if (componentCount + 4 >= accessorTypes.size()) {
+						return AccessorType::Invalid;
+					}
+					return accessorTypes[componentCount + 4];
+				}
+				default:
+					return AccessorType::Invalid;
+			}
+		}
 
-	inline constexpr std::string_view mimeTypeJpeg = "image/jpeg";
-	inline constexpr std::string_view mimeTypePng = "image/png";
-	inline constexpr std::string_view mimeTypeKtx = "image/ktx2";
-	inline constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
-	inline constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
-	inline constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
-	inline constexpr std::string_view mimeTypeWebp = "image/webp";
+		inline constexpr std::array<std::string_view, 7> accessorTypeNames = {
+			"SCALAR",
+			"VEC2",
+			"VEC3",
+			"VEC4",
+			"MAT2",
+			"MAT3",
+			"MAT4"
+		};
 
-	constexpr std::string_view getMimeTypeString(MimeType mimeType) noexcept {
-		switch (mimeType) {
-			case MimeType::JPEG:
-				return mimeTypeJpeg;
-			case MimeType::PNG:
-				return mimeTypePng;
-			case MimeType::KTX2:
-				return mimeTypeKtx;
-			case MimeType::DDS:
-				return mimeTypeDds;
-			case MimeType::GltfBuffer:
-				return mimeTypeGltfBuffer;
-			case MimeType::OctetStream:
-				return mimeTypeOctetStream;
-			case MimeType::WEBP:
-				return mimeTypeWebp;
-			default:
+		[[nodiscard]] constexpr std::string_view getAccessorTypeName(const AccessorType type) noexcept {
+			static_assert(std::is_same_v<std::underlying_type_t<AccessorType>, std::uint8_t>);
+			if (type == AccessorType::Invalid)
 				return "";
+			const auto idx = to_underlying(type) & 0x7;
+			return accessorTypeNames[idx - 1];
 		}
-	}
+
+		inline constexpr std::string_view mimeTypeJpeg = "image/jpeg";
+		inline constexpr std::string_view mimeTypePng = "image/png";
+		inline constexpr std::string_view mimeTypeKtx = "image/ktx2";
+		inline constexpr std::string_view mimeTypeDds = "image/vnd-ms.dds";
+		inline constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
+		inline constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
+		inline constexpr std::string_view mimeTypeWebp = "image/webp";
+
+		[[nodiscard]] constexpr std::string_view getMimeTypeString(const MimeType mimeType) noexcept {
+			switch (mimeType) {
+				case MimeType::JPEG:
+					return mimeTypeJpeg;
+				case MimeType::PNG:
+					return mimeTypePng;
+				case MimeType::KTX2:
+					return mimeTypeKtx;
+				case MimeType::DDS:
+					return mimeTypeDds;
+				case MimeType::GltfBuffer:
+					return mimeTypeGltfBuffer;
+				case MimeType::OctetStream:
+					return mimeTypeOctetStream;
+				case MimeType::WEBP:
+					return mimeTypeWebp;
+				default:
+					return "";
+			}
+		}
+		[[nodiscard]] constexpr MimeType getMimeTypeFromString(const std::string_view mime) {
+			switch (crc32c(mime)) {
+				case force_consteval<crc32c(mimeTypeJpeg)>: {
+					return MimeType::JPEG;
+				}
+				case force_consteval<crc32c(mimeTypePng)>: {
+					return MimeType::PNG;
+				}
+				case force_consteval<crc32c(mimeTypeKtx)>: {
+					return MimeType::KTX2;
+				}
+				case force_consteval<crc32c(mimeTypeDds)>: {
+					return MimeType::DDS;
+				}
+				case force_consteval<crc32c(mimeTypeGltfBuffer)>: {
+					return MimeType::GltfBuffer;
+				}
+				case force_consteval<crc32c(mimeTypeOctetStream)>: {
+					return MimeType::OctetStream;
+				}
+				case force_consteval<crc32c(mimeTypeWebp)>: {
+					return MimeType::WEBP;
+				}
+				default: {
+					return MimeType::None;
+				}
+			}
+		}
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-	[[nodiscard]] constexpr auto getCombineMode(const std::string_view name) noexcept {
-		assert(!name.empty());
-		if(name[0] == 'a') {
-			return CombineMode::Average;
+		[[nodiscard]] constexpr auto getCombineMode(const std::string_view name) noexcept {
+			switch (crc32c(name)) {
+				case force_consteval<crc32c("average")>:
+					return CombineMode::Average;
+				case force_consteval<crc32c("minimum")>:
+					return CombineMode::Minimum;
+				case force_consteval<crc32c("maximum")>:
+					return CombineMode::Maximum;
+				case force_consteval<crc32c("multiply")>:
+					return CombineMode::Multiply;
+				default:
+					return CombineMode::Invalid;
+			}
 		}
 
-		switch(name[1]) {
-		case 'i':
-			return CombineMode::Minimum;
+		inline constexpr std::array<std::string_view, 4> frictionCombineNames {
+			"average",
+			"minimum",
+			"maximum",
+			"multiply"
+		};
 
-		case 'a':
-			return CombineMode::Maximum;
-
-		case 'u':
-			return CombineMode::Multiply;
+		[[nodiscard]] constexpr std::string_view getFrictionCombineName(const CombineMode frictionCombine) noexcept {
+			static_assert(std::is_same_v<std::underlying_type_t<CombineMode>, std::uint8_t>);
+			const auto idx = to_underlying(frictionCombine) & 0x3;
+			return frictionCombineNames[idx];
 		}
 
-		return CombineMode::Invalid;
-	}
-
-	inline constexpr std::array<std::string_view, 4> frictionCombineNames{
-		"average",
-		"minimum",
-		"maximum",
-		"multiply"
-	};
-
-	[[nodiscard]] constexpr std::string_view getFrictionCombineName(const CombineMode frictionCombine) noexcept {
-		static_assert(std::is_same_v<std::underlying_type_t<CombineMode>, std::uint8_t>);
-		const auto idx = to_underlying(frictionCombine) & 0x3;
-		return frictionCombineNames[idx];
-	}
-
-	[[nodiscard]] constexpr auto getDriveType(const std::string_view name) noexcept {
-		if (name[0] == 'l') {
-			return DriveType::Linear;
-		} else if (name[0] == 'a') {
-			return DriveType::Angular;
-		} else {
-			return DriveType::Invalid;
+		[[nodiscard]] constexpr auto getDriveType(const std::string_view name) noexcept {
+			switch (crc32c(name)) {
+				case force_consteval<crc32c("linear")>:
+					return DriveType::Linear;
+				case force_consteval<crc32c("angular")>:
+					return DriveType::Angular;
+				default:
+					return DriveType::Invalid;
+			}
 		}
-	}
 
-	[[nodiscard]] constexpr auto getDriveMode(const std::string_view name) noexcept {
-		if (name[0] == 'f') {
-			return DriveMode::Force;
-		} else if (name[0] == 'a') {
-			return DriveMode::Acceleration;
-		} else {
-			return DriveMode::Invalid;
+		[[nodiscard]] constexpr auto getDriveMode(const std::string_view name) noexcept {
+			switch (crc32c(name)) {
+				case force_consteval<crc32c("force")>:
+					return DriveMode::Force;
+				case force_consteval<crc32c("acceleration")>:
+					return DriveMode::Acceleration;
+				default:
+					return DriveMode::Invalid;
+			}
 		}
-	}
 #endif
+	} // namespace internal
 #pragma endregion
 
 #pragma region Structs
