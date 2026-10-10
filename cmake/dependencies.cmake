@@ -33,13 +33,13 @@ function(fastgltf_download_simdjson)
     fastgltf_fetch_file(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.h"
             ${FASTGLTF_SIMDJSON_HEADER_FILE}
-            a5c467c33c7871262eb4c82775490430758939c1c516fbdaeb662f8255860a60
+            c23412d6a5aedb3215ca6617db882eee47642318c330173c319a8fca454b9f3d
     )
 
     fastgltf_fetch_file(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.cpp"
             ${FASTGLTF_SIMDJSON_SOURCE_FILE}
-            66c818d1a6b3841febef7a8336ff297f0a52e250a436b598bcdecf010d626243
+            f44b2798458dd6473afcd3c564a3433c657e38493a10bd50812589a20e2ec00d
     )
 endfunction()
 
@@ -74,7 +74,7 @@ else()
         set(FASTGLTF_SIMDJSON_TARGET simdjson::simdjson)
     elseif (FASTGLTF_DOWNLOAD_SIMDJSON)
         # Download and configure simdjson
-        set(FASTGLTF_SIMDJSON_TARGET_VERSION "4.6.11")
+        set(FASTGLTF_SIMDJSON_TARGET_VERSION "5.0.3")
         file(MAKE_DIRECTORY ${FASTGLTF_SIMDJSON_DL_DIR})
 
         set(FASTGLTF_SIMDJSON_HEADER_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h")
