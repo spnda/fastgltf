@@ -173,7 +173,7 @@ TEST_CASE("Test pretty-print", "[write-tests]") {
 
 TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 	// Enable all extensions
-	static constexpr auto requiredExtensions = static_cast<fastgltf::Extensions>(~0U);
+	static constexpr fastgltf::Extensions requiredExtensions = ~static_cast<fastgltf::Extensions>(0);
 	fastgltf::Parser parser(requiredExtensions);
 
 	static std::filesystem::path folderPath = "";
@@ -197,6 +197,8 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		if (model.error() == fastgltf::Error::UnsupportedVersion || model.error() == fastgltf::Error::UnknownRequiredExtension)
 			continue; // Skip any glTF 1.0 or 0.x files or glTFs with unsupported extensions.
 
+		INFO("Asset: " << epath.string());
+
 		REQUIRE(model.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(model.get()) == fastgltf::Error::None);
 
@@ -204,6 +206,7 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		fastgltf::Exporter exporter;
 		auto exported = exporter.writeGltfJson(model.get());
 		REQUIRE(exported.error() == fastgltf::Error::None);
+		CAPTURE(exported.get().output);
 
 		// UTF-8 validation on the exported JSON string
 		auto& exportedJson = exported.get().output;
@@ -213,6 +216,7 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		auto regeneratedJson = fastgltf::GltfDataBuffer::FromBytes(
 				reinterpret_cast<const std::byte*>(exportedJson.data()), exportedJson.size());
 		REQUIRE(regeneratedJson.error() == fastgltf::Error::None);
+
 		auto regeneratedModel = parser.loadGltf(regeneratedJson.get(), epath.parent_path());
 		REQUIRE(regeneratedModel.error() == fastgltf::Error::None);
 
@@ -220,7 +224,7 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 
 		++testedAssets;
 	}
-	printf("Successfully tested fastgltf exporter on %" PRIu64 " assets.", testedAssets);
+	INFO("Successfully tested fastgltf exporter on " << testedAssets << " assets.");
 }
 
 TEST_CASE("Test Unicode exporting", "[write-tests]") {

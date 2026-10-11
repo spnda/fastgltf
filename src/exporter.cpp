@@ -380,7 +380,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, simdjson::builder::string_
 		writeMinMax<"min">(builder, it->min);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.accessors.begin(), it)), fastgltf::Category::Accessors, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.accessors.begin(), it)), Category::Accessors, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -469,7 +469,7 @@ void fg::Exporter::writeAnimations(const Asset& asset, simdjson::builder::string
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.animations.begin(), it)), fastgltf::Category::Animations, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.animations.begin(), it)), Category::Animations, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -550,7 +550,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, simdjson::builder::string_bu
 		builder.append_key_value<"byteLength">(it->byteLength);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.buffers.begin(), it)), fastgltf::Category::Buffers, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.buffers.begin(), it)), Category::Buffers, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -620,12 +620,16 @@ void fg::Exporter::writeBufferViews(const Asset& asset, simdjson::builder::strin
 				builder.append_comma();
 				builder.escape_and_append_with_quotes<"mode">();
 				builder.append_colon();
-				if (meshopt.mode == MeshoptCompressionMode::Attributes) {
-					builder.escape_and_append_with_quotes<"ATTRIBUTES">();
-				} else if (meshopt.mode == MeshoptCompressionMode::Triangles) {
-					builder.escape_and_append_with_quotes<"TRIANGLES">();
-				} else if (meshopt.mode == MeshoptCompressionMode::Indices) {
-					builder.escape_and_append_with_quotes<"INDICES">();
+				switch (meshopt.mode) {
+					case MeshoptCompressionMode::Attributes:
+						builder.escape_and_append_with_quotes<"ATTRIBUTES">();
+						break;
+					case MeshoptCompressionMode::Triangles:
+						builder.escape_and_append_with_quotes<"TRIANGLES">();
+						break;
+					case MeshoptCompressionMode::Indices:
+						builder.escape_and_append_with_quotes<"INDICES">();
+						break;
 				}
 			}
 
@@ -633,18 +637,28 @@ void fg::Exporter::writeBufferViews(const Asset& asset, simdjson::builder::strin
 				builder.append_comma();
 				builder.escape_and_append_with_quotes<"filter">();
 				builder.append_colon();
-				if (meshopt.filter == MeshoptCompressionFilter::Exponential) {
-					builder.escape_and_append_with_quotes<"EXPONENTIAL">();
-				} else if (meshopt.filter == MeshoptCompressionFilter::Quaternion) {
-					builder.escape_and_append_with_quotes<"QUATERNION">();
-				} else if (meshopt.filter == MeshoptCompressionFilter::Octahedral) {
-					builder.escape_and_append_with_quotes<"OCTAHEDRAL">();
+				switch (meshopt.filter) {
+					case MeshoptCompressionFilter::None:
+						builder.escape_and_append_with_quotes<"NONE">();
+						break;
+					case MeshoptCompressionFilter::Exponential:
+						builder.escape_and_append_with_quotes<"EXPONENTIAL">();
+						break;
+					case MeshoptCompressionFilter::Quaternion:
+						builder.escape_and_append_with_quotes<"QUATERNION">();
+						break;
+					case MeshoptCompressionFilter::Octahedral:
+						builder.escape_and_append_with_quotes<"OCTAHEDRAL">();
+						break;
+					case MeshoptCompressionFilter::Color:
+						builder.escape_and_append_with_quotes<"COLOR">();
+						break;
 				}
 			}
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.bufferViews.begin(), it)), fastgltf::Category::BufferViews, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.bufferViews.begin(), it)), Category::BufferViews, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -714,7 +728,7 @@ void fg::Exporter::writeCameras(const Asset& asset, simdjson::builder::string_bu
 		}, it->camera);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.cameras.begin(), it)), fastgltf::Category::Cameras, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.cameras.begin(), it)), Category::Cameras, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -782,7 +796,7 @@ void fg::Exporter::writeImages(const Asset& asset, simdjson::builder::string_bui
 			return;
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.images.begin(), it)), fastgltf::Category::Images, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.images.begin(), it)), Category::Images, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1263,7 +1277,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, simdjson::builder::string_
 		writeMaterialExtensions(*it, builder);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.materials.begin(), it)), fastgltf::Category::Materials, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.materials.begin(), it)), Category::Materials, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1402,7 +1416,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, simdjson::builder::string_bui
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.meshes.begin(), it)), fastgltf::Category::Meshes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.meshes.begin(), it)), Category::Meshes, userPointer);
 			if (extras.has_value()) {
 				comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1655,7 +1669,7 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.nodes.begin(), it)), fastgltf::Category::Nodes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.nodes.begin(), it)), Category::Nodes, userPointer);
 			if (extras.has_value()) {
 				comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1701,7 +1715,7 @@ void fg::Exporter::writeSamplers(const Asset& asset, simdjson::builder::string_b
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.samplers.begin(), it)), fastgltf::Category::Samplers, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.samplers.begin(), it)), Category::Samplers, userPointer);
 			if (extras.has_value()) {
 				comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1741,7 +1755,7 @@ void fg::Exporter::writeScenes(const Asset& asset, simdjson::builder::string_bui
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.scenes.begin(), it)), fastgltf::Category::Scenes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.scenes.begin(), it)), Category::Scenes, userPointer);
 			if (extras.has_value()) {
 				comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1780,7 +1794,7 @@ void fg::Exporter::writeSkins(const Asset& asset, simdjson::builder::string_buil
 		append_key_range<"joints">(builder, it->joints);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.skins.begin(), it)), fastgltf::Category::Skins, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.skins.begin(), it)), Category::Skins, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1843,7 +1857,7 @@ void fg::Exporter::writeTextures(const Asset& asset, simdjson::builder::string_b
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.textures.begin(), it)), fastgltf::Category::Textures, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.textures.begin(), it)), Category::Textures, userPointer);
 			if (extras.has_value()) {
 				comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1925,7 +1939,7 @@ void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_bui
 		}, shape);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.shapes.begin(), it)), fastgltf::Category::Shapes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.shapes.begin(), it)), Category::Shapes, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -1987,7 +2001,7 @@ void fg::Exporter::writePhysicsMaterials(const Asset& asset, simdjson::builder::
 		writeCombineMode(material.restitutionCombine);
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsMaterials.begin(), it)), fastgltf::Category::PhysicsMaterials, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsMaterials.begin(), it)), Category::PhysicsMaterials, userPointer);
 			if (extras.has_value()) {
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -2029,7 +2043,7 @@ void fg::Exporter::writeCollisionFilters(const Asset& asset, simdjson::builder::
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.collisionFilters.begin(), it)), fastgltf::Category::Shapes, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.collisionFilters.begin(), it)), Category::Shapes, userPointer);
 			if (extras.has_value()) {
 				comma();
 				append_raw_key_value<"extras">(builder, *extras);
@@ -2143,7 +2157,7 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, simdjson::builder::str
 		}
 
 		if (extrasWriteCallback != nullptr) {
-			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsJoints.begin(), it)), fastgltf::Category::PhysicsJoints, userPointer);
+			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsJoints.begin(), it)), Category::PhysicsJoints, userPointer);
 			if (extras.has_value()) {
 				if (!joint.limits.empty() || !joint.drives.empty()) {
 					builder.append_comma();
@@ -2155,7 +2169,7 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, simdjson::builder::str
 }
 #endif
 
-void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder) {
 	auto extensions = scoped_object<"extensions">(builder);
 
 	comma_separator comma { builder };
@@ -2247,7 +2261,7 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
 	return imageFolder / (std::string(imageName) + std::string(extension));
 }
 
-std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
+std::string fg::Exporter::writeJson(const Asset &asset) {
 	simdjson::builder::string_builder builder;
 
 	{
