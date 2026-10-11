@@ -30,6 +30,10 @@ option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
 
 set(FASTGLTF_COMPILE_TARGET cxx_std_20)
 
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
