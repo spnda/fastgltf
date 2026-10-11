@@ -57,6 +57,7 @@ module;
 #include <limits>
 #include <memory>
 #include <memory_resource>
+#include <numbers>
 #include <optional>
 #include <ranges>
 #include <span>
