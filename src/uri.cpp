@@ -170,8 +170,7 @@ fs::path fg::URIView::fspath() const {
 		return u8(raw);
 
 	if constexpr (std::is_same_v<fs::path::value_type, std::string::value_type>) {
-		std::string decodedPath = decodePercents(raw);
-		return std::move(decodedPath);
+		return decodePercents(raw);
 	} else {
 		const auto str = decodePercents(raw);
 		return u8(str);

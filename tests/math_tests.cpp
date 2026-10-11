@@ -13,7 +13,7 @@
 
 // We need these operator<< overloads for vector types to get proper output from Catch2 on assertions.
 template <std::size_t N>
-std::ostream& operator <<(std::ostream& os, const fastgltf::math::vec<float, N>& value) {
+static std::ostream& operator <<(std::ostream& os, const fastgltf::math::vec<float, N>& value) {
 	os << "vec<float," << N << ">(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (std::size_t i = 0; i < N; ++i) {
 		os << value[i];
@@ -25,7 +25,7 @@ std::ostream& operator <<(std::ostream& os, const fastgltf::math::vec<float, N>&
 }
 
 template <std::size_t N, std::size_t M>
-std::ostream& operator <<(std::ostream& os, const fastgltf::math::mat<float, N, M>& value) {
+static std::ostream& operator <<(std::ostream& os, const fastgltf::math::mat<float, N, M>& value) {
 	os << "mat<float," << N << ',' << M << ">(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (std::size_t i = 0; i < M; ++i) {
 		os << '[';
@@ -43,7 +43,7 @@ std::ostream& operator <<(std::ostream& os, const fastgltf::math::mat<float, N, 
 }
 
 template <glm::length_t N>
-std::ostream& operator <<(std::ostream& os, const glm::vec<N, float>& value) {
+static std::ostream& operator <<(std::ostream& os, const glm::vec<N, float>& value) {
 	os << "glm::vec<" << N << ",float>(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (glm::length_t i = 0; i < N; ++i) {
 		os << value[i];
@@ -54,7 +54,7 @@ std::ostream& operator <<(std::ostream& os, const glm::vec<N, float>& value) {
 	return os;
 }
 
-std::ostream& operator <<(std::ostream& os, const glm::quat& value) {
+static std::ostream& operator <<(std::ostream& os, const glm::quat& value) {
 	os << "glm::quat<float>(" << std::setprecision(std::numeric_limits<float>::digits10);
 	for (glm::length_t i = 0; i < glm::quat::length(); ++i) {
 		os << value[i];

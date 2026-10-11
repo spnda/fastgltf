@@ -358,16 +358,16 @@ namespace {
 			++aliveObjects;
 		}
 
-		RefCountedObject(const RefCountedObject& other) {
+		RefCountedObject([[maybe_unused]] const RefCountedObject& other) {
 			++aliveObjects;
 		}
 
 		// Deliberately not noexcept, so that small_vector::reserve still uses the copy constructor.
-		RefCountedObject(RefCountedObject&& other) {
+		RefCountedObject([[maybe_unused]] RefCountedObject&& other) {
 			++aliveObjects;
 		}
 
-		RefCountedObject& operator=(const RefCountedObject& other) {
+		RefCountedObject& operator=([[maybe_unused]] const RefCountedObject& other) {
 			return *this;
 		}
 

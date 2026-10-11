@@ -65,22 +65,22 @@ TEST_CASE("Allocator behavior", "[box-tests]") {
 
 TEST_CASE("Box equality", "[box-tests]") {
 	SECTION("Two boxes") {
-		fastgltf::box<std::uint64_t> box1(5);
-		fastgltf::box<std::uint64_t> box2(5);
+		fastgltf::box box1(5u);
+		fastgltf::box box2(5u);
 		REQUIRE(box1 == box2);
 
-		box1 = 10;
+		box1 = 10u;
 		REQUIRE(box1 != box2);
 		REQUIRE(box1 > box2);
 	}
 
 	SECTION("Box with value") {
-		fastgltf::box<std::uint64_t> box1(5);
-		REQUIRE(box1 == 5);
+		fastgltf::box box1(5u);
+		REQUIRE(box1 == 5u);
 
-		box1 = 10;
-		REQUIRE(box1 != 5);
-		REQUIRE(box1 > 5);
+		box1 = 10u;
+		REQUIRE(box1 != 5u);
+		REQUIRE(box1 > 5u);
 	}
 }
 

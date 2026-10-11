@@ -3,6 +3,8 @@
 #include <catch2/benchmark/catch_benchmark.hpp>
 
 #include <fastgltf/core.hpp>
+#include <variant>
+#include "fastgltf/types.hpp"
 #include "gltf_path.hpp"
 
 // Tests for extension functionality, declared in the same order as the fastgltf::Extensions enum.
@@ -594,90 +596,54 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 	REQUIRE(asset->shapes.size() == 7);
 
 	const auto& box0 = asset->shapes.at(0);
-	fastgltf::visit_exhaustive(fastgltf::visitor{
+	REQUIRE(std::holds_alternative<fastgltf::BoxShape>(box0));
+	std::visit(fastgltf::visitor {
 		[](const fastgltf::BoxShape& box) {
 			REQUIRE(box.size.x() == Catch::Approx(0.5285500288009644));
 			REQUIRE(box.size.y() == Catch::Approx(1));
 			REQUIRE(box.size.z() == Catch::Approx(0.5285500288009644));
 		},
-		[](const fastgltf::SphereShape& sphere) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::CapsuleShape& capsule) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::CylinderShape& cylinder) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::PlaneShape& plane) {
-			REQUIRE(false);
+		[](const auto&) {
+			FAIL("Got wrong variant case");
 		}
-		},
-		box0);
+	}, box0);
 
 	const auto& sphere4 = asset->shapes.at(4);
-	fastgltf::visit_exhaustive(fastgltf::visitor{
-		[](const fastgltf::BoxShape& box) {
-			REQUIRE(false);
-		},
+	REQUIRE(std::holds_alternative<fastgltf::SphereShape>(sphere4));
+	std::visit(fastgltf::visitor{
 		[](const fastgltf::SphereShape& sphere) {
 			REQUIRE(sphere.radius == Catch::Approx(0.3417187615099374));
 		},
-		[](const fastgltf::CapsuleShape& capsule) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::CylinderShape& cylinder) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::PlaneShape& plane) {
-			REQUIRE(false);
+		[](const auto&) {
+			FAIL("Got wrong variant case");
 		}
-		},
-		sphere4);
+	}, sphere4);
 
 	const auto& capsule6 = asset->shapes.at(6);
-	fastgltf::visit_exhaustive(fastgltf::visitor{
-		[](const fastgltf::BoxShape& box) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::SphereShape& sphere) {
-			REQUIRE(false);
-		},
+	REQUIRE(std::holds_alternative<fastgltf::CapsuleShape>(capsule6));
+	std::visit(fastgltf::visitor {
 		[](const fastgltf::CapsuleShape& capsule) {
 			REQUIRE(capsule.height == Catch::Approx(0.6000000238418579));
 			REQUIRE(capsule.radiusBottom == Catch::Approx(0.25));
 			REQUIRE(capsule.radiusTop == Catch::Approx(0.4000000059604645));
 		},
-		[](const fastgltf::CylinderShape& cylinder) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::PlaneShape& plane) {
-			REQUIRE(false);
+		[](const auto&) {
+			FAIL("Got wrong variant case");
 		}
-		},
-		capsule6);
+	}, capsule6);
 
 	const auto& cylinder2 = asset->shapes.at(2);
-	fastgltf::visit_exhaustive(fastgltf::visitor{
-		[](const fastgltf::BoxShape& box) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::SphereShape& sphere) {
-			REQUIRE(false);
-		},
-		[](const fastgltf::CapsuleShape& capsule) {
-			REQUIRE(false);
-		},
+	REQUIRE(std::holds_alternative<fastgltf::CylinderShape>(cylinder2));
+	std::visit(fastgltf::visitor {
 		[](const fastgltf::CylinderShape& cylinder) {
 			REQUIRE(cylinder.height == Catch::Approx(0.06662015616893768));
 			REQUIRE(cylinder.radiusBottom == Catch::Approx(0.15483441948890686));
 			REQUIRE(cylinder.radiusTop == Catch::Approx(0.15483441948890686));
 		},
-		[](const fastgltf::PlaneShape& plane) {
-			REQUIRE(false);
+		[](const auto&) {
+			FAIL("Got wrong variant case");
 		}
-		},
-		cylinder2);
+	}, cylinder2);
 }
 #endif
 
@@ -719,10 +685,10 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 
 	REQUIRE(node.physicsRigidBody->collider.has_value());
 	REQUIRE(node.physicsRigidBody->collider->geometry.shape.has_value());
-	REQUIRE(node.physicsRigidBody->collider->geometry.shape == 0);
+	REQUIRE(node.physicsRigidBody->collider->geometry.shape == std::size_t(0));
 	REQUIRE(!node.physicsRigidBody->collider->geometry.mesh.has_value());
-	REQUIRE(node.physicsRigidBody->collider->physicsMaterial == 0);
-	REQUIRE(node.physicsRigidBody->collider->collisionFilter == 0);
+	REQUIRE(node.physicsRigidBody->collider->physicsMaterial == std::size_t(0));
+	REQUIRE(node.physicsRigidBody->collider->collisionFilter == std::size_t(0));
 
 	REQUIRE(!node.physicsRigidBody->trigger.has_value());
 	REQUIRE(!node.physicsRigidBody->joint.has_value());
@@ -735,18 +701,18 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 	REQUIRE(!node9.physicsRigidBody->collider.has_value());
 
 	REQUIRE(node9.physicsRigidBody->trigger.has_value());
-	fastgltf::visit_exhaustive(fastgltf::visitor{
+	REQUIRE(std::holds_alternative<fastgltf::GeometryTrigger>(*node9.physicsRigidBody->trigger));
+	std::visit(fastgltf::visitor{
 		[](const fastgltf::GeometryTrigger& geo) {
 			REQUIRE(geo.geometry.convexHull);
 			REQUIRE(geo.geometry.mesh == 7);
 			REQUIRE(geo.collisionFilter.has_value());
 			REQUIRE(geo.collisionFilter == 0);
 		},
-		[](const fastgltf::NodeTrigger& node) {
-			REQUIRE(false);
+		[]([[maybe_unused]] const auto&) {
+			FAIL("Got wrong variant case");
 		}
-		},
-		*node9.physicsRigidBody->trigger);
+	}, *node9.physicsRigidBody->trigger);
 
 	REQUIRE(!node9.physicsRigidBody->joint.has_value());
 }
