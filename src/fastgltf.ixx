@@ -71,6 +71,10 @@ module;
 #include <vector>
 #endif
 
+#if !FASTGLTF_USE_STD_MODULE && defined(__cpp_lib_format)
+#include <format>
+#endif
+
 #if FASTGLTF_CPLUSPLUS >= 202302L && __has_include(<stdfloat>)
 #include <stdfloat>
 #endif

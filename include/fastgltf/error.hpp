@@ -29,13 +29,13 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <cassert>
-#include <tuple>
+#include <ostream>
 #endif
 
 #include <fastgltf/util.hpp>
 
-namespace fastgltf {
-	FASTGLTF_EXPORT enum class [[nodiscard]] Error : std::uint64_t {
+FASTGLTF_EXPORT namespace fastgltf {
+	enum class [[nodiscard]] Error : std::uint64_t {
 		None,
 		InvalidPath, ///< The glTF directory passed to load*GLTF is invalid.
 		MissingExtensions, ///< One or more extensions are required by the glTF but not enabled in the Parser.
@@ -60,7 +60,7 @@ namespace fastgltf {
 		Unknown, ///< Something unexpected happened. This is likely a bug with fastgltf.
 	};
 
-	FASTGLTF_EXPORT [[nodiscard]] constexpr std::string_view getErrorName(const Error error) {
+	[[nodiscard]] constexpr std::string_view getErrorName(const Error error) {
 		switch (error) {
 			case Error::None: return "None";
 			case Error::InvalidPath: return "InvalidPath";
@@ -82,7 +82,7 @@ namespace fastgltf {
 		}
 	}
 
-	FASTGLTF_EXPORT [[nodiscard]] constexpr std::string_view getErrorMessage(const Error error) {
+	[[nodiscard]] constexpr std::string_view getErrorMessage(const Error error) {
 		switch (error) {
 			case Error::None: return "";
 			case Error::InvalidPath: return "The glTF directory passed to load*GLTF is invalid";
@@ -103,6 +103,15 @@ namespace fastgltf {
 		}
 	}
 
+	inline std::ostream& operator<<(std::ostream& out, Error error) noexcept {
+		if (error != Error::None) {
+			out << getErrorName(error);
+			out << ": ";
+		}
+		out << getErrorMessage(error);
+		return out;
+	}
+
 	/**
 	 * A tagged union that stores either T or an Error.
 	 *
@@ -110,7 +119,7 @@ namespace fastgltf {
 	 * If @ref hasError() returned false or @ref error() return @ref Error::None then one of the value getters,
 	 * such as @ref get() or @ref operator*() can be used.
 	 */
-	FASTGLTF_EXPORT template <typename T, typename E = Error>
+	template <typename T, typename E = Error>
 	class [[nodiscard]] Expected {
 		static_assert(!std::is_same_v<E, T> && !std::is_constructible_v<T, E>);
 
@@ -281,5 +290,22 @@ namespace fastgltf {
 
 	static_assert(!std::is_constructible_v<Expected<int&>, int>, "Cannot construct reference Expected from rvalue");
 }
+
+#ifdef __cpp_lib_format
+#if !defined(FASTGLTF_MODULE)
+#include <format>
+#endif
+
+template <>
+struct std::formatter<fastgltf::Error> {
+	constexpr auto parse(std::format_parse_context& ctx) {
+		return ctx.begin();
+	}
+
+	auto format(fastgltf::Error error, std::format_context& ctx) const {
+		return std::format_to(ctx.out(), "{}: {}", getErrorName(error), getErrorMessage(error));
+	}
+};
+#endif
 
 #endif
