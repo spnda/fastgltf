@@ -11,12 +11,15 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/epsilon.hpp>
 
+#include <simdjson.h>
+
 #include <fastgltf/base64.hpp>
 #include <fastgltf/core.hpp>
+#include <fastgltf/exporter.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/math.hpp>
+
 #include "gltf_path.hpp"
-#include <simdjson.h>
 
 constexpr auto noOptions = fastgltf::Options::None;
 

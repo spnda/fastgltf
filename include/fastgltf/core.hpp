@@ -53,8 +53,6 @@ namespace simdjson::dom {
 } // namespace simdjson::dom
 
 namespace fastgltf {
-	struct BinaryGltfChunk;
-
 	// clang-format off
 	FASTGLTF_EXPORT enum class Extensions : std::uint64_t {
 		None = 0,
@@ -231,20 +229,6 @@ namespace fastgltf {
 		 */
 		GenerateMeshIndices             = 1 << 8,
 	};
-
-	FASTGLTF_EXPORT enum class ExportOptions : std::uint64_t {
-		None                            = 0,
-
-		/**
-		 * Calls fastgltf::validate for the passed asset before writing.
-		 */
-		ValidateAsset                   = 1 << 1,
-
-		/**
-		 * Pretty-prints the outputted JSON. This option is ignored for binary glTFs.
-		 */
-		PrettyPrintJson                 = 1 << 2,
-	};
 	// clang-format on
 
 	FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(Options, Options, |)
@@ -252,11 +236,6 @@ namespace fastgltf {
 	FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, |)
 	FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(Options, Options, &)
 	FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Options, ~)
-	FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, |)
-	FASTGLTF_ARITHMETIC_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, &)
-	FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, |)
-	FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, &)
-	FASTGLTF_UNARY_OP_TEMPLATE_MACRO(ExportOptions, ~)
 
 	// String representations of glTF 2.0 extension identifiers.
 	namespace extensions {
@@ -396,7 +375,6 @@ namespace fastgltf {
 	FASTGLTF_EXPORT using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
 	FASTGLTF_EXPORT using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
 	FASTGLTF_EXPORT using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
-	FASTGLTF_EXPORT using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
 
 	/**
 	 * This interface defines how the parser can read the bytes making up a glTF or GLB file.
@@ -752,136 +730,76 @@ namespace fastgltf {
 		void setUserPointer(void* pointer) noexcept;
 	};
 
-	/**
-	 * This converts a compacted JSON string into a more readable pretty format.
-	 */
-	void prettyPrintJson(std::string& json);
+	namespace internal {
+		constexpr std::uint32_t binaryGltfHeaderMagic = 0x46546C67; // ASCII for "glTF".
+		constexpr std::uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
+		constexpr std::uint32_t binaryGltfDataChunkMagic = 0x004E4942;
 
-	/**
-	 * Escapes a string for use in JSON.
-	 */
-	std::string escapeString(std::string_view string);
+		struct BinaryGltfHeader {
+			std::uint32_t magic;
+			std::uint32_t version;
+			std::uint32_t length;
+		};
+		static_assert(sizeof(BinaryGltfHeader) == 12, "Binary gltf header must be 12 bytes");
+		static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
 
-	FASTGLTF_EXPORT template <typename T>
-	struct ExportResult {
-		T output;
+		constexpr void readUint32LE(std::uint32_t& x, std::byte* bytes) noexcept {
+			x = static_cast<std::uint32_t>(bytes[0])
+					| (static_cast<std::uint32_t>(bytes[1]) << 8)
+					| (static_cast<std::uint32_t>(bytes[2]) << 16)
+					| (static_cast<std::uint32_t>(bytes[3]) << 24);
+		}
 
-		std::vector<std::optional<std::filesystem::path>> bufferPaths;
-		std::vector<std::optional<std::filesystem::path>> imagePaths;
-	};
+		constexpr void writeUint32LE(std::uint32_t x, std::byte* buffer) noexcept {
+			buffer[0] = static_cast<std::byte>(x);
+			buffer[1] = static_cast<std::byte>(x >> 8);
+			buffer[2] = static_cast<std::byte>(x >> 16);
+			buffer[3] = static_cast<std::byte>(x >> 24);
+		}
 
-	/**
-	 * A exporter for serializing one or more glTF assets into JSON and GLB forms.
-	 *
-	 * @note This does not write anything to any files. This class only serializes data
-	 * into memory structures, which can then be used to manually write them to disk.
-	 * If you want to let fastgltf handle the file writing too, use fastgltf::FileExporter.
-	 */
-	FASTGLTF_EXPORT class Exporter {
-	protected:
-		Error errorCode = Error::None;
-		ExportOptions options = ExportOptions::None;
-		bool exportingBinary = false;
+		/** GLBs are always little-endian, meaning we need to read the values accordingly */
+		[[nodiscard, gnu::always_inline]] inline auto readBinaryHeader(GltfDataGetter& getter) noexcept {
+			std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
+			getter.read(bytes.data(), bytes.size());
 
-		std::filesystem::path bufferFolder = "";
-		std::filesystem::path imageFolder = "";
+			BinaryGltfHeader header {};
+			readUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
+			readUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
+			readUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
+			return header;
+		}
 
-		void* userPointer = nullptr;
-		ExtrasWriteCallback* extrasWriteCallback = nullptr;
+		[[gnu::always_inline]] inline auto writeBinaryHeader(const BinaryGltfHeader& header) noexcept {
+			std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
+			writeUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
+			writeUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
+			writeUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
+			return bytes;
+		}
 
-		std::vector<std::optional<std::filesystem::path>> bufferPaths;
-		std::vector<std::optional<std::filesystem::path>> imagePaths;
+		struct BinaryGltfChunk {
+			std::uint32_t chunkLength;
+			std::uint32_t chunkType;
+		};
+		static_assert(std::is_trivially_copyable_v<BinaryGltfChunk>);
 
-		void writeAccessors(const Asset& asset, std::string& json);
-		void writeAnimations(const Asset& asset, std::string& json);
-		void writeBuffers(const Asset& asset, std::string& json);
-		void writeBufferViews(const Asset& asset, std::string& json);
-		void writeCameras(const Asset& asset, std::string& json);
-		void writeImages(const Asset& asset, std::string& json);
-		void writeLights(const Asset& asset, std::string& json);
-		void writeMaterials(const Asset& asset, std::string& json);
-		void writeMeshes(const Asset& asset, std::string& json);
-		void writeNodes(const Asset& asset, std::string& json);
-		void writeSamplers(const Asset& asset, std::string& json);
-		void writeScenes(const Asset& asset, std::string& json);
-		void writeSkins(const Asset& asset, std::string& json);
-		void writeTextures(const Asset& asset, std::string& json);
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		void writeShapes(const Asset& asset, std::string& json);
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		void writePhysicsMaterials(const Asset& asset, std::string& json);
-		void writeCollisionFilters(const Asset& asset, std::string& json);
-		void writePhysicsJoints(const Asset& asset, std::string& json);
-#endif
-		void writeExtensions(const Asset& asset, std::string& json);
+		[[nodiscard, gnu::always_inline]] inline auto readBinaryChunk(GltfDataGetter& getter) noexcept {
+			std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
+			getter.read(bytes.data(), bytes.size());
 
-		std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
-		std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
+			BinaryGltfChunk chunk {};
+			readUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
+			readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
+			return chunk;
+		}
 
-		std::string writeJson(const Asset& asset);
-
-	public:
-		/**
-		 * Sets the relative base path for buffer URIs.
-		 *
-		 * If folder.is_relative() returns false, this has no effect.
-		 */
-		void setBufferPath(std::filesystem::path folder);
-		/**
-		 * Sets the relative base path for image URIs.
-		 *
-		 * If folder.is_relative() returns false, this has no effect.
-		 */
-		void setImagePath(std::filesystem::path folder);
-
-		void setExtrasWriteCallback(ExtrasWriteCallback* callback) noexcept;
-
-		void setUserPointer(void* pointer) noexcept;
-
-		/**
-		 * Generates a glTF JSON string from the given asset.
-		 */
-		Expected<ExportResult<std::string>> writeGltfJson(const Asset& asset, ExportOptions options = ExportOptions::None);
-
-		/**
-		 * Generates a glTF binary (GLB) blob from the given asset.
-		 *
-		 * If the first buffer holds a sources::Vector, a sources::Array, a or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
-		 * it will be embedded into the binary. Note that the returned vector might therefore get quite large.
-		 */
-		Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
-	};
-
-	/**
-	 * A exporter for serializing one or more glTF files into JSON and GLB forms.
-	 * This exporter builds upon Exporter by writing all files automatically to the
-	 * given paths.
-	 */
-	FASTGLTF_EXPORT class FileExporter : public Exporter {
-		using Exporter::writeGltfJson;
-		using Exporter::writeGltfBinary;
-
-	public:
-		/**
-		 * Writes a glTF JSON string generated from the given asset to the specified target file. This will also write
-		 * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
-		 * Exporter::setImagePath.
-		 */
-		Error writeGltfJson(const Asset& asset, const std::filesystem::path& target, ExportOptions options = ExportOptions::None);
-
-		/**
-		 * Writes a glTF binary (GLB) blob from the given asset to the specified target file. This will also write
-		 * all buffers and textures to disk using the buffer and image paths set using Exporter::setBufferPath and
-		 * Exporter::setImagePath.
-		 *
-		 * If the first buffer holds a sources::Vector, a sources::Array, a or sources::ByteView and the byte length is smaller than 2^32 (4.2GB),
-		 * it will be embedded into the binary.
-		 *
-		 * \see Exporter::writeGltfBinary
-		 */
-		Error writeGltfBinary(const Asset& asset, const std::filesystem::path& target, ExportOptions options = ExportOptions::None);
-	};
+		[[gnu::always_inline]] inline auto writeBinaryChunk(const BinaryGltfChunk& chunk) noexcept {
+			std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
+			writeUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
+			writeUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
+			return bytes;
+		}
+	}
 } // namespace fastgltf
 
 #ifdef _MSC_VER

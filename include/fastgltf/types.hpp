@@ -1372,6 +1372,14 @@ namespace fastgltf {
 
 	static_assert(has_flag_traits<TextureInfo>);
 
+	namespace internal {
+		enum class TextureInfoType {
+			Standard,
+			NormalTexture,
+			OcclusionTexture,
+		};
+	}
+
 	FASTGLTF_EXPORT struct PBRData {
 		/**
 		 * The factors for the base color of then material.

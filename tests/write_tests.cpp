@@ -8,6 +8,7 @@
 #include <simdjson.h>
 
 #include <fastgltf/core.hpp>
+#include <fastgltf/exporter.hpp>
 #include "gltf_path.hpp"
 
 TEST_CASE("Test simple glTF composition", "[write-tests]") {

@@ -51,6 +51,7 @@ set(FASTGLTF_HEADERS
         "include/fastgltf/crc32.hpp"
         "include/fastgltf/dxmath_element_traits.hpp"
         "include/fastgltf/error.hpp"
+        "include/fastgltf/exporter.hpp"
         "include/fastgltf/glm_element_traits.hpp"
         "include/fastgltf/tools.hpp"
         "include/fastgltf/types.hpp"
@@ -70,6 +71,7 @@ add_library(fastgltf
         ${FASTGLTF_HEADERS}
         "src/base64.cpp"
         "src/crc32.cpp"
+        "src/exporter.cpp"
         "src/fastgltf.cpp"
         "src/io.cpp"
         "src/uri.cpp"
