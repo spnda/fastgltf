@@ -37,7 +37,7 @@ TEST_CASE("Read glTF, write it, and then read it again and validate", "[write-te
 
 	fastgltf::Exporter exporter;
 	auto expected = exporter.writeGltfJson(cube.get());
-    REQUIRE(expected.error() == fastgltf::Error::None);
+	REQUIRE(expected.error() == fastgltf::Error::None);
 
 	auto exportedJsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(expected.get().output.data()), expected.get().output.size());
@@ -75,15 +75,15 @@ TEST_CASE("Rewrite read glTF with multiple material extensions", "[write-tests]"
 }
 
 TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
-    auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
+	auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
 
 	fastgltf::GltfFileStream cubeJson(cubePath / "Cube.gltf");
 	REQUIRE(cubeJson.isOpen());
 
-    fastgltf::Parser parser;
-    auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-    auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
-    REQUIRE(cube.error() == fastgltf::Error::None);
+	fastgltf::Parser parser;
+	auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
+	auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
+	REQUIRE(cube.error() == fastgltf::Error::None);
 
 	// The following code assumes that only a single image is written to a file
 	REQUIRE(cube->images.size() == 1);
@@ -96,24 +96,24 @@ TEST_CASE("Try writing a glTF with all buffers and images", "[write-tests]") {
 		REQUIRE(!ec);
 	}
 
-    fastgltf::FileExporter exporter;
-    auto error = exporter.writeGltfJson(cube.get(), exportedFolder / "cube.gltf",
-                                        fastgltf::ExportOptions::PrettyPrintJson);
-    REQUIRE(error == fastgltf::Error::None);
+	fastgltf::FileExporter exporter;
+	auto error = exporter.writeGltfJson(cube.get(), exportedFolder / "cube.gltf",
+										fastgltf::ExportOptions::PrettyPrintJson);
+	REQUIRE(error == fastgltf::Error::None);
 	REQUIRE(std::filesystem::exists(exportedFolder / "buffer0.bin"));
 	REQUIRE(std::filesystem::exists(exportedFolder / "image0.bin"));
 }
 
 TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
-    auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
+	auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
 
 	fastgltf::GltfFileStream cubeJson(cubePath / "Cube.gltf");
 	REQUIRE(cubeJson.isOpen());
 
-    fastgltf::Parser parser;
-    auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
-    auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
-    REQUIRE(cube.error() == fastgltf::Error::None);
+	fastgltf::Parser parser;
+	auto options = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
+	auto cube = parser.loadGltfJson(cubeJson, cubePath, options);
+	REQUIRE(cube.error() == fastgltf::Error::None);
 
 	// The following code assumes that only a single image is written to a file
 	REQUIRE(cube->images.size() == 1);
@@ -126,10 +126,10 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
 		REQUIRE(!ec);
 	}
 
-    fastgltf::FileExporter exporter;
+	fastgltf::FileExporter exporter;
 	auto exportedPath = exportedFolder / "cube.glb";
-    auto error = exporter.writeGltfBinary(cube.get(), exportedPath);
-    REQUIRE(error == fastgltf::Error::None);
+	auto error = exporter.writeGltfBinary(cube.get(), exportedPath);
+	REQUIRE(error == fastgltf::Error::None);
 	REQUIRE(std::filesystem::exists(exportedFolder / "image0.bin"));
 
 	// Make sure the GLB buffer is written
@@ -160,14 +160,14 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
 }
 
 TEST_CASE("Test string escape", "[write-tests]") {
-    std::string x = "\"stuff\\";
-    std::string escaped = fastgltf::escapeString(x);
-    REQUIRE(escaped == "\\\"stuff\\\\");
+	std::string x = "\"stuff\\";
+	std::string escaped = fastgltf::escapeString(x);
+	REQUIRE(escaped == "\\\"stuff\\\\");
 }
 
 TEST_CASE("Test pretty-print", "[write-tests]") {
-    std::string json = R"({"value":5,"thing":{}})";
-    fastgltf::prettyPrintJson(json);
+	std::string json = R"({"value":5,"thing":{}})";
+	fastgltf::prettyPrintJson(json);
 	REQUIRE(json == "{\n\t\"value\":5,\n\t\"thing\":{\n\t\t\n\t}\n}");
 }
 

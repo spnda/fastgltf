@@ -28,40 +28,40 @@ TEST_CASE("Extension KHR_texture_transform", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
-    auto stainedLamp = sampleAssets / "Models" / "StainedGlassLamp" / "glTF-KTX-BasisU";
+	auto stainedLamp = sampleAssets / "Models" / "StainedGlassLamp" / "glTF-KTX-BasisU";
 	fastgltf::GltfFileStream jsonData(stainedLamp / "StainedGlassLamp.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    SECTION("Loading KHR_texture_basisu") {
-        fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_basisu);
-        auto asset = parser.loadGltfJson(jsonData, path, fastgltf::Options::DontRequireValidAssetMember,
+	SECTION("Loading KHR_texture_basisu") {
+		fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_basisu);
+		auto asset = parser.loadGltfJson(jsonData, path, fastgltf::Options::DontRequireValidAssetMember,
 									 fastgltf::Category::Textures | fastgltf::Category::Images);
-        REQUIRE(asset.error() == fastgltf::Error::None);
+		REQUIRE(asset.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-        REQUIRE(asset->textures.size() == 19);
-        REQUIRE(!asset->images.empty());
+		REQUIRE(asset->textures.size() == 19);
+		REQUIRE(!asset->images.empty());
 
-        auto& texture = asset->textures[1];
-        REQUIRE(!texture.imageIndex.has_value());
-        REQUIRE(texture.samplerIndex == 0U);
+		auto& texture = asset->textures[1];
+		REQUIRE(!texture.imageIndex.has_value());
+		REQUIRE(texture.samplerIndex == 0U);
 		REQUIRE(texture.basisuImageIndex.has_value());
 		REQUIRE(texture.basisuImageIndex.value() == 1);
 
-        auto& image = asset->images.front();
-        auto* filePath = std::get_if<fastgltf::sources::URI>(&image.data);
-        REQUIRE(filePath != nullptr);
-        REQUIRE(filePath->uri->valid());
-        REQUIRE(filePath->uri->isLocalPath());
-        REQUIRE(filePath->mimeType == fastgltf::MimeType::KTX2);
-    }
+		auto& image = asset->images.front();
+		auto* filePath = std::get_if<fastgltf::sources::URI>(&image.data);
+		REQUIRE(filePath != nullptr);
+		REQUIRE(filePath->uri->valid());
+		REQUIRE(filePath->uri->isLocalPath());
+		REQUIRE(filePath->mimeType == fastgltf::MimeType::KTX2);
+	}
 
-    SECTION("Testing requiredExtensions") {
-        // We specify no extensions, yet the StainedGlassLamp requires KHR_texture_basisu.
-        fastgltf::Parser parser(fastgltf::Extensions::None);
-        auto stainedGlassLamp = parser.loadGltfJson(jsonData, path, fastgltf::Options::DontRequireValidAssetMember);
-        REQUIRE(stainedGlassLamp.error() == fastgltf::Error::MissingExtensions);
-    }
+	SECTION("Testing requiredExtensions") {
+		// We specify no extensions, yet the StainedGlassLamp requires KHR_texture_basisu.
+		fastgltf::Parser parser(fastgltf::Extensions::None);
+		auto stainedGlassLamp = parser.loadGltfJson(jsonData, path, fastgltf::Options::DontRequireValidAssetMember);
+		REQUIRE(stainedGlassLamp.error() == fastgltf::Error::MissingExtensions);
+	}
 }
 
 // TODO: Add tests for MSFT_texture_dds, KHR_mesh_quantization extension
@@ -210,109 +210,109 @@ TEST_CASE("Extension KHR_lights_punctual", "[gltf-loader]") {
 // TODO: Add tests for EXT_texture_webp extension
 
 TEST_CASE("Extension KHR_materials_specular", "[gltf-loader]") {
-    auto specularTest = sampleAssets / "Models" / "SpecularTest" / "glTF";
+	auto specularTest = sampleAssets / "Models" / "SpecularTest" / "glTF";
 	fastgltf::GltfFileStream jsonData(specularTest / "SpecularTest.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_specular);
-    auto asset = parser.loadGltfJson(jsonData, specularTest, fastgltf::Options::None, fastgltf::Category::Materials);
-    REQUIRE(asset.error() == fastgltf::Error::None);
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_specular);
+	auto asset = parser.loadGltfJson(jsonData, specularTest, fastgltf::Options::None, fastgltf::Category::Materials);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(asset->materials.size() >= 12);
+	REQUIRE(asset->materials.size() >= 12);
 
-    auto& materials = asset->materials;
-    REQUIRE(materials[1].specular.has_value());
-    REQUIRE(materials[1].specular->specularFactor == 0.0f);
+	auto& materials = asset->materials;
+	REQUIRE(materials[1].specular.has_value());
+	REQUIRE(materials[1].specular->specularFactor == 0.0f);
 
-    REQUIRE(materials[2].specular.has_value());
+	REQUIRE(materials[2].specular.has_value());
 	REQUIRE(materials[2].specular->specularFactor == Catch::Approx(0.051269f));
 
-    REQUIRE(materials[8].specular.has_value());
+	REQUIRE(materials[8].specular.has_value());
 	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
 	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
 	REQUIRE(materials[8].specular->specularColorFactor[0] == Catch::Approx(0.051269f));
 
-    REQUIRE(materials[12].specular.has_value());
-    REQUIRE(materials[12].specular->specularColorTexture.has_value());
-    REQUIRE(materials[12].specular->specularColorTexture.value().textureIndex == 2);
+	REQUIRE(materials[12].specular.has_value());
+	REQUIRE(materials[12].specular->specularColorTexture.has_value());
+	REQUIRE(materials[12].specular->specularColorTexture.value().textureIndex == 2);
 }
 
 TEST_CASE("Extension KHR_materials_ior and KHR_materials_iridescence", "[gltf-loader]") {
-    auto specularTest = sampleAssets / "Models" / "IridescenceDielectricSpheres" / "glTF";
+	auto specularTest = sampleAssets / "Models" / "IridescenceDielectricSpheres" / "glTF";
 	fastgltf::GltfFileStream jsonData(specularTest / "IridescenceDielectricSpheres.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_iridescence | fastgltf::Extensions::KHR_materials_ior);
-    auto asset = parser.loadGltfJson(jsonData, specularTest, fastgltf::Options::None, fastgltf::Category::Materials);
-    REQUIRE(asset.error() == fastgltf::Error::None);
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_iridescence | fastgltf::Extensions::KHR_materials_ior);
+	auto asset = parser.loadGltfJson(jsonData, specularTest, fastgltf::Options::None, fastgltf::Category::Materials);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(asset->materials.size() >= 50);
+	REQUIRE(asset->materials.size() >= 50);
 
-    auto& materials = asset->materials;
-    REQUIRE(materials[0].iridescence.has_value());
-    REQUIRE(materials[0].iridescence->iridescenceFactor == 1.0f);
-    REQUIRE(materials[0].iridescence->iridescenceIor == 1.0f);
-    REQUIRE(materials[0].iridescence->iridescenceThicknessMaximum == 100.0f);
+	auto& materials = asset->materials;
+	REQUIRE(materials[0].iridescence.has_value());
+	REQUIRE(materials[0].iridescence->iridescenceFactor == 1.0f);
+	REQUIRE(materials[0].iridescence->iridescenceIor == 1.0f);
+	REQUIRE(materials[0].iridescence->iridescenceThicknessMaximum == 100.0f);
 
-    REQUIRE(materials[0].ior == 1.0f);
+	REQUIRE(materials[0].ior == 1.0f);
 
-    REQUIRE(materials[7].ior == 1.17f);
+	REQUIRE(materials[7].ior == 1.17f);
 
-    REQUIRE(materials[50].iridescence.has_value());
-    REQUIRE(materials[50].iridescence->iridescenceFactor == 1.0f);
-    REQUIRE(materials[50].iridescence->iridescenceIor == 1.17f);
-    REQUIRE(materials[50].iridescence->iridescenceThicknessMaximum == 200.0f);
+	REQUIRE(materials[50].iridescence.has_value());
+	REQUIRE(materials[50].iridescence->iridescenceFactor == 1.0f);
+	REQUIRE(materials[50].iridescence->iridescenceIor == 1.17f);
+	REQUIRE(materials[50].iridescence->iridescenceThicknessMaximum == 200.0f);
 }
 
 TEST_CASE("Extension KHR_materials_volume and KHR_materials_transmission", "[gltf-loader]") {
-    auto beautifulGame = sampleAssets / "Models" / "ABeautifulGame" / "glTF";
+	auto beautifulGame = sampleAssets / "Models" / "ABeautifulGame" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(beautifulGame / "ABeautifulGame.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_volume | fastgltf::Extensions::KHR_materials_transmission);
-    auto asset = parser.loadGltfJson(jsonData, beautifulGame, fastgltf::Options::None, fastgltf::Category::Materials);
-    REQUIRE(asset.error() == fastgltf::Error::None);
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_volume | fastgltf::Extensions::KHR_materials_transmission);
+	auto asset = parser.loadGltfJson(jsonData, beautifulGame, fastgltf::Options::None, fastgltf::Category::Materials);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(asset->materials.size() >= 5);
+	REQUIRE(asset->materials.size() >= 5);
 
-    auto& materials = asset->materials;
-    REQUIRE(materials[5].volume.has_value());
+	auto& materials = asset->materials;
+	REQUIRE(materials[5].volume.has_value());
 	REQUIRE(materials[5].volume->thicknessFactor == Catch::Approx(0.2199999988079071f));
 	REQUIRE(materials[5].volume->attenuationColor[0] == Catch::Approx(0.800000011920929f));
 	REQUIRE(materials[5].volume->attenuationColor[1] == Catch::Approx(0.800000011920929f));
 	REQUIRE(materials[5].volume->attenuationColor[2] == Catch::Approx(0.800000011920929f));
 
-    REQUIRE(materials[5].transmission.has_value());
-    REQUIRE(materials[5].transmission->transmissionFactor == 1.0f);
+	REQUIRE(materials[5].transmission.has_value());
+	REQUIRE(materials[5].transmission->transmissionFactor == 1.0f);
 }
 
 TEST_CASE("Extension KHR_materials_clearcoat", "[gltf-loader]") {
-    auto clearcoatTest = sampleAssets / "Models" / "ClearCoatTest" / "glTF";
+	auto clearcoatTest = sampleAssets / "Models" / "ClearCoatTest" / "glTF";
 	fastgltf::GltfFileStream jsonData(clearcoatTest / "ClearCoatTest.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_clearcoat);
-    auto asset = parser.loadGltfJson(jsonData, clearcoatTest, fastgltf::Options::None, fastgltf::Category::Materials);
-    REQUIRE(asset.error() == fastgltf::Error::None);
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_clearcoat);
+	auto asset = parser.loadGltfJson(jsonData, clearcoatTest, fastgltf::Options::None, fastgltf::Category::Materials);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(asset->materials.size() >= 7);
+	REQUIRE(asset->materials.size() >= 7);
 
-    auto& materials = asset->materials;
-    REQUIRE(materials[1].clearcoat.has_value());
-    REQUIRE(materials[1].clearcoat->clearcoatFactor == 1.0f);
-    REQUIRE(materials[1].clearcoat->clearcoatRoughnessFactor == 0.03f);
+	auto& materials = asset->materials;
+	REQUIRE(materials[1].clearcoat.has_value());
+	REQUIRE(materials[1].clearcoat->clearcoatFactor == 1.0f);
+	REQUIRE(materials[1].clearcoat->clearcoatRoughnessFactor == 0.03f);
 
-    REQUIRE(materials[7].clearcoat.has_value());
-    REQUIRE(materials[7].clearcoat->clearcoatFactor == 1.0f);
-    REQUIRE(materials[7].clearcoat->clearcoatRoughnessFactor == 1.0f);
-    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture.has_value());
-    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->textureIndex == 1);
-    REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->texCoordIndex == 0);
+	REQUIRE(materials[7].clearcoat.has_value());
+	REQUIRE(materials[7].clearcoat->clearcoatFactor == 1.0f);
+	REQUIRE(materials[7].clearcoat->clearcoatRoughnessFactor == 1.0f);
+	REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture.has_value());
+	REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->textureIndex == 1);
+	REQUIRE(materials[7].clearcoat->clearcoatRoughnessTexture->texCoordIndex == 0);
 }
 
 TEST_CASE("Extension KHR_materials_emissive_strength", "[gltf-loader]") {
@@ -384,68 +384,68 @@ TEST_CASE("Extension KHR_materials_anisotropy", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension EXT_mesh_gpu_instancing", "[gltf-loader]") {
-    auto simpleInstancingTest = sampleAssets / "Models" / "SimpleInstancing" / "glTF";
+	auto simpleInstancingTest = sampleAssets / "Models" / "SimpleInstancing" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(simpleInstancingTest / "SimpleInstancing.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser(fastgltf::Extensions::EXT_mesh_gpu_instancing);
-    auto asset = parser.loadGltfJson(jsonData, simpleInstancingTest, fastgltf::Options::None, fastgltf::Category::Accessors | fastgltf::Category::Nodes);
-    REQUIRE(asset.error() == fastgltf::Error::None);
-    REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	fastgltf::Parser parser(fastgltf::Extensions::EXT_mesh_gpu_instancing);
+	auto asset = parser.loadGltfJson(jsonData, simpleInstancingTest, fastgltf::Options::None, fastgltf::Category::Accessors | fastgltf::Category::Nodes);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(asset->accessors.size() >= 6);
-    REQUIRE(asset->nodes.size() >= 1);
+	REQUIRE(asset->accessors.size() >= 6);
+	REQUIRE(asset->nodes.size() >= 1);
 
-    auto& nodes = asset->nodes;
-    REQUIRE(nodes[0].instancingAttributes.size() == 3u);
-    REQUIRE(nodes[0].findInstancingAttribute("TRANSLATION") != nodes[0].instancingAttributes.cend());
-    REQUIRE(nodes[0].findInstancingAttribute("SCALE") != nodes[0].instancingAttributes.cend());
-    REQUIRE(nodes[0].findInstancingAttribute("ROTATION") != nodes[0].instancingAttributes.cend());
+	auto& nodes = asset->nodes;
+	REQUIRE(nodes[0].instancingAttributes.size() == 3u);
+	REQUIRE(nodes[0].findInstancingAttribute("TRANSLATION") != nodes[0].instancingAttributes.cend());
+	REQUIRE(nodes[0].findInstancingAttribute("SCALE") != nodes[0].instancingAttributes.cend());
+	REQUIRE(nodes[0].findInstancingAttribute("ROTATION") != nodes[0].instancingAttributes.cend());
 }
 
 TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
-    auto specularGlossinessTest = sampleAssets / "Models" / "SpecGlossVsMetalRough" / "glTF";
-    fastgltf::GltfFileStream jsonData(specularGlossinessTest / "SpecGlossVsMetalRough.gltf");
-    REQUIRE(jsonData.isOpen());
+	auto specularGlossinessTest = sampleAssets / "Models" / "SpecGlossVsMetalRough" / "glTF";
+	fastgltf::GltfFileStream jsonData(specularGlossinessTest / "SpecGlossVsMetalRough.gltf");
+	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_pbrSpecularGlossiness | fastgltf::Extensions::KHR_materials_specular);
-    auto asset = parser.loadGltfJson(jsonData, specularGlossinessTest);
-    REQUIRE(asset.error() == fastgltf::Error::None);
-    REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_pbrSpecularGlossiness | fastgltf::Extensions::KHR_materials_specular);
+	auto asset = parser.loadGltfJson(jsonData, specularGlossinessTest);
+	REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
-    REQUIRE(asset->materials.size() == 4);
+	REQUIRE(asset->materials.size() == 4);
 
-    auto& materials = asset->materials;
-    REQUIRE(materials[0].specularGlossiness.has_value());
+	auto& materials = asset->materials;
+	REQUIRE(materials[0].specularGlossiness.has_value());
 	REQUIRE(materials[0].specularGlossiness->diffuseFactor == fastgltf::math::nvec4(1));
 	REQUIRE(materials[0].specularGlossiness->specularFactor == fastgltf::math::nvec3(1));
-    REQUIRE(materials[0].specularGlossiness->glossinessFactor == 1.0f);
-    REQUIRE(materials[0].specularGlossiness->diffuseTexture.has_value());
-    REQUIRE(materials[0].specularGlossiness->diffuseTexture.value().textureIndex == 5);
-    REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.has_value());
-    REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.value().textureIndex == 6);
+	REQUIRE(materials[0].specularGlossiness->glossinessFactor == 1.0f);
+	REQUIRE(materials[0].specularGlossiness->diffuseTexture.has_value());
+	REQUIRE(materials[0].specularGlossiness->diffuseTexture.value().textureIndex == 5);
+	REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.has_value());
+	REQUIRE(materials[0].specularGlossiness->specularGlossinessTexture.value().textureIndex == 6);
 
-    REQUIRE(materials[3].specularGlossiness.has_value());
+	REQUIRE(materials[3].specularGlossiness.has_value());
 	REQUIRE(materials[3].specularGlossiness->diffuseFactor == fastgltf::math::nvec4(1));
 	REQUIRE(materials[3].specularGlossiness->specularFactor == fastgltf::math::nvec3(0));
-    REQUIRE(materials[3].specularGlossiness->glossinessFactor == 0.0f);
-    REQUIRE(materials[3].specularGlossiness->diffuseTexture.has_value());
-    REQUIRE(materials[3].specularGlossiness->diffuseTexture.value().textureIndex == 7);
+	REQUIRE(materials[3].specularGlossiness->glossinessFactor == 0.0f);
+	REQUIRE(materials[3].specularGlossiness->diffuseTexture.has_value());
+	REQUIRE(materials[3].specularGlossiness->diffuseTexture.value().textureIndex == 7);
 }
 
 // TODO: Add tests for MSFT_packing_* extensions
 
 TEST_CASE("Extension KHR_materials_dispersion", "[gltf-loader]") {
 	constexpr std::string_view json = R"({"materials": [
-        {
-            "extensions": {
-                "KHR_materials_dispersion": {
-                    "dispersion": 0.1
-                }
-            }
-        }
-    ]})";
+		{
+			"extensions": {
+				"KHR_materials_dispersion": {
+					"dispersion": 0.1
+				}
+			}
+		}
+	]})";
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(json.data()), json.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
@@ -595,11 +595,11 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 
 	const auto& box0 = asset->shapes.at(0);
 	fastgltf::visit_exhaustive(fastgltf::visitor{
-	    [](const fastgltf::BoxShape& box) {
+		[](const fastgltf::BoxShape& box) {
 			REQUIRE(box.size.x() == Catch::Approx(0.5285500288009644));
 			REQUIRE(box.size.y() == Catch::Approx(1));
-	        REQUIRE(box.size.z() == Catch::Approx(0.5285500288009644));
-	    },
+			REQUIRE(box.size.z() == Catch::Approx(0.5285500288009644));
+		},
 		[](const fastgltf::SphereShape& sphere) {
 			REQUIRE(false);
 		},

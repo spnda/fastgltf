@@ -20,8 +20,8 @@ std::ostream& operator <<(std::ostream& os, const fastgltf::math::vec<float, N>&
 		if (i + 1 != N)
 			os << ',';
 	}
-    os << ')';
-    return os;
+	os << ')';
+	return os;
 }
 
 template <std::size_t N, std::size_t M>
@@ -50,8 +50,8 @@ std::ostream& operator <<(std::ostream& os, const glm::vec<N, float>& value) {
 		if (i + 1 != N)
 			os << ',';
 	}
-    os << ')';
-    return os;
+	os << ')';
+	return os;
 }
 
 std::ostream& operator <<(std::ostream& os, const glm::quat& value) {

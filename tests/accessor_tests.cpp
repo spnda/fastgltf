@@ -82,26 +82,26 @@ TEST_CASE("Test normalized accessor data conversion", "[gltf-tools]") {
 }
 
 TEST_CASE("Test little-endian correctness", "[gltf-tools]") {
-    // The test here is merely to verify that the internal deserialization functions correctly treat
-    // the input bytes as little-endian, regardless of system endianness.
-    // This test is effectively useless on little endian systems, but it should still make sense to keep it.
-    std::array<std::byte, 4> integer {{ std::byte(0x0A), std::byte(0x0B), std::byte(0x0C), std::byte(0x0D) }};
-    auto deserialized = fastgltf::internal::deserializeComponent<std::uint32_t>(integer.data(), 0);
-    REQUIRE(deserialized == 0x0D0C0B0A);
+	// The test here is merely to verify that the internal deserialization functions correctly treat
+	// the input bytes as little-endian, regardless of system endianness.
+	// This test is effectively useless on little endian systems, but it should still make sense to keep it.
+	std::array<std::byte, 4> integer {{ std::byte(0x0A), std::byte(0x0B), std::byte(0x0C), std::byte(0x0D) }};
+	auto deserialized = fastgltf::internal::deserializeComponent<std::uint32_t>(integer.data(), 0);
+	REQUIRE(deserialized == 0x0D0C0B0A);
 }
 
 TEST_CASE("Test matrix data padding", "[gltf-tools]") {
-    // First a case that doesn't require any padding
-    std::array<std::uint16_t, 4> unpaddedMat2 {{
-       1, 2,
-       3, 4
-    }};
-    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedShort) == unpaddedMat2.size() * sizeof(std::uint16_t));
-    auto umat2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat2x2>(
-            fastgltf::ComponentType::UnsignedShort,
-            reinterpret_cast<const std::byte*>(unpaddedMat2.data()));
-    REQUIRE(umat2[0] == fastgltf::math::fvec2(1, 2));
-    REQUIRE(umat2[1] == fastgltf::math::fvec2(3, 4));
+	// First a case that doesn't require any padding
+	std::array<std::uint16_t, 4> unpaddedMat2 {{
+	   1, 2,
+	   3, 4
+	}};
+	REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedShort) == unpaddedMat2.size() * sizeof(std::uint16_t));
+	auto umat2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat2x2>(
+			fastgltf::ComponentType::UnsignedShort,
+			reinterpret_cast<const std::byte*>(unpaddedMat2.data()));
+	REQUIRE(umat2[0] == fastgltf::math::fvec2(1, 2));
+	REQUIRE(umat2[1] == fastgltf::math::fvec2(3, 4));
 
 	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat2); ++i) {
 		auto val = fastgltf::internal::getAccessorComponentAt<std::uint16_t>(
@@ -109,17 +109,17 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
 		REQUIRE(std::uint16_t(i + 1) == val);
 	}
 
-    // This will simulate a padded 2x2 matrix with the correct 4-byte padding per column
-    std::array<std::uint8_t, 8> paddedMat2 {{
-        1, 2, 0, 0,
-        3, 4, 0, 0
-    }};
-    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedByte) == paddedMat2.size());
-    auto mat2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat2x2>(
-            fastgltf::ComponentType::UnsignedByte,
-            reinterpret_cast<const std::byte*>(paddedMat2.data()));
-    REQUIRE(mat2[0] == fastgltf::math::fvec2(1, 2));
-    REQUIRE(mat2[1] == fastgltf::math::fvec2(3, 4));
+	// This will simulate a padded 2x2 matrix with the correct 4-byte padding per column
+	std::array<std::uint8_t, 8> paddedMat2 {{
+		1, 2, 0, 0,
+		3, 4, 0, 0
+	}};
+	REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat2, fastgltf::ComponentType::UnsignedByte) == paddedMat2.size());
+	auto mat2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat2x2>(
+			fastgltf::ComponentType::UnsignedByte,
+			reinterpret_cast<const std::byte*>(paddedMat2.data()));
+	REQUIRE(mat2[0] == fastgltf::math::fvec2(1, 2));
+	REQUIRE(mat2[1] == fastgltf::math::fvec2(3, 4));
 
 	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat2); ++i) {
 		auto val = fastgltf::internal::getAccessorComponentAt<std::uint8_t>(
@@ -127,18 +127,18 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
 		REQUIRE(std::uint8_t(i + 1) == val);
 	}
 
-    std::array<std::uint8_t, 12> paddedMat3 {{
-        1, 2, 3, 0,
-        4, 5, 6, 0,
-        7, 8, 9, 0
-    }};
-    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedByte) == paddedMat3.size());
-    auto mat3 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat3x3>(
-            fastgltf::ComponentType::UnsignedByte,
-            reinterpret_cast<const std::byte*>(paddedMat3.data()));
-    REQUIRE(mat3[0] == fastgltf::math::fvec3(1, 2, 3));
-    REQUIRE(mat3[1] == fastgltf::math::fvec3(4, 5, 6));
-    REQUIRE(mat3[2] == fastgltf::math::fvec3(7, 8, 9));
+	std::array<std::uint8_t, 12> paddedMat3 {{
+		1, 2, 3, 0,
+		4, 5, 6, 0,
+		7, 8, 9, 0
+	}};
+	REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedByte) == paddedMat3.size());
+	auto mat3 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat3x3>(
+			fastgltf::ComponentType::UnsignedByte,
+			reinterpret_cast<const std::byte*>(paddedMat3.data()));
+	REQUIRE(mat3[0] == fastgltf::math::fvec3(1, 2, 3));
+	REQUIRE(mat3[1] == fastgltf::math::fvec3(4, 5, 6));
+	REQUIRE(mat3[2] == fastgltf::math::fvec3(7, 8, 9));
 
 	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat3); ++i) {
 		auto val = fastgltf::internal::getAccessorComponentAt<std::uint8_t>(
@@ -146,19 +146,19 @@ TEST_CASE("Test matrix data padding", "[gltf-tools]") {
 		REQUIRE(std::uint8_t(i + 1) == val);
 	}
 
-    // This now uses 16-bit shorts for the component types.
-    std::array<std::uint16_t, 12> padded2BMat3 {{
-        1, 2, 3, 0,
-        4, 5, 6, 0,
-        7, 8, 9, 0
-    }};
-    REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedShort) == paddedMat3.size() * sizeof(std::uint16_t));
-    auto mat3_2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat3x3>(
-            fastgltf::ComponentType::UnsignedShort,
-            reinterpret_cast<const std::byte*>(padded2BMat3.data()));
-    REQUIRE(mat3_2[0] == fastgltf::math::fvec3(1, 2, 3));
-    REQUIRE(mat3_2[1] == fastgltf::math::fvec3(4, 5, 6));
-    REQUIRE(mat3_2[2] == fastgltf::math::fvec3(7, 8, 9));
+	// This now uses 16-bit shorts for the component types.
+	std::array<std::uint16_t, 12> padded2BMat3 {{
+		1, 2, 3, 0,
+		4, 5, 6, 0,
+		7, 8, 9, 0
+	}};
+	REQUIRE(fastgltf::getElementByteSize(fastgltf::AccessorType::Mat3, fastgltf::ComponentType::UnsignedShort) == paddedMat3.size() * sizeof(std::uint16_t));
+	auto mat3_2 = fastgltf::internal::getAccessorElementAt<fastgltf::math::fmat3x3>(
+			fastgltf::ComponentType::UnsignedShort,
+			reinterpret_cast<const std::byte*>(padded2BMat3.data()));
+	REQUIRE(mat3_2[0] == fastgltf::math::fvec3(1, 2, 3));
+	REQUIRE(mat3_2[1] == fastgltf::math::fvec3(4, 5, 6));
+	REQUIRE(mat3_2[2] == fastgltf::math::fvec3(7, 8, 9));
 
 	for (std::size_t i = 0; i < fastgltf::getNumComponents(fastgltf::AccessorType::Mat3); ++i) {
 		auto val = fastgltf::internal::getAccessorComponentAt<std::uint16_t>(
@@ -187,21 +187,21 @@ TEST_CASE("Test matrix transpose", "[gltf-tools]") {
 }
 
 TEST_CASE("Test accessor", "[gltf-tools]") {
-    auto lightsLamp = sampleAssets / "Models" / "LightsPunctualLamp" / "glTF";
+	auto lightsLamp = sampleAssets / "Models" / "LightsPunctualLamp" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(lightsLamp / "LightsPunctualLamp.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
-    auto asset = parser.loadGltfJson(jsonData, lightsLamp, fastgltf::Options::LoadExternalBuffers,
+	fastgltf::Parser parser(fastgltf::Extensions::KHR_lights_punctual);
+	auto asset = parser.loadGltfJson(jsonData, lightsLamp, fastgltf::Options::LoadExternalBuffers,
 								 fastgltf::Category::Buffers | fastgltf::Category::BufferViews | fastgltf::Category::Accessors);
-    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 
-    REQUIRE(asset->accessors.size() == 15);
-    auto& accessors = asset->accessors;
+	REQUIRE(asset->accessors.size() == 15);
+	auto& accessors = asset->accessors;
 
-    SECTION("getAccessorElement<std::uint16_t>") {
-        auto& firstAccessor = accessors[0];
+	SECTION("getAccessorElement<std::uint16_t>") {
+		auto& firstAccessor = accessors[0];
 		REQUIRE(firstAccessor.type == fastgltf::AccessorType::Scalar);
 		REQUIRE(firstAccessor.componentType == fastgltf::ComponentType::UnsignedShort);
 
@@ -215,10 +215,10 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 				+ firstAccessor.byteOffset);
 
 		REQUIRE(*checkData == fastgltf::getAccessorElement<std::uint16_t>(asset.get(), firstAccessor, 0));
-    }
+	}
 
 	{
-        auto& secondAccessor = accessors[1];
+		auto& secondAccessor = accessors[1];
 		REQUIRE(secondAccessor.type == fastgltf::AccessorType::Vec3);
 		REQUIRE(secondAccessor.componentType == fastgltf::ComponentType::Float);
 
@@ -267,8 +267,8 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 			fastgltf::copyComponentsFromAccessor<float>(asset.get(), secondAccessor, dstCopy.get());
 			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset.get(), secondAccessor, [&](auto&& p1, std::size_t idx) {
 				auto p2 = fastgltf::math::fvec3(dstCopy.get()[idx * componentCount + 0],
-				                                dstCopy.get()[idx * componentCount + 1],
-				                                dstCopy.get()[idx * componentCount + 2]);
+												dstCopy.get()[idx * componentCount + 1],
+												dstCopy.get()[idx * componentCount + 2]);
 				REQUIRE(p1 == p2);
 			});
 		}
@@ -276,26 +276,26 @@ TEST_CASE("Test accessor", "[gltf-tools]") {
 }
 
 TEST_CASE("Test sparse accessor", "[gltf-tools]") {
-    auto simpleSparseAccessor = sampleAssets / "Models" / "SimpleSparseAccessor" / "glTF";
+	auto simpleSparseAccessor = sampleAssets / "Models" / "SimpleSparseAccessor" / "glTF";
 
 	fastgltf::GltfFileStream jsonData(simpleSparseAccessor / "SimpleSparseAccessor.gltf");
 	REQUIRE(jsonData.isOpen());
 
-    fastgltf::Parser parser;
-    auto asset = parser.loadGltfJson(jsonData, simpleSparseAccessor, fastgltf::Options::LoadExternalBuffers,
+	fastgltf::Parser parser;
+	auto asset = parser.loadGltfJson(jsonData, simpleSparseAccessor, fastgltf::Options::LoadExternalBuffers,
 								 fastgltf::Category::Buffers | fastgltf::Category::BufferViews | fastgltf::Category::Accessors);
-    REQUIRE(asset.error() == fastgltf::Error::None);
+	REQUIRE(asset.error() == fastgltf::Error::None);
 
-    REQUIRE(asset->accessors.size() == 2);
-    REQUIRE(!asset->accessors[0].sparse.has_value());
-    REQUIRE(asset->accessors[1].sparse.has_value());
-    auto& sparse = asset->accessors[1].sparse.value();
-    REQUIRE(sparse.count == 3);
-    REQUIRE(sparse.indicesBufferView == 2);
-    REQUIRE(sparse.indicesByteOffset == 0);
-    REQUIRE(sparse.valuesBufferView == 3);
-    REQUIRE(sparse.valuesByteOffset == 0);
-    REQUIRE(sparse.indexComponentType == fastgltf::ComponentType::UnsignedShort);
+	REQUIRE(asset->accessors.size() == 2);
+	REQUIRE(!asset->accessors[0].sparse.has_value());
+	REQUIRE(asset->accessors[1].sparse.has_value());
+	auto& sparse = asset->accessors[1].sparse.value();
+	REQUIRE(sparse.count == 3);
+	REQUIRE(sparse.indicesBufferView == 2);
+	REQUIRE(sparse.indicesByteOffset == 0);
+	REQUIRE(sparse.valuesBufferView == 3);
+	REQUIRE(sparse.valuesByteOffset == 0);
+	REQUIRE(sparse.indexComponentType == fastgltf::ComponentType::UnsignedShort);
 
 	auto& secondAccessor = asset->accessors[1];
 	auto& viewIndices = asset->bufferViews[secondAccessor.sparse->indicesBufferView];

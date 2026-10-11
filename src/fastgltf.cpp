@@ -1225,12 +1225,12 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		// Required fields: "componentType", "count"
 		Accessor accessor {};
 		dom::object accessorObject;
-        if (accessorValue.get_object().get(accessorObject) != SUCCESS) [[unlikely]] {
+		if (accessorValue.get_object().get(accessorObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::uint64_t componentType;
-        if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) [[unlikely]] {
+		if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		accessor.componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
@@ -1239,28 +1239,28 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		}
 
 		std::string_view accessorType;
-        if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) [[unlikely]] {
+		if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		accessor.type = internal::getAccessorType(accessorType);
 
 		std::uint64_t accessorCount;
-        if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) [[unlikely]] {
+		if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		accessor.count = static_cast<std::size_t>(accessorCount);
 
 
 		std::uint64_t bufferView;
-        if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) [[likely]] {
+		if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) [[likely]] {
 			accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
 		}
 
 		// byteOffset is optional, but defaults to 0
 		std::uint64_t byteOffset;
-        if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) [[likely]] {
+		if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) [[likely]] {
 			accessor.byteOffset = static_cast<std::size_t>(byteOffset);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -1350,7 +1350,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			return error;
 		}
 
-        if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) [[unlikely]] {
+		if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -1360,32 +1360,32 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		}
 
 		dom::object sparseAccessorObject;
-        if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) [[likely]] {
+		if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) [[likely]] {
 			SparseAccessor sparse {};
 			std::uint64_t value;
 			dom::object child;
-            if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
+			if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			sparse.count = static_cast<std::size_t>(value);
 
 			// Accessor Sparce Indices
-            if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) [[unlikely]] {
+			if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
-            if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
+			if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			sparse.indicesBufferView = static_cast<std::size_t>(value);
 
-            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
+			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
 				sparse.indicesByteOffset = static_cast<std::size_t>(value);
-            } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
-            if (child["componentType"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
+			if (child["componentType"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			if (const auto componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
@@ -1396,18 +1396,18 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			}
 
 			// Accessor Sparse Values
-            if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) [[unlikely]] {
+			if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
-            if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
+			if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			sparse.valuesBufferView = static_cast<std::size_t>(value);
 
-            if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
+			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
 				sparse.valuesByteOffset = static_cast<std::size_t>(value);
-            } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
@@ -1441,7 +1441,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 	for (auto animationValue : animations) {
 		dom::object animationObject;
 		Animation animation {};
-        if (animationValue.get_object().get(animationObject) != SUCCESS) [[unlikely]] {
+		if (animationValue.get_object().get(animationObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -1455,18 +1455,18 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 		for (auto channelValue : channels) {
 			dom::object channelObject;
 			AnimationChannel channel {};
-            if (channelValue.get_object().get(channelObject) != SUCCESS) [[unlikely]] {
+			if (channelValue.get_object().get(channelObject) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			std::uint64_t sampler;
-            if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) [[unlikely]] {
+			if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			channel.samplerIndex = static_cast<std::size_t>(sampler);
 
 			dom::object targetObject;
-            if (channelObject["target"].get_object().get(targetObject) != SUCCESS) [[unlikely]] {
+			if (channelObject["target"].get_object().get(targetObject) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			} else {
 				std::uint64_t node;
@@ -1480,7 +1480,7 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 				}
 
 				std::string_view path;
-                if (targetObject["path"].get_string().get(path) != SUCCESS) [[unlikely]] {
+				if (targetObject["path"].get_string().get(path) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
@@ -1508,24 +1508,24 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 		for (auto samplerValue : samplers) {
 			dom::object samplerObject;
 			AnimationSampler sampler {};
-            if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
+			if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			std::uint64_t input;
-            if (samplerObject["input"].get_uint64().get(input) != SUCCESS) [[unlikely]] {
+			if (samplerObject["input"].get_uint64().get(input) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			sampler.inputAccessor = static_cast<std::size_t>(input);
 
 			std::uint64_t output;
-            if (samplerObject["output"].get_uint64().get(output) != SUCCESS) [[unlikely]] {
+			if (samplerObject["output"].get_uint64().get(output) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			sampler.outputAccessor = static_cast<std::size_t>(output);
 
 			std::string_view interpolation;
-            if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) [[unlikely]] {
+			if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) [[unlikely]] {
 				sampler.interpolation = AnimationInterpolation::Linear;
 			} else {
 				if (interpolation == "LINEAR") {
@@ -1572,12 +1572,12 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 		// Required fields: "byteLength"
 		Buffer buffer {};
 		dom::object bufferObject;
-        if (bufferValue.get_object().get(bufferObject) != SUCCESS) [[unlikely]] {
+		if (bufferValue.get_object().get(bufferObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::uint64_t byteLength;
-        if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) [[unlikely]] {
+		if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		buffer.byteLength = static_cast<std::size_t>(byteLength);
@@ -1598,7 +1598,7 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 		// When parsing GLB, there's a buffer object that will point to the BUF chunk in the
 		// file. Otherwise, data must be specified in the "uri" field.
 		std::string_view uriString;
-        if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) [[likely]] {
+		if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) [[likely]] {
 			URIView uriView(uriString);
 
 			if (!uriView.valid()) {
@@ -1666,44 +1666,44 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 	asset.bufferViews.reserve(bufferViews.size());
 	for (auto bufferViewValue : bufferViews) {
 		dom::object bufferViewObject;
-        if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) [[unlikely]] {
+		if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::uint64_t number;
 		BufferView view {};
-        if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
+		if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 		}
 		view.bufferIndex = static_cast<std::size_t>(number);
 
-        if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+		if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
 			view.byteOffset = static_cast<std::size_t>(number);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
 		}
 
-        if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
+		if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 		}
 		view.byteLength = static_cast<std::size_t>(number);
 
-        if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+		if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) [[likely]] {
 			view.byteStride = static_cast<std::size_t>(number);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
 		}
 
-        if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+		if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) [[likely]] {
 			view.target = static_cast<BufferTarget>(number);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
 		}
 
 		std::string_view string;
 		if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
 			view.name.assign(string);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
 		}
 
@@ -1724,17 +1724,17 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 					return Error::InvalidJson;
 				}
 
-                if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
+				if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
 				compression.byteLength = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
+				if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
 				compression.byteStride = static_cast<std::size_t>(number);
 
-                if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
+				if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
 				compression.count = number;
@@ -1761,7 +1761,7 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 					}
 				}
 
-                if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) [[likely]] {
+				if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) [[likely]] {
 					switch (crc32c(string)) {
 						case force_consteval<crc32c("NONE")>: {
 							compression.filter = MeshoptCompressionFilter::None;
@@ -1836,7 +1836,7 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 	for (auto cameraValue : cameras) {
 		Camera camera {};
 		dom::object cameraObject;
-        if (cameraValue.get_object().get(cameraObject) != SUCCESS) [[unlikely]] {
+		if (cameraValue.get_object().get(cameraObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -1846,37 +1846,37 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 		}
 
 		std::string_view type;
-        if (cameraObject["type"].get_string().get(type) != SUCCESS) [[unlikely]] {
+		if (cameraObject["type"].get_string().get(type) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		if (type == "perspective") {
 			dom::object perspectiveCamera;
-            if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) [[unlikely]] {
+			if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			Camera::Perspective perspective {};
 			double value;
-            if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) [[likely]] {
+			if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) [[likely]] {
 				perspective.aspectRatio = static_cast<num>(value);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
-            if (auto error = perspectiveCamera["zfar"].get_double().get(value); error == SUCCESS) [[likely]] {
+			if (auto error = perspectiveCamera["zfar"].get_double().get(value); error == SUCCESS) [[likely]] {
 				perspective.zfar = static_cast<num>(value);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
-            if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) [[likely]] {
+			if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) [[likely]] {
 				perspective.yfov = static_cast<num>(value);
 			} else {
 				return Error::InvalidGltf;
 			}
 
-            if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
+			if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
 				perspective.znear = static_cast<num>(value);
 			} else {
 				return Error::InvalidGltf;
@@ -1885,31 +1885,31 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 			camera.camera = perspective;
 		} else if (type == "orthographic") {
 			dom::object orthographicCamera;
-            if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) [[unlikely]] {
+			if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			Camera::Orthographic orthographic {};
 			double value;
-            if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) [[likely]] {
+			if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) [[likely]] {
 				orthographic.xmag = static_cast<num>(value);
 			} else {
 				return Error::InvalidGltf;
 			}
 
-            if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) [[likely]] {
+			if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) [[likely]] {
 				orthographic.ymag = static_cast<num>(value);
 			} else {
 				return Error::InvalidGltf;
 			}
 
-            if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) [[likely]] {
+			if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) [[likely]] {
 				orthographic.zfar = static_cast<num>(value);
 			} else {
 				return Error::InvalidGltf;
 			}
 
-            if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
+			if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
 				orthographic.znear = static_cast<num>(value);
 			} else {
 				return Error::InvalidGltf;
@@ -1940,7 +1940,7 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 
 	for (auto extensionValue : extensionsObject) {
 		dom::object extensionObject;
-        if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) [[unlikely]] {
+		if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) [[unlikely]] {
 			if (error == INCORRECT_TYPE) {
 				continue; // We want to ignore
 			}
@@ -1953,7 +1953,7 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 					break;
 
 				dom::array lightsArray;
-                if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) [[likely]] {
+				if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) [[likely]] {
 					if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
 						return lightsError;
 				} else if (error != NO_SUCH_FIELD) {
@@ -2054,13 +2054,13 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 	for (auto imageValue : images) {
 		Image image {};
 		dom::object imageObject;
-        if (imageValue.get_object().get(imageObject) != SUCCESS) [[unlikely]] {
+		if (imageValue.get_object().get(imageObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::string_view uriString;
-        if (imageObject["uri"].get_string().get(uriString) == SUCCESS) [[likely]] {
-            if (imageObject["bufferView"].error() == SUCCESS) [[likely]] {
+		if (imageObject["uri"].get_string().get(uriString) == SUCCESS) [[likely]] {
+			if (imageObject["bufferView"].error() == SUCCESS) [[likely]] {
 				// If uri is declared, bufferView cannot be declared.
 				return Error::InvalidGltf;
 			}
@@ -2092,8 +2092,8 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 			}
 
 			std::string_view mimeType;
-            if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) [[likely]] {
-                std::visit([&]<typename T>(T& arg) {
+			if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) [[likely]] {
+				std::visit([&]<typename T>(T& arg) {
 					// This is kinda cursed
 					if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>) {
 						arg.mimeType = internal::getMimeTypeFromString(mimeType);
@@ -2103,9 +2103,9 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 		}
 
 		std::uint64_t bufferViewIndex;
-        if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) [[likely]] {
+		if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) [[likely]] {
 			std::string_view mimeType;
-            if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) [[unlikely]] {
+			if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) [[unlikely]] {
 				// If bufferView is defined, mimeType needs to also be defined.
 				return Error::InvalidGltf;
 			}
@@ -2153,7 +2153,7 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 		Light light {};
 
 		std::string_view type;
-        if (lightObject["type"].get_string().get(type) == SUCCESS) [[likely]] {
+		if (lightObject["type"].get_string().get(type) == SUCCESS) [[likely]] {
 			switch (crc32c(type.data())) {
 				case force_consteval<crc32c("directional")>: {
 					light.type = LightType::Directional;
@@ -2177,12 +2177,12 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 
 		if (light.type == LightType::Spot) {
 			dom::object spotObject;
-            if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) [[unlikely]] {
+			if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			double innerConeAngle;
-            if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) [[likely]] {
+			if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) [[likely]] {
 				light.innerConeAngle = static_cast<num>(innerConeAngle);
 			} else if (error == NO_SUCH_FIELD) {
 				light.innerConeAngle = 0.0f;
@@ -2191,7 +2191,7 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 			}
 
 			double outerConeAngle;
-            if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) [[likely]] {
+			if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) [[likely]] {
 				light.outerConeAngle = static_cast<num>(outerConeAngle);
 			} else if (error == NO_SUCH_FIELD) {
 				light.outerConeAngle = static_cast<num>(std::numbers::pi / 4.0);
@@ -2201,13 +2201,13 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 		}
 
 		dom::array colorArray;
-        if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) [[likely]] {
+		if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) [[likely]] {
 			if (colorArray.size() != 3U) {
 				return Error::InvalidGltf;
 			}
 			for (std::size_t i = 0U; i < colorArray.size(); ++i) {
 				double color;
-                if (colorArray.at(i).get_double().get(color) == SUCCESS) [[likely]] {
+				if (colorArray.at(i).get_double().get(color) == SUCCESS) [[likely]] {
 					light.color[i] = static_cast<num>(color);
 				} else {
 					return Error::InvalidGltf;
@@ -2220,14 +2220,14 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 		}
 
 		double intensity;
-        if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) [[likely]] {
+		if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) [[likely]] {
 			light.intensity = static_cast<num>(intensity);
 		} else {
 			light.intensity = 1.0f;
 		}
 
 		double range;
-        if (lightObject["range"].get_double().get(range) == SUCCESS) [[likely]] {
+		if (lightObject["range"].get_double().get(range) == SUCCESS) [[likely]] {
 			light.range = static_cast<num>(range);
 		}
 
@@ -2844,24 +2844,24 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 		Material material {};
 
 		dom::array emissiveFactor;
-        if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) [[likely]] {
+		if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) [[likely]] {
 			if (emissiveFactor.size() != 3) {
 				return Error::InvalidGltf;
 			}
 			for (auto i = 0U; i < 3; ++i) {
 				double val;
-                if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
+				if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 				material.emissiveFactor[i] = static_cast<num>(val);
 			}
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		{
 			NormalTextureInfo normalTextureInfo {};
-		    if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) [[likely]] {
+			if (auto error = parseTextureInfo(materialObject, "normalTexture", &normalTextureInfo, config.extensions, TextureInfoType::NormalTexture); error == Error::None) [[likely]] {
 				material.normalTexture = std::move(normalTextureInfo);
 			} else if (error != Error::MissingField) {
 				return error;
@@ -2870,7 +2870,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 		{
 			OcclusionTextureInfo occlusionTextureInfo {};
-	        if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) [[likely]] {
+			if (auto error = parseTextureInfo(materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions, TextureInfoType::OcclusionTexture); error == Error::None) [[likely]] {
 				material.occlusionTexture = std::move(occlusionTextureInfo);
 			} else if (error != Error::MissingField) {
 				return error;
@@ -2879,7 +2879,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 		{
 			TextureInfo textureInfo {};
-	        if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
+			if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
 				material.emissiveTexture = std::move(textureInfo);
 			} else if (error != Error::MissingField) {
 				return error;
@@ -2887,14 +2887,14 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 		}
 
 		dom::object pbrMetallicRoughness;
-        if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) [[likely]] {
+		if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) [[likely]] {
 			PBRData pbr {};
 
 			dom::array baseColorFactor;
-            if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) [[likely]] {
+			if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) [[likely]] {
 				for (auto i = 0U; i < 4; ++i) {
 					double val;
-                    if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
+					if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 					pbr.baseColorFactor[i] = static_cast<num>(val);
@@ -2902,25 +2902,25 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 			}
 
 			double factor;
-            if (auto error = pbrMetallicRoughness["metallicFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
+			if (auto error = pbrMetallicRoughness["metallicFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
 				pbr.metallicFactor = static_cast<num>(factor);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
-            if (auto error = pbrMetallicRoughness["roughnessFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
+			if (auto error = pbrMetallicRoughness["roughnessFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
 				pbr.roughnessFactor = static_cast<num>(factor);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			TextureInfo textureInfo;
-            if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
+			if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
 				pbr.baseColorTexture = std::move(textureInfo);
 			} else if (error != Error::MissingField) {
 				return error;
 			}
 
-            if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
+			if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
 				pbr.metallicRoughnessTexture = std::move(textureInfo);
 			} else if (error != Error::MissingField) {
 				return error;
@@ -2930,7 +2930,7 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 		}
 
 		std::string_view alphaMode;
-        if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) [[likely]] {
+		if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) [[likely]] {
 			if (alphaMode == "OPAQUE") {
 				material.alphaMode = AlphaMode::Opaque;
 			} else if (alphaMode == "MASK") {
@@ -2940,21 +2940,21 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 			} else {
 				return Error::InvalidGltf;
 			}
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		double alphaCutoff;
-        if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) [[likely]] {
+		if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) [[likely]] {
 			material.alphaCutoff = static_cast<num>(alphaCutoff);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		bool doubleSided;
-        if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) [[likely]] {
+		if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) [[likely]] {
 			material.doubleSided = doubleSided;
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -3072,7 +3072,7 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 	for (auto meshValue : meshes) {
 		// Required fields: "primitives"
 		dom::object meshObject;
-        if (meshValue.get_object().get(meshObject) != SUCCESS) [[unlikely]] {
+		if (meshValue.get_object().get(meshObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		Mesh mesh {};
@@ -3146,11 +3146,11 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 			mesh.primitives.emplace_back(std::move(primitive));
 		}
 
-        if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) [[likely]] {
+		if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) [[likely]] {
 			mesh.weights.reserve(array.size());
 			for (auto weightValue : array) {
 				double val;
-                if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
+				if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 				mesh.weights.emplace_back(static_cast<num>(val));
@@ -3186,33 +3186,33 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 	for (auto nodeValue : nodes) {
 		Node node {};
 		dom::object nodeObject;
-        if (nodeValue.get_object().get(nodeObject) != SUCCESS) [[unlikely]] {
+		if (nodeValue.get_object().get(nodeObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::uint64_t index;
 		if (auto error = nodeObject["mesh"].get_uint64().get(index); error == SUCCESS) {
 			node.meshIndex = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		if (auto error = nodeObject["skin"].get_uint64().get(index); error == SUCCESS) {
 			node.skinIndex = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		if (auto error = nodeObject["camera"].get_uint64().get(index); error == SUCCESS) {
 			node.cameraIndex = static_cast<std::size_t>(index);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		dom::array array;
 		auto childError = getJsonArray(nodeObject, "children", &array);
-        if (childError == Error::None) [[likely]] {
+		if (childError == Error::None) [[likely]] {
 			node.children.reserve(array.size());
 			for (auto childValue : array) {
-                if (childValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
+				if (childValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
@@ -3228,7 +3228,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 				node.weights.reserve(array.size());
 				for (auto weightValue : array) {
 					double val;
-                    if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
+					if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 					node.weights.emplace_back(static_cast<num>(val));
@@ -3239,15 +3239,15 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 		}
 
 		auto error = nodeObject["matrix"].get_array().get(array);
-        if (error == SUCCESS) [[likely]] {
-            if (array.size() != 16) [[unlikely]] {
+		if (error == SUCCESS) [[likely]] {
+			if (array.size() != 16) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			math::fmat4x4 transformMatrix;
 			std::size_t i = 0, j = 0;
 			for (auto num : array) {
 				double val;
-                if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
+				if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 				transformMatrix.col(i)[j++] = static_cast<fastgltf::num>(val);
@@ -3268,54 +3268,54 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			TRS trs {};
 
 			// There's no matrix, let's see if there's scale, rotation, or rotation fields.
-            if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) [[likely]] {
-                if (array.size() != 3) [[unlikely]] {
+			if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) [[likely]] {
+				if (array.size() != 3) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 				auto i = 0U;
 				for (auto num : array) {
 					double val;
-                    if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
+					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 					trs.scale[i] = static_cast<fastgltf::num>(val);
 					++i;
 				}
-            } else if (scaleError != NO_SUCH_FIELD) [[unlikely]] {
+			} else if (scaleError != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidJson;
 			}
 
-            if (auto translationError = nodeObject["translation"].get_array().get(array); translationError == SUCCESS) [[likely]] {
-                if (array.size() != 3) [[unlikely]] {
+			if (auto translationError = nodeObject["translation"].get_array().get(array); translationError == SUCCESS) [[likely]] {
+				if (array.size() != 3) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 				auto i = 0U;
 				for (auto num : array) {
 					double val;
-                    if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
+					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 					trs.translation[i] = static_cast<fastgltf::num>(val);
 					++i;
 				}
-            } else if (translationError != NO_SUCH_FIELD) [[unlikely]] {
+			} else if (translationError != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
-            if (auto rotationError = nodeObject["rotation"].get_array().get(array); rotationError == SUCCESS) [[likely]] {
-                if (array.size() != 4) [[unlikely]] {
+			if (auto rotationError = nodeObject["rotation"].get_array().get(array); rotationError == SUCCESS) [[likely]] {
+				if (array.size() != 4) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 				auto i = 0U;
 				for (auto num : array) {
 					double val;
-                    if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
+					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 					trs.rotation[i] = static_cast<fastgltf::num>(val);
 					++i;
 				}
-            } else if (rotationError != NO_SUCH_FIELD) [[unlikely]] {
+			} else if (rotationError != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
@@ -3323,7 +3323,7 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 		}
 
 		dom::object extensionsObject;
-        if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) [[likely]] {
+		if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) [[likely]] {
 			if (hasBit(config.extensions, Extensions::KHR_lights_punctual)) {
 				dom::object lightsObject;
 				if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) [[likely]] {
@@ -3431,29 +3431,29 @@ fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset&
 	for (auto samplerValue : samplers) {
 		Sampler sampler {};
 		dom::object samplerObject;
-        if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
+		if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
-        if (auto error = samplerObject["magFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+		if (auto error = samplerObject["magFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
 			sampler.magFilter = static_cast<Filter>(number);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-        if (auto error = samplerObject["minFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+		if (auto error = samplerObject["minFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
 			sampler.minFilter = static_cast<Filter>(number);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
-        if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+		if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) [[likely]] {
 			sampler.wrapS = static_cast<Wrap>(number);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-        if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+		if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) [[likely]] {
 			sampler.wrapT = static_cast<Wrap>(number);
-        } else if (error != NO_SUCH_FIELD) [[unlikely]] {
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -3485,7 +3485,7 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 		// The scene object can be completely empty
 		Scene scene {};
 		dom::object sceneObject;
-        if (sceneValue.get_object().get(sceneObject) != SUCCESS) [[unlikely]] {
+		if (sceneValue.get_object().get(sceneObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -3506,11 +3506,11 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 		// Parse the array of nodes.
 		dom::array nodes;
 		auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
-        if (nodeError == Error::None) [[likely]] {
+		if (nodeError == Error::None) [[likely]] {
 			scene.nodeIndices.reserve(nodes.size());
 			for (auto nodeValue : nodes) {
 				std::uint64_t index;
-                if (nodeValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
+				if (nodeValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
@@ -3533,29 +3533,29 @@ fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset
 	for (auto skinValue : skins) {
 		Skin skin {};
 		dom::object skinObject;
-        if (skinValue.get_object().get(skinObject) != SUCCESS) [[unlikely]] {
+		if (skinValue.get_object().get(skinObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::uint64_t index;
-        if (auto error = skinObject["inverseBindMatrices"].get_uint64().get(index); error == SUCCESS) [[likely]] {
+		if (auto error = skinObject["inverseBindMatrices"].get_uint64().get(index); error == SUCCESS) [[likely]] {
 			skin.inverseBindMatrices = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
-        if (auto error = skinObject["skeleton"].get_uint64().get(index); error == SUCCESS) [[likely]] {
+		if (auto error = skinObject["skeleton"].get_uint64().get(index); error == SUCCESS) [[likely]] {
 			skin.skeleton = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
 		dom::array jointsArray;
-        if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) [[unlikely]] {
+		if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		skin.joints.reserve(jointsArray.size());
 		for (auto jointValue : jointsArray) {
-            if (jointValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
+			if (jointValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			skin.joints.emplace_back(index);
@@ -3587,19 +3587,19 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 	for (auto textureValue : textures) {
 		Texture texture {};
 		dom::object textureObject;
-        if (textureValue.get_object().get(textureObject) != SUCCESS) [[unlikely]] {
+		if (textureValue.get_object().get(textureObject) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		std::uint64_t sourceIndex;
-        if (auto error = textureObject["source"].get_uint64().get(sourceIndex); error == SUCCESS) [[likely]] {
+		if (auto error = textureObject["source"].get_uint64().get(sourceIndex); error == SUCCESS) [[likely]] {
 			texture.imageIndex = static_cast<std::size_t>(sourceIndex);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 
 		dom::object extensionsObject;
-        if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) [[likely]] {
+		if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) [[likely]] {
 			if (!parseTextureExtensions(texture, extensionsObject, config.extensions)) {
 				return Error::InvalidGltf;
 			}
@@ -3610,7 +3610,7 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 		// The index of the sampler used by this texture. When undefined, a sampler with
 		// repeat wrapping and auto filtering SHOULD be used.
 		std::uint64_t samplerIndex;
-        if (auto error = textureObject["sampler"].get_uint64().get(samplerIndex); error == SUCCESS) [[likely]] {
+		if (auto error = textureObject["sampler"].get_uint64().get(samplerIndex); error == SUCCESS) [[likely]] {
 			texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
@@ -4080,7 +4080,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 				if (driveValue["axis"].get_uint64().get(axis) == SUCCESS) [[likely]] {
 					if (axis < 3) {
 						drive.axis = static_cast<uint8_t>(axis);
-				    } else [[unlikely]] {
+					} else [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 				} else {
@@ -4501,7 +4501,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path 
 									  data.totalSize(),
 									  data.totalSize() + SIMDJSON_PADDING);
 	dom::object root;
-    if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) [[unlikely]] {
+	if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) [[unlikely]] {
 		return Error::InvalidJson;
 	}
 
@@ -4550,7 +4550,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 											   jsonChunk.chunkLength + SIMDJSON_PADDING);
 
 	simdjson::dom::object root;
-    if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) [[unlikely]] {
+	if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) [[unlikely]] {
 		return Error::InvalidJson;
 	}
 

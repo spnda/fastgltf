@@ -221,7 +221,7 @@ constexpr float deserializeComponent<float>(const std::byte* bytes, std::size_t 
 				  std::numeric_limits<float>::digits == 24 &&
 				  std::numeric_limits<float>::max_exponent == 128,
 				  "Float deserialization is only supported on IEE754 platforms");
-    return std::bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
+	return std::bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
 }
 #endif
 
@@ -243,7 +243,7 @@ constexpr double deserializeComponent<double>(const std::byte* bytes, std::size_
 				  std::numeric_limits<double>::digits == 53 &&
 				  std::numeric_limits<double>::max_exponent == 1024,
 				  "Float deserialization is only supported on IEE754 platforms");
-    return std::bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
+	return std::bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
 }
 #endif
 
