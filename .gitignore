@@ -7,12 +7,15 @@ CMakeSettings.json
 CMakeUserPresets.json
 vcpkg_installed/*
 cmake-build-*/
+/compile_commands.json
+__pycache__/
 
 # IDE specific folders
 .idea/
 .vscode/
 .vs/
 .cache/
+.zed/
 
 # Binary files
 *.exe
@@ -20,11 +23,7 @@ cmake-build-*/
 *.lib
 *.a
 *.dylib
-**/.DS_Store
-
-# Dependencies
-simdjson/
-deps/
+.DS_Store
 
 # Test files
 tests/gltf/intel_sponza
