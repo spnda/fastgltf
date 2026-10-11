@@ -38,9 +38,9 @@
 #include <fastgltf/error.hpp>
 #include <fastgltf/types.hpp>
 
-FASTGLTF_EXPORT namespace fastgltf {
+namespace fastgltf {
 	// clang-format off
-	enum class ExportOptions : std::uint64_t {
+	FASTGLTF_EXPORT enum class ExportOptions : std::uint64_t {
 		None                            = 0,
 
 		/**
@@ -61,7 +61,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 	FASTGLTF_ASSIGNMENT_OP_TEMPLATE_MACRO(ExportOptions, ExportOptions, &)
 	FASTGLTF_UNARY_OP_TEMPLATE_MACRO(ExportOptions, ~)
 
-	using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
+	FASTGLTF_EXPORT using ExtrasWriteCallback = std::optional<std::string>(std::size_t objectIndex, Category objectType, void* userPointer);
 
 	/**
 	 * This converts a compacted JSON string into a more readable pretty format.
@@ -73,7 +73,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 	 */
 	std::string escapeString(std::string_view string);
 
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	struct ExportResult {
 		T output;
 
@@ -88,7 +88,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 	 * into memory structures, which can then be used to manually write them to disk.
 	 * If you want to let fastgltf handle the file writing too, use fastgltf::FileExporter.
 	 */
-	class Exporter {
+	FASTGLTF_EXPORT class Exporter {
 	protected:
 		Error errorCode = Error::None;
 		ExportOptions options = ExportOptions::None;
@@ -170,7 +170,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 	 * This exporter builds upon Exporter by writing all files automatically to the
 	 * given paths.
 	 */
-	class FileExporter : public Exporter {
+	FASTGLTF_EXPORT class FileExporter : public Exporter {
 		using Exporter::writeGltfJson;
 		using Exporter::writeGltfBinary;
 
