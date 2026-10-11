@@ -632,10 +632,10 @@ namespace fastgltf {
 		template <typename T>
 		Error parseAttributes(simdjson::dom::object& object, T& attributes);
 
-		[[nodiscard]] auto decodeDataUri(const URIView& uri) const noexcept -> Expected<DataSource>;
-		[[nodiscard]] auto loadFileFromUri(const URIView& uri) const noexcept -> Expected<DataSource>;
+		auto decodeDataUri(const URIView& uri) const noexcept -> Expected<DataSource>;
+		auto loadFileFromUri(const URIView& uri) const noexcept -> Expected<DataSource>;
 #if defined(__ANDROID__)
-		[[nodiscard]] auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> Expected<DataSource>;
+		auto loadFileFromApk(const std::filesystem::path& filepath) const noexcept -> Expected<DataSource>;
 #endif
 
 		Error generateMeshIndices(Asset& asset) const;
@@ -685,21 +685,24 @@ namespace fastgltf {
 		 *
 		 * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
 		 */
-		[[nodiscard]] Expected<Asset> loadGltf(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+		Expected<Asset> loadGltf(GltfDataGetter& buffer, std::filesystem::path directory,
+			Options options = Options::None, Category categories = Category::All);
 
 		/**
 		 * Loads a glTF file from pre-loaded bytes representing a JSON file.
 		 *
 		 * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
 		 */
-		[[nodiscard]] Expected<Asset> loadGltfJson(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+		Expected<Asset> loadGltfJson(GltfDataGetter& buffer, std::filesystem::path directory,
+			Options options = Options::None, Category categories = Category::All);
 
 		/**
 		 * Loads a glTF file embedded within a GLB container, which may contain the first buffer of the glTF asset.
 		 *
 		 * @return An Asset wrapped in an Expected type, which may contain an error if one occurred.
 		 */
-		[[nodiscard]] Expected<Asset> loadGltfBinary(GltfDataGetter& buffer, std::filesystem::path directory, Options options = Options::None, Category categories = Category::All);
+		Expected<Asset> loadGltfBinary(GltfDataGetter& buffer, std::filesystem::path directory,
+			Options options = Options::None, Category categories = Category::All);
 
 		/**
 		 * This function can be used to set callbacks so that you can control memory allocation for
