@@ -132,6 +132,12 @@
 #define FASTGLTF_LIFETIMEBOUND
 #endif
 
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(gnu::nodebug)
+#define FASTGLTF_NODEBUG [[gnu::nodebug]]
+#else
+#define FASTGLTF_NODEBUG
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
