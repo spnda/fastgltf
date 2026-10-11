@@ -633,6 +633,71 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	return asset;
 }
 
+namespace fastgltf {
+	template <typename T>
+	requires AccessorBoundsArray::is_valid_type_v<T>
+	static Error parseMinMaxArray(simdjson::dom::array elements, AccessorBoundsArray& array) {
+		using namespace simdjson;
+
+		const auto size = elements.size();
+		if (size != array.size()) [[unlikely]]
+			return Error::InvalidGltf;
+
+		auto* data = array.data<T>();
+
+		std::size_t idx = 0;
+		for (auto element : elements) {
+			if constexpr (std::is_same_v<T, double>) {
+				double value;
+				if (element.get_double().get(value) != SUCCESS) [[unlikely]] {
+					return Error::InvalidGltf;
+				}
+				data[idx++] = value;
+			} else if constexpr (std::is_same_v<T, std::int64_t>) {
+				if (element.is_double()) {
+					double value;
+					if (element.get_double().get(value) != SUCCESS) [[unlikely]] {
+						return Error::InvalidGltf;
+					}
+					data[idx++] = static_cast<std::int64_t>(value);
+				} else {
+					// Note that the glTF spec doesn't care about any integer larger than 32-bits, so
+					// truncating uint64 to int64 wouldn't make any difference, as those large values
+					// aren't allowed anyway.
+					std::int64_t value;
+					if (element.get_int64().get(value) != SUCCESS) [[unlikely]] {
+						return Error::InvalidGltf;
+					}
+					data[idx++] = value;
+				}
+			}
+		}
+
+		return Error::None;
+	}
+
+	static Error parseMinMax(Accessor& accessor, simdjson::dom::object& accessorObject, const std::string_view key, optional<AccessorBoundsArray>& ref) {
+		using namespace simdjson;
+
+		dom::array elements;
+		if (const auto error = accessorObject[key].get_array().get(elements);
+			error == SUCCESS) [[likely]] {
+			const auto num = getNumComponents(accessor.type);
+
+			if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
+				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
+				return parseMinMaxArray<double>(elements, ref.value());
+			} else {
+				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::int64);
+				return parseMinMaxArray<std::int64_t>(elements, ref.value());
+			}
+		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
+			return Error::InvalidGltf;
+		}
+		return Error::None;
+	}
+}
+
 fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asset& asset) {
 	using namespace simdjson;
 
@@ -680,89 +745,10 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			return Error::InvalidGltf;
 		}
 
-		// Type of min and max should always be the same.
-		auto parseMinMax = [&](const std::string_view key, optional<AccessorBoundsArray>& ref) -> Error {
-			dom::array elements;
-			if (accessorObject[key].get_array().get(elements) == SUCCESS) [[likely]] {
-				const auto num = getNumComponents(accessor.type);
-
-				if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
-					ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
-				} else {
-					ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::int64);
-				}
-
-				auto& array = ref.value();
-				std::size_t idx = 0;
-				for (auto element : elements) {
-					if (idx == num) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-
-					switch (element.type()) {
-						case dom::element_type::DOUBLE: {
-							double value;
-							if (element.get_double().get(value) != SUCCESS) [[unlikely]] {
-								return Error::InvalidGltf;
-							}
-
-							if (array.isType<double>()) {
-								array.set(idx++, value);
-							} else if (array.isType<std::int64_t>()) {
-								array.set(idx++, static_cast<std::int64_t>(value));
-							} else {
-								FASTGLTF_UNREACHABLE
-							}
-							break;
-						}
-						case dom::element_type::INT64: {
-							std::int64_t value;
-							if (element.get_int64().get(value) != SUCCESS) [[unlikely]] {
-								return Error::InvalidGltf;
-							}
-
-							if (array.isType<double>()) {
-								array.set(idx++, static_cast<double>(value));
-							} else if (array.isType<std::int64_t>()) {
-								array.set(idx++, value);
-							} else {
-								FASTGLTF_UNREACHABLE
-							}
-							break;
-						}
-						case dom::element_type::UINT64: {
-							// Note that the glTF spec doesn't care about any integer larger than 32-bits, so
-							// truncating uint64 to int64 wouldn't make any difference, as those large values
-							// aren't allowed anyway.
-							std::uint64_t value;
-							if (element.get_uint64().get(value) != SUCCESS) [[unlikely]] {
-								return Error::InvalidGltf;
-							}
-
-							if (array.isType<double>()) {
-								array.set(idx++, static_cast<double>(value));
-							} else if (array.isType<std::int64_t>()) {
-								array.set(idx++, static_cast<std::int64_t>(value));
-							} else {
-								FASTGLTF_UNREACHABLE
-							}
-							break;
-						}
-						default: return Error::InvalidGltf;
-					}
-				}
-
-				if (idx < num) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-			}
-			return Error::None;
-		};
-
-		if (auto error = parseMinMax("max", accessor.max); error != Error::None) {
+		if (auto error = parseMinMax(accessor, accessorObject, "max", accessor.max); error != Error::None) {
 			return error;
 		}
-		if (auto error = parseMinMax("min", accessor.min); error != Error::None) {
+		if (auto error = parseMinMax(accessor, accessorObject, "min", accessor.min); error != Error::None) {
 			return error;
 		}
 
