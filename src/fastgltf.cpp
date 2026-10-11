@@ -729,7 +729,7 @@ fg::Error fg::validate(const Asset& asset) {
 				return Error::InvalidGltf;
 			if (light.innerConeAngle.value() > light.outerConeAngle.value())
 				return Error::InvalidGltf;
-			if (light.outerConeAngle.value() > math::pi / 2)
+			if (light.outerConeAngle.value() > std::numbers::pi / 2)
 				return Error::InvalidGltf;
 		}
 	}
@@ -2194,7 +2194,7 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
             if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) [[likely]] {
 				light.outerConeAngle = static_cast<num>(outerConeAngle);
 			} else if (error == NO_SUCH_FIELD) {
-				light.outerConeAngle = static_cast<num>(math::pi / 4.0);
+				light.outerConeAngle = static_cast<num>(std::numbers::pi / 4.0);
 			} else {
 				return Error::InvalidGltf;
 			}

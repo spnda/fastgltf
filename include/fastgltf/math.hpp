@@ -31,6 +31,7 @@
 #include <cmath>
 #include <functional>
 #include <initializer_list>
+#include <numbers>
 #include <tuple>
 #endif
 
@@ -40,7 +41,8 @@
  * The fastgltf::math namespace contains all math functions and types which are needed for working with glTF assets.
  */
 namespace fastgltf::math {
-	FASTGLTF_EXPORT inline constexpr long double pi = 3.1415926535897932385L;
+	FASTGLTF_EXPORT template <std::floating_point T>
+	[[deprecated]] inline constexpr T pi_v = std::numbers::pi_v<T>;
 
 	/** Value clamp using std::less */
 	FASTGLTF_EXPORT template <typename T>
@@ -58,13 +60,13 @@ namespace fastgltf::math {
 	/** Degree to radians conversion */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto radians(const T& degrees) noexcept {
-		return T(degrees * pi / 180.0);
+		return T(degrees * std::numbers::pi / 180.0);
 	}
 
 	/** Radians to degrees conversion */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto degrees(const T& radians) noexcept {
-		return T(radians * 180.0 / pi);
+		return T(radians * 180.0 / std::numbers::pi);
 	}
 
 	FASTGLTF_EXPORT template <typename T, std::size_t N, std::size_t M>
