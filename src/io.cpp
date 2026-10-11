@@ -375,12 +375,12 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromApk(const fs::path& path) c
 	auto file = deletable_unique_ptr<AAsset, AAsset_close>(
 		AAssetManager_open(androidAssetManager, path.c_str(), AASSET_MODE_BUFFER));
 	if (file == nullptr) {
-		return Error::MissingExternalBuffer;
+		return Error::MissingExternalFile;
 	}
 
 	const auto length = AAsset_getLength(file.get());
 	if (length == 0) {
-		return Error::MissingExternalBuffer;
+		return Error::MissingExternalFile;
 	}
 
 	if (config.mapCallback != nullptr) {
@@ -420,7 +420,7 @@ fg::Expected<fg::DataSource> fg::Parser::loadFileFromUri(const URIView& uri) con
 	// If we were instructed to load external buffers and the files don't exist, we'll return an error.
 	std::error_code error;
 	if (!fs::exists(path, error) || error) {
-		return Error::MissingExternalBuffer;
+		return Error::MissingExternalFile;
 	}
 
 	auto length = static_cast<std::streamsize>(fs::file_size(path, error));
