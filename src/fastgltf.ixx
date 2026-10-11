@@ -79,6 +79,9 @@ module;
 #include <winapifamily.h>
 #endif
 
+#include <simdjson.h>
+#include <simdutf.h>
+
 export module fastgltf;
 
 #define FASTGLTF_EXPORT export
