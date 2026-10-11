@@ -188,14 +188,14 @@ namespace fastgltf {
 	 * Appends a key with a value that already is valid JSON, without quoting or escaping it.
 	 */
 	template <simdjson::constevalutil::fixed_string key>
-	[[gnu::always_inline]] void append_raw_key_value(simdjson::builder::string_builder& builder, std::string_view json) {
+	[[gnu::always_inline]] static inline void append_raw_key_value(simdjson::builder::string_builder& builder, std::string_view json) {
 		builder.escape_and_append_with_quotes<key>();
 		builder.append_colon();
 		builder.append_raw(json);
 	}
 
 	template <simdjson::constevalutil::fixed_string key, typename T>
-	[[gnu::always_inline]] void append_key_range(simdjson::builder::string_builder& builder, const T& values) {
+	[[gnu::always_inline]] static inline void append_key_range(simdjson::builder::string_builder& builder, const T& values) {
 		auto arr = scoped_array<key>(builder);
 		for (std::size_t i = 0; i < values.size(); ++i) {
 			if (i != 0)
@@ -205,14 +205,14 @@ namespace fastgltf {
 	}
 
 	template <simdjson::constevalutil::fixed_string key, std::ranges::range R>
-	[[gnu::always_inline]] void append_key_range(simdjson::builder::string_builder& builder, const R& range) {
+	[[gnu::always_inline]] static inline void append_key_range(simdjson::builder::string_builder& builder, const R& range) {
 		builder.escape_and_append_with_quotes<key>();
 		builder.append_colon();
 		builder.append(range);
 	}
 
 	template <simdjson::constevalutil::fixed_string key>
-	void writeMinMax(simdjson::builder::string_builder& builder, const optional<AccessorBoundsArray>& ref) {
+	static void writeMinMax(simdjson::builder::string_builder& builder, const optional<AccessorBoundsArray>& ref) {
 		if (!ref.has_value())
 			return; // This is valid, since min/max are only required on specific accessors.
 
@@ -239,7 +239,7 @@ namespace fastgltf {
 	}
 
 	template <simdjson::constevalutil::fixed_string key, internal::TextureInfoType type = internal::TextureInfoType::Standard>
-	void append_texture_info(simdjson::builder::string_builder& builder, const TextureInfo* info) {
+	static void append_texture_info(simdjson::builder::string_builder& builder, const TextureInfo* info) {
 		auto obj = scoped_object<key>(builder);
 
 		builder.append_key_value<"index">(info->textureIndex);
