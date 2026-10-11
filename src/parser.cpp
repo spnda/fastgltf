@@ -2792,7 +2792,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			if (hasBit(config.extensions, Extensions::KHR_node_visibility)) {
 				dom::object nodeVisibilityObject;
 				if (auto nodeVisibilityError = extensionsObject[extensions::KHR_node_visibility].get_object().get(nodeVisibilityObject); nodeVisibilityError == SUCCESS) {
-					if (nodeVisibilityObject["visible"].get_bool().get(node.visible) != SUCCESS) {
+					if (const auto visibleError = nodeVisibilityObject["visible"].get_bool().get(node.visible);
+						visibleError != NO_SUCH_FIELD && visibleError != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 				} else if (nodeVisibilityError != NO_SUCH_FIELD) {
@@ -2803,7 +2804,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			if (hasBit(config.extensions, Extensions::KHR_node_selectability)) {
 				dom::object nodeSelectabilityObject;
 				if (auto nodeSelectabilityError = extensionsObject[extensions::KHR_node_selectability].get_object().get(nodeSelectabilityObject); nodeSelectabilityError == SUCCESS) {
-					if (nodeSelectabilityObject["selectable"].get_bool().get(node.selectable) != SUCCESS) {
+					if (const auto selectableError = nodeSelectabilityObject["selectable"].get_bool().get(node.selectable);
+						selectableError != NO_SUCH_FIELD && selectableError != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 				} else if (nodeSelectabilityError != NO_SUCH_FIELD) {
@@ -2814,7 +2816,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			if (hasBit(config.extensions, Extensions::KHR_node_hoverability)) {
 				dom::object nodeHoverabilityObject;
 				if (auto nodeHoverabilityError = extensionsObject[extensions::KHR_node_hoverability].get_object().get(nodeHoverabilityObject); nodeHoverabilityError == SUCCESS) {
-					if (nodeHoverabilityObject["hoverable"].get_bool().get(node.hoverable) != SUCCESS) {
+					if (const auto hoverableError = nodeHoverabilityObject["hoverable"].get_bool().get(node.hoverable);
+						hoverableError != NO_SUCH_FIELD && hoverableError != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
 				} else if (nodeHoverabilityError != NO_SUCH_FIELD) {
