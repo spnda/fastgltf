@@ -24,7 +24,10 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <fstream>
+
 #include <fastgltf/core.hpp>
+#include <fastgltf/glb.hpp>
 #include <fastgltf/exporter.hpp>
 #include <fastgltf/types.hpp>
 
@@ -32,6 +35,23 @@
 
 namespace fg = fastgltf;
 namespace fs = std::filesystem;
+
+namespace fastgltf::internal {
+	[[gnu::always_inline]] inline auto writeBinaryHeader(const BinaryGltfHeader& header) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
+		writeUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
+		writeUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
+		writeUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
+		return bytes;
+	}
+
+	[[gnu::always_inline]] inline auto writeBinaryChunk(const BinaryGltfChunk& chunk) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
+		writeUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
+		writeUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
+		return bytes;
+	}
+}
 
 void fg::prettyPrintJson(std::string& json) {
 	std::size_t i = 0;

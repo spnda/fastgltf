@@ -15,7 +15,6 @@
 
 #include <fastgltf/base64.hpp>
 #include <fastgltf/core.hpp>
-#include <fastgltf/exporter.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/math.hpp>
 

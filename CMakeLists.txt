@@ -52,12 +52,14 @@ set(FASTGLTF_HEADERS
         "include/fastgltf/dxmath_element_traits.hpp"
         "include/fastgltf/error.hpp"
         "include/fastgltf/exporter.hpp"
+        "include/fastgltf/glb.hpp"
         "include/fastgltf/glm_element_traits.hpp"
+        "include/fastgltf/math.hpp"
+        "include/fastgltf/parser.hpp"
         "include/fastgltf/tools.hpp"
         "include/fastgltf/types.hpp"
         "include/fastgltf/util.hpp"
         "include/fastgltf/uri.hpp"
-        "include/fastgltf/math.hpp"
         "include/fastgltf/containers/allocator_utils.hpp"
         "include/fastgltf/containers/box.hpp"
         "include/fastgltf/containers/exception_guard.hpp"
@@ -72,9 +74,10 @@ add_library(fastgltf
         "src/base64.cpp"
         "src/crc32.cpp"
         "src/exporter.cpp"
-        "src/fastgltf.cpp"
         "src/io.cpp"
+        "src/parser.cpp"
         "src/uri.cpp"
+        "src/validate.cpp"
 )
 add_library(fastgltf::fastgltf ALIAS fastgltf)
 
