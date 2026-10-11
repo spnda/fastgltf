@@ -8,7 +8,7 @@ TEST_CASE("Test basic optional interface", "[optional-tests]") {
 	// We have no specialization for std::uint32_t, and therefore this is just
 	// a std::optional with a bool field padded by 3 bytes.
 	fastgltf::optional<std::uint32_t> optional;
-	static_assert(sizeof(optional) > sizeof(std::uint32_t));
+	STATIC_REQUIRE(sizeof(optional) > sizeof(std::uint32_t));
 }
 
 TEST_CASE("Test flagged_optional<T> copy and move operations", "[optional-tests]") {
@@ -45,15 +45,15 @@ TEST_CASE("Test optional<T> float specialization", "[optional-tests]") {
 }
 
 TEST_CASE("Test flagged_optional<T> in constant expressions", "[optional-tests]") {
-	static_assert(!fastgltf::flagged_optional<float>().has_value());
-	static_assert(!fastgltf::flagged_optional<double>().has_value());
-	static_assert(!fastgltf::flagged_optional<std::size_t>().has_value());
+	STATIC_REQUIRE(!fastgltf::flagged_optional<float>().has_value());
+	STATIC_REQUIRE(!fastgltf::flagged_optional<double>().has_value());
+	STATIC_REQUIRE(!fastgltf::flagged_optional<std::size_t>().has_value());
 
-	static_assert(fastgltf::flagged_optional<float>(1.0f).has_value());
-	static_assert(*fastgltf::flagged_optional<float>(1.0f) == 1.0f);
-	static_assert(fastgltf::flagged_optional<double>().value_or(2.0) == 2.0);
+	STATIC_REQUIRE(fastgltf::flagged_optional<float>(1.0f).has_value());
+	STATIC_REQUIRE(*fastgltf::flagged_optional<float>(1.0f) == 1.0f);
+	STATIC_REQUIRE(fastgltf::flagged_optional<double>().value_or(2.0) == 2.0);
 
-	static_assert([] {
+	STATIC_REQUIRE([] {
 		fastgltf::flagged_optional<std::size_t> a;
 		a = std::size_t(5);
 		fastgltf::flagged_optional<std::size_t> b;
@@ -63,7 +63,7 @@ TEST_CASE("Test flagged_optional<T> in constant expressions", "[optional-tests]"
 		return a.has_value() && *a == 5 && c.has_value() && *c == 7;
 	}());
 
-	static_assert([] {
+	STATIC_REQUIRE([] {
 		fastgltf::flagged_optional<float> a(1.0f);
 		a.reset();
 		return !a.has_value();
@@ -169,7 +169,7 @@ TEST_CASE("Test flagged_optional<T> converting move assignment", "[optional-test
 		REQUIRE(!target.has_value());
 	}
 
-	static_assert([] {
+	STATIC_REQUIRE([] {
 		fastgltf::flagged_optional<double> target;
 		fastgltf::flagged_optional<float> source(1.5f);
 		target = std::move(source);
@@ -204,7 +204,7 @@ TEST_CASE("Test flagged_optional<T> or_else", "[optional-tests]") {
 
 	const Opt value(std::size_t(1));
 	const Opt empty;
-	static_assert(std::is_same_v<decltype(value.or_else(fallback)), Opt>);
+	STATIC_REQUIRE(std::is_same_v<decltype(value.or_else(fallback)), Opt>);
 
 	REQUIRE(*value.or_else(fallback) == 1);
 	REQUIRE(*empty.or_else(fallback) == 42);

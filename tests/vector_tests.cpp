@@ -814,7 +814,7 @@ TEST_CASE("small_vector exception behavior", "[small-vector]") {
 
 #if FASTGLTF_HAS_CONTAINERS_RANGES
 TEST_CASE("small_vector containers ranges compatibility", "[small-vector]") {
-	static_assert(std::ranges::range<fastgltf::small_vector<std::uint32_t, 4>>, "small_vector must satisfy range");
+	STATIC_REQUIRE(std::ranges::range<fastgltf::small_vector<std::uint32_t, 4>>, "small_vector must satisfy range");
 
 	SECTION("Constructors") {
 		SECTION("Initialise stack data from range") {
@@ -1212,13 +1212,13 @@ TEST_CASE("Test static_vector three-way comparison", "[static-vector]") {
 	REQUIRE(c >= a);
 	REQUIRE(prefix <= a);
 
-	static_assert(std::is_same_v<decltype(a <=> b), std::strong_ordering>);
+	STATIC_REQUIRE(std::is_same_v<decltype(a <=> b), std::strong_ordering>);
 
 	SECTION("Floating point") {
 		const auto f1 = makestatic_vector({1.0f, 2.0f});
 		const auto f2 = makestatic_vector({1.0f, 2.5f});
 
-		static_assert(std::is_same_v<decltype(f1 <=> f2), std::partial_ordering>);
+		STATIC_REQUIRE(std::is_same_v<decltype(f1 <=> f2), std::partial_ordering>);
 		REQUIRE(((f1 <=> f2) < 0));
 		REQUIRE(((f1 <=> f1) == 0));
 	}
@@ -1227,7 +1227,7 @@ TEST_CASE("Test static_vector three-way comparison", "[static-vector]") {
 		const auto l1 = makestatic_vector({LessOnly {1}, LessOnly {2}});
 		const auto l2 = makestatic_vector({LessOnly {1}, LessOnly {3}});
 
-		static_assert(std::is_same_v<decltype(l1 <=> l2), std::weak_ordering>);
+		STATIC_REQUIRE(std::is_same_v<decltype(l1 <=> l2), std::weak_ordering>);
 		REQUIRE(((l1 <=> l2) < 0));
 		REQUIRE(((l2 <=> l1) > 0));
 		REQUIRE(((l1 <=> l1) == 0));

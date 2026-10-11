@@ -44,7 +44,7 @@ TEST_CASE("Expected<T> with references", "[expected-tests]") {
 		std::string str = "This is a very very very long string.";
 
 		fastgltf::Expected expected = std::ref(str);
-		static_assert(std::is_same_v<decltype(expected), fastgltf::Expected<std::string&>>);
+		STATIC_REQUIRE(std::is_same_v<decltype(expected), fastgltf::Expected<std::string&>>);
 
 		REQUIRE(expected.has_error() == false);
 		REQUIRE(expected.get() == str);
