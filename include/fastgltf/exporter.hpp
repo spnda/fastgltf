@@ -33,6 +33,8 @@
 #include <vector>
 #endif
 
+#include <simdjson.h>
+
 #include <fastgltf/error.hpp>
 #include <fastgltf/types.hpp>
 
@@ -101,29 +103,30 @@ FASTGLTF_EXPORT namespace fastgltf {
 		std::vector<std::optional<std::filesystem::path>> bufferPaths;
 		std::vector<std::optional<std::filesystem::path>> imagePaths;
 
-		void writeAccessors(const Asset& asset, std::string& json);
-		void writeAnimations(const Asset& asset, std::string& json);
-		void writeBuffers(const Asset& asset, std::string& json);
-		void writeBufferViews(const Asset& asset, std::string& json);
-		void writeCameras(const Asset& asset, std::string& json);
-		void writeImages(const Asset& asset, std::string& json);
-		void writeLights(const Asset& asset, std::string& json);
-		void writeMaterials(const Asset& asset, std::string& json);
-		void writeMeshes(const Asset& asset, std::string& json);
-		void writeNodes(const Asset& asset, std::string& json);
-		void writeSamplers(const Asset& asset, std::string& json);
-		void writeScenes(const Asset& asset, std::string& json);
-		void writeSkins(const Asset& asset, std::string& json);
-		void writeTextures(const Asset& asset, std::string& json);
+		void writeAccessors(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeAnimations(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeCameras(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeImages(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeLights(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeMaterialExtensions(const Material& material, simdjson::builder::string_builder& builder);
+		void writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeMeshes(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeNodes(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeSamplers(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeScenes(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeSkins(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeTextures(const Asset& asset, simdjson::builder::string_builder& builder);
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		void writeShapes(const Asset& asset, std::string& json);
+		void writeShapes(const Asset& asset, simdjson::builder::string_builder& builder);
 #endif
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		void writePhysicsMaterials(const Asset& asset, std::string& json);
-		void writeCollisionFilters(const Asset& asset, std::string& json);
-		void writePhysicsJoints(const Asset& asset, std::string& json);
+		void writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder);
 #endif
-		void writeExtensions(const Asset& asset, std::string& json);
+		void writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder);
 
 		std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
 		std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);

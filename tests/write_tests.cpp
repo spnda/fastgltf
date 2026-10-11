@@ -281,7 +281,7 @@ TEST_CASE("Test URI normalization and removing backslashes", "[write-tests]") {
 	// Parse the JSON and inspect the image URI.
 	simdjson::ondemand::parser jsonParser;
 	simdjson::ondemand::document doc;
-	REQUIRE(jsonParser.iterate(exported.get().output.c_str(), exported.get().output.size(), exported.get().output.capacity()).get(doc) == simdjson::SUCCESS);
+	REQUIRE(jsonParser.iterate(simdjson::pad(exported.get().output)).get(doc) == simdjson::SUCCESS);
 
 	simdjson::ondemand::object object;
 	REQUIRE(doc.get_object().get(object) == simdjson::SUCCESS);

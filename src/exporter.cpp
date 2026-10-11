@@ -25,6 +25,7 @@
  */
 
 #include <fstream>
+#include <ranges>
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/glb.hpp>
@@ -121,76 +122,165 @@ namespace fastgltf {
 	}
 
 	/**
-	 * Normalizes the path using lexically_normal, calls generic_string to always use forward slashes,
-	 * and escapes any necessary characters.
+	 * Normalizes the path using lexically_normal and calls generic_string to always use forward slashes.
 	 */
 	static std::string normalizeAndFormatPath(const fs::path& path) {
-		auto string = path.lexically_normal().generic_string();
-		escapeString(string);
-		return string;
+		return path.lexically_normal().generic_string();
 	}
 
-	// replacement for std::to_string that uses simdjson's grisu2 implementation, which is
-	// (1) bidirectionally lossless (std::to_string is not)
-	// (2) quite a lot faster than std::to_chars and std::to_string.
-	template <typename T>
-	std::string to_string_fp(const T& value) {
-		static_assert(std::is_floating_point_v<T>, "T needs to be a floating point type");
-		char buffer[30] = {};
+	template <simdjson::constevalutil::fixed_string key = "">
+	struct scoped_object {
+		simdjson::builder::string_builder& _builder;
 
-		// TODO: Include a own copy of grisu2 instead of accessing functions from simdjson's internal namespace?
-		auto* end = simdjson::internal::to_chars(std::begin(buffer), std::end(buffer), static_cast<double>(value));
-		return {std::begin(buffer), end};
+		[[nodiscard, gnu::always_inline]] explicit scoped_object(
+			simdjson::builder::string_builder& builder) noexcept : _builder(builder) {
+			if constexpr (key.view().size() != 0) {
+				_builder.escape_and_append_with_quotes<key>();
+				_builder.append_colon();
+			}
+			_builder.start_object();
+		}
+		~scoped_object() {
+			_builder.end_object();
+		}
+
+		scoped_object(const scoped_object&) = delete;
+		scoped_object(scoped_object&&) = delete;
+		scoped_object& operator=(const scoped_object&) = delete;
+		scoped_object& operator=(scoped_object&&) = delete;
+	};
+	template <simdjson::constevalutil::fixed_string key = "">
+	struct scoped_array {
+		simdjson::builder::string_builder& _builder;
+
+		[[nodiscard, gnu::always_inline]] explicit scoped_array(
+			simdjson::builder::string_builder& builder) noexcept : _builder(builder) {
+			if constexpr (key.view().size() != 0) {
+				_builder.escape_and_append_with_quotes<key>();
+				_builder.append_colon();
+			}
+			_builder.start_array();
+		}
+		~scoped_array() {
+			_builder.end_array();
+		}
+
+		scoped_array(const scoped_array&) = delete;
+		scoped_array(scoped_array&&) = delete;
+		scoped_array& operator=(const scoped_array&) = delete;
+		scoped_array& operator=(scoped_array&&) = delete;
+	};
+
+	// appends a comma before every member except the first
+	// useful for objects where all members are optional
+	struct comma_separator {
+		simdjson::builder::string_builder& builder;
+		bool first = true;
+
+		void operator()() {
+			if (!first)
+				builder.append_comma();
+			first = false;
+		}
+	};
+
+	/**
+	 * Appends a key with a value that already is valid JSON, without quoting or escaping it.
+	 */
+	template <simdjson::constevalutil::fixed_string key>
+	[[gnu::always_inline]] void append_raw_key_value(simdjson::builder::string_builder& builder, std::string_view json) {
+		builder.escape_and_append_with_quotes<key>();
+		builder.append_colon();
+		builder.append_raw(json);
 	}
 
-	std::string to_string(const math::fvec2 value) {
-		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]);
+	template <simdjson::constevalutil::fixed_string key, typename T>
+	[[gnu::always_inline]] void append_key_range(simdjson::builder::string_builder& builder, const T& values) {
+		auto arr = scoped_array<key>(builder);
+		for (std::size_t i = 0; i < values.size(); ++i) {
+			if (i != 0)
+				builder.append_comma();
+			builder.append(values[i]);
+		}
 	}
 
-	std::string to_string(const math::fvec3 value) {
-		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]) + ',' + to_string_fp(value[2]);
+	template <simdjson::constevalutil::fixed_string key, std::ranges::range R>
+	[[gnu::always_inline]] void append_key_range(simdjson::builder::string_builder& builder, const R& range) {
+		builder.escape_and_append_with_quotes<key>();
+		builder.append_colon();
+		builder.append(range);
 	}
 
-	std::string to_string(const math::fvec4 value) {
-		return to_string_fp(value[0]) + ',' + to_string_fp(value[1]) + ',' + to_string_fp(value[2]) + ',' + to_string_fp(value[3]);
+	template <simdjson::constevalutil::fixed_string key>
+	void writeMinMax(simdjson::builder::string_builder& builder, const optional<AccessorBoundsArray>& ref) {
+		if (!ref.has_value())
+			return; // This is valid, since min/max are only required on specific accessors.
+
+		builder.append_comma();
+
+		auto arr = scoped_array<key>(builder);
+
+		const auto size = ref->size();
+		if (ref->isType<double>()) {
+			for (std::size_t i = 0; i < size; ++i) {
+				builder.append(ref->get<double>(i));
+
+				if (i + 1 < ref->size())
+					builder.append_comma();
+			}
+		} else if (ref->isType<std::int64_t>()) {
+			for (std::size_t i = 0; i < size; ++i) {
+				builder.append(ref->get<std::int64_t>(i));
+
+				if (i + 1 < ref->size())
+					builder.append_comma();
+			}
+		}
 	}
 
-	template <internal::TextureInfoType type = internal::TextureInfoType::Standard>
-	void writeTextureInfo(std::string& json, const TextureInfo* info) {
-		json += '{';
-		json += "\"index\":" + std::to_string(info->textureIndex);
+	template <simdjson::constevalutil::fixed_string key, internal::TextureInfoType type = internal::TextureInfoType::Standard>
+	void append_texture_info(simdjson::builder::string_builder& builder, const TextureInfo* info) {
+		auto obj = scoped_object<key>(builder);
+
+		builder.append_key_value<"index">(info->textureIndex);
 		if (info->texCoordIndex != 0) {
-			json += ",\"texCoord\":" + std::to_string(info->texCoordIndex);
+			builder.append_comma();
+			builder.append_key_value<"texCoord">(info->texCoordIndex);
 		}
 
 		if constexpr (type == internal::TextureInfoType::NormalTexture) {
-			json += ",\"scale\":" + to_string_fp(reinterpret_cast<const NormalTextureInfo*>(info)->scale);
+			builder.append_comma();
+			builder.append_key_value<"scale">(reinterpret_cast<const NormalTextureInfo*>(info)->scale);
 		} else if constexpr (type == internal::TextureInfoType::OcclusionTexture) {
-			json += ",\"strength\":" + to_string_fp(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
+			builder.append_comma();
+			builder.append_key_value<"strength">(reinterpret_cast<const OcclusionTextureInfo*>(info)->strength);
 		}
 
 		if (info->transform.has_value()) {
-			json += R"(,"extensions":{"KHR_texture_transform":{)";
+			builder.append_comma();
+
+			auto extensions_obj = scoped_object<"extensions">(builder);
+			auto transform_obj = scoped_object<"KHR_texture_transform">(builder);
+
 			const auto& transform = *info->transform;
+			comma_separator comma {builder};
 			if (transform.uvOffset[0] != 0.0 || transform.uvOffset[1] != 0.0) {
-				json += "\"offset\":[" + to_string_fp(transform.uvOffset[0]) + ',' + to_string_fp(transform.uvOffset[1]) + ']';
+				comma();
+				append_key_range<"offset">(builder, transform.uvOffset);
 			}
 			if (transform.rotation != 0.0) {
-				if (json.back() != '{') json += ',';
-				json += "\"rotation\":" + to_string_fp(transform.rotation);
+				comma();
+				builder.append_key_value<"rotation">(transform.rotation);
 			}
 			if (transform.uvScale[0] != 1.0 || transform.uvScale[1] != 1.0) {
-				if (json.back() != '{') json += ',';
-				json += "\"scale\":[" + to_string_fp(transform.uvScale[0]) + ',' + to_string_fp(transform.uvScale[1]) + ']';
+				comma();
+				append_key_range<"scale">(builder, transform.uvScale);
 			}
 			if (transform.texCoordIndex.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"texCoord\":" + std::to_string(transform.texCoordIndex.value());
+				comma();
+				builder.append_key_value<"texCoord">(transform.texCoordIndex.value());
 			}
-			json += "}}";
 		}
-
-		json += '}';
 	}
 } // namespace fastgltf
 
@@ -222,178 +312,188 @@ void fg::Exporter::setUserPointer(void* pointer) noexcept {
 	userPointer = pointer;
 }
 
-void fg::Exporter::writeAccessors(const Asset& asset, std::string& json) {
+void fg::Exporter::writeAccessors(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.accessors.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += R"("accessors":[)";
+	auto accessors = scoped_array<"accessors">(builder);
+
 	for (auto it = asset.accessors.begin(); it != asset.accessors.end(); ++it) {
-		json += '{';
+		if (it != asset.accessors.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
 
 		if (it->byteOffset != 0) {
-			json += "\"byteOffset\":" + std::to_string(it->byteOffset) + ',';
+			builder.append_key_value<"byteOffset">(it->byteOffset);
+			builder.append_comma();
 		}
 
-		json += "\"count\":" + std::to_string(it->count) + ',';
-		json += R"("type":")" + std::string(internal::getAccessorTypeName(it->type)) + "\",";
-		json += "\"componentType\":" + std::to_string(getGLComponentType(it->componentType));
+		builder.append_key_value<"count">(it->count);
+		builder.append_comma();
+		builder.append_key_value<"type">(internal::getAccessorTypeName(it->type));
+		builder.append_comma();
+		builder.append_key_value<"componentType">(getGLComponentType(it->componentType));
 
 		if (it->normalized) {
-			json += ",\"normalized\":true";
+			builder.append_comma();
+			builder.append_key_value<"normalized">(true);
 		}
 
 		if (it->bufferViewIndex.has_value()) {
-			json += ",\"bufferView\":" + std::to_string(it->bufferViewIndex.value());
+			builder.append_comma();
+			builder.append_key_value<"bufferView">(it->bufferViewIndex.value());
 		}
 
-		if (it->sparse.has_value())
-		{
-			json += R"(,"sparse":{)";
+		if (it->sparse.has_value()) {
+			builder.append_comma();
+
+			auto sparse_obj = scoped_object<"sparse">(builder);
 			const auto& sparse = *it->sparse;
-			json += "\"count\":" + std::to_string(sparse.count) + ',';
-			json += "\"indices\":{";
-			json += "\"bufferView\":" + std::to_string(sparse.indicesBufferView) + ',';
-			if (sparse.indicesByteOffset != 0) {
-				json += "\"byteOffset\":" + std::to_string(sparse.indicesByteOffset) + ',';
+
+			builder.append_key_value<"count">(sparse.count);
+
+			{
+				builder.append_comma();
+				auto indices = scoped_object<"indices">(builder);
+				builder.append_key_value<"bufferView">(sparse.indicesBufferView);
+				builder.append_comma();
+				if (sparse.indicesByteOffset != 0) {
+					builder.append_key_value<"byteOffset">(sparse.indicesByteOffset);
+					builder.append_comma();
+				}
+				builder.append_key_value<"componentType">(getGLComponentType(sparse.indexComponentType));
 			}
-			// only get the lower 13 bits
-			json += "\"componentType\":" + std::to_string(getGLComponentType(sparse.indexComponentType));
-			json += "},";
-			json += "\"values\":{";
-			json += "\"bufferView\":" + std::to_string(sparse.valuesBufferView);
-			if (sparse.valuesByteOffset != 0) {
-				json += ",\"byteOffset\":" + std::to_string(sparse.valuesByteOffset);
+
+			{
+				builder.append_comma();
+				auto indices = scoped_object<"values">(builder);
+				builder.append_key_value<"bufferView">(sparse.valuesBufferView);
+				if (sparse.valuesByteOffset != 0) {
+					builder.append_comma();
+					builder.append_key_value<"byteOffset">(sparse.valuesByteOffset);
+				}
 			}
-			json += "}}";
 		}
 
-		auto writeMinMax = [&](const optional<AccessorBoundsArray>& ref, const std::string_view name) {
-			if (!ref.has_value())
-				return; // This is valid, since min/max are only required on specific accessors.
-			json += ",\"" + std::string(name) + "\":[";
-
-			for (std::size_t i = 0; i < ref->size(); ++i) {
-				if (ref->isType<double>()) {
-					json += to_string_fp(ref->get<double>(i));
-				} else if (ref->isType<std::int64_t>()) {
-					json += std::to_string(ref->get<std::int64_t>(i));
-				}
-				if (i + 1 < ref->size())
-					json += ',';
-			}
-			json += ']';
-		};
-		writeMinMax(it->max, "max");
-		writeMinMax(it->min, "min");
+		writeMinMax<"max">(builder, it->max);
+		writeMinMax<"min">(builder, it->min);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.accessors.begin(), it)), fastgltf::Category::Accessors, userPointer);
 			if (extras.has_value()) {
-				json += std::string(",\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-
-		json += '}';
-		if (uabs(std::distance(asset.accessors.begin(), it)) + 1 <asset.accessors.size())
-			json += ',';
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeAnimations(const Asset& asset, std::string& json)
+void fg::Exporter::writeAnimations(const Asset& asset, simdjson::builder::string_builder& builder)
 {
 	if (asset.animations.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += R"("animations":[)";
+	auto animations = scoped_array<"animations">(builder);
+
 	for (auto it = asset.animations.begin(); it != asset.animations.end(); ++it) {
-		json += '{';
+		if (it != asset.animations.begin())
+			builder.append_comma();
 
-		json += R"("channels":[)";
-		for (auto ci = it->channels.begin(); ci != it->channels.end(); ++ci) {
-			json += "{";
-			json += R"("sampler":)" + std::to_string(ci->samplerIndex) + ",";
-			json += R"("target":{)";
-			if (ci->nodeIndex.has_value()) {
-				json += R"("node":)" + std::to_string(ci->nodeIndex.value()) + ",";
-			}
-			json += R"("path":")";
-			switch (ci->path) {
-			case fg::AnimationPath::Translation:
-				json += "translation";
-				break;
-			case fg::AnimationPath::Rotation:
-				json += "rotation";
-				break;
-			case fg::AnimationPath::Scale:
-				json += "scale";
-				break;
-			case fg::AnimationPath::Weights:
-				json += "weights";
-				break;
-			}
-			json += "\"}}";
+		auto obj = scoped_object(builder);
 
-			if (uabs(std::distance(it->channels.begin(), ci)) + 1 < it->channels.size())
-				json += ',';
-		}
-		json += "],";
+		{
+			auto channels = scoped_array<"channels">(builder);
+			for (auto ci = it->channels.begin(); ci != it->channels.end(); ++ci) {
+				if (ci != it->channels.begin())
+					builder.append_comma();
 
-		json += R"("samplers":[)";
-		for (auto si = it->samplers.begin(); si != it->samplers.end(); ++si) {
-			json += '{';
-			json += R"("input":)" + std::to_string(si->inputAccessor) + ',';
+				auto channel_obj = scoped_object(builder);
+				builder.append_key_value<"sampler">(ci->samplerIndex);
+				builder.append_comma();
 
-			if (si->interpolation != fg::AnimationInterpolation::Linear) {
-				json += R"("interpolation":")";
-				if (si->interpolation == fg::AnimationInterpolation::Step) {
-					json += "STEP\",";
-				} else {
-					json += "CUBICSPLINE\",";
+				{
+					auto target_obj = scoped_object<"target">(builder);
+					if (ci->nodeIndex.has_value()) {
+						builder.append_key_value<"node">(ci->nodeIndex.value());
+						builder.append_comma();
+					}
+
+					std::string_view path;
+					switch (ci->path) {
+					case fg::AnimationPath::Translation:
+						path = "translation";
+						break;
+					case fg::AnimationPath::Rotation:
+						path = "rotation";
+						break;
+					case fg::AnimationPath::Scale:
+						path = "scale";
+						break;
+					case fg::AnimationPath::Weights:
+						path = "weights";
+						break;
+					}
+					builder.append_key_value<"path">(path);
 				}
 			}
-
-			json += R"("output":)" + std::to_string(si->outputAccessor);
-			json += '}';
-
-			if (uabs(std::distance(it->samplers.begin(), si)) + 1 < it->samplers.size())
-				json += ',';
 		}
-		json += ']';
+		builder.append_comma();
+		{
+			auto samplers = scoped_array<"samplers">(builder);
+			for (auto si = it->samplers.begin(); si != it->samplers.end(); ++si) {
+				if (si != it->samplers.begin())
+					builder.append_comma();
+
+				auto sampler_obj = scoped_object(builder);
+
+				builder.append_key_value<"input">(si->inputAccessor);
+				builder.append_comma();
+
+				if (si->interpolation != fg::AnimationInterpolation::Linear) {
+					if (si->interpolation == fg::AnimationInterpolation::Step) {
+						builder.append_key_value<"interpolation">("STEP");
+					} else {
+						builder.append_key_value<"interpolation">("CUBICSPLINE");
+					}
+					builder.append_comma();
+				}
+
+				builder.append_key_value<"output">(si->outputAccessor);
+			}
+		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.animations.begin(), it)), fastgltf::Category::Animations, userPointer);
 			if (extras.has_value()) {
-				json += std::string(",\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-
-		json += '}';
-		if (uabs(std::distance(asset.animations.begin(), it)) + 1 < asset.animations.size())
-			json += ',';
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
+void fg::Exporter::writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.buffers.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"buffers\":[";
+	auto buffers = scoped_array<"buffers">(builder);
+
 	for (auto it = asset.buffers.begin(); it != asset.buffers.end(); ++it) {
-		json += '{';
+		if (it != asset.buffers.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
 
 		auto bufferIdx = uabs(std::distance(asset.buffers.begin(), it));
 		std::visit(visitor {
@@ -407,7 +507,8 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 					return;
 				}
 				auto path = getBufferFilePath(asset, bufferIdx);
-				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
+				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
+				builder.append_comma();
 				bufferPaths.emplace_back(path);
 			},
 			[&]([[maybe_unused]] const sources::Vector& vector) {
@@ -416,7 +517,8 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 					return;
 				}
 				auto path = getBufferFilePath(asset, bufferIdx);
-				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
+				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
+				builder.append_comma();
 				bufferPaths.emplace_back(path);
 			},
 			[&]([[maybe_unused]] const sources::ByteView& view) {
@@ -425,176 +527,218 @@ void fg::Exporter::writeBuffers(const Asset& asset, std::string& json) {
 					return;
 				}
 				auto path = getBufferFilePath(asset, bufferIdx);
-				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"' + ',';
+				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
+				builder.append_comma();
 				bufferPaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
-				json += std::string(R"("uri":")") + fg::escapeString(uri.uri->string()) + '"' + ',';
+				builder.append_key_value<"uri">(uri.uri->string());
+				builder.append_comma();
 				bufferPaths.emplace_back(std::nullopt);
 			},
 			[&]([[maybe_unused]] const sources::Fallback& fallback) {
-				json += R"("extensions":{"EXT_meshopt_compression":{"fallback":true}},)";
+				{
+					auto extensions_obj = scoped_object<"extensions">(builder);
+					auto meshopt_obj = scoped_object<"EXT_meshopt_compression">(builder);
+					builder.append_key_value<"fallback">(true);
+				}
+				builder.append_comma();
 				bufferPaths.emplace_back(std::nullopt);
 			},
 		}, it->data);
 
-		json += "\"byteLength\":" + std::to_string(it->byteLength);
+		builder.append_key_value<"byteLength">(it->byteLength);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.buffers.begin(), it)), fastgltf::Category::Buffers, userPointer);
 			if (extras.has_value()) {
-				json += std::string(",\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-		json += '}';
-		if (uabs(std::distance(asset.buffers.begin(), it)) + 1 <asset.buffers.size())
-			json += ',';
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += "]";
 }
 
-void fg::Exporter::writeBufferViews(const Asset& asset, std::string& json) {
+void fg::Exporter::writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.bufferViews.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"bufferViews\":[";
+	auto bufferViews = scoped_array<"bufferViews">(builder);
+
 	for (auto it = asset.bufferViews.begin(); it != asset.bufferViews.end(); ++it) {
-		json += '{';
+		if (it != asset.bufferViews.begin())
+			builder.append_comma();
 
-		json += "\"buffer\":" + std::to_string(it->bufferIndex) + ',';
-		json += "\"byteLength\":" + std::to_string(it->byteLength);
+		auto obj = scoped_object(builder);
+
+		builder.append_key_value<"buffer">(it->bufferIndex);
+		builder.append_comma();
+		builder.append_key_value<"byteLength">(it->byteLength);
 
 		if (it->byteOffset != 0) {
-			json += ",\"byteOffset\":" + std::to_string(it->byteOffset);
+			builder.append_comma();
+			builder.append_key_value<"byteOffset">(it->byteOffset);
 		}
 
 		if (it->byteStride.has_value()) {
-			json += ",\"byteStride\":" + std::to_string(it->byteStride.value());
+			builder.append_comma();
+			builder.append_key_value<"byteStride">(it->byteStride.value());
 		}
 
 		if (it->target.has_value()) {
-			json += ",\"target\":" + std::to_string(to_underlying(it->target.value()));
+			builder.append_comma();
+			builder.append_key_value<"target">(to_underlying(it->target.value()));
 		}
 
 		if (it->meshoptCompression.has_value()) {
-			json += R"(,"extensions":{"EXT_meshopt_compression":{)";
-			const auto& meshopt = *it->meshoptCompression;
-			json += "\"buffer\":" + std::to_string(meshopt.bufferIndex);
-			if (meshopt.byteOffset != 0) {
-				json += ",\"byteOffset\":" + std::to_string(meshopt.byteOffset);
-			}
-			json += ",\"byteLength\":" + std::to_string(meshopt.byteLength);
-			json += ",\"byteStride\":" + std::to_string(meshopt.byteStride);
-			json += ",\"count\":" + std::to_string(meshopt.count);
+			builder.append_comma();
 
-			json += ",\"mode\":";
-			if (meshopt.mode == MeshoptCompressionMode::Attributes) {
-				json += "\"ATTRIBUTES\"";
-			} else if (meshopt.mode == MeshoptCompressionMode::Triangles) {
-				json += "\"TRIANGLES\"";
-			} else if (meshopt.mode == MeshoptCompressionMode::Indices) {
-				json += "\"INDICES\"";
+			auto extensions = scoped_object<"extensions">(builder);
+			auto meshopt_object = scoped_object<"EXT_meshopt_compression">(builder);
+
+			const auto& meshopt = *it->meshoptCompression;
+			builder.append_key_value<"buffer">(meshopt.bufferIndex);
+
+			if (meshopt.byteOffset != 0) {
+				builder.append_comma();
+				builder.append_key_value<"byteOffset">(meshopt.byteOffset);
 			}
-			if (meshopt.filter != MeshoptCompressionFilter::None) {
-				json += ",\"filter\":";
-				if (meshopt.filter == MeshoptCompressionFilter::Exponential) {
-					json += "\"EXPONENTIAL\"";
-				} else if (meshopt.filter == MeshoptCompressionFilter::Quaternion) {
-					json += "\"QUATERNION\"";
-				} else if (meshopt.filter == MeshoptCompressionFilter::Octahedral) {
-					json += "\"OCTAHEDRAL\"";
+
+			builder.append_comma();
+			builder.append_key_value<"byteLength">(meshopt.byteLength);
+			builder.append_comma();
+			builder.append_key_value<"byteStride">(meshopt.byteStride);
+			builder.append_comma();
+			builder.append_key_value<"count">(meshopt.count);
+
+			{
+				builder.append_comma();
+				builder.escape_and_append_with_quotes<"mode">();
+				builder.append_colon();
+				if (meshopt.mode == MeshoptCompressionMode::Attributes) {
+					builder.escape_and_append_with_quotes<"ATTRIBUTES">();
+				} else if (meshopt.mode == MeshoptCompressionMode::Triangles) {
+					builder.escape_and_append_with_quotes<"TRIANGLES">();
+				} else if (meshopt.mode == MeshoptCompressionMode::Indices) {
+					builder.escape_and_append_with_quotes<"INDICES">();
 				}
 			}
-			json += "}}";
+
+			if (meshopt.filter != MeshoptCompressionFilter::None) {
+				builder.append_comma();
+				builder.escape_and_append_with_quotes<"filter">();
+				builder.append_colon();
+				if (meshopt.filter == MeshoptCompressionFilter::Exponential) {
+					builder.escape_and_append_with_quotes<"EXPONENTIAL">();
+				} else if (meshopt.filter == MeshoptCompressionFilter::Quaternion) {
+					builder.escape_and_append_with_quotes<"QUATERNION">();
+				} else if (meshopt.filter == MeshoptCompressionFilter::Octahedral) {
+					builder.escape_and_append_with_quotes<"OCTAHEDRAL">();
+				}
+			}
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.bufferViews.begin(), it)), fastgltf::Category::BufferViews, userPointer);
 			if (extras.has_value()) {
-				json += std::string(",\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-
-		json += '}';
-		if (uabs(std::distance(asset.bufferViews.begin(), it)) + 1 <asset.bufferViews.size())
-			json += ',';
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeCameras(const Asset& asset, std::string& json) {
+void fg::Exporter::writeCameras(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.cameras.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"cameras\":[";
+	auto cameras = scoped_array<"cameras">(builder);
+
 	for (auto it = asset.cameras.begin(); it != asset.cameras.end(); ++it) {
-		json += '{';
+		if (it != asset.cameras.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
 
 		std::visit(visitor {
 			[](auto&) {},
 			[&](const Camera::Perspective& perspective) {
-				json += "\"perspective\":{";
+				builder.append_key_value<"type">("perspective");
+				builder.append_comma();
 
-				if (perspective.aspectRatio.has_value()) {
-					json += "\"aspectRatio\":" + to_string_fp(perspective.aspectRatio.value()) + ',';
+				{
+					auto perspective_obj = scoped_object<"perspective">(builder);
+
+					if (perspective.aspectRatio.has_value()) {
+						builder.append_key_value<"aspectRatio">(perspective.aspectRatio.value());
+						builder.append_comma();
+					}
+
+					builder.append_key_value<"yfov">(perspective.yfov);
+					builder.append_comma();
+
+					if (perspective.zfar.has_value()) {
+						builder.append_key_value<"zfar">(perspective.zfar.value());
+						builder.append_comma();
+					}
+
+					builder.append_key_value<"znear">(perspective.znear);
 				}
-
-				json += "\"yfov\":" + to_string_fp(perspective.yfov) + ',';
-
-				if (perspective.zfar.has_value()) {
-					json += "\"zfar\":" + to_string_fp(perspective.zfar.value()) + ',';
-				}
-
-				json += "\"znear\":" + to_string_fp(perspective.znear);
-
-				json += R"(},"type":"perspective")";
 			},
 			[&](const Camera::Orthographic& orthographic) {
-				json += "\"orthographic\":{";
-				json += "\"xmag\":" + to_string_fp(orthographic.xmag) + ',';
-				json += "\"ymag\":" + to_string_fp(orthographic.ymag) + ',';
-				json += "\"zfar\":" + to_string_fp(orthographic.zfar) + ',';
-				json += "\"znear\":" + to_string_fp(orthographic.znear);
-				json += R"(},"type":"orthographic")";
+				builder.append_key_value<"type">("orthographic");
+				builder.append_comma();
+
+				{
+					auto perspective_obj = scoped_object<"orthographic">(builder);
+
+					builder.append_key_value<"xmag">(orthographic.xmag);
+					builder.append_comma();
+					builder.append_key_value<"ymag">(orthographic.ymag);
+					builder.append_comma();
+					builder.append_key_value<"zfar">(orthographic.zfar);
+					builder.append_comma();
+					builder.append_key_value<"znear">(orthographic.znear);
+				}
 			}
 		}, it->camera);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.cameras.begin(), it)), fastgltf::Category::Cameras, userPointer);
 			if (extras.has_value()) {
-				json += std::string(",\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-
-		json += '}';
-		if (uabs(std::distance(asset.cameras.begin(), it)) + 1 <asset.cameras.size())
-			json += ',';
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
+void fg::Exporter::writeImages(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.images.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"images\":[";
+	auto images = scoped_array<"images">(builder);
+
 	for (auto it = asset.images.begin(); it != asset.images.end(); ++it) {
-		json += '{';
+		if (it != asset.images.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
 
 		auto imageIdx = uabs(std::distance(asset.images.begin(), it));
 		std::visit(visitor {
@@ -602,30 +746,34 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 				errorCode = Error::InvalidGltf;
 			},
 			[&](const sources::BufferView& bufferView) {
-				json += std::string(R"("bufferView":)") + std::to_string(bufferView.bufferViewIndex) + ',';
-				json += std::string(R"("mimeType":")") + std::string(internal::getMimeTypeString(bufferView.mimeType)) + '"';
+				builder.append_key_value<"bufferView">(bufferView.bufferViewIndex);
+				builder.append_comma();
+				builder.append_key_value<"mimeType">(internal::getMimeTypeString(bufferView.mimeType));
 				imagePaths.emplace_back(std::nullopt);
 			},
 			[&](const sources::Array& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
-				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
+				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
 				if (vector.mimeType != MimeType::None) {
-					json += std::string(R"(,"mimeType":")") + std::string(internal::getMimeTypeString(vector.mimeType)) + '"';
+					builder.append_comma();
+					builder.append_key_value<"mimeType">(internal::getMimeTypeString(vector.mimeType));
 				}
 				imagePaths.emplace_back(path);
 			},
 			[&](const sources::Vector& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
-				json += std::string(R"("uri":")") + fg::normalizeAndFormatPath(path) + '"';
+				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
 				if (vector.mimeType != MimeType::None) {
-					json += std::string(R"(,"mimeType":")") + std::string(internal::getMimeTypeString(vector.mimeType)) + '"';
+					builder.append_comma();
+					builder.append_key_value<"mimeType">(internal::getMimeTypeString(vector.mimeType));
 				}
 				imagePaths.emplace_back(path);
 			},
 			[&](const sources::URI& uri) {
-				json += std::string(R"("uri":")") + fg::escapeString(uri.uri->string()) + '"';
+				builder.append_key_value<"uri">(uri.uri->string());
 				if (uri.mimeType != MimeType::None) {
-					json += std::string(R"(,"mimeType":")") + std::string(internal::getMimeTypeString(uri.mimeType)) + '"';
+					builder.append_comma();
+					builder.append_key_value<"mimeType">(internal::getMimeTypeString(uri.mimeType));
 				}
 				imagePaths.emplace_back(std::nullopt);
 			},
@@ -636,691 +784,703 @@ void fg::Exporter::writeImages(const Asset& asset, std::string& json) {
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.images.begin(), it)), fastgltf::Category::Images, userPointer);
 			if (extras.has_value()) {
-				json += std::string(",\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-		json += '}';
-		if (uabs(std::distance(asset.images.begin(), it)) + 1 <asset.images.size())
-			json += ',';
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeLights(const Asset& asset, std::string& json) {
+void fg::Exporter::writeLights(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.lights.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += R"("KHR_lights_punctual":{"lights":[)";
+	auto lights_punctual = scoped_object<"KHR_lights_punctual">(builder);
+	auto lights = scoped_array<"lights">(builder);
+
 	for (auto it = asset.lights.begin(); it != asset.lights.end(); ++it) {
-		json += '{';
+		if (it != asset.lights.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
 
 		// [1.0f, 1.0f, 1.0f] is the default.
 		if (!(it->color[0] == 1.0f && it->color[1] == 1.0f && it->color[2] == 1.0f)) {
-			json += R"("color":[)";
-			json += to_string_fp(it->color[0]) + ',' + to_string_fp(it->color[1]) + ',' + to_string_fp(it->color[2]);
-			json += "],";
+			append_key_range<"color">(builder, it->color);
+			builder.append_comma();
 		}
 
 		if (it->intensity != 1.0f) {
-			json += R"("intensity":)" + to_string_fp(it->intensity) + ',';
+			builder.append_key_value<"intensity">(it->intensity);
+			builder.append_comma();
 		}
 
 		switch (it->type) {
 			case LightType::Directional: {
-				json += R"("type":"directional")";
+				builder.append_key_value<"type">("directional");
 				break;
 			}
 			case LightType::Spot: {
-				json += R"("type":"spot")";
+				builder.append_key_value<"type">("spot");
 				break;
 			}
 			case LightType::Point: {
-				json += R"("type":"point")";
+				builder.append_key_value<"type">("point");
 				break;
 			}
 		}
 
 		if (it->range.has_value()) {
-			json += R"(,"range":)" + to_string_fp(it->range.value());
+			builder.append_comma();
+			builder.append_key_value<"range">(it->range.value());
 		}
 
 		// Spot cone angles live in a nested "spot" object per
 		// KHR_lights_punctual (the parser reads them from there too).
 		if (it->type == LightType::Spot && (it->innerConeAngle.has_value() || it->outerConeAngle.has_value())) {
-			json += R"(,"spot":{)";
+			builder.append_comma();
+
+			auto spot_obj = scoped_object<"spot">(builder);
 			if (it->innerConeAngle.has_value()) {
-				json += R"("innerConeAngle":)" + to_string_fp(it->innerConeAngle.value());
+				builder.append_key_value<"innerConeAngle">(it->innerConeAngle.value());
 				if (it->outerConeAngle.has_value())
-					json += ',';
+					builder.append_comma();
 			}
 			if (it->outerConeAngle.has_value())
-				json += R"("outerConeAngle":)" + to_string_fp(it->outerConeAngle.value());
-			json += '}';
+				builder.append_key_value<"outerConeAngle">(it->outerConeAngle.value());
 		}
 
 		if (!it->name.empty()) {
-			if (json.back() != '{') json += ',';
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
 		}
-		json += '}';
-		if (uabs(std::distance(asset.lights.begin(), it)) + 1 <asset.lights.size())
-			json += ',';
 	}
-	json += "]}";
 }
 
-void fg::Exporter::writeMaterials(const Asset& asset, std::string& json) {
+void fg::Exporter::writeMaterialExtensions(const Material &material, simdjson::builder::string_builder &builder) {
+	auto obj = scoped_object<"extensions">(builder);
+
+	comma_separator extensions_comma { builder };
+
+	if (material.anisotropy) {
+		extensions_comma();
+
+		auto anisotropy_obj = scoped_object<"KHR_materials_anisotropy">(builder);
+
+		comma_separator comma { builder };
+		if (material.anisotropy->anisotropyStrength != 0.0f) {
+			comma();
+			builder.append_key_value<"anisotropyStrength">(material.anisotropy->anisotropyStrength);
+		}
+		if (material.anisotropy->anisotropyRotation != 0.0f) {
+			comma();
+			builder.append_key_value<"anisotropyRotation">(material.anisotropy->anisotropyRotation);
+		}
+		if (material.anisotropy->anisotropyTexture.has_value()) {
+			comma();
+			append_texture_info<"anisotropyTexture">(
+				builder, &material.anisotropy->anisotropyTexture.value());
+		}
+	}
+
+	if (material.clearcoat) {
+		extensions_comma();
+
+		auto clearcoat_obj = scoped_object<"KHR_materials_clearcoat">(builder);
+
+		comma_separator comma { builder };
+		if (material.clearcoat->clearcoatFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"clearcoatFactor">(material.clearcoat->clearcoatFactor);
+		}
+		if (material.clearcoat->clearcoatTexture.has_value()) {
+			comma();
+			append_texture_info<"clearcoatTexture">(builder, &material.clearcoat->clearcoatTexture.value());
+		}
+		if (material.clearcoat->clearcoatRoughnessFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"clearcoatRoughnessFactor">(material.clearcoat->clearcoatRoughnessFactor);
+		}
+		if (material.clearcoat->clearcoatRoughnessTexture.has_value()) {
+			comma();
+			append_texture_info<"clearcoatRoughnessTexture">(
+				builder, &material.clearcoat->clearcoatRoughnessTexture.value());
+		}
+		if (material.clearcoat->clearcoatNormalTexture.has_value()) {
+			comma();
+			append_texture_info<"clearcoatNormalTexture", internal::TextureInfoType::NormalTexture>(
+				builder, &material.clearcoat->clearcoatNormalTexture.value());
+		}
+	}
+
+	if (material.diffuseTransmission) {
+		extensions_comma();
+
+		auto diffuse_transmission_obj = scoped_object<"KHR_materials_diffuse_transmission">(builder);
+
+		comma_separator comma { builder };
+		if (material.diffuseTransmission->diffuseTransmissionFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"diffuseTransmissionFactor">(
+				material.diffuseTransmission->diffuseTransmissionFactor);
+		}
+		if (material.diffuseTransmission->diffuseTransmissionTexture.has_value()) {
+			comma();
+			append_texture_info<"diffuseTransmissionTexture">(
+				builder, &material.diffuseTransmission->diffuseTransmissionTexture.value());
+		}
+		if (material.diffuseTransmission->diffuseTransmissionColorFactor != math::nvec3(1)) {
+			comma();
+			append_key_range<"diffuseTransmissionColorFactor">(
+				builder, material.diffuseTransmission->diffuseTransmissionColorFactor);
+		}
+		if (material.diffuseTransmission->diffuseTransmissionColorTexture.has_value()) {
+			comma();
+			append_texture_info<"diffuseTransmissionColorTexture">(
+				builder, &material.diffuseTransmission->diffuseTransmissionColorTexture.value());
+		}
+	}
+
+	if (material.dispersion != 0.0f) {
+		extensions_comma();
+		auto dispersion_obj = scoped_object<"KHR_materials_dispersion">(builder);
+		builder.append_key_value<"dispersion">(material.dispersion);
+	}
+
+	if (material.emissiveStrength != 1.0f) {
+		extensions_comma();
+		auto emissive_strength_obj = scoped_object<"KHR_materials_emissive_strength">(builder);
+		builder.append_key_value<"emissiveStrength">(material.emissiveStrength);
+	}
+
+	if (material.ior != 1.5f) {
+		extensions_comma();
+		auto ior_obj = scoped_object<"KHR_materials_ior">(builder);
+		builder.append_key_value<"ior">(material.ior);
+	}
+
+	if (material.iridescence) {
+		extensions_comma();
+
+		auto iridescence_obj = scoped_object<"KHR_materials_iridescence">(builder);
+
+		comma_separator comma { builder };
+		if (material.iridescence->iridescenceFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"iridescenceFactor">(
+				material.iridescence->iridescenceFactor);
+		}
+		if (material.iridescence->iridescenceTexture.has_value()) {
+			comma();
+			append_texture_info<"iridescenceTexture">(
+				builder, &material.iridescence->iridescenceTexture.value());
+		}
+		if (material.iridescence->iridescenceIor != 1.3f) {
+			comma();
+			builder.append_key_value<"iridescenceIor">(
+				material.iridescence->iridescenceIor);
+		}
+		if (material.iridescence->iridescenceThicknessMinimum != 100.0f) {
+			comma();
+			builder.append_key_value<"iridescenceThicknessMinimum">(
+				material.iridescence->iridescenceThicknessMinimum);
+		}
+		if (material.iridescence->iridescenceThicknessMaximum != 400.0f) {
+			comma();
+			builder.append_key_value<"iridescenceThicknessMaximum">(
+				material.iridescence->iridescenceThicknessMaximum);
+		}
+		if (material.iridescence->iridescenceThicknessTexture.has_value()) {
+			comma();
+			append_texture_info<"iridescenceThicknessTexture">(
+				builder, &material.iridescence->iridescenceThicknessTexture.value());
+		}
+	}
+
+	if (material.sheen) {
+		extensions_comma();
+
+		auto sheen_obj = scoped_object<"KHR_materials_sheen">(builder);
+
+		comma_separator comma { builder };
+		if (material.sheen->sheenColorFactor != math::nvec3(0)) {
+			comma();
+			append_key_range<"sheenColorFactor">(
+				builder, material.sheen->sheenColorFactor);
+		}
+		if (material.sheen->sheenColorTexture.has_value()) {
+			comma();
+			append_texture_info<"sheenColorTexture">(
+				builder, &material.sheen->sheenColorTexture.value());
+		}
+		if (material.sheen->sheenRoughnessFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"sheenRoughnessFactor">(
+				material.sheen->sheenRoughnessFactor);
+		}
+		if (material.sheen->sheenRoughnessTexture.has_value()) {
+			comma();
+			append_texture_info<"sheenRoughnessTexture">(
+				builder, &material.sheen->sheenRoughnessTexture.value());
+		}
+	}
+
+	if (material.specular) {
+		extensions_comma();
+
+		auto specular_obj = scoped_object<"KHR_materials_specular">(builder);
+
+		comma_separator comma { builder };
+		if (material.specular->specularFactor != 1.0f) {
+			comma();
+			builder.append_key_value<"specularFactor">(
+				material.specular->specularFactor);
+		}
+		if (material.specular->specularTexture.has_value()) {
+			comma();
+			append_texture_info<"specularTexture">(
+				builder, &material.specular->specularTexture.value());
+		}
+		if (material.specular->specularColorFactor != math::nvec3(1)) {
+			comma();
+			append_key_range<"specularColorFactor">(
+				builder, material.specular->specularColorFactor);
+		}
+		if (material.specular->specularColorTexture.has_value()) {
+			comma();
+			append_texture_info<"specularColorTexture">(
+				builder, &material.specular->specularColorTexture.value());
+		}
+	}
+
+	if (material.specularGlossiness) {
+		extensions_comma();
+
+		auto pbr_obj = scoped_object<"KHR_materials_pbrSpecularGlossiness">(builder);
+
+		comma_separator comma { builder };
+		if (material.specularGlossiness->diffuseFactor != math::nvec4(1)) {
+			comma();
+			append_key_range<"diffuseFactor">(
+				builder, material.specularGlossiness->diffuseFactor);
+		}
+		if (material.specularGlossiness->diffuseTexture.has_value()) {
+			comma();
+			append_texture_info<"diffuseTexture">(
+				builder, &material.specularGlossiness->diffuseTexture.value());
+		}
+		if (material.specularGlossiness->specularFactor != math::nvec3(1)) {
+			comma();
+			append_key_range<"specularFactor">(
+				builder, material.specularGlossiness->specularFactor);
+		}
+		if (material.specularGlossiness->glossinessFactor != 1.0) {
+			comma();
+			builder.append_key_value<"glossinessFactor">(
+				material.specularGlossiness->glossinessFactor);
+		}
+		if (material.specularGlossiness->specularGlossinessTexture.has_value()) {
+			comma();
+			append_texture_info<"specularGlossinessTexture">(
+				builder, &material.specularGlossiness->specularGlossinessTexture.value());
+		}
+	}
+
+	if (material.transmission) {
+		extensions_comma();
+
+		auto transmission_obj = scoped_object<"KHR_materials_transmission">(builder);
+
+		comma_separator comma { builder };
+		if (material.transmission->transmissionFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"transmissionFactor">(
+				material.transmission->transmissionFactor);
+		}
+		if (material.transmission->transmissionTexture.has_value()) {
+			comma();
+			append_texture_info<"transmissionTexture">(
+				builder, &material.transmission->transmissionTexture.value());
+		}
+	}
+
+	if (material.unlit) {
+		extensions_comma();
+
+		auto unlit_obj = scoped_object<"KHR_materials_unlit">(builder);
+	}
+
+	if (material.volume) {
+		extensions_comma();
+
+		auto volume_obj = scoped_object<"KHR_materials_volume">(builder);
+
+		comma_separator comma { builder };
+		if (material.volume->thicknessFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"thicknessFactor">(
+				material.volume->thicknessFactor);
+		}
+		if (material.volume->thicknessTexture.has_value()) {
+			comma();
+			append_texture_info<"thicknessTexture">(
+				builder, &material.volume->thicknessTexture.value());
+		}
+		if (material.volume->attenuationDistance != std::numeric_limits<num>::infinity()) {
+			comma();
+			builder.append_key_value<"attenuationDistance">(
+				material.volume->attenuationDistance);
+		}
+		if (material.volume->attenuationColor != math::nvec3(1)) {
+			comma();
+			append_key_range<"attenuationColor">(
+				builder, material.volume->attenuationColor);
+		}
+	}
+
+	if (material.packedNormalMetallicRoughnessTexture.has_value()) {
+		extensions_comma();
+
+		auto packing_obj = scoped_object<"MSFT_packing_normalRoughnessMetallic">(builder);
+
+		append_texture_info<"normalRoughnessMetallicTexture">(
+			builder, &material.packedNormalMetallicRoughnessTexture.value());
+	}
+
+	if (material.packedOcclusionRoughnessMetallicTextures) {
+		extensions_comma();
+
+		auto packing_obj = scoped_object<"MSFT_packing_occlusionRoughnessMetallic">(builder);
+
+		comma_separator comma { builder };
+		if (material.packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.has_value()) {
+			comma();
+			append_texture_info<"occlusionRoughnessMetallicTexture">(
+				builder, &material.packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.value());
+		}
+		if (material.packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.has_value()) {
+			comma();
+			append_texture_info<"roughnessMetallicOcclusionTexture">(
+				builder, &material.packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.value());
+		}
+		if (material.packedOcclusionRoughnessMetallicTextures->normalTexture.has_value()) {
+			comma();
+			append_texture_info<"normalTexture">(
+				builder, &material.packedOcclusionRoughnessMetallicTextures->normalTexture.value());
+		}
+	}
+}
+
+void fg::Exporter::writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.materials.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"materials\":[";
+	auto materials = scoped_array<"materials">(builder);
+
 	for (auto it = asset.materials.begin(); it != asset.materials.end(); ++it) {
-		json += '{';
+		if (it != asset.materials.begin())
+			builder.append_comma();
 
-		json += "\"pbrMetallicRoughness\":{";
-		if (it->pbrData.baseColorFactor != math::nvec4(1)) {
-			json += R"("baseColorFactor":[)";
-			json += to_string_fp(it->pbrData.baseColorFactor[0]) + ',' + to_string_fp(it->pbrData.baseColorFactor[1]) + ',' +
-				to_string_fp(it->pbrData.baseColorFactor[2]) + ',' + to_string_fp(it->pbrData.baseColorFactor[3]);
-			json += "]";
+		auto obj = scoped_object(builder);
+
+		{
+			auto pbr_obj = scoped_object<"pbrMetallicRoughness">(builder);
+
+			comma_separator comma {builder};
+			if (it->pbrData.baseColorFactor != math::nvec4(1)) {
+				comma();
+				append_key_range<"baseColorFactor">(builder, it->pbrData.baseColorFactor);
+			}
+
+			if (it->pbrData.baseColorTexture.has_value()) {
+				comma();
+				append_texture_info<"baseColorTexture">(builder, &it->pbrData.baseColorTexture.value());
+			}
+
+			if (it->pbrData.metallicFactor != 1.0f) {
+				comma();
+				builder.append_key_value<"metallicFactor">(it->pbrData.metallicFactor);
+			}
+
+			if (it->pbrData.roughnessFactor != 1.0f) {
+				comma();
+				builder.append_key_value<"roughnessFactor">(it->pbrData.roughnessFactor);
+			}
+
+			if (it->pbrData.metallicRoughnessTexture.has_value()) {
+				comma();
+				append_texture_info<"metallicRoughnessTexture">(builder, &it->pbrData.metallicRoughnessTexture.value());
+			}
 		}
-
-		if (it->pbrData.baseColorTexture.has_value()) {
-			if (json.back() != '{') json += ',';
-			json += "\"baseColorTexture\":";
-			writeTextureInfo(json, &it->pbrData.baseColorTexture.value());
-		}
-
-		if (it->pbrData.metallicFactor != 1.0f) {
-			if (json.back() != '{') json += ',';
-			json += "\"metallicFactor\":" + to_string_fp(it->pbrData.metallicFactor);
-		}
-
-		if (it->pbrData.roughnessFactor != 1.0f) {
-			if (json.back() != '{') json += ',';
-			json += "\"roughnessFactor\":" + to_string_fp(it->pbrData.roughnessFactor);
-		}
-
-		if (it->pbrData.metallicRoughnessTexture.has_value()) {
-			if (json.back() != '{') json += ',';
-			json += "\"metallicRoughnessTexture\":";
-			writeTextureInfo(json, &it->pbrData.metallicRoughnessTexture.value());
-		}
-
-		json += '}';
 
 		if (it->normalTexture.has_value()) {
-			if (json.back() != ',') json += ',';
-			json += "\"normalTexture\":";
-			writeTextureInfo<internal::TextureInfoType::NormalTexture>(json, &it->normalTexture.value());
+			builder.append_comma();
+			append_texture_info<"normalTexture", internal::TextureInfoType::NormalTexture>(builder, &it->normalTexture.value());
 		}
 
 		if (it->occlusionTexture.has_value()) {
-			if (json.back() != ',') json += ',';
-			json += "\"occlusionTexture\":";
-			writeTextureInfo<internal::TextureInfoType::OcclusionTexture>(json, &it->occlusionTexture.value());
+			builder.append_comma();
+			append_texture_info<"occlusionTexture", internal::TextureInfoType::OcclusionTexture>(builder, &it->occlusionTexture.value());
 		}
 
 		if (it->emissiveTexture.has_value()) {
-			if (json.back() != ',') json += ',';
-			json += "\"emissiveTexture\":";
-			writeTextureInfo(json, &it->emissiveTexture.value());
+			builder.append_comma();
+			append_texture_info<"emissiveTexture">(builder, &it->emissiveTexture.value());
 		}
 
 		if (it->emissiveFactor != math::nvec3(0)) {
-			if (json.back() != ',') json += ',';
-			json += R"("emissiveFactor":[)";
-			json += to_string_fp(it->emissiveFactor[0]) + ',' + to_string_fp(it->emissiveFactor[1]) + ',' + to_string_fp(it->emissiveFactor[2]);
-			json += "],";
+			builder.append_comma();
+			append_key_range<"emissiveFactor">(builder, it->emissiveFactor);
 		}
 
 		if (it->alphaMode != AlphaMode::Opaque) {
-			if (json.back() != ',') json += ',';
-			json += R"("alphaMode":)";
+			builder.append_comma();
+			builder.escape_and_append_with_quotes<"alphaMode">();
+			builder.append_colon();
 			if (it->alphaMode == AlphaMode::Blend) {
-				json += "\"BLEND\"";
+				builder.escape_and_append_with_quotes<"BLEND">();
 			} else if (it->alphaMode == AlphaMode::Mask) {
-				json += "\"MASK\"";
+				builder.escape_and_append_with_quotes<"MASK">();
 			}
 		}
 
 		if (it->alphaMode == AlphaMode::Mask && it->alphaCutoff != 0.5f) {
-			if (json.back() != ',') json += ',';
-			json += R"("alphaCutoff":)" + to_string_fp(it->alphaCutoff);
+			builder.append_comma();
+			builder.append_key_value<"alphaCutoff">(it->alphaCutoff);
 		}
 
 		if (it->doubleSided) {
-			if (json.back() != ',') json += ',';
-			json += R"("doubleSided":true)";
+			builder.append_comma();
+			builder.append_key_value<"doubleSided">(true);
 		}
 
-		if (json.back() != ',') json += ',';
-		json += R"("extensions":{)";
-
-		if (it->anisotropy) {
-			json += R"("KHR_materials_anisotropy":{)";
-			if (it->anisotropy->anisotropyStrength != 0.0f) {
-				json += R"("anisotropyStrength":)" + to_string_fp(it->anisotropy->anisotropyStrength);
-			}
-			if (it->anisotropy->anisotropyRotation != 0.0f) {
-				if (json.back() != '{') json += ',';
-				json += R"("anisotropyRotation":)" + to_string_fp(it->anisotropy->anisotropyRotation);
-			}
-			if (it->anisotropy->anisotropyTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"anisotropyTexture\":";
-				writeTextureInfo(json, &it->anisotropy->anisotropyTexture.value());
-			}
-			json += '}';
-		}
-
-		if (it->clearcoat) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_clearcoat":{)";
-			if (it->clearcoat->clearcoatFactor != 0.0f) {
-				json += R"("clearcoatFactor":)" + to_string_fp(it->clearcoat->clearcoatFactor);
-			}
-			if (it->clearcoat->clearcoatTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"clearcoatTexture\":";
-				writeTextureInfo(json, &it->clearcoat->clearcoatTexture.value());
-			}
-			if (it->clearcoat->clearcoatRoughnessFactor != 0.0f) {
-				if (json.back() != '{') json += ',';
-				json += R"("clearcoatRoughnessFactor":)" + to_string_fp(it->clearcoat->clearcoatRoughnessFactor);
-			}
-			if (it->clearcoat->clearcoatRoughnessTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"clearcoatRoughnessTexture\":";
-				writeTextureInfo(json, &it->clearcoat->clearcoatRoughnessTexture.value());
-			}
-			if (it->clearcoat->clearcoatNormalTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"clearcoatNormalTexture\":";
-				writeTextureInfo<internal::TextureInfoType::NormalTexture>(json, &it->clearcoat->clearcoatNormalTexture.value());
-			}
-			json += '}';
-		}
-
-		if (it->diffuseTransmission) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_diffuse_transmission":{)";
-			if (it->diffuseTransmission->diffuseTransmissionFactor != 0.0f) {
-				json += R"("diffuseTransmissionFactor":)" + to_string_fp(it->diffuseTransmission->diffuseTransmissionFactor);
-			}
-			if (it->diffuseTransmission->diffuseTransmissionTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += R"("diffuseTransmissionTexture":)";
-				writeTextureInfo(json, &it->diffuseTransmission->diffuseTransmissionTexture.value());
-			}
-			if (it->diffuseTransmission->diffuseTransmissionColorFactor != math::nvec3(1)) {
-				if (json.back() != '{') json += ',';
-				json += R"("diffuseTransmissionColorFactor":[)";
-				json += to_string_fp(it->diffuseTransmission->diffuseTransmissionColorFactor[0]) + ',' +
-						to_string_fp(it->diffuseTransmission->diffuseTransmissionColorFactor[1]) + ',' +
-						to_string_fp(it->diffuseTransmission->diffuseTransmissionColorFactor[2]) + ']';
-			}
-			if (it->diffuseTransmission->diffuseTransmissionColorTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"diffuseTransmissionColorTexture\":";
-				writeTextureInfo(json, &it->diffuseTransmission->diffuseTransmissionColorTexture.value());
-			}
-			json += '}';
-		}
-
-		if (it->dispersion != 0.0f) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_dispersion":{"dispersion":)" + to_string_fp(it->dispersion) + '}';
-		}
-
-		if (it->emissiveStrength != 1.0f) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_emissive_strength":{"emissiveStrength":)" + to_string_fp(it->emissiveStrength) + '}';
-		}
-
-		if (it->ior != 1.5f) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_ior":{"ior":)" + to_string_fp(it->ior) + '}';
-		}
-
-		if (it->iridescence) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_iridescence":{)";
-			if (it->iridescence->iridescenceFactor != 0.0f) {
-				json += R"("iridescenceFactor":)" + to_string_fp(it->iridescence->iridescenceFactor);
-			}
-			if (it->iridescence->iridescenceTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"iridescenceTexture\":";
-				writeTextureInfo(json, &it->iridescence->iridescenceTexture.value());
-			}
-			if (it->iridescence->iridescenceIor != 1.3f) {
-				if (json.back() != '{') json += ',';
-				json += R"("iridescenceIor":)" + to_string_fp(it->iridescence->iridescenceIor);
-			}
-			if (it->iridescence->iridescenceThicknessMinimum != 100.0f) {
-				if (json.back() != '{') json += ',';
-				json += R"("iridescenceThicknessMinimum":)" + to_string_fp(it->iridescence->iridescenceThicknessMinimum);
-			}
-			if (it->iridescence->iridescenceThicknessMaximum != 400.0f) {
-				if (json.back() != '{') json += ',';
-				json += R"("iridescenceThicknessMaximum":)" + to_string_fp(it->iridescence->iridescenceThicknessMaximum);
-			}
-			if (it->iridescence->iridescenceThicknessTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"iridescenceThicknessTexture\":";
-				writeTextureInfo(json, &it->iridescence->iridescenceThicknessTexture.value());
-			}
-			json += '}';
-		}
-
-		if (it->sheen) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_sheen":{)";
-			if (it->sheen->sheenColorFactor != math::nvec3(0)) {
-				json += R"("sheenColorFactor":[)" +
-					to_string_fp(it->sheen->sheenColorFactor[0]) + ',' +
-					to_string_fp(it->sheen->sheenColorFactor[1]) + ',' +
-					to_string_fp(it->sheen->sheenColorFactor[2]) + ']';
-			}
-			if (it->sheen->sheenColorTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"sheenColorTexture\":";
-				writeTextureInfo(json, &it->sheen->sheenColorTexture.value());
-			}
-			if (it->sheen->sheenRoughnessFactor != 0.0f) {
-				if (json.back() != '{') json += ',';
-				json += R"("sheenRoughnessFactor":)" + to_string_fp(it->sheen->sheenRoughnessFactor);
-			}
-			if (it->sheen->sheenRoughnessTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"sheenRoughnessTexture\":";
-				writeTextureInfo(json, &it->sheen->sheenRoughnessTexture.value());
-			}
-			json += '}';
-		}
-
-		if (it->specular) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_specular":{)";
-			if (it->specular->specularFactor != 1.0f) {
-				json += R"("specularFactor":)" + to_string_fp(it->specular->specularFactor);
-			}
-			if (it->specular->specularTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"specularTexture\":";
-				writeTextureInfo(json, &it->specular->specularTexture.value());
-			}
-			if (it->specular->specularColorFactor != math::nvec3(1)) {
-				if (json.back() != '{') json += ',';
-				json += R"("specularColorFactor":[)" +
-						to_string_fp(it->specular->specularColorFactor[0]) + ',' +
-						to_string_fp(it->specular->specularColorFactor[1]) + ',' +
-						to_string_fp(it->specular->specularColorFactor[2]) + ']';
-			}
-			if (it->specular->specularColorTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"specularColorTexture\":";
-				writeTextureInfo(json, &it->specular->specularColorTexture.value());
-			}
-			json += '}';
-		}
-		if (it->specularGlossiness)
-		{
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_pbrSpecularGlossiness":{)";
-			if (it->specularGlossiness->diffuseFactor != math::nvec4(1)) {
-				json += R"("diffuseFactor":[)" +
-						to_string_fp(it->specularGlossiness->diffuseFactor[0]) + ',' +
-						to_string_fp(it->specularGlossiness->diffuseFactor[1]) + ',' +
-						to_string_fp(it->specularGlossiness->diffuseFactor[2]) + ',' +
-						to_string_fp(it->specularGlossiness->diffuseFactor[3]) + ']';
-			}
-			if (it->specularGlossiness->diffuseTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"diffuseTexture\":";
-				writeTextureInfo(json, &it->specularGlossiness->diffuseTexture.value());
-			}
-			if (it->specularGlossiness->specularFactor != math::nvec3(1)) {
-				if (json.back() != '{') json += ',';
-				json += R"("specularFactor":[)" +
-						to_string_fp(it->specularGlossiness->specularFactor[0]) + ',' +
-						to_string_fp(it->specularGlossiness->specularFactor[1]) + ',' +
-						to_string_fp(it->specularGlossiness->specularFactor[2]) + ']';
-			}
-			if (it->specularGlossiness->glossinessFactor != 1.0) {
-				if (json.back() != '{') json += ',';
-				json += R"("glossinessFactor":)" + to_string_fp(it->specularGlossiness->glossinessFactor);
-			}
-			if (it->specularGlossiness->specularGlossinessTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"specularGlossinessTexture\":";
-				writeTextureInfo(json, &it->specularGlossiness->specularGlossinessTexture.value());
-			}
-			json += '}';
-		}
-
-		if (it->transmission) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_transmission":{)";
-			if (it->transmission->transmissionFactor != 0.0f) {
-				json += R"("transmissionFactor":)" + to_string_fp(it->transmission->transmissionFactor);
-			}
-			if (it->transmission->transmissionTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"transmissionTexture\":";
-				writeTextureInfo(json, &it->transmission->transmissionTexture.value());
-			}
-			json += '}';
-		}
-
-		if (it->unlit) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_unlit":{})";
-		}
-
-		if (it->volume) {
-			if (json.back() == '}') json += ',';
-			json += R"("KHR_materials_volume":{)";
-			if (it->volume->thicknessFactor != 0.0f) {
-				json += R"("thicknessFactor":)" + to_string_fp(it->volume->thicknessFactor);
-			}
-			if (it->volume->thicknessTexture.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += "\"thicknessTexture\":";
-				writeTextureInfo(json, &it->volume->thicknessTexture.value());
-			}
-			if (it->volume->attenuationDistance != std::numeric_limits<num>::infinity()) {
-				if (json.back() != '{') json += ',';
-				json += R"("attenuationDistance":)" + to_string_fp(it->volume->attenuationDistance);
-			}
-			if (it->volume->attenuationColor != math::nvec3(1)) {
-				if (json.back() != '{') json += ',';
-				json += R"("attenuationColor":[)" +
-						to_string_fp(it->volume->attenuationColor[0]) + ',' +
-						to_string_fp(it->volume->attenuationColor[1]) + ',' +
-						to_string_fp(it->volume->attenuationColor[2]) + ']';
-			}
-			json += '}';
-		}
-
-		if (it->packedNormalMetallicRoughnessTexture.has_value()) {
-			if (json.back() == '}') json += ',';
-			json += R"("MSFT_packing_normalRoughnessMetallic":{"normalRoughnessMetallicTexture":)";
-			writeTextureInfo(json, &it->packedNormalMetallicRoughnessTexture.value());
-			json += '}';
-		}
-
-		if (it->packedOcclusionRoughnessMetallicTextures) {
-			if (json.back() == '}') json += ',';
-			json += R"("MSFT_packing_occlusionRoughnessMetallic":{)";
-			if (it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.has_value()) {
-				json += R"("occlusionRoughnessMetallicTexture":)";
-				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->occlusionRoughnessMetallicTexture.value());
-			}
-			if (it->packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.has_value()) {
-				json += R"("roughnessMetallicOcclusionTexture":)";
-				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->roughnessMetallicOcclusionTexture.value());
-			}
-			if (it->packedOcclusionRoughnessMetallicTextures->normalTexture.has_value()) {
-				json += R"("normalTexture":)";
-				writeTextureInfo(json, &it->packedOcclusionRoughnessMetallicTextures->normalTexture.value());
-			}
-			json += '}';
-		}
-
-		json += '}';
+		builder.append_comma();
+		writeMaterialExtensions(*it, builder);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.materials.begin(), it)), fastgltf::Category::Materials, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{')
-					json += ',';
-				json += std::string("\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
 		if (!it->name.empty()) {
-			if (json.back() != ',') json += ',';
-			json += R"("name":")" + fg::escapeString(it->name) + '"';
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
 		}
-		json += '}';
-		if (uabs(std::distance(asset.materials.begin(), it)) + 1 <asset.materials.size())
-			json += ',';
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeMeshes(const Asset& asset, std::string& json) {
+void fg::Exporter::writeMeshes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.meshes.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"meshes\":[";
+	auto meshes = scoped_array<"meshes">(builder);
+
 	for (auto it = asset.meshes.begin(); it != asset.meshes.end(); ++it) {
-		json += '{';
+		if (it != asset.meshes.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
+
+		comma_separator comma { builder };
 
 		if (!it->primitives.empty()) {
-			json += R"("primitives":[)";
-			auto itp = it->primitives.begin();
-			while (itp != it->primitives.end()) {
-				json += '{';
+			comma();
+
+			auto primitives = scoped_array<"primitives">(builder);
+
+			for (auto itp = it->primitives.begin(); itp != it->primitives.end(); ++itp) {
+				if (itp != it->primitives.begin())
+					builder.append_comma();
+
+				auto pobj = scoped_object(builder);
 
 				{
-					json += R"("attributes":{)";
+					auto attributes = scoped_object<"attributes">(builder);
 					for (auto ita = itp->attributes.begin(); ita != itp->attributes.end(); ++ita) {
-						json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
-						if (uabs(std::distance(itp->attributes.begin(), ita)) + 1 <itp->attributes.size())
-							json += ',';
+						if (ita != itp->attributes.begin())
+							builder.append_comma();
+
+						builder.append_key_value(ita->name, ita->accessorIndex);
 					}
-					json += '}';
 				}
 
 				if (itp->indicesAccessor.has_value()) {
-					json += R"(,"indices":)" + std::to_string(itp->indicesAccessor.value());
+					builder.append_comma();
+					builder.append_key_value<"indices">(itp->indicesAccessor.value());
 				}
 
 				if (itp->materialIndex.has_value()) {
-					json += R"(,"material":)" + std::to_string(itp->materialIndex.value());
+					builder.append_comma();
+					builder.append_key_value<"material">(itp->materialIndex.value());
 				}
 
-				if (!itp->targets.empty())
-				{
-					json  += R"(,"targets":[)";
+				if (!itp->targets.empty()) {
+					builder.append_comma();
+
+					auto targets = scoped_array<"targets">(builder);
 					for (auto itt = itp->targets.begin(); itt != itp->targets.end(); ++itt) {
-						json += '{';
+						if (itt != itp->targets.begin())
+							builder.append_comma();
+
+						auto target_obj = scoped_object(builder);
 						for (auto ita = itt->begin(); ita != itt->end(); ++ita) {
-							json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
-							if (uabs(std::distance(itt->begin(), ita)) + 1 < itt->size())
-								json += ',';
+							if (ita != itt->begin())
+								builder.append_comma();
+
+							builder.append_key_value(ita->name, ita->accessorIndex);
 						}
-						json += '}';
-						if (uabs(std::distance(itp->targets.begin(), itt)) + 1 < itp->targets.size())
-							json += ',';
 					}
-					json += ']';
 				}
 
 				if (itp->type != PrimitiveType::Triangles) {
-					json += R"(,"mode":)" + std::to_string(to_underlying(itp->type));
+					builder.append_comma();
+					builder.append_key_value<"mode">(to_underlying(itp->type));
 				}
 
 				const bool hasExtensions = !itp->mappings.empty() || itp->dracoCompression;
 				if (hasExtensions) {
-					json += R"(,"extensions":{)";
+					builder.append_comma();
+					builder.escape_and_append_with_quotes<"extensions">();
+					builder.append_colon();
+					builder.start_object();
 				}
 				if (!itp->mappings.empty()) {
-					json += R"("KHR_materials_variants":{"mappings":[)";
+					auto variants_obj = scoped_object<"KHR_materials_variants">(builder);
+					auto mappings = scoped_array<"mappings">(builder);
+
+					comma_separator mappingComma {builder};
 					// TODO: We should optimise to avoid writing multiple objects for the same material index
 					for (std::size_t i = 0; i < asset.materialVariants.size(); ++i) {
 						if (!itp->mappings[i].has_value())
 							continue;
-						if (json.back() == '}')
-							json += ',';
-						json += "{\"material\":" + std::to_string(itp->mappings[i].value()) + ",\"variants\":[" + std::to_string(i) + "]}";
+						mappingComma();
+
+						auto variant_obj = scoped_object(builder);
+						builder.append_key_value<"material">(itp->mappings[i].value());
+						builder.append_comma();
+						builder.escape_and_append_with_quotes<"variants">();
+						builder.append_colon();
+
+						auto arr = scoped_array(builder);
+						builder.append(i);
 					}
-					json += "]}";
 				}
 				if (itp->dracoCompression) {
 					if (!itp->mappings.empty())
-						json += ',';
+						builder.append_comma();
 
-					json += R"("KHR_draco_mesh_compression":{)";
-					json += R"("bufferView":)" + std::to_string(itp->dracoCompression->bufferView) + ',';
-					json += R"("attributes":{)";
+					auto draco_obj = scoped_object<"KHR_draco_mesh_compression">(builder);
+
+					builder.append_key_value<"bufferView">(itp->dracoCompression->bufferView);
+					builder.append_comma();
+
+					auto attributes = scoped_object<"attributes">(builder);
 					for (auto ita = itp->dracoCompression->attributes.begin(); ita != itp->dracoCompression->attributes.end(); ++ita) {
-						json += '"' + std::string(ita->name) + "\":" + std::to_string(ita->accessorIndex);
-						if (uabs(std::distance(itp->dracoCompression->attributes.begin(), ita)) + 1 < itp->dracoCompression->attributes.size())
-							json += ',';
+						if (ita != itp->dracoCompression->attributes.begin())
+							builder.append_comma();
+
+						builder.append_key_value(ita->name, ita->accessorIndex);
 					}
-					json += "}}";
 				}
 				if (hasExtensions) {
-					json += "}";
+					builder.end_object();
 				}
-
-				json += '}';
-				++itp;
-				if (uabs(std::distance(it->primitives.begin(), itp)) < it->primitives.size())
-					json += ',';
 			}
-			json += ']';
 		}
 
 		if (!it->weights.empty()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("weights":[)";
-			auto itw = it->weights.begin();
-			while (itw != it->weights.end()) {
-				json += to_string_fp(*itw);
-				++itw;
-				if (uabs(std::distance(it->weights.begin(), itw)) < it->weights.size())
-					json += ',';
-			}
-			json += ']';
+			comma();
+			append_key_range<"weights">(builder, it->weights);
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.meshes.begin(), it)), fastgltf::Category::Meshes, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{')
-					json += ',';
-				json += std::string("\"extras\":") + *extras;
+				comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
 		if (!it->name.empty()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("name":")" + fg::escapeString(it->name) + '"';
+			comma();
+			builder.append_key_value<"name">(it->name);
 		}
-		json += '}';
-		if (uabs(std::distance(asset.meshes.begin(), it)) + 1 <asset.meshes.size())
-			json += ',';
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
+void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.nodes.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"nodes\":[";
+	auto nodes = scoped_array<"nodes">(builder);
+
 	for (auto it = asset.nodes.begin(); it != asset.nodes.end(); ++it) {
-		json += '{';
+		if (it != asset.nodes.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
+
+		comma_separator comma { builder };
 
 		if (it->meshIndex.has_value()) {
-			json += R"("mesh":)" + std::to_string(it->meshIndex.value());
+			comma();
+			builder.append_key_value<"mesh">(it->meshIndex.value());
 		}
 		if (it->cameraIndex.has_value()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("camera":)" + std::to_string(it->cameraIndex.value());
+			comma();
+			builder.append_key_value<"camera">(it->cameraIndex.value());
 		}
 		if (it->skinIndex.has_value()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("skin":)" + std::to_string(it->skinIndex.value());
+			comma();
+			builder.append_key_value<"skin">(it->skinIndex.value());
 		}
 
 		if (!it->children.empty()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("children":[)";
-			auto itc = it->children.begin();
-			while (itc != it->children.end()) {
-				json += std::to_string(*itc);
-				++itc;
-				if (uabs(std::distance(it->children.begin(), itc)) < it->children.size())
-					json += ',';
-			}
-			json += ']';
+			comma();
+			append_key_range<"children">(builder, it->children);
 		}
 
 		if (!it->weights.empty()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("weights":[)";
-			auto itw = it->weights.begin();
-			while (itw != it->weights.end()) {
-				json += to_string_fp(*itw);
-				++itw;
-				if (uabs(std::distance(it->weights.begin(), itw)) < it->weights.size())
-					json += ',';
-			}
-			json += ']';
+			comma();
+			append_key_range<"weights">(builder, it->weights);
 		}
 
 		visit_exhaustive(visitor {
 			[&](const TRS& trs) {
 				if (trs.rotation != math::fquat(0.f, 0.f, 0.f, 1.f)) {
-					if (json.back() != '{')
-						json += ',';
-					json += R"("rotation":[)";
-					json += to_string_fp(trs.rotation[0]) + ',' + to_string_fp(trs.rotation[1]) + ',' + to_string_fp(trs.rotation[2]) + ',' + to_string_fp(trs.rotation[3]);
-					json += "]";
+					comma();
+					append_key_range<"rotation">(builder, trs.rotation);
 				}
 
 				if (trs.scale != math::fvec3(1.f)) {
-					if (json.back() != '{')
-						json += ',';
-					json += R"("scale":[)";
-					json += to_string_fp(trs.scale[0]) + ',' + to_string_fp(trs.scale[1]) + ',' + to_string_fp(trs.scale[2]);
-					json += "]";
+					comma();
+					append_key_range<"scale">(builder, trs.scale);
 				}
 
 				if (trs.translation != math::fvec3(0.f)) {
-					if (json.back() != '{')
-						json += ',';
-					json += R"("translation":[)";
-					json += to_string_fp(trs.translation[0]) + ',' + to_string_fp(trs.translation[1]) + ',' + to_string_fp(trs.translation[2]);
-					json += "]";
+					comma();
+					append_key_range<"translation">(builder, trs.translation);
 				}
 			},
 			[&](const math::fmat4x4& matrix) {
-				if (json.back() != '{')
-					json += ',';
-				json += R"("matrix":[)";
+				comma();
+				auto arr = scoped_array<"matrix">(builder);
 				for (std::size_t i = 0; i < matrix.columns(); ++i) {
 					for (std::size_t j = 0; j < matrix.rows(); ++j) {
-						json += to_string_fp(matrix.col(i)[j]);
+						builder.append(matrix.col(i)[j]);
 						if (i * matrix.columns() + j + 1 < matrix.columns() * matrix.rows()) {
-							json += ',';
+							builder.append_comma();
 						}
 					}
 				}
-				json += ']';
 			},
 		}, it->transform);
 
@@ -1330,739 +1490,723 @@ void fg::Exporter::writeNodes(const Asset& asset, std::string& json) {
 #endif
 			|| !it->visible || !it->selectable || !it->hoverable
 			) {
-			if (json.back() != '{') json += ',';
-			json += R"("extensions":{)";
+			comma();
+
+			auto extensions_obj = scoped_object<"extensions">(builder);
+
+			comma_separator extensionComma { builder };
+
 			if (!it->instancingAttributes.empty()) {
-				json += R"("EXT_mesh_gpu_instancing":{"attributes":{)";
+				extensionComma();
+
+				auto instancing_obj = scoped_object<"EXT_mesh_gpu_instancing">(builder);
+				auto attributes = scoped_object<"attributes">(builder);
 				for (auto ait = it->instancingAttributes.begin(); ait != it->instancingAttributes.end(); ++ait) {
-					json += '"' + std::string(ait->name) + "\":" + std::to_string(ait->accessorIndex);
-					if (uabs(std::distance(it->instancingAttributes.begin(), ait)) + 1 <
-						it->instancingAttributes.size())
-						json += ',';
+					if (ait != it->instancingAttributes.begin())
+						builder.append_comma();
+
+					builder.append_key_value(ait->name, ait->accessorIndex);
 				}
-				json += "}}";
 			}
 			if (it->lightIndex.has_value()) {
-				if (json.back() != '{') json += ',';
-				json += R"("KHR_lights_punctual":{"light":)" + std::to_string(it->lightIndex.value()) + '}';
+				extensionComma();
+
+				auto lights_obj = scoped_object<"KHR_lights_punctual">(builder);
+				builder.append_key_value<"light">(it->lightIndex.value());
 			}
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			if (it->physicsRigidBody) {
-				if (json.back() != '{') json += ',';
-				json += R"("KHR_physics_rigid_bodies":{)";
+				extensionComma();
 
-				const auto writeGeometry = [&json](const Geometry& geom) {
-					json += R"("geometry":{)";
+				auto physics_obj = scoped_object<"KHR_physics_rigid_bodies">(builder);
+				comma_separator bodyComma { builder };
+
+				const auto writeGeometry = [&builder](const Geometry& geom) {
+					auto geometry_obj = scoped_object<"geometry">(builder);
+
+					comma_separator geometryComma { builder };
+
 					if (geom.shape.has_value()) {
-						json += R"("shape":)" + std::to_string(*geom.shape);
+						geometryComma();
+						builder.append_key_value<"shape">(*geom.shape);
 					} else if (geom.mesh.has_value()) {
-						json += R"("mesh":)" + std::to_string(*geom.mesh);
+						geometryComma();
+						builder.append_key_value<"mesh">(*geom.mesh);
 					}
 					if (geom.convexHull) {
-						if (json.back() != '{') json += ',';
-						json += R"("convexHull":true)";
+						geometryComma();
+						builder.append_key_value<"convexHull">(true);
 					}
-					json += '}';
 				};
 
 				if (it->physicsRigidBody->motion.has_value()) {
 					const auto& motion = *it->physicsRigidBody->motion;
-					json += R"("motion":{)";
-					if (motion.isKinematic) json += R"("isKinematic":true)";
+					bodyComma();
+
+					auto motion_obj = scoped_object<"motion">(builder);
+
+					comma_separator motionComma { builder };
+
+					if (motion.isKinematic) {
+						motionComma();
+						builder.append_key_value<"isKinematic">(true);
+					}
 					if (motion.mass.has_value()) {
-						if (json.back() != '{') json += ',';
-						json += R"("mass":)" + to_string_fp(*motion.mass);
+						motionComma();
+						builder.append_key_value<"mass">(*motion.mass);
 					}
 					if (motion.centerOfMass != math::fvec3(0)) {
-						if (json.back() != '{') json += ',';
-						json += R"("centerOfMass":[)" + to_string_fp(motion.centerOfMass[0]) + ',' + to_string_fp(motion.centerOfMass[1]) + ',' + to_string_fp(motion.centerOfMass[2]) + ']';
+						motionComma();
+						append_key_range<"centerOfMass">(builder, motion.centerOfMass);
 					}
 					if (motion.inertialDiagonal.has_value()) {
-						if (json.back() != '{') json += ',';
-						const auto& d = *motion.inertialDiagonal;
-						json += R"("inertiaDiagonal":[)" + to_string_fp(d[0]) + ',' + to_string_fp(d[1]) + ',' + to_string_fp(d[2]) + ']';
+						motionComma();
+						append_key_range<"inertiaDiagonal">(builder, *motion.inertialDiagonal);
 					}
 					if (motion.inertialOrientation.has_value()) {
-						if (json.back() != '{') json += ',';
-						const auto& q = *motion.inertialOrientation;
-						json += R"("inertiaOrientation":[)" + to_string_fp(q[0]) + ',' + to_string_fp(q[1]) + ',' + to_string_fp(q[2]) + ',' + to_string_fp(q[3]) + ']';
+						motionComma();
+						append_key_range<"inertiaOrientation">(builder, *motion.inertialOrientation);
 					}
 					if (motion.linearVelocity != math::fvec3(0)) {
-						if (json.back() != '{') json += ',';
-						json += R"("linearVelocity":[)" + to_string_fp(motion.linearVelocity[0]) + ',' + to_string_fp(motion.linearVelocity[1]) + ',' + to_string_fp(motion.linearVelocity[2]) + ']';
+						motionComma();
+						append_key_range<"linearVelocity">(builder, motion.linearVelocity);
 					}
 					if (motion.angularVelocity != math::fvec3(0)) {
-						if (json.back() != '{') json += ',';
-						json += R"("angularVelocity":[)" + to_string_fp(motion.angularVelocity[0]) + ',' + to_string_fp(motion.angularVelocity[1]) + ',' + to_string_fp(motion.angularVelocity[2]) + ']';
+						motionComma();
+						append_key_range<"angularVelocity">(builder, motion.angularVelocity);
 					}
 					if (motion.gravityFactor != num(1)) {
-						if (json.back() != '{') json += ',';
-						json += R"("gravityFactor":)" + to_string_fp(motion.gravityFactor);
+						motionComma();
+						builder.append_key_value<"gravityFactor">(motion.gravityFactor);
 					}
-					json += '}';
 				}
 
 				if (it->physicsRigidBody->collider.has_value()) {
 					const auto& collider = *it->physicsRigidBody->collider;
-					if (json.back() != '{') json += ',';
-					json += R"("collider":{)";
+					bodyComma();
+
+					auto collider_obj = scoped_object<"collider">(builder);
 					writeGeometry(collider.geometry);
 					if (collider.physicsMaterial.has_value()) {
-						json += R"(,"physicsMaterial":)" + std::to_string(*collider.physicsMaterial);
+						builder.append_comma();
+						builder.append_key_value<"physicsMaterial">(*collider.physicsMaterial);
 					}
 					if (collider.collisionFilter.has_value()) {
-						json += R"(,"collisionFilter":)" + std::to_string(*collider.collisionFilter);
+						builder.append_comma();
+						builder.append_key_value<"collisionFilter">(*collider.collisionFilter);
 					}
-					json += '}';
 				}
 
 				if (it->physicsRigidBody->trigger.has_value()) {
-					if (json.back() != '{') json += ',';
-					json += R"("trigger":{)";
+					bodyComma();
+
+					auto trigger_obj = scoped_object<"trigger">(builder);
 					visit_exhaustive(visitor{
 						[&](const GeometryTrigger& gt) {
 							writeGeometry(gt.geometry);
 							if (gt.collisionFilter.has_value()) {
-								json += R"(,"collisionFilter":)" + std::to_string(*gt.collisionFilter);
+								builder.append_comma();
+								builder.append_key_value<"collisionFilter">(*gt.collisionFilter);
 							}
 						},
 						[&](const NodeTrigger& nt) {
-							json += R"("nodes":[)";
-							for (auto nit = nt.nodes.begin(); nit != nt.nodes.end(); ++nit) {
-								if (nit != nt.nodes.begin()) json += ',';
-								json += std::to_string(*nit);
-							}
-							json += ']';
+							append_key_range<"nodes">(builder, nt.nodes);
 						}
 					}, *it->physicsRigidBody->trigger);
-					json += '}';
 				}
 
 				if (it->physicsRigidBody->joint.has_value()) {
 					const auto& joint = *it->physicsRigidBody->joint;
-					if (json.back() != '{') json += ',';
-					json += R"("joint":{"connectedNode":)" + std::to_string(joint.connectedNode);
-					json += R"(,"joint":)" + std::to_string(joint.joint);
-					if (joint.enableCollision) json += R"(,"enableCollision":true)";
-					json += '}';
-				}
+					bodyComma();
 
-				json += '}';
+					auto joint_obj = scoped_object<"joint">(builder);
+					builder.append_key_value<"connectedNode">(joint.connectedNode);
+					builder.append_comma();
+					builder.append_key_value<"joint">(joint.joint);
+					if (joint.enableCollision) {
+						builder.append_comma();
+						builder.append_key_value<"enableCollision">(true);
+					}
+				}
 			}
 #endif
 
 			if (!it->visible) {
-				if (json.back() != '{') json += ',';
-				json += R"("KHR_node_visibility":{"visible":false})";
+				extensionComma();
+
+				auto visibility_obj = scoped_object<"KHR_node_visibility">(builder);
+				builder.append_key_value<"visible">(false);
 			}
 
 			if (!it->selectable) {
-				if (json.back() != '{') json += ',';
-				json += R"("KHR_node_selectability":{"selectable":false})";
+				extensionComma();
+
+				auto selectable_obj = scoped_object<"KHR_node_selectability">(builder);
+				builder.append_key_value<"selectable">(false);
 			}
 
 			if (!it->hoverable) {
-				if (json.back() != '{') json += ',';
-				json += R"("KHR_node_hoverability":{"hoverable":false})";
-			}
+				extensionComma();
 
-			json += "}";
+				auto hoverability_obj = scoped_object<"KHR_node_hoverability">(builder);
+				builder.append_key_value<"hoverable">(false);
+			}
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.nodes.begin(), it)), fastgltf::Category::Nodes, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{')
-					json += ',';
-				json += std::string("\"extras\":") + *extras;
+				comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
 		if (!it->name.empty()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("name":")" + fg::escapeString(it->name) + '"';
+			comma();
+			builder.append_key_value<"name">(it->name);
 		}
-		json += '}';
-		if (uabs(std::distance(asset.nodes.begin(), it)) + 1 <asset.nodes.size())
-			json += ',';
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeSamplers(const Asset& asset, std::string& json) {
+void fg::Exporter::writeSamplers(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.samplers.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"samplers\":[";
+	auto samplers = scoped_array<"samplers">(builder);
+
 	for (auto it = asset.samplers.begin(); it != asset.samplers.end(); ++it) {
-		json += '{';
+		if (it != asset.samplers.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
+
+		comma_separator comma { builder };
 
 		if (it->magFilter.has_value()) {
-			json += R"("magFilter":)" + std::to_string(to_underlying(it->magFilter.value()));
+			comma();
+			builder.append_key_value<"magFilter">(to_underlying(it->magFilter.value()));
 		}
 		if (it->minFilter.has_value()) {
-			if (json.back() != '{') json += ',';
-			json += R"("minFilter":)" + std::to_string(to_underlying(it->minFilter.value()));
+			comma();
+			builder.append_key_value<"minFilter">(to_underlying(it->minFilter.value()));
 		}
 		if (it->wrapS != Wrap::Repeat) {
-			if (json.back() != '{') json += ',';
-			json += R"("wrapS":)" + std::to_string(to_underlying(it->wrapS));
+			comma();
+			builder.append_key_value<"wrapS">(to_underlying(it->wrapS));
 		}
 		if (it->wrapT != Wrap::Repeat) {
-			if (json.back() != '{') json += ',';
-			json += R"("wrapT":)" + std::to_string(to_underlying(it->wrapT));
+			comma();
+			builder.append_key_value<"wrapT">(to_underlying(it->wrapT));
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.samplers.begin(), it)), fastgltf::Category::Samplers, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{')
-					json += ',';
-				json += std::string("\"extras\":") + *extras;
+				comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
 		if (!it->name.empty()) {
-			if (json.back() != '{') json += ',';
-			json += R"("name":")" + fg::escapeString(it->name) + '"';
+			comma();
+			builder.append_key_value<"name">(it->name);
 		}
-		json += '}';
-		if (uabs(std::distance(asset.samplers.begin(), it)) + 1 <asset.samplers.size())
-			json += ',';
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeScenes(const Asset& asset, std::string& json) {
+void fg::Exporter::writeScenes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.scenes.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
 	if (asset.defaultScene.has_value()) {
-		json += "\"scene\":" + std::to_string(asset.defaultScene.value()) + ',';
+		builder.append_key_value<"scene">(asset.defaultScene.value());
+		builder.append_comma();
 	}
 
-	json += "\"scenes\":[";
+	auto scenes = scoped_array<"scenes">(builder);
+
 	for (auto it = asset.scenes.begin(); it != asset.scenes.end(); ++it) {
-		json += '{';
+		if (it != asset.scenes.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
+
+		comma_separator comma {builder};
 
 		// scene.nodes is optional (minItems:1), so omit when empty.
 		if (!it->nodeIndices.empty()) {
-			json += R"("nodes":[)";
-			auto itn = it->nodeIndices.begin();
-			while (itn != it->nodeIndices.end()) {
-				json += std::to_string(*itn);
-				++itn;
-				if (uabs(std::distance(it->nodeIndices.begin(), itn)) < it->nodeIndices.size())
-					json += ',';
-			}
-			json += ']';
+			comma();
+			append_key_range<"nodes">(builder, it->nodeIndices);
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.scenes.begin(), it)), fastgltf::Category::Scenes, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{')
-					json += ',';
-				json += std::string("\"extras\":") + *extras;
+				comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
 		if (!it->name.empty()) {
-			if (json.back() != '{')
-				json += ',';
-			json += R"("name":")" + fg::escapeString(it->name) + '"';
+			comma();
+			builder.append_key_value<"name">(it->name);
 		}
-		json += '}';
-		if (uabs(std::distance(asset.scenes.begin(), it)) + 1 <asset.scenes.size())
-			json += ',';
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeSkins(const Asset& asset, std::string& json) {
+void fg::Exporter::writeSkins(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.skins.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"skins\":[";
+	auto skins = scoped_array<"skins">(builder);
+
 	for (auto it = asset.skins.begin(); it != asset.skins.end(); ++it) {
-		json += '{';
+		if (it != asset.skins.begin())
+			builder.append_comma();
 
-		if (it->inverseBindMatrices.has_value())
-			json += R"("inverseBindMatrices":)" + std::to_string(it->inverseBindMatrices.value()) + ',';
+		auto obj = scoped_object(builder);
 
-		if (it->skeleton.has_value())
-			json += R"("skeleton":)" + std::to_string(it->skeleton.value()) + ',';
-
-		json += R"("joints":[)";
-		auto itj = it->joints.begin();
-		while (itj != it->joints.end()) {
-			json += std::to_string(*itj);
-			++itj;
-			if (uabs(std::distance(it->joints.begin(), itj)) < it->joints.size())
-				json += ',';
+		if (it->inverseBindMatrices.has_value()) {
+			builder.append_key_value<"inverseBindMatrices">(it->inverseBindMatrices.value());
+			builder.append_comma();
 		}
-		json += ']';
+
+		if (it->skeleton.has_value()) {
+			builder.append_key_value<"skeleton">(it->skeleton.value());
+			builder.append_comma();
+		}
+
+		append_key_range<"joints">(builder, it->joints);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.skins.begin(), it)), fastgltf::Category::Skins, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{')
-					json += ',';
-				json += std::string("\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-		json += '}';
-		if (uabs(std::distance(asset.skins.begin(), it)) + 1 <asset.skins.size())
-			json += ',';
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += ']';
 }
 
-void fg::Exporter::writeTextures(const Asset& asset, std::string& json) {
+void fg::Exporter::writeTextures(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.textures.empty())
 		return;
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
 
-	json += "\"textures\":[";
+	auto textures = scoped_array<"textures">(builder);
+
 	for (auto it = asset.textures.begin(); it != asset.textures.end(); ++it) {
-		json += '{';
+		if (it != asset.textures.begin())
+			builder.append_comma();
 
-		if (it->samplerIndex.has_value())
-			json += R"("sampler":)" + std::to_string(it->samplerIndex.value());
+		auto obj = scoped_object(builder);
+
+		comma_separator comma { builder };
+
+		if (it->samplerIndex.has_value()) {
+			comma();
+			builder.append_key_value<"sampler">(it->samplerIndex.value());
+		}
 
 		if (it->imageIndex.has_value()) {
-			if (json.back() != '{') json += ',';
-			json += R"("source":)" + std::to_string(it->imageIndex.value());
+			comma();
+			builder.append_key_value<"source">(it->imageIndex.value());
 		}
 
 		if (it->basisuImageIndex.has_value() || it->ddsImageIndex.has_value() || it->webpImageIndex.has_value()) {
-			if (json.back() != '{') json += ',';
-			json += R"("extensions":{)";
+			comma();
+
+			auto extensions_obj = scoped_object<"extensions">(builder);
+
+			comma_separator extensionComma { builder };
+
 			if (it->basisuImageIndex.has_value()) {
-				json += R"("KHR_texture_basisu":{"source":)" + std::to_string(it->basisuImageIndex.value()) + '}';
+				extensionComma();
+				auto basisu_obj = scoped_object<"KHR_texture_basisu">(builder);
+				builder.append_key_value<"source">(it->basisuImageIndex.value());
 			}
 			if (it->ddsImageIndex.has_value()) {
-				if (json.back() == '}') json += ',';
-				json += R"("MSFT_texture_dds":{"source":)" + std::to_string(it->ddsImageIndex.value()) + '}';
+				extensionComma();
+				auto dds_obj = scoped_object<"MSFT_texture_dds">(builder);
+				builder.append_key_value<"source">(it->ddsImageIndex.value());
 			}
 			if (it->webpImageIndex.has_value()) {
-				if (json.back() == '}') json += ',';
-				json += R"("EXT_texture_webp":{"source":)" + std::to_string(it->webpImageIndex.value()) + '}';
+				extensionComma();
+				auto webp_obj = scoped_object<"EXT_texture_webp">(builder);
+				builder.append_key_value<"source">(it->webpImageIndex.value());
 			}
-			json += "}";
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.textures.begin(), it)), fastgltf::Category::Textures, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{')
-					json += ',';
-				json += std::string("\"extras\":") + *extras;
+				comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
 
-		if (!it->name.empty())
-			json += R"(,"name":")" + fg::escapeString(it->name) + '"';
-		json += '}';
-		if (uabs(std::distance(asset.textures.begin(), it)) + 1 <asset.textures.size())
-			json += ',';
+		if (!it->name.empty()) {
+			comma();
+			builder.append_key_value<"name">(it->name);
+		}
 	}
-	json += ']';
 }
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
+void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.shapes.empty()) {
 		return;
 	}
-	if (json.back() == ']' || json.back() == '}') {
-		json += ',';
-	}
 
-	json += R"("KHR_implicit_shapes":{"shapes":[)";
+	auto implicit_shapes = scoped_object<"KHR_implicit_shapes">(builder);
+	auto shapes = scoped_array<"shapes">(builder);
+
 	for (auto it = asset.shapes.begin(); it != asset.shapes.end(); ++it) {
-		const auto& shape = *it;
-		json += '{';
+		if (it != asset.shapes.begin())
+			builder.append_comma();
 
-		visit_exhaustive(visitor{
+		auto obj = scoped_object(builder);
+
+		const auto& shape = *it;
+
+		visit_exhaustive(visitor {
 			[&](const SphereShape& sphere) {
-				json += R"("type":"sphere","sphere":{"radius":)" + to_string_fp(sphere.radius) + '}';
+				builder.append_key_value<"type">("sphere");
+				builder.append_comma();
+
+				auto sphere_obj = scoped_object<"sphere">(builder);
+				builder.append_key_value<"radius">(sphere.radius);
 			},
 			[&](const BoxShape& box) {
-				json += R"("type":"box","box":{"size":[)" + to_string(box.size) + "]}";
+				builder.append_key_value<"type">("box");
+				builder.append_comma();
+
+				auto box_obj = scoped_object<"box">(builder);
+				append_key_range<"size">(builder, box.size);
 			},
 			[&](const CylinderShape& cylinder) {
-				json += R"("type":"cylinder","cylinder":{"height":)" + to_string_fp(cylinder.height)
-					+ R"(,"radiusBottom":)" + to_string_fp(cylinder.radiusBottom) + R"(,"radiusTop":)"
-					+ to_string_fp(cylinder.radiusTop) + "}";;
+				builder.append_key_value<"type">("cylinder");
+				builder.append_comma();
+
+				auto cylinder_obj = scoped_object<"cylinder">(builder);
+				builder.append_key_value<"height">(cylinder.height);
+				builder.append_comma();
+				builder.append_key_value<"radiusBottom">(cylinder.radiusBottom);
+				builder.append_comma();
+				builder.append_key_value<"radiusTop">(cylinder.radiusTop);
 			},
 			[&](const CapsuleShape& capsule) {
-				json += R"("type":"capsule","capsule":{"height":)" + to_string_fp(capsule.height)
-					+ R"(,"radiusBottom":)" + to_string_fp(capsule.radiusBottom)
-					+ R"(,"radiusTop":)" + to_string_fp(capsule.radiusTop) + '}';
+				builder.append_key_value<"type">("capsule");
+				builder.append_comma();
+
+				auto capsule_obj = scoped_object<"capsule">(builder);
+				builder.append_key_value<"height">(capsule.height);
+				builder.append_comma();
+				builder.append_key_value<"radiusBottom">(capsule.radiusBottom);
+				builder.append_comma();
+				builder.append_key_value<"radiusTop">(capsule.radiusTop);
 			},
 			[&](const PlaneShape& plane) {
-				json += R"("type":"plane","plane":{"sizeX":)" + to_string_fp(plane.sizeX)
-					+ R"(,"sizeZ":)" + to_string_fp(plane.sizeZ)
-					+ R"(,"doubleSided":)" + (plane.doubleSided ? "true" : "false") + '}';
+				builder.append_key_value<"type">("plane");
+				builder.append_comma();
+
+				auto plane_obj = scoped_object<"plane">(builder);
+				builder.append_key_value<"sizeX">(plane.sizeX);
+				builder.append_comma();
+				builder.append_key_value<"sizeZ">(plane.sizeZ);
+				builder.append_comma();
+				builder.append_key_value<"doubleSided">(plane.doubleSided);
 			}
-			},
-			shape);
+		}, shape);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.shapes.begin(), it)), fastgltf::Category::Shapes, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{') {
-					json += ',';
-				}
-				json += std::string("\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
-
-		json += '}';
-
-		if (uabs(std::distance(asset.shapes.begin(), it)) + 1 < asset.shapes.size()) {
-			json += ',';
-		}
 	}
-	json += "]}";
 }
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-void fg::Exporter::writePhysicsMaterials(const Asset& asset, std::string& json) {
+void fg::Exporter::writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.physicsMaterials.empty()) {
 		return;
 	}
-	if (json.back() == ']' || json.back() == '}') {
-		json += ',';
-	}
 
-	json += R"("physicsMaterials":[)";
+	auto physics_materials = scoped_array<"physicsMaterials">(builder);
+
+	const auto writeCombineMode = [&builder](CombineMode mode) {
+		switch (mode) {
+		case CombineMode::Average:
+		case CombineMode::Invalid:
+			builder.escape_and_append_with_quotes<"average">();
+			break;
+		case CombineMode::Minimum:
+			builder.escape_and_append_with_quotes<"minimum">();
+			break;
+		case CombineMode::Maximum:
+			builder.escape_and_append_with_quotes<"maximum">();
+			break;
+		case CombineMode::Multiply:
+			builder.escape_and_append_with_quotes<"multiply">();
+			break;
+		}
+	};
 
 	for (auto it = asset.physicsMaterials.begin(); it != asset.physicsMaterials.end(); ++it) {
+		if (it != asset.physicsMaterials.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
+
 		const auto& material = *it;
 
-		json += R"({"staticFriction":)" + to_string_fp(material.staticFriction)
-			+ R"(,"dynamicFriction":)" + to_string_fp(material.dynamicFriction)
-			+ R"(,"restitution":)" + to_string_fp(material.restitution)
-			+ R"(,"frictionCombine":)";
-		switch (material.frictionCombine) {
-		case CombineMode::Average:
-		case CombineMode::Invalid:
-			json += R"("average")";
-			break;
-		case CombineMode::Minimum:
-			json += R"("minimum")";
-			break;
-		case CombineMode::Maximum:
-			json += R"("maximum")";
-			break;
-		case CombineMode::Multiply:
-			json += R"("multiply")";
-			break;
-		}
-		json += R"(,"restitutionCombine":)";
-		switch (material.restitutionCombine) {
-		case CombineMode::Average:
-		case CombineMode::Invalid:
-			json += R"("average")";
-			break;
-		case CombineMode::Minimum:
-			json += R"("minimum")";
-			break;
-		case CombineMode::Maximum:
-			json += R"("maximum")";
-			break;
-		case CombineMode::Multiply:
-			json += R"("multiply")";
-			break;
-		}
+		builder.append_key_value<"staticFriction">(material.staticFriction);
+		builder.append_comma();
+		builder.append_key_value<"dynamicFriction">(material.dynamicFriction);
+		builder.append_comma();
+		builder.append_key_value<"restitution">(material.restitution);
+		builder.append_comma();
+
+		builder.escape_and_append_with_quotes<"frictionCombine">();
+		builder.append_colon();
+		writeCombineMode(material.frictionCombine);
+
+		builder.append_comma();
+
+		builder.escape_and_append_with_quotes<"restitutionCombine">();
+		builder.append_colon();
+		writeCombineMode(material.restitutionCombine);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsMaterials.begin(), it)), fastgltf::Category::PhysicsMaterials, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{') {
-					json += ',';
-				}
-				json += std::string("\"extras\":") + *extras;
+				builder.append_comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
-
-		json += '}';
-
-		if (uabs(std::distance(asset.physicsMaterials.begin(), it)) + 1 < asset.physicsMaterials.size()) {
-			json += ',';
-		}
 	}
-
-	json += ']';
 }
 
-void fg::Exporter::writeCollisionFilters(const Asset& asset, std::string& json) {
+void fg::Exporter::writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.collisionFilters.empty()) {
 		return;
 	}
-	if (json.back() == ']' || json.back() == '}') {
-		json += ',';
-	}
 
-	json += R"("collisionFilters":[)";
+	auto collision_filters = scoped_array<"collisionFilters">(builder);
 
 	for (auto it = asset.collisionFilters.begin(); it != asset.collisionFilters.end(); ++it) {
+		if (it != asset.collisionFilters.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
+
 		const auto& filter = *it;
 
-		json += '{';
+		comma_separator comma { builder };
 
 		if (!filter.collisionSystems.empty()) {
-			json += R"("collisionSystems":[)";
-			for (auto systemIt = filter.collisionSystems.begin(); systemIt != filter.collisionSystems.end(); ++systemIt) {
-				json += '"';
-				json += *systemIt;
-				json += '"';
-
-				if (uabs(std::distance(filter.collisionSystems.begin(), systemIt)) + 1 < filter.collisionSystems.size()) {
-					json += ',';
-				}
-			}
-			json += ']';
-		}
-		if (json.back() == ']') {
-			json += ',';
+			comma();
+			append_key_range<"collisionSystems">(builder, filter.collisionSystems);
 		}
 
 		if (!filter.collideWithSystems.empty()) {
-			json += R"("collideWithSystems":[)";
-			for (auto systemIt = filter.collideWithSystems.begin(); systemIt != filter.collideWithSystems.end(); ++systemIt) {
-				json += '"';
-				json += *systemIt;
-				json += '"';
-
-				if (uabs(std::distance(filter.collideWithSystems.begin(), systemIt)) + 1 < filter.collideWithSystems.size()) {
-					json += ',';
-				}
-			}
-			json += ']';
-		}
-		if (json.back() == ']') {
-			json += ',';
+			comma();
+			append_key_range<"collideWithSystems">(builder, filter.collideWithSystems);
 		}
 
 		if (!filter.notCollideWithSystems.empty()) {
-			json += R"("notCollideWithSystems":[)";
-			for (auto systemIt = filter.notCollideWithSystems.begin(); systemIt != filter.notCollideWithSystems.end(); ++systemIt) {
-				json += '"';
-				json += *systemIt;
-				json += '"';
-
-				if (uabs(std::distance(filter.notCollideWithSystems.begin(), systemIt)) + 1 < filter.notCollideWithSystems.size()) {
-					json += ',';
-				}
-			}
-			json += ']';
+			comma();
+			append_key_range<"notCollideWithSystems">(builder, filter.notCollideWithSystems);
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.collisionFilters.begin(), it)), fastgltf::Category::Shapes, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{') {
-					json += ',';
-				}
-				json += std::string("\"extras\":") + *extras;
+				comma();
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
-
-		if (json.back() == ',') json.pop_back();
-		json += '}';
-
-		if (uabs(std::distance(asset.collisionFilters.begin(), it)) + 1 < asset.collisionFilters.size()) {
-			json += ',';
-		}
 	}
-
-	json += ']';
 }
 
-void fg::Exporter::writePhysicsJoints(const Asset& asset, std::string& json) {
+void fg::Exporter::writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.physicsJoints.empty()) {
 		return;
 	}
-	if (json.back() == ']' || json.back() == '}') {
-		json += ',';
-	}
 
-	json += R"("physicsJoints":[)";
+	auto physics_joints = scoped_array<"physicsJoints">(builder);
 
 	for (auto it = asset.physicsJoints.begin(); it != asset.physicsJoints.end(); ++it) {
+		if (it != asset.physicsJoints.begin())
+			builder.append_comma();
+
+		auto obj = scoped_object(builder);
+
 		const auto& joint = *it;
 
-		json += '{';
-
 		if (!joint.limits.empty()) {
-			json += R"("limits":[)";
-			for (auto limitIt = joint.limits.begin(); limitIt != joint.limits.end(); ++limitIt) {
-				const auto& limit = *limitIt;
+			auto limits = scoped_array<"limits">(builder);
 
-				json += '{';
+			for (auto lit = joint.limits.begin(); lit != joint.limits.end(); ++lit) {
+				if (lit != joint.limits.begin())
+					builder.append_comma();
+
+				auto limit_obj = scoped_object(builder);
+
+				const auto& limit = *lit;
+
 				if (!limit.linearAxes.empty()) {
-					json += R"("linearAxes":[)";
-					for (auto axisIt = limit.linearAxes.begin(); axisIt != limit.linearAxes.end(); ++axisIt) {
-						json += std::to_string(*axisIt);
-
-						if (uabs(std::distance(limit.linearAxes.begin(), axisIt)) + 1 < limit.linearAxes.size()) {
-							json += ',';
-						}
-					}
-					json += "],";
+					append_key_range<"linearAxes">(builder, limit.linearAxes);
+					builder.append_comma();
 				}
 				if (!limit.angularAxes.empty()) {
-					json += R"("angularAxes":[)";
-					for (auto axisIt = limit.angularAxes.begin(); axisIt != limit.angularAxes.end(); ++axisIt) {
-						json += std::to_string(*axisIt);
-
-						if (uabs(std::distance(limit.angularAxes.begin(), axisIt)) + 1 < limit.angularAxes.size()) {
-							json += ',';
-						}
-					}
-					json += "],";
+					append_key_range<"angularAxes">(builder, limit.angularAxes);
+					builder.append_comma();
 				}
 				if (limit.min) {
-					json += R"("min":)" + to_string_fp(*limit.min) + ',';
+					builder.append_key_value<"min">(*limit.min);
+					builder.append_comma();
 				}
 				if (limit.max) {
-					json += R"("max":)" + to_string_fp(*limit.max) + ',';
+					builder.append_key_value<"max">(*limit.max);
+					builder.append_comma();
 				}
 				if (limit.stiffness) {
-					json += R"("stiffness":)" + to_string_fp(*limit.stiffness) + ',';
+					builder.append_key_value<"stiffness">(*limit.stiffness);
+					builder.append_comma();
 				}
-				json += R"("damping":)" + to_string_fp(limit.damping);
-				json += '}';
-
-				if (uabs(std::distance(joint.limits.begin(), limitIt)) + 1 < joint.limits.size()) {
-					json += ',';
-				}
-			}
-			json += ']';
-
-			if(!joint.drives.empty()) {
-				json += ',';
+				builder.append_key_value<"damping">(limit.damping);
 			}
 		}
 
 		if (!joint.drives.empty()) {
-			json += R"("drives":[)";
-			for (auto driveIt = joint.drives.begin(); driveIt != joint.drives.end(); ++driveIt) {
-				const auto& drive = *driveIt;
+			if (!joint.limits.empty())
+				builder.append_comma();
 
-				json += R"({"type":)";
-				switch(drive.type) {
+			auto drives = scoped_array<"drives">(builder);
+
+			for (auto dit = joint.drives.begin(); dit != joint.drives.end(); ++dit) {
+				if (dit != joint.drives.begin())
+					builder.append_comma();
+
+				auto drive_obj = scoped_object(builder);
+
+				const auto& drive = *dit;
+
+				builder.escape_and_append_with_quotes<"type">();
+				builder.append_colon();
+				switch (drive.type) {
 				case DriveType::Linear:
 				case DriveType::Invalid:
-					json += R"("linear")";
+					builder.escape_and_append_with_quotes<"linear">();
 					break;
 				case DriveType::Angular:
-					json += R"("angular")";
+					builder.escape_and_append_with_quotes<"angular">();
 					break;
 				}
 
-				json += R"(,"mode":)";
+				builder.append_comma();
+				builder.escape_and_append_with_quotes<"mode">();
+				builder.append_colon();
 				switch (drive.mode) {
 				case DriveMode::Force:
 				case DriveMode::Invalid:
-					json += R"("force")";
+					builder.escape_and_append_with_quotes<"force">();
 					break;
 				case DriveMode::Acceleration:
-					json += R"("acceleration")";
+					builder.escape_and_append_with_quotes<"acceleration">();
 					break;
 				}
 
-				json += R"(,"axis":)" + std::to_string(drive.axis)
-					+ R"(,"maxForce":)" + to_string_fp(drive.maxForce)
-					+ R"(,"positionTarget":)" + to_string_fp(drive.positionTarget)
-					+ R"(,"velocityTarget":)" + to_string_fp(drive.velocityTarget)
-					+ R"(,"stiffness":)" + to_string_fp(drive.stiffness)
-					+ R"(,"damping":)" + to_string_fp(drive.damping);
-
-				json += '}';
-
-				if (uabs(std::distance(joint.drives.begin(), driveIt)) + 1 < joint.drives.size()) {
-					json += ',';
-				}
+				builder.append_comma();
+				builder.append_key_value<"axis">(drive.axis);
+				builder.append_comma();
+				builder.append_key_value<"maxForce">(drive.maxForce);
+				builder.append_comma();
+				builder.append_key_value<"positionTarget">(drive.positionTarget);
+				builder.append_comma();
+				builder.append_key_value<"velocityTarget">(drive.velocityTarget);
+				builder.append_comma();
+				builder.append_key_value<"stiffness">(drive.stiffness);
+				builder.append_comma();
+				builder.append_key_value<"damping">(drive.damping);
 			}
-
-			json += ']';
 		}
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.physicsJoints.begin(), it)), fastgltf::Category::PhysicsJoints, userPointer);
 			if (extras.has_value()) {
-				if (json.back() != '{') {
-					json += ',';
+				if (!joint.limits.empty() || !joint.drives.empty()) {
+					builder.append_comma();
 				}
-				json += std::string("\"extras\":") + *extras;
+				append_raw_key_value<"extras">(builder, *extras);
 			}
 		}
-
-		json += "}";
-
-		if (uabs(std::distance(asset.physicsJoints.begin(), it)) + 1 < asset.physicsJoints.size()) {
-			json += ',';
-		}
 	}
-
-	json += "]";
 }
 #endif
 
-void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, std::string& json) {
-	if (json.back() == ']' || json.back() == '}')
-		json += ',';
-	json += "\"extensions\":{";
+void fg::Exporter::writeExtensions(const fastgltf::Asset& asset, simdjson::builder::string_builder& builder) {
+	auto extensions = scoped_object<"extensions">(builder);
 
-	writeLights(asset, json);
+	comma_separator comma { builder };
+
+	if (!asset.lights.empty()) {
+		comma();
+		writeLights(asset, builder);
+	}
 
 #if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-	writeShapes(asset, json);
+	if (!asset.shapes.empty()) {
+		comma();
+		writeShapes(asset, builder);
+	}
 #endif
 
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	if (!asset.physicsMaterials.empty() || !asset.collisionFilters.empty() || !asset.physicsJoints.empty()) {
-		if (json.back() == ']' || json.back() == '}') {
-			json += ',';
+		comma();
+
+		auto obj = scoped_object<"KHR_physics_rigid_bodies">(builder);
+
+		comma_separator physicsComma { builder };
+		if (!asset.physicsMaterials.empty()) {
+			physicsComma();
+			writePhysicsMaterials(asset, builder);
 		}
-		json += R"("KHR_physics_rigid_bodies":{)";
-		writePhysicsMaterials(asset, json);
-		writeCollisionFilters(asset, json);
-		writePhysicsJoints(asset, json);
-		json += '}';
+		if (!asset.collisionFilters.empty()) {
+			physicsComma();
+			writeCollisionFilters(asset, builder);
+		}
+		if (!asset.physicsJoints.empty()) {
+			physicsComma();
+			writePhysicsJoints(asset, builder);
+		}
 	}
 #endif
 
 	if (!asset.materialVariants.empty()) {
-		if (json.back() != '{')
-			json += ',';
-		json += R"("KHR_materials_variants":{"variants":[)";
-		for (const auto& variant : asset.materialVariants) {
-			if (json.back() == '}')
-				json += ',';
-			json += R"({"name":")" + variant + "\"}";
-		}
-		json += "]}";
-	}
+		comma();
 
-	json += '}';
+		auto obj = scoped_object<"KHR_materials_variants">(builder);
+		auto arr = scoped_array<"variants">(builder);
+		for (auto it = asset.materialVariants.begin(); it != asset.materialVariants.end(); ++it) {
+			if (it != asset.materialVariants.begin())
+				builder.append_comma();
+
+			auto variant_obj = scoped_object(builder);
+			builder.append_key_value<"name">(*it);
+		}
+	}
 }
 
 fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) {
@@ -2104,71 +2248,108 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
 }
 
 std::string fg::Exporter::writeJson(const fastgltf::Asset &asset) {
-	// Fairly rudimentary approach of just composing the JSON string using a std::string.
-	std::string outputString;
+	simdjson::builder::string_builder builder;
 
-	outputString += "{";
+	{
+		auto root_obj = scoped_object(builder);
 
-	// Write asset info
-	outputString += "\"asset\":{";
-	if (asset.assetInfo.has_value()) {
-		if (!asset.assetInfo->copyright.empty())
-			outputString += R"("copyright":")" + fg::escapeString(asset.assetInfo->copyright) + "\",";
-		if (!asset.assetInfo->generator.empty())
-			outputString += R"("generator":")" + fg::escapeString(asset.assetInfo->generator) + "\",";
-		if (!asset.assetInfo->minVersion.empty())
-			outputString += R"("minVersion":")" + fg::escapeString(asset.assetInfo->minVersion) + "\",";
-		outputString += R"("version":")" + asset.assetInfo->gltfVersion + '"';
-	} else {
-		outputString += R"("generator":"fastgltf",)";
-		outputString += R"("version":"2.0")";
-	}
-	outputString += '}';
-
-	// Write extension usage info
-	if (!asset.extensionsUsed.empty()) {
-		if (outputString.back() != '{') outputString += ',';
-		outputString += "\"extensionsUsed\":[";
-		for (auto it = asset.extensionsUsed.begin(); it != asset.extensionsUsed.end(); ++it) {
-			outputString += '\"' + *it + '\"';
-			if (uabs(std::distance(asset.extensionsUsed.begin(), it)) + 1 <asset.extensionsUsed.size())
-				outputString += ',';
+		// Write asset info
+		{
+			auto asset_obj = scoped_object<"asset">(builder);
+			if (asset.assetInfo.has_value()) {
+				builder.append_key_value<"version">(asset.assetInfo->gltfVersion);
+				if (!asset.assetInfo->copyright.empty()) {
+					builder.append_comma();
+					builder.append_key_value<"copyright">(asset.assetInfo->copyright);
+				}
+				if (!asset.assetInfo->generator.empty()) {
+					builder.append_comma();
+					builder.append_key_value<"generator">(asset.assetInfo->generator);
+				}
+				if (!asset.assetInfo->minVersion.empty()) {
+					builder.append_comma();
+					builder.append_key_value<"minVersion">(asset.assetInfo->minVersion);
+				}
+			} else {
+				builder.append_key_value<"generator">("fastgltf");
+				builder.append_comma();
+				builder.append_key_value<"version">("2.0");
+			}
 		}
-		outputString += ']';
-	}
-	if (!asset.extensionsRequired.empty()) {
-		if (outputString.back() != '{') outputString += ',';
-		outputString += "\"extensionsRequired\":[";
-		for (auto it = asset.extensionsRequired.begin(); it != asset.extensionsRequired.end(); ++it) {
-			outputString += '\"' + *it + '\"';
-			if (uabs(std::distance(asset.extensionsRequired.begin(), it)) + 1 <asset.extensionsRequired.size())
-				outputString += ',';
+
+		// Write extension usage info
+		if (!asset.extensionsUsed.empty()) {
+			builder.append_comma();
+			append_key_range<"extensionsUsed">(builder, asset.extensionsUsed);
 		}
-		outputString += ']';
+		if (!asset.extensionsRequired.empty()) {
+			builder.append_comma();
+			append_key_range<"extensionsRequired">(builder, asset.extensionsRequired);
+		}
+
+		if (!asset.accessors.empty()) {
+			builder.append_comma();
+			writeAccessors(asset, builder);
+		}
+		if (!asset.animations.empty()) {
+			builder.append_comma();
+			writeAnimations(asset, builder);
+		}
+		if (!asset.buffers.empty()) {
+			builder.append_comma();
+			writeBuffers(asset, builder);
+		}
+		if (!asset.bufferViews.empty()) {
+			builder.append_comma();
+			writeBufferViews(asset, builder);
+		}
+		if (!asset.cameras.empty()) {
+			builder.append_comma();
+			writeCameras(asset, builder);
+		}
+		if (!asset.images.empty()) {
+			builder.append_comma();
+			writeImages(asset, builder);
+		}
+		if (!asset.materials.empty()) {
+			builder.append_comma();
+			writeMaterials(asset, builder);
+		}
+		if (!asset.meshes.empty()) {
+			builder.append_comma();
+			writeMeshes(asset, builder);
+		}
+		if (!asset.nodes.empty()) {
+			builder.append_comma();
+			writeNodes(asset, builder);
+		}
+		if (!asset.samplers.empty()) {
+			builder.append_comma();
+			writeSamplers(asset, builder);
+		}
+		if (!asset.scenes.empty()) {
+			builder.append_comma();
+			writeScenes(asset, builder);
+		}
+		if (!asset.skins.empty()) {
+			builder.append_comma();
+			writeSkins(asset, builder);
+		}
+		if (!asset.textures.empty()) {
+			builder.append_comma();
+			writeTextures(asset, builder);
+		}
+
+		builder.append_comma();
+		writeExtensions(asset, builder);
 	}
-
-	writeAccessors(asset, outputString);
-	writeAnimations(asset, outputString);
-	writeBuffers(asset, outputString);
-	writeBufferViews(asset, outputString);
-	writeCameras(asset, outputString);
-	writeImages(asset, outputString);
-	writeMaterials(asset, outputString);
-	writeMeshes(asset, outputString);
-	writeNodes(asset, outputString);
-	writeSamplers(asset, outputString);
-	writeScenes(asset, outputString);
-	writeSkins(asset, outputString);
-	writeTextures(asset, outputString);
-	writeExtensions(asset, outputString);
-
-	outputString += "}";
 
 	if (hasBit(options, ExportOptions::PrettyPrintJson)) {
-		prettyPrintJson(outputString);
+		// TODO: how do we solve this now
+		// return simdjson::prettify(builder);
 	}
 
-	return outputString;
+	return std::string(builder);
 }
 
 fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset& asset, ExportOptions _options) {

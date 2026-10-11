@@ -421,6 +421,24 @@ TEST_CASE("Compare parsing performance with minified documents", "[!benchmark][g
 	};
 }
 
+TEST_CASE("Re-export Intel Sponza", "[!benchmark][gltf-benchmark]") {
+	auto sponza_asset = [] {
+		fastgltf::Parser parser;
+		auto bytes = readFileAsBytes(intelSponza / "NewSponza_Main_glTF_003.gltf");
+		auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
+				reinterpret_cast<const std::byte*>(bytes.data()), bytes.size());
+		REQUIRE(jsonData.error() == fastgltf::Error::None);
+		return parser.loadGltfJson(jsonData.get(), intelSponza);
+	}();
+	REQUIRE(sponza_asset.has_value());
+
+	fastgltf::Exporter exporter;
+
+	BENCHMARK("Export NewSponza") {
+		return exporter.writeGltfJson(sponza_asset.get());
+	};
+}
+
 TEST_CASE("Small-string CRC32-C benchmark", "[!benchmark][gltf-benchmark][crc-benchmark]") {
 	std::mt19937 gen;
 	std::uniform_int_distribution<int> dist('a', 'z');
