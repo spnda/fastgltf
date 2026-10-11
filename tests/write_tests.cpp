@@ -194,7 +194,7 @@ TEST_CASE("Test all local models and re-export them", "[write-tests]") {
 		// Parse the glTF
 		fastgltf::GltfFileStream gltfData(epath);
 		auto model = parser.loadGltf(gltfData, epath.parent_path());
-		if (model.error() == fastgltf::Error::UnsupportedVersion || model.error() == fastgltf::Error::UnknownRequiredExtension || model.error() == fastgltf::Error::InvalidOrMissingAssetField)
+		if (model.error() == fastgltf::Error::UnsupportedVersion || model.error() == fastgltf::Error::UnknownRequiredExtension)
 			continue; // Skip any glTF 1.0 or 0.x files or glTFs with unsupported extensions.
 
 		REQUIRE(model.error() == fastgltf::Error::None);

@@ -178,7 +178,7 @@ TEST_CASE("Loading some basic glTF", "[gltf-loader]") {
 		REQUIRE(jsonData.isOpen());
 
 		auto emptyGltf = parser.loadGltfJson(jsonData, path);
-		REQUIRE(emptyGltf.error() == fastgltf::Error::InvalidOrMissingAssetField);
+		REQUIRE(emptyGltf.error() == fastgltf::Error::MissingField);
 	}
 
 	SECTION("Load basic glTF file") {

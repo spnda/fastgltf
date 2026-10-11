@@ -1052,17 +1052,15 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
 		dom::object assetInfo;
 		AssetInfo info {};
-		auto error = root["asset"].get_object().get(assetInfo);
-		if (error == NO_SUCH_FIELD) {
-			return Error::InvalidOrMissingAssetField;
-		}
-		if (error != SUCCESS) [[unlikely]] {
+		if (const auto error = root["asset"].get_object().get(assetInfo); error == NO_SUCH_FIELD) {
+			return Error::MissingField;
+		} else if (error != SUCCESS) [[unlikely]] {
 			return Error::InvalidJson;
 		}
 
 		std::string_view version;
-		if (assetInfo["version"].get_string().get(version) != SUCCESS) [[unlikely]] {
-			return Error::InvalidOrMissingAssetField;
+		if (const auto error = assetInfo["version"].get_string().get(version); error != SUCCESS) [[unlikely]] {
+			return error == NO_SUCH_FIELD ? Error::MissingField : Error::InvalidGltf;
 		}
 
 		const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
@@ -1609,14 +1607,14 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 
 			if (uriView.isDataUri()) {
 				auto decoded = decodeDataUri(uriView);
-				if (decoded.hasError()) {
+				if (decoded.has_error()) {
 					return decoded.error();
 				}
 
 				buffer.data = std::move(decoded.get());
 			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
 				auto file = loadFileFromUri(uriView);
-				if (file.hasError()) {
+				if (file.has_error()) {
 					return file.error();
 				}
 
@@ -2074,14 +2072,14 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 
 			if (uriView.isDataUri()) {
 				auto decoded = decodeDataUri(uriView);
-				if (decoded.hasError()) {
+				if (decoded.has_error()) {
 					return decoded.error();
 				}
 
 				image.data = std::move(decoded.get());
 			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
 				auto file = loadFileFromUri(uriView);
-				if (file.hasError()) {
+				if (file.has_error()) {
 					return file.error();
 				}
 
