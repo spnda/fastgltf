@@ -120,6 +120,18 @@
 #define FASTGLTF_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
+#ifndef __has_cpp_attribute
+#define FASTGLTF_LIFETIMEBOUND
+#elif __has_cpp_attribute(msvc::lifetimebound)
+#define FASTGLTF_LIFETIMEBOUND [[msvc::lifetimebound]]
+#elif __has_cpp_attribute(clang::lifetimebound)
+#define FASTGLTF_LIFETIMEBOUND [[clang::lifetimebound]]
+#elif __has_cpp_attribute(lifetimebound)
+#define FASTGLTF_LIFETIMEBOUND [[lifetimebound]]
+#else
+#define FASTGLTF_LIFETIMEBOUND
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 5030) // attribute 'x' is not recognized
@@ -156,7 +168,7 @@ namespace fastgltf {
 	requires requires (T t) {
 		{ t > t } -> std::same_as<bool>;
 	}
-	[[nodiscard]] constexpr const T& max(const T& a, const T& b) noexcept {
+	[[nodiscard]] constexpr const T& max(const T& a FASTGLTF_LIFETIMEBOUND, const T& b FASTGLTF_LIFETIMEBOUND) noexcept {
 		return (a > b) ? a : b;
 	}
 
@@ -164,7 +176,7 @@ namespace fastgltf {
 	requires requires (T t) {
 		{ t < t } -> std::same_as<bool>;
 	}
-	[[nodiscard]] constexpr const T& min(const T& a, const T& b) noexcept {
+	[[nodiscard]] constexpr const T& min(const T& a FASTGLTF_LIFETIMEBOUND, const T& b FASTGLTF_LIFETIMEBOUND) noexcept {
 		return (a < b) ? a : b;
 	}
 

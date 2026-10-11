@@ -225,24 +225,24 @@ namespace fastgltf {
 			return *this;
 		}
 
-		constexpr const_pointer operator->() const noexcept {
+		constexpr const_pointer operator->() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _ptr;
 		}
-		constexpr pointer operator->() noexcept {
+		constexpr pointer operator->() noexcept FASTGLTF_LIFETIMEBOUND {
 			return _ptr;
 		}
 
-		constexpr const T& operator*() const& noexcept {
+		constexpr const T& operator*() const& noexcept FASTGLTF_LIFETIMEBOUND {
 			return *_ptr;
 		}
-		constexpr T& operator*() & noexcept {
+		constexpr T& operator*() & noexcept FASTGLTF_LIFETIMEBOUND {
 			return *_ptr;
 		}
 
-		constexpr const T&& operator*() const&& noexcept {
+		constexpr const T&& operator*() const&& noexcept FASTGLTF_LIFETIMEBOUND {
 			return std::move(*_ptr);
 		}
-		constexpr T&& operator*() && noexcept {
+		constexpr T&& operator*() && noexcept FASTGLTF_LIFETIMEBOUND {
 			return std::move(*_ptr);
 		}
 

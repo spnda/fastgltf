@@ -226,11 +226,11 @@ namespace fastgltf {
 			return _allocator;
 		}
 
-		[[nodiscard]] pointer data() noexcept {
+		[[nodiscard]] pointer data() noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data;
 		}
 
-		[[nodiscard]] const_pointer data() const noexcept {
+		[[nodiscard]] const_pointer data() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data;
 		}
 
@@ -246,18 +246,18 @@ namespace fastgltf {
 			return _size == 0;
 		}
 
-		[[nodiscard]] iterator begin() noexcept { return data(); }
-		[[nodiscard]] const_iterator begin() const noexcept { return data(); }
-		[[nodiscard]] const_iterator cbegin() const noexcept { return data(); }
-		[[nodiscard]] iterator end() noexcept { return begin() + size(); }
-		[[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
-		[[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
+		[[nodiscard]] iterator begin() noexcept FASTGLTF_LIFETIMEBOUND { return data(); }
+		[[nodiscard]] const_iterator begin() const noexcept FASTGLTF_LIFETIMEBOUND { return data(); }
+		[[nodiscard]] const_iterator cbegin() const noexcept FASTGLTF_LIFETIMEBOUND { return data(); }
+		[[nodiscard]] iterator end() noexcept FASTGLTF_LIFETIMEBOUND { return begin() + size(); }
+		[[nodiscard]] const_iterator end() const noexcept FASTGLTF_LIFETIMEBOUND { return begin() + size(); }
+		[[nodiscard]] const_iterator cend() const noexcept FASTGLTF_LIFETIMEBOUND { return begin() + size(); }
 
-		[[nodiscard]] reference operator[](size_type idx) {
+		[[nodiscard]] reference operator[](size_type idx) FASTGLTF_LIFETIMEBOUND {
 			assert(idx < size());
 			return begin()[idx];
 		}
-		[[nodiscard]] const_reference operator[](size_type idx) const {
+		[[nodiscard]] const_reference operator[](size_type idx) const FASTGLTF_LIFETIMEBOUND {
 			assert(idx < size());
 			return begin()[idx];
 		}

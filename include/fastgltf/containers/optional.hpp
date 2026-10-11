@@ -120,12 +120,12 @@ namespace fastgltf {
 			: _value(std::forward<Args>(args)...) {}
 
 		[[nodiscard]] constexpr bool has_value() const noexcept { return !traits::is_empty(_value); }
-		[[nodiscard]] constexpr T& get() noexcept { return _value; }
-		[[nodiscard]] constexpr const T& get() const noexcept { return _value; }
+		[[nodiscard]] constexpr T& get() noexcept FASTGLTF_LIFETIMEBOUND { return _value; }
+		[[nodiscard]] constexpr const T& get() const noexcept FASTGLTF_LIFETIMEBOUND { return _value; }
 		constexpr void reset() noexcept { traits::set_empty(_value); }
 
 		template <typename... Args>
-		constexpr T& emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...> && std::is_nothrow_move_assignable_v<T>) {
+		constexpr T& emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...> && std::is_nothrow_move_assignable_v<T>) FASTGLTF_LIFETIMEBOUND {
 			// Construct first, so a throwing constructor leaves the old value intact.
 			_value = T(std::forward<Args>(args)...);
 			return _value;
@@ -143,12 +143,12 @@ namespace fastgltf {
 			: _value(std::in_place, std::forward<Args>(args)...) {}
 
 		[[nodiscard]] constexpr bool has_value() const noexcept { return !_value.valueless_after_move(); }
-		[[nodiscard]] constexpr T& get() noexcept { return *_value; }
-		[[nodiscard]] constexpr const T& get() const noexcept { return *_value; }
+		[[nodiscard]] constexpr T& get() noexcept FASTGLTF_LIFETIMEBOUND { return *_value; }
+		[[nodiscard]] constexpr const T& get() const noexcept FASTGLTF_LIFETIMEBOUND { return *_value; }
 		constexpr void reset() noexcept { _value = box_type(valueless_tag); }
 
 		template <typename... Args>
-		constexpr T& emplace(Args&&... args) {
+		constexpr T& emplace(Args&&... args) FASTGLTF_LIFETIMEBOUND {
 			_value = box_type(std::allocator_arg, _value.get_allocator(), std::in_place, std::forward<Args>(args)...);
 			return *_value;
 		}
@@ -291,28 +291,28 @@ namespace fastgltf {
 			return _storage.has_value();
 		}
 
-		[[nodiscard]] constexpr value_type& value() & {
+		[[nodiscard]] constexpr value_type& value() & FASTGLTF_LIFETIMEBOUND {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
 			return _storage.get();
 		}
 
-		[[nodiscard]] constexpr const value_type& value() const& {
+		[[nodiscard]] constexpr const value_type& value() const& FASTGLTF_LIFETIMEBOUND {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
 			return _storage.get();
 		}
 
-		[[nodiscard]] constexpr value_type&& value() && {
+		[[nodiscard]] constexpr value_type&& value() && FASTGLTF_LIFETIMEBOUND {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
 			return std::move(_storage.get());
 		}
 
-		[[nodiscard]] constexpr const value_type&& value() const&& {
+		[[nodiscard]] constexpr const value_type&& value() const&& FASTGLTF_LIFETIMEBOUND {
 			if (!has_value()) {
 				raise<std::bad_optional_access>();
 			}
@@ -416,13 +416,13 @@ namespace fastgltf {
 
 		template <typename... Args>
 		requires std::is_constructible_v<T, Args...>
-		constexpr value_type& emplace(Args&&... args) {
+		constexpr value_type& emplace(Args&&... args) FASTGLTF_LIFETIMEBOUND {
 			return _storage.emplace(std::forward<Args>(args)...);
 		}
 
 		template <typename U, typename... Args>
 		requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
-		constexpr value_type& emplace(std::initializer_list<U> list, Args&&... args) {
+		constexpr value_type& emplace(std::initializer_list<U> list, Args&&... args) FASTGLTF_LIFETIMEBOUND {
 			static_assert(std::is_constructible_v<value_type, std::initializer_list<U>&, Args&&...>);
 			return _storage.emplace(list, std::forward<Args>(args)...);
 		}
@@ -431,32 +431,32 @@ namespace fastgltf {
 			return has_value();
 		}
 
-		constexpr value_type* operator->() noexcept {
+		constexpr value_type* operator->() noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(has_value());
 			return std::addressof(_storage.get());
 		}
 
-		constexpr const value_type* operator->() const noexcept {
+		constexpr const value_type* operator->() const noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(has_value());
 			return std::addressof(_storage.get());
 		}
 
-		constexpr value_type& operator*() & noexcept {
+		constexpr value_type& operator*() & noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(has_value());
 			return _storage.get();
 		}
 
-		constexpr const value_type& operator*() const& noexcept {
+		constexpr const value_type& operator*() const& noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(has_value());
 			return _storage.get();
 		}
 
-		constexpr value_type&& operator*() && noexcept {
+		constexpr value_type&& operator*() && noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(has_value());
 			return std::move(_storage.get());
 		}
 
-		constexpr const value_type&& operator*() const&& noexcept {
+		constexpr const value_type&& operator*() const&& noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(has_value());
 			return std::move(_storage.get());
 		}

@@ -317,22 +317,22 @@ namespace fastgltf {
 			}
 		}
 
-		[[nodiscard]] iterator begin() noexcept { return _data; }
-		[[nodiscard]] const_iterator begin() const noexcept { return _data; }
-		[[nodiscard]] const_iterator cbegin() const noexcept { return _data; }
-		[[nodiscard]] iterator end() noexcept { return begin() + size(); }
-		[[nodiscard]] const_iterator end() const noexcept { return begin() + size(); }
-		[[nodiscard]] const_iterator cend() const noexcept { return begin() + size(); }
+		[[nodiscard]] iterator begin() noexcept FASTGLTF_LIFETIMEBOUND { return _data; }
+		[[nodiscard]] const_iterator begin() const noexcept FASTGLTF_LIFETIMEBOUND { return _data; }
+		[[nodiscard]] const_iterator cbegin() const noexcept FASTGLTF_LIFETIMEBOUND { return _data; }
+		[[nodiscard]] iterator end() noexcept FASTGLTF_LIFETIMEBOUND { return begin() + size(); }
+		[[nodiscard]] const_iterator end() const noexcept FASTGLTF_LIFETIMEBOUND { return begin() + size(); }
+		[[nodiscard]] const_iterator cend() const noexcept FASTGLTF_LIFETIMEBOUND { return begin() + size(); }
 
-		[[nodiscard]] reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
-		[[nodiscard]] const_reverse_iterator rbegin() const noexcept { return reverse_iterator(end()); }
-		[[nodiscard]] const_reverse_iterator crbegin() const noexcept { return reverse_iterator(end()); }
-		[[nodiscard]] reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
-		[[nodiscard]] const_reverse_iterator rend() const noexcept { return reverse_iterator(begin()); }
-		[[nodiscard]] const_reverse_iterator crend() const noexcept { return reverse_iterator(begin()); }
+		[[nodiscard]] reverse_iterator rbegin() noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(end()); }
+		[[nodiscard]] const_reverse_iterator rbegin() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(end()); }
+		[[nodiscard]] const_reverse_iterator crbegin() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(end()); }
+		[[nodiscard]] reverse_iterator rend() noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(begin()); }
+		[[nodiscard]] const_reverse_iterator rend() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(begin()); }
+		[[nodiscard]] const_reverse_iterator crend() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(begin()); }
 
-		[[nodiscard]] pointer data() noexcept { return _data; }
-		[[nodiscard]] const_pointer data() const noexcept { return _data; }
+		[[nodiscard]] pointer data() noexcept FASTGLTF_LIFETIMEBOUND { return _data; }
+		[[nodiscard]] const_pointer data() const noexcept FASTGLTF_LIFETIMEBOUND { return _data; }
 		[[nodiscard]] size_type size() const noexcept { return _size; }
 		[[nodiscard]] size_type size_in_bytes() const noexcept { return _size * sizeof(T); }
 		[[nodiscard]] size_type capacity() const noexcept { return _capacity; }
@@ -463,7 +463,7 @@ namespace fastgltf {
 		}
 
 		template <typename... Args>
-		decltype(auto) emplace_back(Args&&... args) {
+		decltype(auto) emplace_back(Args&&... args) FASTGLTF_LIFETIMEBOUND {
 			if (size() < capacity()) {
 				traits::construct(_allocator, std::to_address(_data + size()), std::forward<Args>(args)...);
 			} else {
@@ -511,42 +511,42 @@ namespace fastgltf {
 			--_size;
 		}
 
-		[[nodiscard]] reference at(size_type idx) {
+		[[nodiscard]] reference at(size_type idx) FASTGLTF_LIFETIMEBOUND {
 			if (idx >= size()) {
 				raise<std::out_of_range>("idx");
 			}
 			return begin()[idx];
 		}
-		[[nodiscard]] const_reference at(size_type idx) const {
+		[[nodiscard]] const_reference at(size_type idx) const FASTGLTF_LIFETIMEBOUND {
 			if (idx >= size()) {
 				raise<std::out_of_range>("idx");
 			}
 			return begin()[idx];
 		}
 
-		[[nodiscard]] reference operator[](size_type idx) {
+		[[nodiscard]] reference operator[](size_type idx) FASTGLTF_LIFETIMEBOUND {
 			assert(idx < size());
 			return begin()[idx];
 		}
-		[[nodiscard]] const_reference operator[](size_type idx) const {
+		[[nodiscard]] const_reference operator[](size_type idx) const FASTGLTF_LIFETIMEBOUND {
 			assert(idx < size());
 			return begin()[idx];
 		}
 
-		[[nodiscard]] reference front() {
+		[[nodiscard]] reference front() FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return begin()[0];
 		}
-		[[nodiscard]] const_reference front() const {
+		[[nodiscard]] const_reference front() const FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return begin()[0];
 		}
 
-		[[nodiscard]] reference back() {
+		[[nodiscard]] reference back() FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return end()[-1];
 		}
-		[[nodiscard]] const_reference back() const {
+		[[nodiscard]] const_reference back() const FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return end()[-1];
 		}

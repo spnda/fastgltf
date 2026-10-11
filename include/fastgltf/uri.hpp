@@ -161,31 +161,31 @@ namespace fastgltf {
 		URI& operator=(const URIView& other);
 		URI& operator=(URI&& other) noexcept = default;
 
-		operator URIView() const noexcept;
+		operator URIView() const noexcept FASTGLTF_LIFETIMEBOUND;
 
-		[[nodiscard]] auto string() const noexcept {
+		[[nodiscard]] auto string() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return std::string_view(_uri);
 		}
 
-		[[nodiscard]] auto scheme() const noexcept {
+		[[nodiscard]] auto scheme() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::get(_uri, _components._scheme);
 		}
-		[[nodiscard]] auto userinfo() const noexcept {
+		[[nodiscard]] auto userinfo() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::get(_uri, _components._userinfo);
 		}
-		[[nodiscard]] auto host() const noexcept {
+		[[nodiscard]] auto host() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::get(_uri, _components._host);
 		}
-		[[nodiscard]] auto port() const noexcept {
+		[[nodiscard]] auto port() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::get(_uri, _components._port);
 		}
-		[[nodiscard]] auto path() const noexcept {
+		[[nodiscard]] auto path() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::get(_uri, _components._path);
 		}
-		[[nodiscard]] auto query() const noexcept {
+		[[nodiscard]] auto query() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::get(_uri, _components._query);
 		}
-		[[nodiscard]] auto fragment() const noexcept {
+		[[nodiscard]] auto fragment() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::get(_uri, _components._fragment);
 		}
 

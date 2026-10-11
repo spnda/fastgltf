@@ -394,7 +394,7 @@ namespace fastgltf {
 		 * This padding is necessary for the simdjson parser, but can be initialized to anything.
 		 * The memory pointed to by the span only needs to live until the next call to read().
 		 */
-		[[nodiscard]] virtual std::span<std::byte> read(std::size_t count, std::size_t padding) = 0;
+		[[nodiscard]] virtual std::span<std::byte> read(std::size_t count, std::size_t padding) FASTGLTF_LIFETIMEBOUND = 0;
 
 		/**
 		 * Reset is used to put the offset index back to the start of the buffer/file.
@@ -458,7 +458,7 @@ namespace fastgltf {
 
 		void read(void* ptr, std::size_t count) override;
 
-		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) FASTGLTF_LIFETIMEBOUND override;
 
 		void reset() override;
 
@@ -466,7 +466,7 @@ namespace fastgltf {
 
 		[[nodiscard]] std::size_t totalSize() override;
 
-		[[nodiscard]] explicit operator std::span<std::byte>() const {
+		[[nodiscard]] explicit operator std::span<std::byte>() const FASTGLTF_LIFETIMEBOUND {
 			return {buffer.get(), dataSize};
 		}
 	};
@@ -515,7 +515,7 @@ namespace fastgltf {
 
 		void read(void* ptr, std::size_t count) override;
 
-		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) FASTGLTF_LIFETIMEBOUND override;
 
 		void reset() override;
 
@@ -523,7 +523,7 @@ namespace fastgltf {
 
 		[[nodiscard]] std::size_t totalSize() override;
 
-		[[nodiscard]] explicit operator std::span<std::byte>() const {
+		[[nodiscard]] explicit operator std::span<std::byte>() const FASTGLTF_LIFETIMEBOUND {
 			return {static_cast<std::byte*>(mappedFile), fileSize};
 		}
 	};
@@ -543,7 +543,7 @@ namespace fastgltf {
 
 		void read(void* ptr, std::size_t count) override;
 
-		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) override;
+		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) FASTGLTF_LIFETIMEBOUND override;
 
 		void reset() override;
 

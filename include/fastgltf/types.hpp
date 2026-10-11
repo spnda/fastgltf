@@ -739,7 +739,7 @@ namespace fastgltf {
 
 		template <typename T>
 		requires is_valid_type_v<T>
-		[[nodiscard]] auto* data() noexcept {
+		[[nodiscard]] auto* data() noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(isType<T>());
 			if constexpr (std::is_same_v<T, std::int64_t>) {
 				if (_size > internal_array_size)
@@ -756,7 +756,7 @@ namespace fastgltf {
 
 		template <typename T>
 		requires is_valid_type_v<T>
-		[[nodiscard]] const auto* data() const noexcept {
+		[[nodiscard]] const auto* data() const noexcept FASTGLTF_LIFETIMEBOUND {
 			assert(isType<T>());
 			if constexpr (std::is_same_v<T, std::int64_t>) {
 				if (_size > internal_array_size)
@@ -938,7 +938,7 @@ namespace fastgltf {
 
 	namespace internal {
 		template <std::ranges::forward_range R>
-		[[nodiscard]] auto findByName(R&& range, const std::string_view name) noexcept {
+		[[nodiscard]] auto findByName(R&& range FASTGLTF_LIFETIMEBOUND, const std::string_view name) noexcept {
 			return std::ranges::find(std::forward<R>(range), name, &Attribute::name);
 		}
 	} // namespace internal
@@ -1245,11 +1245,11 @@ namespace fastgltf {
 
 		std::string name;
 
-		[[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) noexcept {
+		[[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(instancingAttributes, attributeName);
 		}
 
-		[[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) const noexcept {
+		[[nodiscard]] auto findInstancingAttribute(const std::string_view attributeName) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(instancingAttributes, attributeName);
 		}
 	};
@@ -1258,11 +1258,11 @@ namespace fastgltf {
 		std::size_t bufferView;
 		std::vector<Attribute> attributes;
 
-		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
+		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(attributes, name);
 		}
 
-		[[nodiscard]] auto findAttribute(const std::string_view name) const noexcept {
+		[[nodiscard]] auto findAttribute(const std::string_view name) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(attributes, name);
 		}
 	};
@@ -1287,19 +1287,19 @@ namespace fastgltf {
 
 		boxed_optional<DracoCompressedPrimitive> dracoCompression;
 
-		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept {
+		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(attributes, name);
 		}
 
-		[[nodiscard]] auto findAttribute(const std::string_view name) const noexcept {
+		[[nodiscard]] auto findAttribute(const std::string_view name) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(attributes, name);
 		}
 
-		[[nodiscard]] auto findTargetAttribute(const std::size_t targetIndex, const std::string_view name) noexcept {
+		[[nodiscard]] auto findTargetAttribute(const std::size_t targetIndex, const std::string_view name) noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(targets[targetIndex], name);
 		}
 
-		[[nodiscard]] auto findTargetAttribute(const std::size_t targetIndex, const std::string_view name) const noexcept {
+		[[nodiscard]] auto findTargetAttribute(const std::size_t targetIndex, const std::string_view name) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(targets[targetIndex], name);
 		}
 	};

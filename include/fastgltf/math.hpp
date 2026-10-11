@@ -159,46 +159,46 @@ namespace fastgltf::math {
 			return size() * sizeof(T);
 		}
 
-		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept {
+		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[idx];
 		}
-		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
+		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[idx];
 		}
 
-		[[nodiscard]] constexpr decltype(auto) x() noexcept {
+		[[nodiscard]] constexpr decltype(auto) x() noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[0];
 		}
-		[[nodiscard]] constexpr decltype(auto) y() noexcept {
+		[[nodiscard]] constexpr decltype(auto) y() noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[1];
 		}
-		[[nodiscard]] constexpr decltype(auto) z() noexcept {
+		[[nodiscard]] constexpr decltype(auto) z() noexcept FASTGLTF_LIFETIMEBOUND {
 			static_assert(N >= 3);
 			return (*this)[2];
 		}
-		[[nodiscard]] constexpr decltype(auto) w() noexcept {
+		[[nodiscard]] constexpr decltype(auto) w() noexcept FASTGLTF_LIFETIMEBOUND {
 			static_assert(N >= 4);
 			return (*this)[3];
 		}
-		[[nodiscard]] constexpr decltype(auto) x() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) x() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[0];
 		}
-		[[nodiscard]] constexpr decltype(auto) y() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) y() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[1];
 		}
-		[[nodiscard]] constexpr decltype(auto) z() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) z() const noexcept FASTGLTF_LIFETIMEBOUND {
 			static_assert(N >= 3);
 			return (*this)[2];
 		}
-		[[nodiscard]] constexpr decltype(auto) w() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) w() const noexcept FASTGLTF_LIFETIMEBOUND {
 			static_assert(N >= 4);
 			return (*this)[3];
 		}
 
-		[[nodiscard]] constexpr auto data() noexcept {
+		[[nodiscard]] constexpr auto data() noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data.data();
 		}
-		[[nodiscard]] constexpr auto data() const noexcept {
+		[[nodiscard]] constexpr auto data() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data.data();
 		}
 
@@ -466,42 +466,42 @@ namespace fastgltf::math {
 			return size() * sizeof(T);
 		}
 
-		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept {
+		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[idx];
 		}
-		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
+		[[nodiscard]] constexpr decltype(auto) operator[](std::size_t idx) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[idx];
 		}
 
-		[[nodiscard]] constexpr decltype(auto) x() noexcept {
+		[[nodiscard]] constexpr decltype(auto) x() noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[0];
 		}
-		[[nodiscard]] constexpr decltype(auto) y() noexcept {
+		[[nodiscard]] constexpr decltype(auto) y() noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[1];
 		}
-		[[nodiscard]] constexpr decltype(auto) z() noexcept {
+		[[nodiscard]] constexpr decltype(auto) z() noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[2];
 		}
-		[[nodiscard]] constexpr decltype(auto) w() noexcept {
+		[[nodiscard]] constexpr decltype(auto) w() noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[3];
 		}
-		[[nodiscard]] constexpr decltype(auto) x() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) x() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[0];
 		}
-		[[nodiscard]] constexpr decltype(auto) y() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) y() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[1];
 		}
-		[[nodiscard]] constexpr decltype(auto) z() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) z() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[2];
 		}
-		[[nodiscard]] constexpr decltype(auto) w() const noexcept {
+		[[nodiscard]] constexpr decltype(auto) w() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[3];
 		}
 
-		[[nodiscard]] constexpr auto data() noexcept {
+		[[nodiscard]] constexpr auto data() noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data.data();
 		}
-		[[nodiscard]] constexpr auto data() const noexcept {
+		[[nodiscard]] constexpr auto data() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data.data();
 		}
 
@@ -697,17 +697,17 @@ namespace fastgltf::math {
 		}
 
 		/** Returns the column vector at the given index. */
-		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) operator[](std::size_t idx) noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) operator[](std::size_t idx) noexcept FASTGLTF_LIFETIMEBOUND {
 			return col(idx);
 		}
-		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) operator[](std::size_t idx) const noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) operator[](std::size_t idx) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return col(idx);
 		}
 
-		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) col(std::size_t idx) noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) col(std::size_t idx) noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[idx];
 		}
-		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) col(std::size_t idx) const noexcept {
+		[[nodiscard]] FASTGLTF_FORCEINLINE constexpr decltype(auto) col(std::size_t idx) const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[idx];
 		}
 
@@ -724,10 +724,10 @@ namespace fastgltf::math {
 		}
 
 	public:
-		[[nodiscard]] constexpr auto data() noexcept {
+		[[nodiscard]] constexpr auto data() noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[0].data();
 		}
-		[[nodiscard]] constexpr auto data() const noexcept {
+		[[nodiscard]] constexpr auto data() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return _data[0].data();
 		}
 

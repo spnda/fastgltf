@@ -201,63 +201,63 @@ namespace fastgltf {
 		}
 #endif
 
-		[[nodiscard]] reference at(const size_type pos) {
+		[[nodiscard]] reference at(const size_type pos) FASTGLTF_LIFETIMEBOUND {
 			if (pos >= size()) [[unlikely]]
 				raise<std::out_of_range>("pos");
 			return *std::launder(reinterpret_cast<T*>(&storage[pos * sizeof(T)]));
 		}
-		[[nodiscard]] const_reference at(const size_type pos) const {
+		[[nodiscard]] const_reference at(const size_type pos) const FASTGLTF_LIFETIMEBOUND {
 			if (pos >= size()) [[unlikely]]
 				raise<std::out_of_range>("pos");
 			return *std::launder(reinterpret_cast<const T*>(&storage[pos * sizeof(T)]));
 		}
 
-		[[nodiscard]] reference operator[](const size_type pos) {
+		[[nodiscard]] reference operator[](const size_type pos) FASTGLTF_LIFETIMEBOUND {
 			assert(pos < _size);
 			return *std::launder(reinterpret_cast<T*>(&storage[pos * sizeof(T)]));
 		}
-		[[nodiscard]] const_reference operator[](const size_type pos) const {
+		[[nodiscard]] const_reference operator[](const size_type pos) const FASTGLTF_LIFETIMEBOUND {
 			assert(pos < _size);
 			return *std::launder(reinterpret_cast<const T*>(&storage[pos * sizeof(T)]));
 		}
 
-		[[nodiscard]] reference front() {
+		[[nodiscard]] reference front() FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return *begin();
 		}
-		[[nodiscard]] const_reference front() const {
+		[[nodiscard]] const_reference front() const FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return *begin();
 		}
-		[[nodiscard]] reference back() {
+		[[nodiscard]] reference back() FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return *std::prev(end(), 1);
 		}
-		[[nodiscard]] const_reference back() const {
+		[[nodiscard]] const_reference back() const FASTGLTF_LIFETIMEBOUND {
 			assert(!empty());
 			return *std::prev(end(), 1);
 		}
 
-		[[nodiscard]] pointer data() noexcept {
+		[[nodiscard]] pointer data() noexcept FASTGLTF_LIFETIMEBOUND {
 			return std::launder(reinterpret_cast<T*>(&storage));
 		}
-		[[nodiscard]] const_pointer data() const noexcept {
+		[[nodiscard]] const_pointer data() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return std::launder(reinterpret_cast<const T*>(&storage));
 		}
 
-		[[nodiscard]] iterator begin() noexcept { return data(); }
-		[[nodiscard]] const_iterator begin() const noexcept { return data(); }
-		[[nodiscard]] const_iterator cbegin() const noexcept { return data(); }
-		[[nodiscard]] iterator end() noexcept { return data() + size(); }
-		[[nodiscard]] const_iterator end() const noexcept { return data() + size(); }
-		[[nodiscard]] const_iterator cend() const noexcept { return data() + size(); }
+		[[nodiscard]] iterator begin() noexcept FASTGLTF_LIFETIMEBOUND { return data(); }
+		[[nodiscard]] const_iterator begin() const noexcept FASTGLTF_LIFETIMEBOUND { return data(); }
+		[[nodiscard]] const_iterator cbegin() const noexcept FASTGLTF_LIFETIMEBOUND { return data(); }
+		[[nodiscard]] iterator end() noexcept FASTGLTF_LIFETIMEBOUND { return data() + size(); }
+		[[nodiscard]] const_iterator end() const noexcept FASTGLTF_LIFETIMEBOUND { return data() + size(); }
+		[[nodiscard]] const_iterator cend() const noexcept FASTGLTF_LIFETIMEBOUND { return data() + size(); }
 
-		[[nodiscard]] reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
-		[[nodiscard]] const_reverse_iterator rbegin() const noexcept { return reverse_iterator(end()); }
-		[[nodiscard]] const_reverse_iterator crbegin() const noexcept { return reverse_iterator(end()); }
-		[[nodiscard]] reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
-		[[nodiscard]] const_reverse_iterator rend() const noexcept { return reverse_iterator(begin()); }
-		[[nodiscard]] const_reverse_iterator crend() const noexcept { return reverse_iterator(begin()); }
+		[[nodiscard]] reverse_iterator rbegin() noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(end()); }
+		[[nodiscard]] const_reverse_iterator rbegin() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(end()); }
+		[[nodiscard]] const_reverse_iterator crbegin() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(end()); }
+		[[nodiscard]] reverse_iterator rend() noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(begin()); }
+		[[nodiscard]] const_reverse_iterator rend() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(begin()); }
+		[[nodiscard]] const_reverse_iterator crend() const noexcept FASTGLTF_LIFETIMEBOUND { return reverse_iterator(begin()); }
 
 		[[nodiscard]] bool empty() const noexcept { return size() == 0; }
 		[[nodiscard]] size_type size() const noexcept { return _size; }
@@ -285,7 +285,7 @@ namespace fastgltf {
 		}
 
 		template <typename... Args>
-		reference emplace_back(Args&&... args) {
+		reference emplace_back(Args&&... args) FASTGLTF_LIFETIMEBOUND {
 			if (size() == max_size()) [[unlikely]]
 				raise<std::bad_alloc>();
 			return unchecked_emplace_back(std::forward<Args>(args)...);
@@ -297,14 +297,14 @@ namespace fastgltf {
 		 * a nullptr indicating failure.
 		 */
 		template <typename... Args>
-		pointer try_emplace_back(Args&&... args) {
+		pointer try_emplace_back(Args&&... args) FASTGLTF_LIFETIMEBOUND {
 			if (size() == max_size()) [[unlikely]]
 				return nullptr;
 			return &unchecked_emplace_back(std::forward<Args>(args)...);
 		}
 
 		template <typename... Args>
-		reference unchecked_emplace_back(Args&&... args) {
+		reference unchecked_emplace_back(Args&&... args) FASTGLTF_LIFETIMEBOUND {
 			assert(size() < max_size());
 			const auto i = _size;
 			std::construct_at(reinterpret_cast<T*>(&storage[i * sizeof(T)]), std::forward<Args>(args)...);
@@ -312,7 +312,7 @@ namespace fastgltf {
 			return (*this)[i];
 		}
 
-		reference push_back(const T& value) {
+		reference push_back(const T& value) FASTGLTF_LIFETIMEBOUND {
 			if (size() == max_size()) [[unlikely]]
 				raise<std::bad_alloc>();
 			return unchecked_push_back(value);
@@ -323,13 +323,13 @@ namespace fastgltf {
 		 * C++20 and C++23 we have to stick to the proposal's initial signature which returned a pointer, with
 		 * a nullptr indicating failure.
 		 */
-		pointer try_push_back(const T& value) {
+		pointer try_push_back(const T& value) FASTGLTF_LIFETIMEBOUND {
 			if (size() == max_size()) [[unlikely]]
 				return nullptr;
 			return &unchecked_push_back(value);
 		}
 
-		reference unchecked_push_back(const T& value) {
+		reference unchecked_push_back(const T& value) FASTGLTF_LIFETIMEBOUND {
 			assert(size() < max_size());
 			const auto i = _size;
 			std::construct_at(reinterpret_cast<T*>(&storage[i * sizeof(T)]), value);
