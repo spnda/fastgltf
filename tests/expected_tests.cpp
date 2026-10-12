@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <fastgltf/error.hpp>
@@ -83,4 +85,18 @@ TEST_CASE("Expected<T> with references", "[expected-tests]") {
 		}
 		REQUIRE(destroyed == 1);
 	}
+}
+
+TEST_CASE("Error formatting", "[expected-tests]") {
+	auto check = [](fastgltf::Error error, std::string_view expected) {
+		std::ostringstream stream;
+		stream << error;
+		REQUIRE(stream.str() == expected);
+
+#if defined(__cpp_lib_format)
+		REQUIRE(std::format("{}", error) == expected);
+#endif
+	};
+	check(fastgltf::Error::None, "None");
+	check(fastgltf::Error::Unknown, "Unknown: Something unexpected happened. This is likely a bug with fastgltf.");
 }

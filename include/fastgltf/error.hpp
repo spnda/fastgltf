@@ -104,11 +104,11 @@ FASTGLTF_EXPORT namespace fastgltf {
 	}
 
 	inline std::ostream& operator<<(std::ostream& out, Error error) noexcept {
+		out << getErrorName(error);
 		if (error != Error::None) {
-			out << getErrorName(error);
 			out << ": ";
+			out << getErrorMessage(error);
 		}
-		out << getErrorMessage(error);
 		return out;
 	}
 
@@ -291,7 +291,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 	static_assert(!std::is_constructible_v<Expected<int&>, int>, "Cannot construct reference Expected from rvalue");
 }
 
-#ifdef __cpp_lib_format
+#if defined(__cpp_lib_format)
 #if !defined(FASTGLTF_MODULE)
 #include <format>
 #endif
@@ -303,6 +303,8 @@ struct std::formatter<fastgltf::Error> {
 	}
 
 	auto format(fastgltf::Error error, std::format_context& ctx) const {
+		if (error == fastgltf::Error::None)
+			return std::format_to(ctx.out(), "{}", getErrorName(error));
 		return std::format_to(ctx.out(), "{}: {}", getErrorName(error), getErrorMessage(error));
 	}
 };
