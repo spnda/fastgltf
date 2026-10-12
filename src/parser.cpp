@@ -33,12 +33,6 @@
 #include <mutex>
 #include <utility>
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4514) // unreferenced inline function has been removed
-#pragma warning(disable : 4710) // function not inlined
-#endif
-
 #include <simdjson.h>
 #include <simdutf.h>
 
@@ -4017,7 +4011,3 @@ void fg::Parser::setUserPointer(void* pointer) noexcept {
 	config.userPointer = pointer;
 }
 #pragma endregion
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
