@@ -98,29 +98,6 @@ void fg::prettyPrintJson(std::string& json) {
 }
 
 namespace fastgltf {
-	static void escapeString(std::string& string) {
-		std::size_t i = 0;
-		do {
-			switch (string[i]) {
-				case '\"': {
-					constexpr std::string_view s = "\\\"";
-					string.replace(i, 1, s);
-					i += s.size();
-					break;
-				}
-				case '\\': {
-					constexpr std::string_view s = "\\\\";
-					string.replace(i, 1, s);
-					i += s.size();
-					break;
-				}
-				default:
-					break;
-			}
-			++i;
-		} while (i < string.size());
-	}
-
 	/**
 	 * Normalizes the path using lexically_normal and calls generic_string to always use forward slashes.
 	 */
@@ -283,12 +260,6 @@ namespace fastgltf {
 		}
 	}
 } // namespace fastgltf
-
-std::string fg::escapeString(std::string_view string) {
-	std::string ret(string);
-	escapeString(ret);
-	return ret;
-}
 
 void fg::Exporter::setBufferPath(fs::path folder) {
 	if (!folder.is_relative()) {

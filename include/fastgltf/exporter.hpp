@@ -68,11 +68,6 @@ namespace fastgltf {
 	 */
 	void prettyPrintJson(std::string& json);
 
-	/**
-	 * Escapes a string for use in JSON.
-	 */
-	std::string escapeString(std::string_view string);
-
 	FASTGLTF_EXPORT template <typename T>
 	struct ExportResult {
 		T output;

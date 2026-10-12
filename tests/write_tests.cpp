@@ -159,12 +159,6 @@ TEST_CASE("Try writing a GLB with all buffers and images", "[write-tests]") {
 	REQUIRE(binType[3] == 0);
 }
 
-TEST_CASE("Test string escape", "[write-tests]") {
-	std::string x = "\"stuff\\";
-	std::string escaped = fastgltf::escapeString(x);
-	REQUIRE(escaped == "\\\"stuff\\\\");
-}
-
 TEST_CASE("Test pretty-print", "[write-tests]") {
 	std::string json = R"({"value":5,"thing":{}})";
 	fastgltf::prettyPrintJson(json);
