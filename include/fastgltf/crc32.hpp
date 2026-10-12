@@ -115,7 +115,7 @@ namespace fastgltf {
 
 #if defined(__SSE4_2__)
 		return sse_crc32c(d, len);
-#elif FASTGLTF_ENABLE_ARMV8_CRC && defined(__ARM_FEATURE_CRC32)
+#elif defined(FASTGLTF_ENABLE_ARMV8_CRC) && defined(__ARM_FEATURE_CRC32)
 		// GCC and Clang define __ARM_FEATURE_CRC32 when the target arch has `+crc` enabled.
 		return armv8_crc32c(d, len);
 #else
@@ -130,7 +130,7 @@ namespace fastgltf {
 
 #if defined(__SSE4_2__)
 		return sse_crc32c(str);
-#elif FASTGLTF_ENABLE_ARMV8_CRC && defined(__ARM_FEATURE_CRC32)
+#elif defined(FASTGLTF_ENABLE_ARMV8_CRC) && defined(__ARM_FEATURE_CRC32)
 		// GCC and Clang define __ARM_FEATURE_CRC32 when the target arch has `+crc` enabled.
 		return armv8_crc32c(str);
 #else

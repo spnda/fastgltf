@@ -44,8 +44,8 @@
 namespace fastgltf {
 #if defined(FASTGLTF_IS_X86)
 	FASTGLTF_TARGET("sse4.2") std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
-#ifdef __x86_64__
-		std::uint64_t crc64 = ~0;
+#if defined(__x86_64__) || defined(_M_X64)
+		std::uint64_t crc64 = 0xffffffff;
 
 		while (len >= sizeof(std::uint64_t)) [[likely]] {
 			std::uint64_t value;
@@ -64,7 +64,7 @@ namespace fastgltf {
 			d += sizeof value;
 		}
 #else
-		std::uint32_t crc = ~0;
+		std::uint32_t crc = 0xffffffff;
 
 		while (len >= sizeof(std::uint32_t)) [[likely]] {
 			std::uint32_t value;
@@ -90,7 +90,7 @@ namespace fastgltf {
 	}
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
 	FASTGLTF_TARGET("+crc") std::uint32_t armv8_crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
-		std::uint32_t crc = ~0;
+		std::uint32_t crc = 0xffffffff;
 
 		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang
 		// than using a std::size_t i = 0.

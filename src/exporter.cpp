@@ -2462,7 +2462,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 }
 
 namespace fastgltf {
-	std::error_code prepareDir(const fs::path& directory) {
+	static std::error_code prepareDir(const fs::path& directory) {
 		std::error_code ec;
 		if (!directory.empty()) {
 			fs::create_directories(directory, ec);
@@ -2470,7 +2470,7 @@ namespace fastgltf {
 		return ec;
 	}
 
-	bool writeFile(const DataSource& dataSource, const fs::path& baseFolder, const fs::path& filePath) {
+	static bool writeFile(const DataSource& dataSource, const fs::path& baseFolder, const fs::path& filePath) {
 		// Get the final normalized path. TODO: Perhaps move these filesystem checks to the parent function?
 		auto finalPath = (baseFolder / filePath).lexically_normal();
 		if (auto ec = prepareDir(finalPath.parent_path())) {
