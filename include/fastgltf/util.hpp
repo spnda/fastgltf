@@ -98,8 +98,10 @@
 #define FASTGLTF_IS_A64 1
 #endif
 
-#if (defined(_MSC_VER) && !defined(__clang__)) || __has_cpp_attribute(msvc::intrinsic)
+#if (defined(_MSC_VER) && !defined(__clang__)) && __has_cpp_attribute(msvc::intrinsic)
 #define FASTGLTF_INTRINSIC [[msvc::intrinsic]]
+#elif __has_cpp_attribute(gnu::always_inline)
+#define FASTGLTF_INTRINSIC [[gnu::always_inline, gnu::artificial]] inline
 #else
 #define FASTGLTF_INTRINSIC
 #endif
@@ -120,9 +122,7 @@
 #define FASTGLTF_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
-#ifndef __has_cpp_attribute
-#define FASTGLTF_LIFETIMEBOUND
-#elif __has_cpp_attribute(msvc::lifetimebound)
+#if __has_cpp_attribute(msvc::lifetimebound)
 #define FASTGLTF_LIFETIMEBOUND [[msvc::lifetimebound]]
 #elif __has_cpp_attribute(clang::lifetimebound)
 #define FASTGLTF_LIFETIMEBOUND [[clang::lifetimebound]]
@@ -132,15 +132,28 @@
 #define FASTGLTF_LIFETIMEBOUND
 #endif
 
-#if defined(__has_cpp_attribute) && __has_cpp_attribute(gnu::nodebug)
+#if __has_cpp_attribute(gnu::nodebug)
 #define FASTGLTF_NODEBUG [[gnu::nodebug]]
 #else
 #define FASTGLTF_NODEBUG
 #endif
 
+#if __has_cpp_attribute(gnu::pure)
+#define FASTGLTF_PURE [[gnu::pure]]
+#else
+#define FASTGLTF_PURE
+#endif
+
+#if __has_cpp_attribute(clang::flag_enum)
+#define FASTGLTF_FLAG_ENUM [[clang::flag_enum]]
+#elif __has_cpp_attribute(gnu::flag_enum)
+#define FASTGLTF_FLAG_ENUM [[gnu::flag_enum]]
+#else
+#define FASTGLTF_FLAG_ENUM
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 5030) // attribute 'x' is not recognized
 #pragma warning(disable : 4514) // unreferenced inline function has been removed
 #endif
 
@@ -187,6 +200,9 @@ namespace fastgltf {
 	}
 
 	template<typename T, typename... A>
+#if defined(__clang__) || defined(__GNUC__)
+	[[gnu::cold, gnu::noinline]]
+#endif
 	[[noreturn]] constexpr void raise([[maybe_unused]] A&&... args) {
 #ifdef __cpp_exceptions
 		throw T(std::forward<A>(args)...);

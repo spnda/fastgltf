@@ -50,7 +50,6 @@
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 5030) // attribute 'x' is not recognized
 #pragma warning(disable : 4514) // unreferenced inline function has been removed
 #endif
 
@@ -246,7 +245,7 @@ namespace fastgltf {
 		Point,
 	};
 
-	FASTGLTF_EXPORT enum class Category : std::uint32_t {
+	FASTGLTF_EXPORT enum class FASTGLTF_FLAG_ENUM Category : std::uint32_t {
 		None        = 0,
 		Buffers     = 1 <<  0,
 		BufferViews = 1 <<  1,

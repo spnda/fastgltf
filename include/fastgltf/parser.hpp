@@ -37,7 +37,6 @@
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 5030) // attribute 'x' is not recognized
 #pragma warning(disable : 4514) // unreferenced inline function has been removed
 #endif
 
@@ -54,7 +53,7 @@ namespace simdjson::dom {
 
 namespace fastgltf {
 	// clang-format off
-	FASTGLTF_EXPORT enum class Extensions : std::uint64_t {
+	FASTGLTF_EXPORT enum class FASTGLTF_FLAG_ENUM Extensions : std::uint64_t {
 		None = 0,
 
 		// See https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_texture_transform/README.md
@@ -175,7 +174,7 @@ namespace fastgltf {
 	}
 
 	// clang-format off
-	FASTGLTF_EXPORT enum class Options : std::uint64_t {
+	FASTGLTF_EXPORT enum class FASTGLTF_FLAG_ENUM Options : std::uint64_t {
 		None                            = 0,
 		/**
 		 * This allows 5130 as an accessor component type. 5130 is the OpenGL constant GL_DOUBLE,

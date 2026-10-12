@@ -38,11 +38,6 @@
 #include <fastgltf/error.hpp>
 #include <fastgltf/containers/static_vector.hpp>
 
-#ifdef _MSC_VER
-#pragma warning(push) // attribute 'x' is not recognized
-#pragma warning(disable : 5030)
-#endif
-
 namespace fastgltf::base64 {
 	/**
 	 * Calculates the amount of base64 padding chars ('=') at the end of the encoded string.
@@ -50,7 +45,7 @@ namespace fastgltf::base64 {
 	 * points to the original string that has a size that is a multiple of 4 and is at least
 	 * 4 chars long.
 	 */
-	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getPadding(const std::string_view string) {
+	FASTGLTF_EXPORT constexpr std::size_t getPadding(const std::string_view string) {
 		assert(string.size() >= 4 && string.size() % 4 == 0);
 		const auto size = string.size();
 		for (auto i = 1; i < 4; ++i)
@@ -63,12 +58,12 @@ namespace fastgltf::base64 {
 	 * Calculates the size of the decoded string based on the size of the base64 encoded string and
 	 * the amount of padding the encoded data contains.
 	 */
-	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getDecodedSize(
+	FASTGLTF_EXPORT constexpr std::size_t getDecodedSize(
 			const std::size_t encodedSize, const std::size_t padding) {
 		assert(encodedSize % 4 == 0);
 		return (encodedSize / 4) * 3 - padding;
 	}
-	FASTGLTF_EXPORT [[deprecated, gnu::always_inline]] constexpr std::size_t getOutputSize(
+	FASTGLTF_EXPORT [[deprecated("Use getDecodedSize instead.")]] constexpr std::size_t getOutputSize(
 			const std::size_t encodedSize, const std::size_t padding) noexcept {
 		return getDecodedSize(encodedSize, padding);
 	}
@@ -80,7 +75,7 @@ namespace fastgltf::base64 {
 	 * Calculates the size of the base64-encoded string for a given input byte count.
 	 * Output is always a multiple of 4 (includes padding).
 	 */
-	FASTGLTF_EXPORT [[gnu::always_inline]] constexpr std::size_t getEncodedSize(const std::size_t dataSize) noexcept {
+	FASTGLTF_EXPORT constexpr std::size_t getEncodedSize(const std::size_t dataSize) noexcept {
 		return ((dataSize + 2) / 3) * 4;
 	}
 
@@ -95,9 +90,5 @@ namespace fastgltf::base64 {
 	 */
 	FASTGLTF_EXPORT [[nodiscard]] std::string encode(const std::uint8_t* data, std::size_t size);
 } // namespace fastgltf::base64
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #endif

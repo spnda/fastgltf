@@ -28,6 +28,12 @@
 
 #include <simdjson.h>
 
+#if defined(__clang__) || defined(__GNUC__)
+#define FASTGLTF_TARGET(x) [[gnu::target(x)]]
+#else
+#define FASTGLTF_TARGET(x)
+#endif
+
 #if defined(FASTGLTF_IS_X86)
 #include <nmmintrin.h> // SSE4.2 for the CRC-32C instructions
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
@@ -37,7 +43,7 @@
 
 namespace fastgltf {
 #if defined(FASTGLTF_IS_X86)
-	[[gnu::hot, gnu::pure, gnu::target("sse4.2")]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
+	FASTGLTF_TARGET("sse4.2") std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept {
 #ifdef __x86_64__
 		std::uint64_t crc64 = ~0;
 
@@ -83,7 +89,7 @@ namespace fastgltf {
 		return crc ^ 0xffffffff;
 	}
 #elif defined(FASTGLTF_ENABLE_ARMV8_CRC)
-	[[gnu::hot, gnu::pure, gnu::target("+crc")]] std::uint32_t armv8_crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
+	FASTGLTF_TARGET("+crc") std::uint32_t armv8_crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
 		std::uint32_t crc = ~0;
 
 		// Decrementing the length variable and incrementing the pointer directly has better codegen with Clang

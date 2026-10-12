@@ -35,7 +35,6 @@
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 5030) // attribute 'x' is not recognized
 #pragma warning(disable : 4514) // unreferenced inline function has been removed
 #pragma warning(disable : 4710) // function not inlined
 #endif
@@ -55,7 +54,7 @@ namespace fs = std::filesystem;
 namespace fastgltf {
 	namespace internal {
 		/** GLBs are always little-endian, meaning we need to read the values accordingly */
-		[[nodiscard, gnu::always_inline]] inline auto readBinaryHeader(GltfDataGetter& getter) noexcept {
+		[[nodiscard]] inline auto readBinaryHeader(GltfDataGetter& getter) noexcept {
 			std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
 			getter.read(bytes.data(), bytes.size());
 
@@ -66,7 +65,7 @@ namespace fastgltf {
 			return header;
 		}
 
-		[[nodiscard, gnu::always_inline]] inline auto readBinaryChunk(GltfDataGetter& getter) noexcept {
+		[[nodiscard]] inline auto readBinaryChunk(GltfDataGetter& getter) noexcept {
 			std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
 			getter.read(bytes.data(), bytes.size());
 
@@ -77,7 +76,7 @@ namespace fastgltf {
 		}
 	}
 
-	[[nodiscard, gnu::always_inline]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
+	[[nodiscard]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
 
 		dom::object source;
@@ -93,7 +92,7 @@ namespace fastgltf {
 		return true;
 	}
 
-	[[nodiscard, gnu::always_inline]] inline bool parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
+	[[nodiscard]] inline bool parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
 		for (auto extension : extensions) {
 			switch (crc32c(extension.key)) {
 				case force_consteval<crc32c(extensions::KHR_texture_basisu)>: {
@@ -125,7 +124,7 @@ namespace fastgltf {
 		return true;
 	}
 
-	[[nodiscard, gnu::always_inline]] inline Error getJsonArray(const simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept {
+	[[nodiscard]] inline Error getJsonArray(const simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept {
 		using namespace simdjson;
 
 		const auto error = parent[arrayName].get_array().get(*array);

@@ -40,7 +40,7 @@
 
 namespace fastgltf {
 	// clang-format off
-	FASTGLTF_EXPORT enum class ExportOptions : std::uint64_t {
+	FASTGLTF_EXPORT enum class FASTGLTF_FLAG_ENUM ExportOptions : std::uint64_t {
 		None                            = 0,
 
 		/**

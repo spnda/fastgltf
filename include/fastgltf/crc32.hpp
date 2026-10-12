@@ -68,14 +68,14 @@ namespace fastgltf {
 		0x79b737ba, 0x8bdcb4b9, 0x988c474d, 0x6ae7c44e, 0xbe2da0a5, 0x4c4623a6, 0x5f16d052, 0xad7d5351,
 	}};
 
-	[[gnu::hot, gnu::pure]] constexpr std::uint32_t fallback_crc32c(const std::string_view str) noexcept {
+	[[nodiscard]] constexpr std::uint32_t fallback_crc32c(const std::string_view str) noexcept {
 		std::uint32_t crc = ~0;
 		for (const auto c : str)
 			crc = (crc >> 8) ^ crcHashTable[(crc ^ static_cast<std::uint8_t>(c)) & 0xff];
 		return crc ^ 0xffffffff;
 	}
 
-	[[gnu::hot, gnu::pure]] constexpr std::uint32_t fallback_crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
+	[[nodiscard]] constexpr std::uint32_t fallback_crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
 		std::uint32_t crc = ~0;
 		for (std::size_t i = 0; i < len; ++i)
 			crc = (crc >> 8) ^ crcHashTable[(crc ^ d[i]) & 0xff];
@@ -87,15 +87,15 @@ namespace fastgltf {
 	 * Variant of crc32 that uses SSE4.2 instructions to increase performance. Note that this does not
 	 * check for availability of said instructions.
 	 */
-	[[gnu::hot, gnu::pure]] std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
-	[[gnu::hot, gnu::pure]] FASTGLTF_FORCEINLINE std::uint32_t sse_crc32c(const std::string_view str) noexcept {
+	[[nodiscard]] FASTGLTF_PURE std::uint32_t sse_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
+	[[nodiscard]] FASTGLTF_FORCEINLINE std::uint32_t sse_crc32c(const std::string_view str) noexcept {
 		return sse_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
 	}
 #elif defined(FASTGLTF_IS_A64) && !defined(_MSC_VER) && !defined(__ANDROID__)
 	// Both MSVC stdlib and Android NDK don't include the arm intrinsics. TODO: Find a workaround?
 #define FASTGLTF_ENABLE_ARMV8_CRC 1
-	[[gnu::hot, gnu::pure]] std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
-	[[gnu::hot, gnu::pure]] FASTGLTF_FORCEINLINE std::uint32_t armv8_crc32c(const std::string_view str) noexcept {
+	[[nodiscard]] FASTGLTF_PURE std::uint32_t armv8_crc32c(const std::uint8_t* d, std::size_t len) noexcept;
+	[[nodiscard]] FASTGLTF_FORCEINLINE std::uint32_t armv8_crc32c(const std::string_view str) noexcept {
 		return armv8_crc32c(reinterpret_cast<const std::uint8_t*>(str.data()), str.size());
 	}
 #endif
@@ -108,7 +108,7 @@ namespace fastgltf {
 	 * TODO: Reimplement some kind of runtime dispatch for cases where this is only detectable at runtime, and compare
 	 *       the actual real cost?
 	 */
-	[[gnu::hot, gnu::pure]] FASTGLTF_FORCEINLINE constexpr std::uint32_t crc32c(const std::uint8_t* d, std::size_t len) noexcept {
+	[[nodiscard]] FASTGLTF_FORCEINLINE constexpr std::uint32_t crc32c(const std::uint8_t* d, std::size_t len) noexcept {
 		if (std::is_constant_evaluated()) {
 			return fallback_crc32c(d, len);
 		}
@@ -123,7 +123,7 @@ namespace fastgltf {
 #endif
 	}
 
-	[[gnu::hot, gnu::pure]] FASTGLTF_FORCEINLINE constexpr std::uint32_t crc32c(const std::string_view str) noexcept {
+	[[nodiscard]] FASTGLTF_FORCEINLINE constexpr std::uint32_t crc32c(const std::string_view str) noexcept {
 		if (std::is_constant_evaluated()) {
 			return fallback_crc32c(str);
 		}

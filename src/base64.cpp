@@ -38,7 +38,6 @@
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 5030) // attribute 'x' is not recognized
 #pragma warning(disable : 4710) // function not inlined
 #endif
 
