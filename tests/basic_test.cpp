@@ -4,6 +4,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 // All headers not in the root directory require this
 #define GLM_ENABLE_EXPERIMENTAL 1
@@ -19,6 +20,101 @@
 #include <simdjson.h>
 
 constexpr auto noOptions = fastgltf::Options::None;
+
+TEST_CASE("External buffer and image loading options are independent", "[gltf-loader][loading-options]") {
+	using namespace fastgltf;
+	auto cubePath = sampleAssets / "Models" / "Cube" / "glTF";
+	for (auto options : { Options::None, Options::LoadExternalBuffers, Options::LoadExternalImages,
+			Options::LoadExternalBuffers | Options::LoadExternalImages }) {
+		CAPTURE(options);
+		GltfFileStream jsonData(cubePath / "Cube.gltf");
+		REQUIRE(jsonData.isOpen());
+		Parser parser;
+		auto asset = parser.loadGltfJson(jsonData, cubePath, options);
+		REQUIRE(asset.error() == Error::None);
+		REQUIRE(asset->buffers.size() == 1);
+		REQUIRE(asset->images.size() == 1);
+		CHECK(std::holds_alternative<sources::Array>(asset->buffers[0].data)
+				== hasBit(options, Options::LoadExternalBuffers));
+		CHECK(std::holds_alternative<sources::URI>(asset->buffers[0].data)
+				== !hasBit(options, Options::LoadExternalBuffers));
+		CHECK(std::holds_alternative<sources::Array>(asset->images[0].data)
+				== hasBit(options, Options::LoadExternalImages));
+		CHECK(std::holds_alternative<sources::URI>(asset->images[0].data)
+				== !hasBit(options, Options::LoadExternalImages));
+	}
+}
+
+TEST_CASE("External loading options preserve embedded and remote image sources", "[gltf-loader][loading-options]") {
+	using namespace fastgltf;
+	constexpr std::string_view json = R"({
+		"asset": {"version": "2.0"},
+		"buffers": [
+			{"byteLength": 4, "uri": "data:application/octet-stream;base64,AQIDBA=="},
+			{"byteLength": 4, "uri": "https://example.invalid/buffer.bin"}
+		],
+		"bufferViews": [{"buffer": 0, "byteLength": 4}],
+		"images": [
+			{"uri": "data:image/png;base64,AQIDBA=="},
+			{"bufferView": 0, "mimeType": "image/png"},
+			{"uri": "https://example.invalid/image.png"}
+		]
+	})";
+	const auto options = GENERATE(Options::None, Options::LoadExternalBuffers | Options::LoadExternalImages);
+	CAPTURE(options);
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+	Parser parser;
+	std::vector<std::vector<std::byte>> allocations;
+	bool customAllocations = false;
+	SECTION("Default allocations") {}
+	SECTION("Custom allocations") {
+		customAllocations = true;
+		parser.setUserPointer(&allocations);
+		parser.setBufferAllocationCallback([](std::uint64_t size, void* user) -> BufferInfo {
+			auto& buffers = *static_cast<std::vector<std::vector<std::byte>>*>(user);
+			buffers.emplace_back(size);
+			return { buffers.back().data(), buffers.size() - 1 };
+		});
+	}
+	auto asset = parser.loadGltfJson(data.get(), path, options);
+	REQUIRE(asset.error() == Error::None);
+	REQUIRE(asset->buffers.size() == 2);
+	REQUIRE(asset->images.size() == 3);
+	if (!customAllocations) {
+		REQUIRE(allocations.empty());
+		CHECK(std::get<sources::Array>(asset->buffers[0].data).bytes.size() == 4);
+		CHECK(std::get<sources::Array>(asset->images[0].data).bytes.size() == 4);
+	} else {
+		REQUIRE(allocations.size() == 2);
+		CHECK(std::get<sources::CustomBuffer>(asset->buffers[0].data).id == 0);
+		CHECK(std::get<sources::CustomBuffer>(asset->images[0].data).id == 1);
+		CHECK(allocations[0] == allocations[1]);
+		CHECK(allocations[0][0] == std::byte{1});
+	}
+	CHECK(std::holds_alternative<sources::URI>(asset->buffers[1].data));
+	CHECK(std::get<sources::BufferView>(asset->images[1].data).bufferViewIndex == 0);
+	CHECK(std::holds_alternative<sources::URI>(asset->images[2].data));
+}
+
+TEST_CASE("External loading options report missing local files", "[gltf-loader][loading-options]") {
+	using namespace fastgltf;
+	std::string_view json;
+	Options options;
+	SECTION("Buffer") {
+		json = R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"missing.bin"}]})";
+		options = Options::LoadExternalBuffers;
+	}
+	SECTION("Image") {
+		json = R"({"asset":{"version":"2.0"},"images":[{"uri":"missing.png"}]})";
+		options = Options::LoadExternalImages;
+	}
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+	Parser parser;
+	CHECK(parser.loadGltfJson(data.get(), path, options).error() == Error::MissingExternalFile);
+	CHECK(parser.loadGltfJson(data.get(), path, Options::None).error() == Error::None);
+}
 
 TEST_CASE("Component type tests", "[gltf-loader]") {
     using namespace fastgltf;
