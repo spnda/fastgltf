@@ -93,6 +93,7 @@ TEST_CASE("External loading options preserve embedded and remote image sources",
 		CHECK(allocations[0][0] == std::byte{1});
 	}
 	CHECK(std::holds_alternative<sources::URI>(asset->buffers[1].data));
+	CHECK(std::holds_alternative<sources::BufferView>(asset->images[1].data));
 	CHECK(std::get<sources::BufferView>(asset->images[1].data).bufferViewIndex == 0);
 	CHECK(std::holds_alternative<sources::URI>(asset->images[2].data));
 }

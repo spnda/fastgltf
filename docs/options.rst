@@ -159,8 +159,9 @@ represented by ``sources::CustomBuffer`` when the map callback supplies memory.
 Consequently, neither option guarantees that every buffer or image has the
 ``sources::Array`` alternative. Applications must handle the alternatives
 that their assets and allocation callbacks can produce.
-Assets using meshopt compression can also contain ``sources::Fallback``
-buffers that have no data of their own.
+Assets using the ``EXT_meshopt_compression`` or ``KHR_meshopt_compression``
+extensions can also contain ``sources::Fallback`` buffers that have no data of
+their own.
 
 An enabled option makes a missing local file a parsing error
 (``Error::MissingExternalFile``), rather than leaving a URI for later loading.
