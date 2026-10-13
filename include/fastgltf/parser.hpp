@@ -205,7 +205,7 @@ namespace fastgltf {
 		 * If disabled, these buffers remain sources::URI, which can be useful for APIs like
 		 * DirectStorage or Metal IO. Remote URIs remain sources::URI regardless of this option.
 		 * Embedded buffers are loaded independently of this option. To load external image files,
-		 * specify LoadExternalImages as well.
+		 * specify LoadExternalImages as well. Data URIs are decoded independently of this option.
 		 */
 		LoadExternalBuffers             = 1 << 4,
 
