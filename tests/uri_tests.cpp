@@ -168,6 +168,18 @@ TEST_CASE("Test generic URIs", "[uri-tests]") {
 		REQUIRE(uri.scheme() == "urn");
 		REQUIRE(uri.path() == "oasis:names:specification:docbook:dtd:xml:4.1.2");
 	}
+
+	SECTION("Question mark inside the fragment") {
+		const fastgltf::URI uri(std::string_view("https://example.com/models/a.gltf#node?x=1"));
+		REQUIRE(uri.path() == "/models/a.gltf");
+		REQUIRE(uri.query().empty());
+		REQUIRE(uri.fragment() == "node?x=1");
+
+		const fastgltf::URI local(std::string_view("textures/a.png#frag?x"));
+		REQUIRE(local.path() == "textures/a.png");
+		REQUIRE(local.query().empty());
+		REQUIRE(local.fragment() == "frag?x");
+	}
 }
 
 TEST_CASE("Percent decoding", "[uri-tests]") {

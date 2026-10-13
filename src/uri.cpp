@@ -110,6 +110,9 @@ namespace fastgltf::internal {
 			// Parse the path.
 			auto questionIdx = str.find('?', idx);
 			auto hashIdx = str.find('#', idx);
+			// The fragment runs to the end of the URI, so a '?' after the '#' belongs to the fragment.
+			if (hashIdx != std::string_view::npos && questionIdx > hashIdx)
+				questionIdx = std::string_view::npos;
 			if (questionIdx != std::string_view::npos) {
 				c._path = { .pos = idx, .len = questionIdx - idx };
 
