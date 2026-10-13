@@ -69,14 +69,14 @@ namespace fastgltf {
 	}};
 
 	[[nodiscard]] constexpr std::uint32_t fallback_crc32c(const std::string_view str) noexcept {
-		std::uint32_t crc = ~0;
+		std::uint32_t crc = 0xffffffff;
 		for (const auto c : str)
 			crc = (crc >> 8) ^ crcHashTable[(crc ^ static_cast<std::uint8_t>(c)) & 0xff];
 		return crc ^ 0xffffffff;
 	}
 
 	[[nodiscard]] constexpr std::uint32_t fallback_crc32c(const std::uint8_t* d, const std::size_t len) noexcept {
-		std::uint32_t crc = ~0;
+		std::uint32_t crc = 0xffffffff;
 		for (std::size_t i = 0; i < len; ++i)
 			crc = (crc >> 8) ^ crcHashTable[(crc ^ d[i]) & 0xff];
 		return crc ^ 0xffffffff;
