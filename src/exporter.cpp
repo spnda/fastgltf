@@ -188,6 +188,25 @@ namespace fastgltf {
 		builder.append(range);
 	}
 
+	template <simdjson::constevalutil::fixed_string key, auto value>
+	FASTGLTF_FORCEINLINE static void append_const_key_value(simdjson::builder::string_builder& builder) {
+		// This API only got added in 5.0.4
+		if constexpr (requires { builder.template append_key_value<key, value>(); }) {
+			builder.template append_key_value<key, value>();
+		} else {
+			builder.append_key_value<key>(value);
+		}
+	}
+	template <simdjson::constevalutil::fixed_string key, simdjson::constevalutil::fixed_string value>
+	FASTGLTF_FORCEINLINE static void append_const_key_value(simdjson::builder::string_builder& builder) {
+		// This API only got added in 5.0.4
+		if constexpr (requires { builder.template append_key_value<key, value>(); }) {
+			builder.template append_key_value<key, value>();
+		} else {
+			builder.append_key_value<key>(value);
+		}
+	}
+
 	template <simdjson::constevalutil::fixed_string key>
 	static void writeMinMax(simdjson::builder::string_builder& builder, const optional<AccessorBoundsArray>& ref) {
 		if (!ref.has_value())
@@ -308,7 +327,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, simdjson::builder::string_
 
 		if (it->normalized) {
 			builder.append_comma();
-			builder.append_key_value<"normalized">(true);
+			append_const_key_value<"normalized", true>(builder);
 		}
 
 		if (it->bufferViewIndex.has_value()) {
@@ -428,9 +447,9 @@ void fg::Exporter::writeAnimations(const Asset& asset, simdjson::builder::string
 
 				if (si->interpolation != fg::AnimationInterpolation::Linear) {
 					if (si->interpolation == fg::AnimationInterpolation::Step) {
-						builder.append_key_value<"interpolation">("STEP");
+						append_const_key_value<"interpolation", "STEP">(builder);
 					} else {
-						builder.append_key_value<"interpolation">("CUBICSPLINE");
+						append_const_key_value<"interpolation", "CUBICSPLINE">(builder);
 					}
 					builder.append_comma();
 				}
@@ -511,7 +530,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, simdjson::builder::string_bu
 				{
 					auto extensions_obj = scoped_object<"extensions">(builder);
 					auto meshopt_obj = scoped_object<"EXT_meshopt_compression">(builder);
-					builder.append_key_value<"fallback">(true);
+					append_const_key_value<"fallback", true>(builder);
 				}
 				builder.append_comma();
 				bufferPaths.emplace_back(std::nullopt);
@@ -658,7 +677,7 @@ void fg::Exporter::writeCameras(const Asset& asset, simdjson::builder::string_bu
 		std::visit(visitor {
 			[](auto&) {},
 			[&](const Camera::Perspective& perspective) {
-				builder.append_key_value<"type">("perspective");
+				append_const_key_value<"type", "perspective">(builder);
 				builder.append_comma();
 
 				{
@@ -681,7 +700,7 @@ void fg::Exporter::writeCameras(const Asset& asset, simdjson::builder::string_bu
 				}
 			},
 			[&](const Camera::Orthographic& orthographic) {
-				builder.append_key_value<"type">("orthographic");
+				append_const_key_value<"type", "orthographic">(builder);
 				builder.append_comma();
 
 				{
@@ -807,15 +826,15 @@ void fg::Exporter::writeLights(const Asset& asset, simdjson::builder::string_bui
 
 		switch (it->type) {
 			case LightType::Directional: {
-				builder.append_key_value<"type">("directional");
+				append_const_key_value<"type", "directional">(builder);
 				break;
 			}
 			case LightType::Spot: {
-				builder.append_key_value<"type">("spot");
+				append_const_key_value<"type", "spot">(builder);
 				break;
 			}
 			case LightType::Point: {
-				builder.append_key_value<"type">("point");
+				append_const_key_value<"type", "point">(builder);
 				break;
 			}
 		}
@@ -1241,7 +1260,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, simdjson::builder::string_
 
 		if (it->doubleSided) {
 			builder.append_comma();
-			builder.append_key_value<"doubleSided">(true);
+			append_const_key_value<"doubleSided", true>(builder);
 		}
 
 		builder.append_comma();
@@ -1521,7 +1540,7 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 					}
 					if (geom.convexHull) {
 						geometryComma();
-						builder.append_key_value<"convexHull">(true);
+						append_const_key_value<"convexHull", true>(builder);
 					}
 				};
 
@@ -1535,7 +1554,7 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 
 					if (motion.isKinematic) {
 						motionComma();
-						builder.append_key_value<"isKinematic">(true);
+						append_const_key_value<"isKinematic", true>(builder);
 					}
 					if (motion.mass.has_value()) {
 						motionComma();
@@ -1611,7 +1630,7 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 					builder.append_key_value<"joint">(joint.joint);
 					if (joint.enableCollision) {
 						builder.append_comma();
-						builder.append_key_value<"enableCollision">(true);
+						append_const_key_value<"enableCollision", true>(builder);
 					}
 				}
 			}
@@ -1621,21 +1640,21 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 				extensionComma();
 
 				auto visibility_obj = scoped_object<"KHR_node_visibility">(builder);
-				builder.append_key_value<"visible">(false);
+				append_const_key_value<"visible", false>(builder);
 			}
 
 			if (!it->selectable) {
 				extensionComma();
 
 				auto selectable_obj = scoped_object<"KHR_node_selectability">(builder);
-				builder.append_key_value<"selectable">(false);
+				append_const_key_value<"selectable", false>(builder);
 			}
 
 			if (!it->hoverable) {
 				extensionComma();
 
 				auto hoverability_obj = scoped_object<"KHR_node_hoverability">(builder);
-				builder.append_key_value<"hoverable">(false);
+				append_const_key_value<"hoverable", false>(builder);
 			}
 		}
 
@@ -1861,21 +1880,21 @@ void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_bui
 
 		visit_exhaustive(visitor {
 			[&](const SphereShape& sphere) {
-				builder.append_key_value<"type">("sphere");
+				append_const_key_value<"type", "sphere">(builder);
 				builder.append_comma();
 
 				auto sphere_obj = scoped_object<"sphere">(builder);
 				builder.append_key_value<"radius">(sphere.radius);
 			},
 			[&](const BoxShape& box) {
-				builder.append_key_value<"type">("box");
+				append_const_key_value<"type", "box">(builder);
 				builder.append_comma();
 
 				auto box_obj = scoped_object<"box">(builder);
 				append_key_range<"size">(builder, box.size);
 			},
 			[&](const CylinderShape& cylinder) {
-				builder.append_key_value<"type">("cylinder");
+				append_const_key_value<"type", "cylinder">(builder);
 				builder.append_comma();
 
 				auto cylinder_obj = scoped_object<"cylinder">(builder);
@@ -1886,7 +1905,7 @@ void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_bui
 				builder.append_key_value<"radiusTop">(cylinder.radiusTop);
 			},
 			[&](const CapsuleShape& capsule) {
-				builder.append_key_value<"type">("capsule");
+				append_const_key_value<"type", "capsule">(builder);
 				builder.append_comma();
 
 				auto capsule_obj = scoped_object<"capsule">(builder);
@@ -1897,7 +1916,7 @@ void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_bui
 				builder.append_key_value<"radiusTop">(capsule.radiusTop);
 			},
 			[&](const PlaneShape& plane) {
-				builder.append_key_value<"type">("plane");
+				append_const_key_value<"type", "plane">(builder);
 				builder.append_comma();
 
 				auto plane_obj = scoped_object<"plane">(builder);
@@ -2087,28 +2106,24 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, simdjson::builder::str
 
 				const auto& drive = *dit;
 
-				builder.escape_and_append_with_quotes<"type">();
-				builder.append_colon();
 				switch (drive.type) {
 				case DriveType::Linear:
 				case DriveType::Invalid:
-					builder.escape_and_append_with_quotes<"linear">();
+					append_const_key_value<"type", "linear">(builder);
 					break;
 				case DriveType::Angular:
-					builder.escape_and_append_with_quotes<"angular">();
+					append_const_key_value<"type", "angular">(builder);
 					break;
 				}
 
 				builder.append_comma();
-				builder.escape_and_append_with_quotes<"mode">();
-				builder.append_colon();
 				switch (drive.mode) {
 				case DriveMode::Force:
 				case DriveMode::Invalid:
-					builder.escape_and_append_with_quotes<"force">();
+					append_const_key_value<"mode", "force">(builder);
 					break;
 				case DriveMode::Acceleration:
-					builder.escape_and_append_with_quotes<"acceleration">();
+					append_const_key_value<"mode", "acceleration">(builder);
 					break;
 				}
 
@@ -2256,9 +2271,9 @@ std::string fg::Exporter::writeJson(const Asset &asset) {
 					builder.append_key_value<"minVersion">(asset.assetInfo->minVersion);
 				}
 			} else {
-				builder.append_key_value<"generator">("fastgltf");
+				append_const_key_value<"generator", "fastgltf">(builder);
 				builder.append_comma();
-				builder.append_key_value<"version">("2.0");
+				append_const_key_value<"version", "2.0">(builder);
 			}
 		}
 
