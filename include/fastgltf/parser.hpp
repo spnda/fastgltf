@@ -200,10 +200,12 @@ namespace fastgltf {
 		LoadGLBBuffers [[deprecated("This is now default behaviour")]]   = 1 << 3,
 
 		/**
-		 * Loads all external buffers into CPU memory. If disabled, fastgltf will only provide
-		 * a full file path to the file holding the buffer, which can be useful when using APIs
-		 * like DirectStorage or Metal IO. For images, LoadExternalImages has to be explicitly
-		 * specified, too, if required.
+		 * Loads buffers referenced by local file URIs into sources::Array, or sources::CustomBuffer
+		 * when a buffer allocation callback supplies memory. Missing files cause a parsing error.
+		 * If disabled, these buffers remain sources::URI, which can be useful for APIs like
+		 * DirectStorage or Metal IO. Remote URIs remain sources::URI regardless of this option.
+		 * Embedded buffers are loaded independently of this option. To load external image files,
+		 * specify LoadExternalImages as well. Data URIs are decoded independently of this option.
 		 */
 		LoadExternalBuffers             = 1 << 4,
 
@@ -216,8 +218,12 @@ namespace fastgltf {
 		DecomposeNodeMatrices           = 1 << 5,
 
 		/**
-		 * Loads all external images into CPU memory. It does not decode any texture data. Complementary
-		 * to LoadExternalBuffers.
+		 * Loads images referenced by local file URIs into sources::Array, or sources::CustomBuffer
+		 * when a buffer allocation callback supplies memory. Missing files cause a parsing error.
+		 * If disabled, these images remain sources::URI. Remote URIs remain sources::URI regardless
+		 * of this option. Images referencing buffer views remain sources::BufferView; loading their
+		 * external backing buffers requires LoadExternalBuffers. Data URIs are decoded independently
+		 * of this option. Image file contents are not decoded into pixels.
 		 */
 		LoadExternalImages              = 1 << 7,
 

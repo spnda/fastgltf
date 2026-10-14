@@ -88,6 +88,66 @@ Parsing options
 
 For more information about the options when parsing a file, see :ref:`the API reference<options>`.
 
+Loading external buffers and images
+-----------------------------------
+
+``Options::LoadExternalBuffers`` and ``Options::LoadExternalImages`` control
+whether the parser reads local files referenced by buffer and image URIs.
+They are independent: loading an external buffer does not also load external
+image files. Relative paths are resolved against the directory passed to
+``Parser::loadGltf``, ``loadGltfJson`` or ``loadGltfBinary``.
+
+The following table describes the ``DataSource`` returned after a successful
+parse, without custom buffer allocation callbacks:
+
+.. list-table:: Buffer and image data sources
+   :header-rows: 1
+   :widths: 40 30 30
+
+   * - Resource
+     - Corresponding option disabled
+     - Corresponding option enabled
+   * - Buffer URI pointing to a local file
+     - ``sources::URI``
+     - ``sources::Array``
+   * - Image URI pointing to a local file
+     - ``sources::URI``
+     - ``sources::Array``
+   * - Buffer or image with a base64 data URI
+     - ``sources::Array``
+     - ``sources::Array``
+   * - Buffer in the GLB binary chunk
+     - ``sources::Array``
+     - ``sources::Array``
+   * - Image referencing a buffer view
+     - ``sources::BufferView``
+     - ``sources::BufferView``
+   * - Buffer or image with a remote URI (for example, HTTPS)
+     - ``sources::URI``
+     - ``sources::URI``
+
+Embedded data is loaded independently of these options. In particular,
+``LoadExternalImages`` does not copy images out of buffer views: use the
+``bufferViewIndex`` to find the view and its backing buffer. If that buffer is
+an external file, ``LoadExternalBuffers`` controls whether it is loaded.
+fastgltf does not download remote resources; their URIs remain available for
+the application to handle.
+
+With ``Parser::setBufferAllocationCallback``, loaded data can instead be
+represented by ``sources::CustomBuffer`` when the map callback supplies memory.
+Consequently, neither option guarantees that every buffer or image has the
+``sources::Array`` alternative. Applications must handle the alternatives
+that their assets and allocation callbacks can produce.
+Assets using the ``EXT_meshopt_compression`` or ``KHR_meshopt_compression``
+extensions can also contain ``sources::Fallback`` buffers that have no data of
+their own.
+
+An enabled option makes a missing local file a parsing error
+(``Error::MissingExternalFile``), rather than leaving a URI for later loading.
+Always check the returned ``Expected<Asset>`` before accessing the asset.
+Loading an image reads its encoded bytes; it does not decode PNG, JPEG or other
+image formats into pixels.
+
 
 Exporting options
 =================
