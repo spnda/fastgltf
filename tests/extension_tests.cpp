@@ -439,15 +439,16 @@ TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
 // TODO: Add tests for MSFT_packing_* extensions
 
 TEST_CASE("Extension KHR_materials_dispersion", "[gltf-loader]") {
-	constexpr std::string_view json = R"({"materials": [
-		{
+	constexpr std::string_view json = R"({
+		"extensionsUsed": ["KHR_materials_dispersion"],
+		"materials": [{
 			"extensions": {
 				"KHR_materials_dispersion": {
 					"dispersion": 0.1
 				}
 			}
-		}
-	]})";
+		}]
+	})";
 	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
 			reinterpret_cast<const std::byte*>(json.data()), json.size());
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
