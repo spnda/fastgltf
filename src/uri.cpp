@@ -157,6 +157,25 @@ std::string fg::decodePercents(const std::string_view x) {
 	return ret;
 }
 
+std::string fg::encodePercents(const std::string_view x) {
+	std::string ret;
+	ret.reserve(x.size());
+	constexpr std::string_view hex = "0123456789ABCDEF";
+	for (const unsigned char c : x) {
+		const bool unreserved = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~' || c == '/' ||
+			c >= 0x80;
+		if (unreserved) {
+			ret.push_back(static_cast<char>(c));
+		} else {
+			ret.push_back('%');
+			ret.push_back(hex[c >> 4]);
+			ret.push_back(hex[c & 0xF]);
+		}
+	}
+	return ret;
+}
+
 fg::URIView::URIView(const std::string_view uri) noexcept : _view(uri), _components(internal::parseURI(_view)) {}
 
 fs::path fg::URIView::fspath() const {

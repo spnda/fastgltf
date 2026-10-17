@@ -187,24 +187,32 @@ TEST_CASE("Percent decoding", "[uri-tests]") {
 		// All reserved characters as per RFC 3986 section 2.2 Reserved Characters (January 2005)
 		const std::string_view input = "%20%21%22%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
 		const auto decoded = fastgltf::decodePercents(input);
-		REQUIRE(decoded == " !\"#$%&'()*+,/:;=?@[]");
+		CHECK(decoded == " !\"#$%&'()*+,/:;=?@[]");
 	}
 
 	SECTION("Decoding behavior") {
 		const std::string_view path = "a%23%3Ab.png";
 		const fastgltf::URI uri(path);
-		REQUIRE(uri.path() == "a%23%3Ab.png");
-		REQUIRE(uri.fspath() == "a#:b.png");
+		CHECK(uri.path() == "a%23%3Ab.png");
+		CHECK(uri.fspath() == "a#:b.png");
 	}
 
 	SECTION("Only decode valid characters") {
 		const std::string_view input = "100%test.png";
-		REQUIRE(fastgltf::decodePercents(input) == input);
+		CHECK(fastgltf::decodePercents(input) == input);
 	}
 
 	SECTION("Don't out of bounds") {
 		const std::string_view input = "100%";
-		REQUIRE(fastgltf::decodePercents(input) == input);
+		CHECK(fastgltf::decodePercents(input) == input);
+	}
+}
+
+TEST_CASE("Percent encoding", "[uri-tests]") {
+	SECTION("Encode percent characters") {
+		const std::string_view input = " !\"#$%&'()*+,/:;=?@[]";
+		const auto decoded = fastgltf::encodePercents(input);
+		CHECK(decoded == "%20%21%22%23%24%25%26%27%28%29%2A%2B%2C/%3A%3B%3D%3F%40%5B%5D");
 	}
 }
 

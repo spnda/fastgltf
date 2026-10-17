@@ -67,6 +67,14 @@ namespace fastgltf {
 	FASTGLTF_EXPORT std::string decodePercents(std::string_view x);
 
 	/**
+	 * Percent-encodes (RFC 3986) a URI path. Keeps unreserved characters (A-Z a-z 0-9 - . _ ~)
+	 * and '/' literal, and encodes every other ASCII byte as %XX. UTF-8 bytes (>= 0x80) pass
+	 * through unchanged, since real-world glTF files commonly use raw UTF-8 in paths (see e.g.
+	 * the Khronos Unicode sample) and modern viewers accept both.
+	 */
+	FASTGLTF_EXPORT std::string encodePercents(std::string_view x);
+
+	/**
 	 * Custom URI class for fastgltf's needs. glTF 2.0 only allows two types of URIs:
 	 *  (1) Data URIs as specified in RFC 2397.
 	 *  (2) Relative paths as specified in RFC 3986.

@@ -185,10 +185,11 @@ void fg::prettyPrintJson(std::string& json) {
 
 namespace fastgltf {
 	/**
-	 * Normalizes the path using lexically_normal and calls generic_string to always use forward slashes.
+	 * Normalizes the path using lexically_normal, calls generic_string to always use forward slashes,
+	 * and percent-encodes URI-reserved characters.
 	 */
 	static std::string normalizeAndFormatPath(const fs::path& path) {
-		return path.lexically_normal().generic_string();
+		return encodePercents(path.lexically_normal().generic_string());
 	}
 
 	template <simdjson::constevalutil::fixed_string key = "">
