@@ -2913,11 +2913,11 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 
 				scene.nodeIndices.emplace_back(static_cast<std::size_t>(index));
 			}
-
-			asset.scenes.emplace_back(std::move(scene));
 		} else if (nodeError != Error::MissingField) {
 			return nodeError;
 		}
+
+		asset.scenes.emplace_back(std::move(scene));
 	}
 
 	return Error::None;

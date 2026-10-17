@@ -119,6 +119,34 @@ TEST_CASE("External loading options report missing local files", "[gltf-loader][
 	CHECK(parser.loadGltfJson(data.get(), path, Options::None).error() == Error::None);
 }
 
+TEST_CASE("Scenes without nodes keep their indices", "[gltf-loader]") {
+	// scene.nodes is optional (minItems:1), so a scene may omit it.
+	constexpr std::string_view json = R"({
+		"asset": {"version": "2.0"},
+		"scene": 2,
+		"nodes": [{}],
+		"scenes": [
+			{"nodes": [0]},
+			{},
+			{"name": "Empty"}
+		]
+	})";
+
+	auto data = fastgltf::GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == fastgltf::Error::None);
+
+	fastgltf::Parser parser;
+	auto asset = parser.loadGltfJson(data.get(), {}, noOptions);
+	REQUIRE(asset.has_value());
+
+	CHECK(asset->scenes.size() == 3);
+	CHECK(asset->scenes[0].nodeIndices.size() == 1);
+	CHECK(asset->scenes[1].nodeIndices.empty());
+	CHECK(asset->scenes[2].nodeIndices.empty());
+	CHECK(asset->scenes[2].name == "Empty");
+	CHECK(asset->defaultScene == 2U);
+}
+
 TEST_CASE("Component type tests", "[gltf-loader]") {
 	using namespace fastgltf;
 
