@@ -28,6 +28,8 @@
 #error "fastgltf requires C++20"
 #endif
 
+#include <charconv>
+
 #include <simdjson.h>
 #include <simdutf.h>
 
@@ -454,49 +456,83 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 	return Error::None;
 }
 
+namespace {
+	[[nodiscard]] fg::Expected<fg::Version> parseVersionString(const std::string_view version) noexcept {
+		using namespace fastgltf;
+		Version ret {};
+
+		// The glTF specification allows any version string of the format ^[0-9]+\\.[0-9]+$ for both
+		// version and minVersion.
+
+		const auto* const end = version.data() + version.size(); // from_chars requires pointers, not iterators
+		auto [dot, majorError] = std::from_chars(version.data(), end, ret.major);
+		if (majorError != std::errc {} || dot == end || *dot != '.')
+			return Error::InvalidVersion;
+
+		auto [last, minorError] = std::from_chars(std::next(dot), end, ret.minor);
+		if (minorError != std::errc {} || last != end)
+			return Error::InvalidVersion;
+		return ret;
+	}
+}
+
+fg::Error fg::Parser::parseAssetInfo(const simdjson::dom::object& root, AssetInfo& info) {
+	using namespace simdjson;
+
+	dom::object assetInfo;
+	if (const auto error = root["asset"].get_object().get(assetInfo); error == NO_SUCH_FIELD) [[unlikely]] {
+		return Error::MissingField;
+	} else if (error != SUCCESS) [[unlikely]] {
+		return Error::InvalidJson;
+	}
+
+	std::string_view versionString;
+	if (const auto error = assetInfo["version"].get_string().get(versionString); error != SUCCESS) [[unlikely]] {
+		return error == NO_SUCH_FIELD ? Error::MissingField : Error::InvalidVersion;
+	}
+
+	auto version = parseVersionString(versionString);
+	if (version.has_error())
+		return version.error();
+	if (version->major != 2) [[unlikely]]
+		return Error::UnsupportedVersion;
+	info.version = *version;
+
+	std::string_view copyright;
+	if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) [[likely]] {
+		info.copyright = copyright;
+	}
+
+	std::string_view generator;
+	if (assetInfo["generator"].get_string().get(generator) == SUCCESS) [[likely]] {
+		info.generator = generator;
+	}
+
+	std::string_view minVersionString;
+	if (const auto strError = assetInfo["minVersion"].get_string().get(minVersionString);
+		strError == SUCCESS) {
+		if (auto minVersion = parseVersionString(minVersionString); minVersion.has_error()) {
+			return minVersion.error();
+		} else {
+			if (*minVersion > Version { 2, 0 }) [[unlikely]]
+				return Error::UnsupportedVersion;
+			info.minVersion = *minVersion;
+		}
+	} else if (strError != NO_SUCH_FIELD) [[unlikely]] {
+		return Error::InvalidVersion;
+	}
+
+	return Error::None;
+}
+
 fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category categories) {
 	using namespace simdjson;
 	fillCategories(categories);
 
 	Asset asset {};
 
-	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
-		dom::object assetInfo;
-		AssetInfo info {};
-		if (const auto error = root["asset"].get_object().get(assetInfo); error == NO_SUCH_FIELD) {
-			return Error::MissingField;
-		} else if (error != SUCCESS) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		std::string_view version;
-		if (const auto error = assetInfo["version"].get_string().get(version); error != SUCCESS) [[unlikely]] {
-			return error == NO_SUCH_FIELD ? Error::MissingField : Error::InvalidGltf;
-		}
-
-		const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
-		// std::uint32_t minor = version.substr(2, 3)[0] - '0';
-		if (major != 2U) {
-			return Error::UnsupportedVersion;
-		}
-		info.gltfVersion = version;
-
-		std::string_view copyright;
-		if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) [[likely]] {
-			info.copyright = copyright;
-		}
-
-		std::string_view generator;
-		if (assetInfo["generator"].get_string().get(generator) == SUCCESS) [[likely]] {
-			info.generator = generator;
-		}
-
-		std::string_view minVersion;
-		if (assetInfo["minVersion"].get_string().get(minVersion) == SUCCESS) [[likely]] {
-			info.minVersion = minVersion;
-		}
-
-		asset.assetInfo = std::move(info);
+	if (const auto err = parseAssetInfo(root, asset.assetInfo); err != Error::None) {
+		return err;
 	}
 
 	if (dom::array extensionsRequired; root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) [[likely]] {

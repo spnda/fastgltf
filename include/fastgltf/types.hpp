@@ -879,11 +879,22 @@ namespace fastgltf {
 		std::string name;
 	};
 
+	FASTGLTF_EXPORT struct Version {
+		std::uint8_t major = 2;
+		std::uint8_t minor = 0;
+
+		[[nodiscard]] std::string asString() const {
+			return std::to_string(major) + "." + std::to_string(minor);
+		}
+
+		auto operator<=>(const Version&) const = default;
+	};
+
 	FASTGLTF_EXPORT struct AssetInfo {
 		std::string copyright;
 		std::string generator;
-		std::string gltfVersion;
-		std::string minVersion;
+		Version version;
+		optional<Version> minVersion;
 	};
 
 	FASTGLTF_EXPORT struct Camera {
@@ -1761,10 +1772,7 @@ namespace fastgltf {
 		friend class Parser;
 
 	public:
-		/**
-		 * This will only ever have no value if #Options::DontRequireValidAssetMember was specified.
-		 */
-		optional<AssetInfo> assetInfo;
+		AssetInfo assetInfo;
 		std::vector<std::string> extensionsUsed;
 		std::vector<std::string> extensionsRequired;
 
