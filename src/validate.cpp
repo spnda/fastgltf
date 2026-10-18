@@ -50,6 +50,16 @@ fg::Error fg::validate(const Asset& asset) {
 			return Error::InvalidGltf;
 	}
 
+	if (asset.assetInfo.version.major != 2)
+		return Error::UnsupportedVersion;
+	if (asset.assetInfo.minVersion) {
+		auto& minVersion = *asset.assetInfo.minVersion;
+		if (minVersion > Version { 2, 1 })
+			return Error::UnsupportedVersion;
+		if (minVersion > asset.assetInfo.version)
+			return Error::InvalidVersion;
+	}
+
 	for (const auto& accessor : asset.accessors) {
 		if (accessor.type == AccessorType::Invalid)
 			return Error::InvalidGltf;

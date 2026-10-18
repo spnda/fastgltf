@@ -2227,24 +2227,21 @@ std::string fg::Exporter::writeJson(const Asset &asset) {
 		// Write asset info
 		{
 			auto asset_obj = scoped_object<"asset">(builder);
-			if (asset.assetInfo.has_value()) {
-				builder.append_key_value<"version">(asset.assetInfo->gltfVersion);
-				if (!asset.assetInfo->copyright.empty()) {
-					builder.append_comma();
-					builder.append_key_value<"copyright">(asset.assetInfo->copyright);
-				}
-				if (!asset.assetInfo->generator.empty()) {
-					builder.append_comma();
-					builder.append_key_value<"generator">(asset.assetInfo->generator);
-				}
-				if (!asset.assetInfo->minVersion.empty()) {
-					builder.append_comma();
-					builder.append_key_value<"minVersion">(asset.assetInfo->minVersion);
-				}
-			} else {
-				append_const_key_value<"generator", "fastgltf">(builder);
+			builder.append_key_value<"version">(asset.assetInfo.version.asString());
+			if (!asset.assetInfo.copyright.empty()) {
 				builder.append_comma();
-				append_const_key_value<"version", "2.0">(builder);
+				builder.append_key_value<"copyright">(asset.assetInfo.copyright);
+			}
+			if (!asset.assetInfo.generator.empty()) {
+				builder.append_comma();
+				builder.append_key_value<"generator">(asset.assetInfo.generator);
+			} else {
+				builder.append_comma();
+				builder.append_key_value<"generator", "fastgltf">();
+			}
+			if (asset.assetInfo.minVersion.has_value()) {
+				builder.append_comma();
+				builder.append_key_value<"minVersion">(asset.assetInfo.minVersion->asString());
 			}
 		}
 
