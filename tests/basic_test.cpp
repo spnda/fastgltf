@@ -184,6 +184,7 @@ TEST_CASE("string<->enum conversion functions", "[gltf-loader]") {
 		REQUIRE(internal::getMimeTypeString(MimeType::GltfBuffer) == internal::mimeTypeGltfBuffer);
 		REQUIRE(internal::getMimeTypeString(MimeType::OctetStream) == internal::mimeTypeOctetStream);
 		REQUIRE(internal::getMimeTypeString(MimeType::WEBP) == internal::mimeTypeWebp);
+		REQUIRE(internal::getMimeTypeString(MimeType::AVIF) == internal::mimeTypeAvif);
 		REQUIRE(internal::getMimeTypeString(MimeType::None) == "");
 
 		REQUIRE(internal::getMimeTypeFromString(internal::mimeTypeJpeg) == MimeType::JPEG);
@@ -193,6 +194,7 @@ TEST_CASE("string<->enum conversion functions", "[gltf-loader]") {
 		REQUIRE(internal::getMimeTypeFromString(internal::mimeTypeGltfBuffer) == MimeType::GltfBuffer);
 		REQUIRE(internal::getMimeTypeFromString(internal::mimeTypeOctetStream) == MimeType::OctetStream);
 		REQUIRE(internal::getMimeTypeFromString(internal::mimeTypeWebp) == MimeType::WEBP);
+		REQUIRE(internal::getMimeTypeFromString(internal::mimeTypeAvif) == MimeType::AVIF);
 		REQUIRE(internal::getMimeTypeFromString("") == MimeType::None);
 	}
 #if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES

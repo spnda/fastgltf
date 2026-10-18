@@ -501,12 +501,22 @@ fg::Error fg::validate(const Asset& asset) {
 			return Error::InvalidGltf;
 	}
 
+	auto isUsingImageExtension =
+		isExtensionUsed(extensions::KHR_texture_basisu) ||
+		isExtensionUsed(extensions::MSFT_texture_dds) ||
+		isExtensionUsed(extensions::EXT_texture_webp) ||
+		isExtensionUsed(extensions::EXT_texture_avif);
 	for (const auto& texture : asset.textures) {
 		if (texture.samplerIndex.has_value() && texture.samplerIndex.value() >= asset.samplers.size())
 			return Error::InvalidGltf;
 		// imageIndex needs to be defined, unless one of the texture extensions were enabled and define another image index.
-		if (isExtensionUsed(extensions::KHR_texture_basisu) || isExtensionUsed(extensions::MSFT_texture_dds) || isExtensionUsed(extensions::EXT_texture_webp)) {
-			if (!texture.imageIndex.has_value() && (!texture.basisuImageIndex.has_value() && !texture.ddsImageIndex.has_value() && !texture.webpImageIndex.has_value())) {
+		if (isUsingImageExtension) {
+			auto hasExtensionImage =
+				texture.basisuImageIndex.has_value() ||
+				texture.ddsImageIndex.has_value() ||
+				texture.webpImageIndex.has_value() ||
+				texture.avifImageIndex.has_value();
+			if (!texture.imageIndex.has_value() && !hasExtensionImage) {
 				return Error::InvalidGltf;
 			}
 		} else if (!texture.imageIndex.has_value()) {
@@ -519,6 +529,8 @@ fg::Error fg::validate(const Asset& asset) {
 		if (texture.ddsImageIndex.has_value() && texture.ddsImageIndex.value() >= asset.images.size())
 			return Error::InvalidGltf;
 		if (texture.webpImageIndex.has_value() && texture.webpImageIndex.value() >= asset.images.size())
+			return Error::InvalidGltf;
+		if (texture.avifImageIndex.has_value() && texture.avifImageIndex.value() >= asset.images.size())
 			return Error::InvalidGltf;
 	}
 

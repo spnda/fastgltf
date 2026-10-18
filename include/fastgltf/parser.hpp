@@ -157,6 +157,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_meshopt_compression/README.md
 		KHR_meshopt_compression = 1ULL << 34,
+
+		// See https://github.com/KhronosGroup/glTF/pull/2235
+		EXT_texture_avif = 1ULL << 35,
 	};
 	// clang-format on
 
@@ -245,6 +248,7 @@ namespace fastgltf {
 	namespace extensions {
 		inline constexpr std::string_view EXT_mesh_gpu_instancing = "EXT_mesh_gpu_instancing";
 		inline constexpr std::string_view EXT_meshopt_compression = "EXT_meshopt_compression";
+		inline constexpr std::string_view EXT_texture_avif = "EXT_texture_avif";
 		inline constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
 		inline constexpr std::string_view GODOT_single_root = "GODOT_single_root";
 		inline constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
@@ -291,6 +295,7 @@ namespace fastgltf {
 	inline constexpr auto extensionStrings = std::to_array<std::pair<std::string_view, Extensions>>({
 		{ extensions::EXT_mesh_gpu_instancing,                  Extensions::EXT_mesh_gpu_instancing },
 		{ extensions::EXT_meshopt_compression,                  Extensions::EXT_meshopt_compression },
+		{ extensions::EXT_texture_avif,                         Extensions::EXT_texture_avif },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
 		{ extensions::GODOT_single_root,                        Extensions::GODOT_single_root },
 		{ extensions::KHR_accessor_float64,                     Extensions::KHR_accessor_float64 },

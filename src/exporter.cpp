@@ -1822,7 +1822,7 @@ void fg::Exporter::writeTextures(const Asset& asset, simdjson::builder::string_b
 			builder.append_key_value<"source">(it->imageIndex.value());
 		}
 
-		if (it->basisuImageIndex.has_value() || it->ddsImageIndex.has_value() || it->webpImageIndex.has_value()) {
+		if (it->basisuImageIndex.has_value() || it->ddsImageIndex.has_value() || it->webpImageIndex.has_value() || it->avifImageIndex.has_value()) {
 			comma();
 
 			auto extensions_obj = scoped_object<"extensions">(builder);
@@ -1843,6 +1843,11 @@ void fg::Exporter::writeTextures(const Asset& asset, simdjson::builder::string_b
 				extensionComma();
 				auto webp_obj = scoped_object<"EXT_texture_webp">(builder);
 				builder.append_key_value<"source">(it->webpImageIndex.value());
+			}
+			if (it->avifImageIndex.has_value()) {
+				extensionComma();
+				auto avif_obj = scoped_object<"EXT_texture_avif">(builder);
+				builder.append_key_value<"source">(it->avifImageIndex.value());
 			}
 		}
 
@@ -2218,28 +2223,7 @@ fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) 
 }
 
 fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
-	std::string_view extension;
-	switch (mimeType) {
-		case MimeType::JPEG:
-			extension = ".jpeg";
-			break;
-		case MimeType::PNG:
-			extension = ".png";
-			break;
-		case MimeType::KTX2:
-			extension = ".ktx2";
-			break;
-		case MimeType::DDS:
-			extension = ".dds";
-			break;
-		default:
-		case MimeType::None:
-		case MimeType::GltfBuffer:
-		case MimeType::OctetStream:
-			extension = ".bin";
-			break;
-	}
-
+	auto extension = internal::getFileExtensionForMime(mimeType);
 	const auto& imageName = asset.images[index].name;
 	if (imageName.empty()) {
 		return imageFolder / ("image" + std::to_string(index) + std::string(extension));

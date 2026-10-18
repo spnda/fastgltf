@@ -105,6 +105,13 @@ namespace fastgltf {
 						return false;
 					break;
 				}
+				case force_consteval<crc32c(extensions::EXT_texture_avif)>: {
+					if (!hasBit(extensionFlags, Extensions::EXT_texture_avif))
+						break;
+					if (!getImageIndexForExtension(extension.value, texture.avifImageIndex))
+						return false;
+					break;
+				}
 				default:
 					break;
 			}

@@ -178,6 +178,7 @@ namespace fastgltf {
 		GltfBuffer = 5,
 		OctetStream = 6,
 		WEBP = 7,
+		AVIF = 8,
 	};
 
 	FASTGLTF_EXPORT enum class AnimationInterpolation : std::uint8_t {
@@ -468,6 +469,7 @@ namespace fastgltf {
 		inline constexpr std::string_view mimeTypeGltfBuffer = "application/gltf-buffer";
 		inline constexpr std::string_view mimeTypeOctetStream = "application/octet-stream";
 		inline constexpr std::string_view mimeTypeWebp = "image/webp";
+		inline constexpr std::string_view mimeTypeAvif = "image/avif";
 
 		[[nodiscard]] constexpr std::string_view getMimeTypeString(const MimeType mimeType) noexcept {
 			switch (mimeType) {
@@ -485,11 +487,13 @@ namespace fastgltf {
 					return mimeTypeOctetStream;
 				case MimeType::WEBP:
 					return mimeTypeWebp;
+				case MimeType::AVIF:
+					return mimeTypeAvif;
 				default:
 					return "";
 			}
 		}
-		[[nodiscard]] constexpr MimeType getMimeTypeFromString(const std::string_view mime) {
+		[[nodiscard]] constexpr MimeType getMimeTypeFromString(const std::string_view mime) noexcept {
 			switch (crc32c(mime)) {
 				case force_consteval<crc32c(mimeTypeJpeg)>: {
 					return MimeType::JPEG;
@@ -512,9 +516,33 @@ namespace fastgltf {
 				case force_consteval<crc32c(mimeTypeWebp)>: {
 					return MimeType::WEBP;
 				}
+				case force_consteval<crc32c(mimeTypeAvif)>: {
+					return MimeType::AVIF;
+				}
 				default: {
 					return MimeType::None;
 				}
+			}
+		}
+		[[nodiscard]] constexpr std::string_view getFileExtensionForMime(const MimeType mimeType) noexcept {
+			switch (mimeType) {
+				case MimeType::JPEG:
+					return ".jpeg";
+				case MimeType::PNG:
+					return ".png";
+				case MimeType::KTX2:
+					return ".ktx2";
+				case MimeType::DDS:
+					return ".dds";
+				case MimeType::WEBP:
+					return ".webp";
+				case MimeType::AVIF:
+					return ".avif";
+				default:
+				case MimeType::None:
+				case MimeType::GltfBuffer:
+				case MimeType::OctetStream:
+					return ".bin";
 			}
 		}
 
@@ -1609,6 +1637,11 @@ namespace fastgltf {
 		 * An optional texture index from the EXT_texture_webp extension.
 		 */
 		optional<std::size_t> webpImageIndex;
+
+		/**
+		 * An optional texture index from the EXT_texture_avif extension.
+		 */
+		optional<std::size_t> avifImageIndex;
 
 		std::string name;
 	};
