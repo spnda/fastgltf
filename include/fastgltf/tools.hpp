@@ -149,9 +149,9 @@ template<> struct ElementTraits<math::u16vec2> : ElementTraitsBase<math::u16vec2
 template<> struct ElementTraits<math::u16vec3> : ElementTraitsBase<math::u16vec3, AccessorType::Vec3, std::uint16_t> {};
 template<> struct ElementTraits<math::u16vec4> : ElementTraitsBase<math::u16vec4, AccessorType::Vec4, std::uint16_t> {};
 
-template<> struct ElementTraits<math::s32vec2> : ElementTraitsBase<math::s32vec2, AccessorType::Vec2, std::int16_t> {};
-template<> struct ElementTraits<math::s32vec3> : ElementTraitsBase<math::s32vec3, AccessorType::Vec3, std::int16_t> {};
-template<> struct ElementTraits<math::s32vec4> : ElementTraitsBase<math::s32vec4, AccessorType::Vec4, std::int16_t> {};
+template<> struct ElementTraits<math::s32vec2> : ElementTraitsBase<math::s32vec2, AccessorType::Vec2, std::int32_t> {};
+template<> struct ElementTraits<math::s32vec3> : ElementTraitsBase<math::s32vec3, AccessorType::Vec3, std::int32_t> {};
+template<> struct ElementTraits<math::s32vec4> : ElementTraitsBase<math::s32vec4, AccessorType::Vec4, std::int32_t> {};
 template<> struct ElementTraits<math::u32vec2> : ElementTraitsBase<math::u32vec2, AccessorType::Vec2, std::uint32_t> {};
 template<> struct ElementTraits<math::u32vec3> : ElementTraitsBase<math::u32vec3, AccessorType::Vec3, std::uint32_t> {};
 template<> struct ElementTraits<math::u32vec4> : ElementTraitsBase<math::u32vec4, AccessorType::Vec4, std::uint32_t> {};
