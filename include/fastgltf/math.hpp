@@ -28,6 +28,7 @@
 #define FASTGLTF_MATH_HPP
 
 #if !defined(FASTGLTF_MODULE)
+#include <array>
 #include <cmath>
 #include <functional>
 #include <initializer_list>
