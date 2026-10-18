@@ -45,25 +45,56 @@ namespace fs = std::filesystem;
 namespace fastgltf {
 	namespace internal {
 		/** GLBs are always little-endian, meaning we need to read the values accordingly */
-		[[nodiscard]] inline auto readBinaryHeader(GltfDataGetter& getter) noexcept {
+		[[nodiscard]] inline auto readBinaryHeader(GltfDataGetter& getter) {
 			std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
 			getter.read(bytes.data(), bytes.size());
 
 			BinaryGltfHeader header {};
 			readUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
 			readUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
-			readUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
 			return header;
 		}
 
-		[[nodiscard]] inline auto readBinaryChunk(GltfDataGetter& getter) noexcept {
-			std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
-			getter.read(bytes.data(), bytes.size());
+		[[nodiscard]] inline std::uint64_t readBinaryLength(GltfDataGetter& getter, const BinaryGltfHeader& header) {
+			if (header.version == 3) {
+				std::array<std::byte, sizeof(std::uint64_t)> bytes {};
+				getter.read(bytes.data(), bytes.size());
 
-			BinaryGltfChunk chunk {};
-			readUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
-			readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
-			return chunk;
+				std::uint64_t x;
+				readUint64LE(x, bytes.data());
+				return x;
+			} else {
+				std::array<std::byte, sizeof(std::uint32_t)> bytes {};
+				getter.read(bytes.data(), bytes.size());
+
+				std::uint32_t x;
+				readUint32LE(x, bytes.data());
+				return x;
+			}
+		}
+
+		[[nodiscard]] inline auto readBinaryChunk(GltfDataGetter& getter, const std::uint32_t version) {
+			if (version == 3) {
+				std::array<std::byte, sizeof(BinaryGltfChunkV3)> bytes {};
+				getter.read(bytes.data(), bytes.size());
+
+				BinaryGltfChunkV3 chunk {};
+				readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunkV3, chunkType)]);
+				readUint32LE(chunk.encoding, &bytes[offsetof(BinaryGltfChunkV3, encoding)]);
+				readUint64LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunkV3, chunkLength)]);
+				return chunk;
+			} else {
+				std::array<std::byte, sizeof(BinaryGltfChunkV2)> bytes {};
+				getter.read(bytes.data(), bytes.size());
+
+				BinaryGltfChunkV2 chunk {};
+				readUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunkV2, chunkLength)]);
+				readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunkV2, chunkType)]);
+				return BinaryGltfChunkV3 {
+					.chunkType = chunk.chunkType,
+					.chunkLength = chunk.chunkLength,
+				};
+			}
 		}
 	}
 
@@ -3956,21 +3987,25 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 	if (header.magic != internal::binaryGltfHeaderMagic) {
 		return Error::InvalidGLB;
 	}
-	if (header.version != 2) {
+	if (header.version != 2 && header.version != 3) {
 		return Error::UnsupportedVersion;
 	}
-	if (header.length > data.totalSize()) {
+
+	auto fileLength = internal::readBinaryLength(data, header);
+	if (fileLength > data.totalSize()) {
 		return Error::InvalidGLB;
 	}
 
 	// The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
 	//  1. JSON chunk
 	//  2. BIN chunk (optional)
-	auto jsonChunk = internal::readBinaryChunk(data);
+	auto jsonChunk = internal::readBinaryChunk(data, header.version);
 	if (jsonChunk.chunkType != internal::binaryGltfJsonChunkMagic ||
-		jsonChunk.chunkLength > data.totalSize() - sizeof(internal::BinaryGltfHeader)) {
+		jsonChunk.chunkLength > data.totalSize() - data.bytesRead()) {
 		return Error::InvalidGLB;
 	}
+	if (jsonChunk.encoding != 0)
+		return Error::UnsupportedVersion;
 
 	// Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
 	// says the padding can be initialised to anything, apparently. Therefore, this should work.
@@ -3985,8 +4020,9 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 	}
 
 	// Is there enough room for another chunk header?
-	if (header.length > (data.bytesRead() + sizeof(internal::BinaryGltfChunk))) {
-		auto binaryChunk = internal::readBinaryChunk(data);
+	const auto chunkSize = header.version == 3 ? sizeof(internal::BinaryGltfChunkV3) : sizeof(internal::BinaryGltfChunkV2);
+	if (fileLength > (data.bytesRead() + chunkSize)) {
+		auto binaryChunk = internal::readBinaryChunk(data, header.version);
 
 		if (binaryChunk.chunkType != internal::binaryGltfDataChunkMagic) {
 			return Error::InvalidGLB;
