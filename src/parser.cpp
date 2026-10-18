@@ -28,11 +28,6 @@
 #error "fastgltf requires C++20"
 #endif
 
-#include <fstream>
-#include <functional>
-#include <mutex>
-#include <utility>
-
 #include <simdjson.h>
 #include <simdutf.h>
 

@@ -26,8 +26,6 @@
 
 #include <fastgltf/crc32.hpp>
 
-#include <simdjson.h>
-
 #if defined(__clang__) || defined(__GNUC__)
 #define FASTGLTF_TARGET(x) [[gnu::target(x)]]
 #else

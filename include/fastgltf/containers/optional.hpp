@@ -29,6 +29,8 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <functional>
+#include <limits>
+#include <type_traits>
 #include <optional>
 #endif
 

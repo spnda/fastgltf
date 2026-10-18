@@ -28,18 +28,14 @@
 #define FASTGLTF_UTIL_HPP
 
 #if !defined(FASTGLTF_MODULE)
-#include <array>
-#include <bit>
-#include <cmath>
 #include <compare>
 #include <concepts>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <version>
 #endif

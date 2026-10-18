@@ -29,11 +29,8 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <cassert>
-#include <filesystem>
-#include <optional>
 #include <span>
 #include <string>
-#include <utility>
 #include <vector>
 #endif
 

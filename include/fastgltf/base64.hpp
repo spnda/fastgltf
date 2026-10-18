@@ -29,10 +29,7 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <string>
-#include <string_view>
 #endif
 
 #include <fastgltf/error.hpp>

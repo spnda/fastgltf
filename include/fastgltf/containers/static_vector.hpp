@@ -29,8 +29,7 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <algorithm>
-#include <cassert>
-#include <vector>
+#include <memory_resource>
 #endif
 
 #include <fastgltf/util.hpp>

@@ -28,9 +28,7 @@
 #define FASTGLTF_ALLOCATOR_UTILS_HPP
 
 #if !defined(FASTGLTF_MODULE)
-#include <cstring>
 #include <iterator>
-#include <memory>
 #endif
 
 #include <fastgltf/containers/exception_guard.hpp>

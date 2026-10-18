@@ -29,7 +29,6 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <fstream>
-#include <memory>
 #endif
 
 #include <fastgltf/error.hpp>

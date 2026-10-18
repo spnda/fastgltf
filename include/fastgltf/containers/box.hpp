@@ -28,7 +28,6 @@
 #define FASTGLTF_BOX_HPP
 
 #if !defined(FASTGLTF_MODULE)
-#include <memory>
 #include <memory_resource>
 #endif
 

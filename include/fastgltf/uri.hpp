@@ -30,7 +30,6 @@
 #if !defined(FASTGLTF_MODULE)
 #include <filesystem>
 #include <string>
-#include <string_view>
 #endif
 
 #include <fastgltf/util.hpp>

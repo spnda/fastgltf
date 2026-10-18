@@ -29,17 +29,18 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <algorithm>
-#include <array>
 #include <cassert>
-#include <cstddef>
 #include <iterator>
 #include <new>
 #include <memory>
-#include <ranges>
 #include <stdexcept>
 #endif
 
 #include <fastgltf/util.hpp>
+
+#if !defined(FASTGLTF_MODULE) && FASTGLTF_HAS_CONTAINERS_RANGES
+#include <ranges>
+#endif
 
 namespace fastgltf {
 	/**

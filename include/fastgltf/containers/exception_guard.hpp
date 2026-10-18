@@ -29,8 +29,6 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <cassert>
-#include <type_traits>
-#include <utility>
 #endif
 
 #include <fastgltf/util.hpp>

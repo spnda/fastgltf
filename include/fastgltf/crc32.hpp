@@ -27,6 +27,12 @@
 #ifndef FASTGLTF_CRC32_HPP
 #define FASTGLTF_CRC32_HPP
 
+#if !defined(FASTGLTF_MODULE)
+#include <array>
+#include <cstdint>
+#include <type_traits>
+#endif
+
 #include <fastgltf/util.hpp>
 
 namespace fastgltf {

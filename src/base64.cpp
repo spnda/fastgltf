@@ -24,14 +24,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#if !defined(__cplusplus) || (!defined(_MSVC_LANG) && __cplusplus < 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG < 201703L)
-#error "fastgltf requires C++17"
-#endif
-
-#include <array>
-#include <cmath>
-#include <functional>
-
 #include <simdutf.h>
 
 #include <fastgltf/base64.hpp>

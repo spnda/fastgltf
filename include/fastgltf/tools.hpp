@@ -27,11 +27,6 @@
 #ifndef FASTGLTF_TOOLS_HPP
 #define FASTGLTF_TOOLS_HPP
 
-#if !defined(FASTGLTF_MODULE)
-#include <cstring>
-#include <iterator>
-#endif
-
 #include <fastgltf/types.hpp>
 
 #if FASTGLTF_CPP_23 && __has_include(<stdfloat>)
