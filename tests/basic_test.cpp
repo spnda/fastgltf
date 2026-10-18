@@ -197,7 +197,6 @@ TEST_CASE("string<->enum conversion functions", "[gltf-loader]") {
 		REQUIRE(internal::getMimeTypeFromString(internal::mimeTypeAvif) == MimeType::AVIF);
 		REQUIRE(internal::getMimeTypeFromString("") == MimeType::None);
 	}
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	SECTION("Combine modes") {
 		REQUIRE(internal::getCombineMode("average") == CombineMode::Average);
 		REQUIRE(internal::getCombineMode("minimum") == CombineMode::Minimum);
@@ -216,7 +215,6 @@ TEST_CASE("string<->enum conversion functions", "[gltf-loader]") {
 		REQUIRE(internal::getDriveMode("force") == DriveMode::Force);
 		REQUIRE(internal::getDriveMode("acceleration") == DriveMode::Acceleration);
 	}
-#endif
 }
 
 TEST_CASE("Test extension stringification", "[gltf-loader]") {

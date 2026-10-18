@@ -1382,8 +1382,6 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 				}
 				break;
 			}
-
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 			case force_consteval<crc32c(extensions::KHR_implicit_shapes)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_implicit_shapes)) {
 					break;
@@ -1399,8 +1397,6 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 				}
 				break;
 			}
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			case force_consteval<crc32c(extensions::KHR_physics_rigid_bodies)>: {
 				if (!hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
 					break;
@@ -1435,7 +1431,6 @@ fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObj
 
 				break;
 			}
-#endif
 			default:
 				continue;
 		}
@@ -2756,7 +2751,6 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 				}
 			}
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			if (hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
 				dom::object physicsRigidBodiesObject;
 				if (auto rigidBodiesError = extensionsObject[extensions::KHR_physics_rigid_bodies].get_object().get(physicsRigidBodiesObject); rigidBodiesError == SUCCESS) [[likely]] {
@@ -2768,7 +2762,6 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					return Error::InvalidGltf;
 				}
 			}
-#endif
 
 			if (hasBit(config.extensions, Extensions::KHR_node_visibility)) {
 				dom::object nodeVisibilityObject;
@@ -3040,7 +3033,6 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 	return Error::None;
 }
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& asset) {
 	using namespace simdjson;
 
@@ -3215,9 +3207,7 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 
 	return Error::None;
 }
-#endif
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 fg::Error fg::Parser::parsePhysicsMaterials(const simdjson::dom::array& physicsMaterials, Asset& asset) {
 	using namespace simdjson;
 
@@ -3830,7 +3820,6 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 	return Error::None;
 }
-#endif
 
 #pragma endregion
 

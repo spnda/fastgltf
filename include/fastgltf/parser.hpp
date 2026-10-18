@@ -130,15 +130,11 @@ namespace fastgltf {
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_draco_mesh_compression
 		KHR_draco_mesh_compression = 1 << 26,
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 		// See https://github.com/KhronosGroup/glTF/pull/2370
 		KHR_implicit_shapes = 1 << 27,
-#endif
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		// See https://github.com/KhronosGroup/glTF/pull/2424
 		KHR_physics_rigid_bodies = 1 << 28,
-#endif
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Vendor/GODOT_single_root
 		GODOT_single_root = 1 << 29,
@@ -253,6 +249,7 @@ namespace fastgltf {
 		inline constexpr std::string_view GODOT_single_root = "GODOT_single_root";
 		inline constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
 		inline constexpr std::string_view KHR_draco_mesh_compression = "KHR_draco_mesh_compression";
+		inline constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
 		inline constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
 		inline constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
 		inline constexpr std::string_view KHR_materials_clearcoat = "KHR_materials_clearcoat";
@@ -273,19 +270,12 @@ namespace fastgltf {
 		inline constexpr std::string_view KHR_node_visibility = "KHR_node_visibility";
 		inline constexpr std::string_view KHR_node_selectability = "KHR_node_selectability";
 		inline constexpr std::string_view KHR_node_hoverability = "KHR_node_hoverability";
+		inline constexpr std::string_view KHR_physics_rigid_bodies = "KHR_physics_rigid_bodies";
 		inline constexpr std::string_view KHR_texture_basisu = "KHR_texture_basisu";
 		inline constexpr std::string_view KHR_texture_transform = "KHR_texture_transform";
 		inline constexpr std::string_view MSFT_packing_normalRoughnessMetallic = "MSFT_packing_normalRoughnessMetallic";
 		inline constexpr std::string_view MSFT_packing_occlusionRoughnessMetallic = "MSFT_packing_occlusionRoughnessMetallic";
 		inline constexpr std::string_view MSFT_texture_dds = "MSFT_texture_dds";
-
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		inline constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
-#endif
-
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		inline constexpr std::string_view KHR_physics_rigid_bodies = "KHR_physics_rigid_bodies";
-#endif
 	} // namespace extensions
 
 	// clang-format off
@@ -300,6 +290,7 @@ namespace fastgltf {
 		{ extensions::GODOT_single_root,                        Extensions::GODOT_single_root },
 		{ extensions::KHR_accessor_float64,                     Extensions::KHR_accessor_float64 },
 		{ extensions::KHR_draco_mesh_compression,               Extensions::KHR_draco_mesh_compression },
+		{ extensions::KHR_implicit_shapes,                      Extensions::KHR_implicit_shapes},
 		{ extensions::KHR_lights_punctual,                      Extensions::KHR_lights_punctual },
 		{ extensions::KHR_materials_anisotropy,                 Extensions::KHR_materials_anisotropy },
 		{ extensions::KHR_materials_clearcoat,                  Extensions::KHR_materials_clearcoat },
@@ -320,19 +311,12 @@ namespace fastgltf {
 		{ extensions::KHR_node_visibility,                      Extensions::KHR_node_visibility },
 		{ extensions::KHR_node_selectability,                   Extensions::KHR_node_selectability },
 		{ extensions::KHR_node_hoverability,                    Extensions::KHR_node_hoverability },
+		{ extensions::KHR_physics_rigid_bodies,                 Extensions::KHR_physics_rigid_bodies },
 		{ extensions::KHR_texture_basisu,                       Extensions::KHR_texture_basisu },
 		{ extensions::KHR_texture_transform,                    Extensions::KHR_texture_transform },
 		{ extensions::MSFT_packing_normalRoughnessMetallic,     Extensions::MSFT_packing_normalRoughnessMetallic },
 		{ extensions::MSFT_packing_occlusionRoughnessMetallic,  Extensions::MSFT_packing_occlusionRoughnessMetallic },
 		{ extensions::MSFT_texture_dds,                         Extensions::MSFT_texture_dds },
-
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		{extensions::KHR_implicit_shapes,						Extensions::KHR_implicit_shapes},
-#endif
-
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		{ extensions::KHR_physics_rigid_bodies,					Extensions::KHR_physics_rigid_bodies },
-#endif
 	});
 	// clang-format on
 	inline constexpr std::size_t SUPPORTED_EXTENSION_COUNT = extensionStrings.size();
@@ -654,6 +638,7 @@ namespace fastgltf {
 		Error parseBuffers(simdjson::dom::array& array, Asset& asset);
 		Error parseBufferViews(const simdjson::dom::array& array, Asset& asset);
 		Error parseCameras(simdjson::dom::array& array, Asset& asset);
+		Error parseCollisionFilters(const simdjson::dom::array& collisionFilters, Asset& asset);
 		Error parseExtensions(const simdjson::dom::object& extensionsObject, Asset& asset);
 		Error parseImages(simdjson::dom::array& array, Asset& asset);
 		Error parseLights(const simdjson::dom::array& array, Asset& asset);
@@ -662,20 +647,15 @@ namespace fastgltf {
 		Error parsePrimitiveExtensions(const simdjson::dom::object& object, Primitive& primitive);
 		Error parseMeshes(simdjson::dom::array& array, Asset& asset);
 		Error parseNodes(simdjson::dom::array& array, Asset& asset);
+		Error parsePhysicsMaterials(const simdjson::dom::array& physicsMaterials, Asset& asset);
+		Error parsePhysicsJoints(const simdjson::dom::array& physicsJoints, Asset& asset);
+		Error parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node);
 		Error parseSamplers(const simdjson::dom::array& array, Asset& asset);
 		Error parseScenes(const simdjson::dom::array& array, Asset& asset);
 		Error parseSkins(const simdjson::dom::array& array, Asset& asset);
 		Error parseTextures(const simdjson::dom::array& array, Asset& asset);
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 		Error parseShapes(const simdjson::dom::array& shapes, Asset& asset);
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		Error parsePhysicsMaterials(const simdjson::dom::array& physicsMaterials, Asset& asset);
-		Error parseCollisionFilters(const simdjson::dom::array& collisionFilters, Asset& asset);
-		Error parsePhysicsJoints(const simdjson::dom::array& physicsJoints, Asset& asset);
 
-		Error parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node);
-#endif
 		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
 	public:

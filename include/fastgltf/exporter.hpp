@@ -103,24 +103,20 @@ namespace fastgltf {
 		void writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeCameras(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeImages(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeLights(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeMaterialExtensions(const Material& material, simdjson::builder::string_builder& builder);
 		void writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeMeshes(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeNodes(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeSamplers(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeScenes(const Asset& asset, simdjson::builder::string_builder& builder);
+		void writeShapes(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeSkins(const Asset& asset, simdjson::builder::string_builder& builder);
 		void writeTextures(const Asset& asset, simdjson::builder::string_builder& builder);
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		void writeShapes(const Asset& asset, simdjson::builder::string_builder& builder);
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		void writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder);
-#endif
 		void writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder);
 
 		std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);

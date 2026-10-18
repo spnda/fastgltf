@@ -1488,12 +1488,9 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 			},
 		}, it->transform);
 
-		if (!it->instancingAttributes.empty() || it->lightIndex.has_value()
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-			|| it->physicsRigidBody
-#endif
-			|| !it->visible || !it->selectable || !it->hoverable
-			) {
+		if (!it->instancingAttributes.empty() || it->lightIndex.has_value() ||
+			it->physicsRigidBody ||
+			!it->visible || !it->selectable || !it->hoverable) {
 			comma();
 
 			auto extensions_obj = scoped_object<"extensions">(builder);
@@ -1519,7 +1516,6 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 				builder.append_key_value<"light">(it->lightIndex.value());
 			}
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 			if (it->physicsRigidBody) {
 				extensionComma();
 
@@ -1634,7 +1630,6 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 					}
 				}
 			}
-#endif
 
 			if (!it->visible) {
 				extensionComma();
@@ -1866,7 +1861,6 @@ void fg::Exporter::writeTextures(const Asset& asset, simdjson::builder::string_b
 	}
 }
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.shapes.empty()) {
 		return;
@@ -1942,9 +1936,7 @@ void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_bui
 		}
 	}
 }
-#endif
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 void fg::Exporter::writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.physicsMaterials.empty()) {
 		return;
@@ -2158,7 +2150,6 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, simdjson::builder::str
 		}
 	}
 }
-#endif
 
 void fg::Exporter::writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder) {
 	auto extensions = scoped_object<"extensions">(builder);
@@ -2170,14 +2161,11 @@ void fg::Exporter::writeExtensions(const Asset& asset, simdjson::builder::string
 		writeLights(asset, builder);
 	}
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 	if (!asset.shapes.empty()) {
 		comma();
 		writeShapes(asset, builder);
 	}
-#endif
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	if (!asset.physicsMaterials.empty() || !asset.collisionFilters.empty() || !asset.physicsJoints.empty()) {
 		comma();
 
@@ -2197,7 +2185,6 @@ void fg::Exporter::writeExtensions(const Asset& asset, simdjson::builder::string
 			writePhysicsJoints(asset, builder);
 		}
 	}
-#endif
 
 	if (!asset.materialVariants.empty()) {
 		comma();

@@ -244,43 +244,30 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT enum class FASTGLTF_FLAG_ENUM Category : std::uint32_t {
-		None        = 0,
-		Buffers     = 1 <<  0,
-		BufferViews = 1 <<  1,
-		Accessors   = 1 <<  2,
-		Images      = 1 <<  3,
-		Samplers    = 1 <<  4,
-		Textures    = 1 <<  5,
-		Animations  = 1 <<  6,
-		Cameras     = 1 <<  7,
-		Materials   = 1 <<  8,
-		Meshes      = 1 <<  9,
-		Skins       = 1 << 10,
-		Nodes       = 1 << 11,
-		Scenes      = 1 << 12,
-		Asset       = 1 << 13,
-
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		Shapes		= 1 << 14,
-#endif
-
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
+		None                = 0,
+		Buffers             = 1 <<  0,
+		BufferViews         = 1 <<  1,
+		Accessors           = 1 <<  2,
+		Images              = 1 <<  3,
+		Samplers            = 1 <<  4,
+		Textures            = 1 <<  5,
+		Animations          = 1 <<  6,
+		Cameras             = 1 <<  7,
+		Materials           = 1 <<  8,
+		Meshes              = 1 <<  9,
+		Skins               = 1 << 10,
+		Nodes               = 1 << 11,
+		Scenes              = 1 << 12,
+		Asset               = 1 << 13,
+		Shapes		        = 1 << 14,
 		PhysicsMaterials	= 1 << 15,
 		CollisionFilters	= 1 << 16,
 		PhysicsJoints		= 1 << 17,
-#endif
 
 		All = ~0u,
 
 		// Includes everything needed for rendering but animations
-		OnlyRenderable = All & ~(Animations) & ~(Skins)
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		& ~(Shapes)
-#endif
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		& ~(PhysicsMaterials) & ~(CollisionFilters) & ~(PhysicsJoints)
-#endif
-		,
+		OnlyRenderable = All & ~(Animations) & ~(Skins) & ~(Shapes) & ~(PhysicsMaterials) & ~(CollisionFilters) & ~(PhysicsJoints),
 		OnlyAnimations = Animations | Accessors | BufferViews | Buffers,
 	};
 
@@ -291,7 +278,6 @@ namespace fastgltf {
 	FASTGLTF_UNARY_OP_TEMPLATE_MACRO(Category, ~)
 	// clang-format on
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	FASTGLTF_EXPORT enum class CombineMode : std::uint8_t {
 		Average,
 		Minimum,
@@ -311,7 +297,6 @@ namespace fastgltf {
 		Acceleration,
 		Invalid
 	};
-#endif
 #pragma endregion
 
 #pragma region ConversionFunctions
@@ -546,7 +531,6 @@ namespace fastgltf {
 			}
 		}
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		[[nodiscard]] constexpr auto getCombineMode(const std::string_view name) noexcept {
 			switch (crc32c(name)) {
 				case force_consteval<crc32c("average")>:
@@ -596,7 +580,6 @@ namespace fastgltf {
 					return DriveMode::Invalid;
 			}
 		}
-#endif
 	} // namespace internal
 #pragma endregion
 
@@ -967,7 +950,6 @@ namespace fastgltf {
 		}
 	} // namespace internal
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 	FASTGLTF_EXPORT struct SphereShape {
 		num radius = 0.5;
 	};
@@ -1004,9 +986,7 @@ namespace fastgltf {
 	};
 
 	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape, PlaneShape>;
-#endif
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 	FASTGLTF_EXPORT struct Motion {
 		/**
 		 * When true, treat the rigid body as having infinite mass. Its velocity will be constant during simulation
@@ -1232,7 +1212,6 @@ namespace fastgltf {
 
 		optional<Joint> joint;
 	};
-#endif
 
 	FASTGLTF_EXPORT struct Node {
 		optional<std::size_t> meshIndex;
@@ -1263,9 +1242,7 @@ namespace fastgltf {
 		 */
 		std::vector<Attribute> instancingAttributes;
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 		boxed_optional<PhysicsRigidBody> physicsRigidBody;
-#endif
 
 		std::string name;
 
@@ -1796,28 +1773,22 @@ namespace fastgltf {
 		std::vector<Animation> animations;
 		std::vector<Buffer> buffers;
 		std::vector<BufferView> bufferViews;
+		std::vector<CollisionFilter> collisionFilters;
 		std::vector<Camera> cameras;
 		std::vector<Image> images;
 		std::vector<Light> lights;
 		std::vector<Material> materials;
 		std::vector<Mesh> meshes;
 		std::vector<Node> nodes;
+		std::vector<PhysicsMaterial> physicsMaterials;
+		std::vector<PhysicsJoint> physicsJoints;
 		std::vector<Sampler> samplers;
 		std::vector<Scene> scenes;
+		std::vector<Shape> shapes;
 		std::vector<Skin> skins;
 		std::vector<Texture> textures;
 
 		std::vector<std::string> materialVariants;
-
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
-		std::vector<Shape> shapes;
-#endif
-
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
-		std::vector<PhysicsMaterial> physicsMaterials;
-		std::vector<PhysicsJoint> physicsJoints;
-		std::vector<CollisionFilter> collisionFilters;
-#endif
 
 		// Keeps tracked of categories that were actually parsed.
 		Category availableCategories = Category::None;

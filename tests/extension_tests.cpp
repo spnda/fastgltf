@@ -581,8 +581,11 @@ TEST_CASE("KHR_materials_diffuse_transmission", "[gltf-loader]") {
 	REQUIRE(!asset->materials[20].diffuseTransmission);
 }
 
-#if FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES
 TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
+	if (!std::filesystem::exists(physicsSampleAssets)) {
+		SKIP("glTF-Physics is required for these tests");
+	}
+
 	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
 
 	fastgltf::GltfFileStream jsonData(shapeTypes);
@@ -645,10 +648,12 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 		}
 	}, cylinder2);
 }
-#endif
 
-#if FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES
 TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
+	if (!std::filesystem::exists(physicsSampleAssets)) {
+		SKIP("glTF-Physics is required for these tests");
+	}
+
 	auto shapeTypes = physicsSampleAssets / "samples" / "ShapeTypes" / "ShapeTypes.gltf";
 
 	fastgltf::GltfFileStream jsonData(shapeTypes);
@@ -718,6 +723,10 @@ TEST_CASE("Extension KHR_physics_rigid_bodies simple", "[gltf-loader]") {
 }
 
 TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
+	if (!std::filesystem::exists(physicsSampleAssets)) {
+		SKIP("glTF-Physics is required for these tests");
+	}
+
 	auto shapeTypes = physicsSampleAssets / "samples" / "Robot_skinned" / "Robot_skinned.gltf";
 
 	fastgltf::GltfFileStream jsonData(shapeTypes);
@@ -807,7 +816,6 @@ TEST_CASE("Extension KHR_physics_rigid_bodies complex", "[gltf-loader]") {
 	REQUIRE(joint.joint == 0);
 	REQUIRE(joint.enableCollision == false);
 }
-#endif
 
 TEST_CASE("Extension KHR_node_visibility", "[gltf-loader]") {
 	fastgltf::Parser parser(fastgltf::Extensions::KHR_node_visibility);

@@ -7,13 +7,7 @@ endif ()
 project(fastgltf VERSION 1.0.0 LANGUAGES C CXX)
 
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
-option(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES "Enable support for the experimental KHR_implicit_shapes extension" OFF)
-option(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES "Enable support for the experimental KHR_physics_rigid_bodies extension" OFF)
 
-# physics rigid bodies depends on implicit shapes
-if (FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES)
-    set(FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES ON)
-endif ()
 
 option(FASTGLTF_ENABLE_CPP_MODULES "Enables the fastgltf::module target, which uses C++20 modules" OFF)
 option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modules" OFF)
@@ -110,8 +104,6 @@ if(FILESYSTEM_LIB)
 endif()
 
 target_compile_definitions(fastgltf PUBLIC "FASTGLTF_USE_64BIT_FLOAT=$<BOOL:${FASTGLTF_USE_64BIT_FLOAT}>")
-target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES=$<BOOL:${FASTGLTF_ENABLE_KHR_IMPLICIT_SHAPES}>")
-target_compile_definitions(fastgltf PUBLIC "FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES=$<BOOL:${FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES}>")
 
 fastgltf_check_modules_support()
 if (FASTGLTF_ENABLE_CPP_MODULES AND FASTGLTF_SUPPORTS_MODULES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
