@@ -54,7 +54,7 @@ fg::Error fg::validate(const Asset& asset) {
 		return Error::UnsupportedVersion;
 	if (asset.assetInfo.minVersion) {
 		auto& minVersion = *asset.assetInfo.minVersion;
-		if (minVersion > Version { 2, 0 })
+		if (minVersion > Version { 2, 1 })
 			return Error::UnsupportedVersion;
 		if (minVersion > asset.assetInfo.version)
 			return Error::InvalidVersion;

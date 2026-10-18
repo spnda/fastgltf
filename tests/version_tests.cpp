@@ -98,9 +98,6 @@ TEST_CASE("Detect invalid or unsupported versions", "[gltf-loader][gltf-2.1]") {
 	}
 }
 
-// TODO: Re-add the following test when actual glTF 2.1 support is added. Currently the parser
-//       rejects where minVersion is anything but "2.0".
-#if 0
 TEST_CASE("Detect invalid version combinations in validation", "[gltf-loader]") {
 	constexpr std::string_view json = R"({"asset":{"version":"2.0", "minVersion":"2.1"}})";
 	CAPTURE(json);
@@ -114,7 +111,6 @@ TEST_CASE("Detect invalid version combinations in validation", "[gltf-loader]") 
 
 	CHECK(fastgltf::validate(asset.get()) == fastgltf::Error::InvalidVersion);
 }
-#endif
 
 TEST_CASE("Version comparisons", "[gltf-loader]") {
 	using namespace fastgltf;

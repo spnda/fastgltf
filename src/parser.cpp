@@ -574,7 +574,7 @@ fg::Error fg::Parser::parseAssetInfo(const simdjson::dom::object& root, AssetInf
 		if (auto minVersion = detail::parseVersionString(minVersionString); minVersion.has_error()) {
 			return minVersion.error();
 		} else {
-			if (*minVersion > Version { 2, 0 }) [[unlikely]]
+			if (*minVersion > Version { 2, 1 }) [[unlikely]]
 				return Error::UnsupportedVersion;
 			info.minVersion = *minVersion;
 		}
