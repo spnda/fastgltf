@@ -95,7 +95,7 @@ TEST_CASE("Half float deserialization", "[gltf-tools]") {
 		reinterpret_cast<const std::byte*>(&float16_value), 0);
 	CHECK(converted == actual_value);
 
-#if defined(__FLT16_MAX__)
+#if FASTGLTF_HAS_FLOAT16
 	// Compare the _Float16 path against the generic fallback
 	CHECK(std::bit_cast<_Float16>(float16_value) == actual_value);
 	CHECK(static_cast<float>(std::bit_cast<_Float16>(float16_value)) == fastgltf::internal::halfToFloat(float16_value));
@@ -117,7 +117,7 @@ TEST_CASE("Float to half conversion", "[gltf-tools]") {
 }
 
 TEST_CASE("binary32<->binary16 full sweep", "[gltf-tools]") {
-#if defined(__FLT16_MAX__)
+#if FASTGLTF_HAS_FLOAT16
 	SECTION("Compare against _Float16") {
 		for (std::uint32_t i = 0; i <= 0xFFFF; ++i) {
 			const auto half = static_cast<std::uint16_t>(i);
