@@ -90,8 +90,7 @@ fg::Error fg::validate(const Asset& asset) {
 		}
 
 		if (accessor.max.has_value()) {
-			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-				&& !accessor.max->isType<double>())
+			if (isFloatingPoint(accessor.componentType) && !accessor.max->isType<double>())
 				return Error::InvalidGltf;
 
 			if (accessor.max->size() != getNumComponents(accessor.type))
@@ -99,8 +98,7 @@ fg::Error fg::validate(const Asset& asset) {
 		}
 
 		if (accessor.min.has_value()) {
-			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-				&& !accessor.min->isType<double>())
+			if (isFloatingPoint(accessor.componentType) && !accessor.min->isType<double>())
 				return Error::InvalidGltf;
 
 			if (accessor.min->size() != getNumComponents(accessor.type))

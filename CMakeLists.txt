@@ -69,6 +69,7 @@ set(FASTGLTF_HEADERS
         "include/fastgltf/exporter.hpp"
         "include/fastgltf/glb.hpp"
         "include/fastgltf/glm_element_traits.hpp"
+        "include/fastgltf/half_float.hpp"
         "include/fastgltf/math.hpp"
         "include/fastgltf/parser.hpp"
         "include/fastgltf/tools.hpp"

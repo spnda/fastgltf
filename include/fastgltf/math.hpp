@@ -36,6 +36,7 @@
 #include <tuple>
 #endif
 
+#include <fastgltf/half_float.hpp>
 #include <fastgltf/util.hpp>
 
 /**
@@ -463,6 +464,14 @@ namespace fastgltf::math {
 	FASTGLTF_EXPORT using uvec3 = uvec<3>;
 	FASTGLTF_EXPORT using uvec4 = uvec<4>;
 
+	FASTGLTF_EXPORT template <std::size_t N> using hvec = vec<HalfFloat, N>;
+	FASTGLTF_EXPORT using hvec2 = hvec<2>;
+	FASTGLTF_EXPORT using hvec3 = hvec<3>;
+	FASTGLTF_EXPORT using hvec4 = hvec<4>;
+	FASTGLTF_EXPORT template <std::size_t N> using f16vec = vec<HalfFloat, N>;
+	FASTGLTF_EXPORT using f16vec2 = f16vec<2>;
+	FASTGLTF_EXPORT using f16vec3 = f16vec<3>;
+	FASTGLTF_EXPORT using f16vec4 = f16vec<4>;
 	FASTGLTF_EXPORT template <std::size_t N> using fvec = vec<float, N>;
 	FASTGLTF_EXPORT using fvec2 = fvec<2>;
 	FASTGLTF_EXPORT using fvec3 = fvec<3>;
@@ -968,6 +977,10 @@ namespace fastgltf::math {
 		return m * mat<T, 4, 4>(asMatrix(rot));
 	}
 
+	FASTGLTF_EXPORT template <std::size_t N, std::size_t M> using hmat = mat<HalfFloat, N, M>;
+	FASTGLTF_EXPORT using hmat2x2 = hmat<2, 2>;
+	FASTGLTF_EXPORT using hmat3x3 = hmat<3, 3>;
+	FASTGLTF_EXPORT using hmat4x4 = hmat<4, 4>;
 	FASTGLTF_EXPORT template <std::size_t N, std::size_t M> using fmat = mat<float, N, M>;
 	FASTGLTF_EXPORT using fmat2x2 = fmat<2, 2>;
 	FASTGLTF_EXPORT using fmat3x3 = fmat<3, 3>;
