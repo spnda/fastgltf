@@ -140,6 +140,44 @@ As this is a functional interface it is possible to also use lambdas for this:
        return span(fileBytes).subspan(bufferView.byteOffset, bufferView.byteLength);
    });
 
+Reading IEEE754 binary16 ("half floats")
+========================================
+
+With glTF 2.1 or ``KHR_accessor_float16`` assets are now allowed to store IEEE754 binary16, commonly called half precision floating point, values in accessors.
+If you try and read these accessors like usual with a ``math::fvec3`` for instance, the conversion happens transparently.
+
+.. code:: c++
+
+   // accessor.componentType == ComponentType::HalfFloat
+   fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset.get(), accessor, [&](auto&& value, std::size_t idx) {
+       colors[idx] = value;
+   });
+
+Alternatively, C++23 added support for binary16 floats in `P1467R9 <https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p1467r9.html>`_.
+With C++23 you can read accessors as a ``std::float16_t`` directly:
+
+.. code:: c++
+
+   fastgltf::iterateAccessorWithIndex<fastgltf::math::vec<std::float16_t, 3>>(asset.get(), accessor, [&](auto&& value, std::size_t idx) {
+       colors[idx] = value;
+   });
+
+On architectures that do not support 16-bit scalar floats natively (e.g. x86) ``std::float16_t`` is usually implemented by casting a ``std::uint16_t`` back and forth to a ``float``,
+with all calculations happening on 32-bit floats.
+This is effectively lossless but is slower than just using ``float`` directly and using ``std::float16_t`` purely for storage or GPU buffers.
+
+Additionally, as of writing, only GCC (13+) supports these extended floating point types.
+On MSVC and Clang we need to use a small workaround to make reading 16-bit floats directly work.
+**fastgltf** does this by defining a helper type called ``fastgltf::HalfFloat`` which is internally just a ``std::uint16_t`` that can be converted to and from ``float``.
+This type does not support any arithmetic and shall only be used as a storage type.
+
+.. code:: c++
+
+   // fastgltf deliberately does not include vector aliases such as fvec3 for half floats to make
+   // clear that they should not be used in normal code and only exist for this specific purpose
+   fastgltf::iterateAccessorWithIndex<fastgltf::math::vec<fastgltf::HalfFloat, 3>>(asset.get(), accessor, [&](auto&& value, std::size_t idx) {
+       values[idx] = fastgltf::math::fvec3(value);
+   });
 
 Example: Loading primitive positions
 ====================================
@@ -164,7 +202,7 @@ The following snippet illustrates how one could potentially load vertex position
    glNamedBufferData(primitive.vertexBuffer,
                      positionAccessor.count * sizeof(Vertex), nullptr, GL_STATIC_DRAW);
    auto* vertices = static_cast<Vertex*>(glMapNamedBuffer(primitive.vertexBuffer, GL_WRITE_ONLY));
-   
+
    // Iterates over the accessor (potentially handling any sparse accessors),
    // and gives each vertex UV a default value, which need to be loaded separately.
    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(

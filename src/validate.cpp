@@ -30,6 +30,11 @@
 namespace fg = fastgltf;
 
 fg::Error fg::validate(const Asset& asset) {
+	auto isExtensionRequired = [&used = asset.extensionsRequired](const std::string_view extension) {
+		return std::ranges::any_of(used, [&](auto& arg) {
+			return arg == extension;
+		});
+	};
 	auto isExtensionUsed = [&used = asset.extensionsUsed](const std::string_view extension) {
 		return std::ranges::any_of(used, [&](auto& arg) {
 			return arg == extension;
@@ -60,10 +65,15 @@ fg::Error fg::validate(const Asset& asset) {
 			return Error::InvalidVersion;
 	}
 
+	const auto allowHalfFloat = asset.assetInfo.version >= Version { 2, 1 } ||
+		isExtensionRequired(extensions::KHR_accessor_float16);
+
 	for (const auto& accessor : asset.accessors) {
 		if (accessor.type == AccessorType::Invalid)
 			return Error::InvalidGltf;
 		if (accessor.componentType == ComponentType::Invalid)
+			return Error::InvalidGltf;
+		if (accessor.componentType == ComponentType::HalfFloat && !allowHalfFloat)
 			return Error::InvalidGltf;
 
 		if (const auto error = validateAccessorBounds(asset, accessor);
@@ -90,8 +100,7 @@ fg::Error fg::validate(const Asset& asset) {
 		}
 
 		if (accessor.max.has_value()) {
-			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-				&& !accessor.max->isType<double>())
+			if (isFloatingPoint(accessor.componentType) && !accessor.max->isType<double>())
 				return Error::InvalidGltf;
 
 			if (accessor.max->size() != getNumComponents(accessor.type))
@@ -99,8 +108,7 @@ fg::Error fg::validate(const Asset& asset) {
 		}
 
 		if (accessor.min.has_value()) {
-			if ((accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double)
-				&& !accessor.min->isType<double>())
+			if (isFloatingPoint(accessor.componentType) && !accessor.min->isType<double>())
 				return Error::InvalidGltf;
 
 			if (accessor.min->size() != getNumComponents(accessor.type))
@@ -153,7 +161,7 @@ fg::Error fg::validate(const Asset& asset) {
 			// The accessor MUST be of scalar type with floating-point components
 			if (inputAccessor.type != AccessorType::Scalar)
 				return Error::InvalidGltf;
-			if (inputAccessor.componentType != ComponentType::Float && inputAccessor.componentType != ComponentType::Double)
+			if (!isFloatingPoint(inputAccessor.componentType))
 				return Error::InvalidGltf;
 			if (inputAccessor.bufferViewIndex) {
 				if (*inputAccessor.bufferViewIndex >= asset.bufferViews.size())
@@ -379,20 +387,28 @@ fg::Error fg::validate(const Asset& asset) {
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
 					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
-						if (accessor.componentType != ComponentType::Float)
+						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat)
 							return Error::InvalidGltf;
 					} else {
-						if (accessor.componentType == ComponentType::Double || accessor.componentType == ComponentType::UnsignedInt)
+						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat &&
+							accessor.componentType != ComponentType::Byte &&
+							accessor.componentType != ComponentType::UnsignedByte &&
+							accessor.componentType != ComponentType::Short &&
+							accessor.componentType != ComponentType::UnsignedShort)
 							return Error::InvalidGltf;
 					}
 				} else if (name == "NORMAL") {
 					if (accessor.type != AccessorType::Vec3)
 						return Error::InvalidGltf;
 					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
-						if (accessor.componentType != ComponentType::Float)
+						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat)
 							return Error::InvalidGltf;
 					} else {
 						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat &&
 							accessor.componentType != ComponentType::Short &&
 							accessor.componentType != ComponentType::Byte)
 							return Error::InvalidGltf;
@@ -401,10 +417,12 @@ fg::Error fg::validate(const Asset& asset) {
 					if (accessor.type != AccessorType::Vec4)
 						return Error::InvalidGltf;
 					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
-						if (accessor.componentType != ComponentType::Float)
+						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat)
 							return Error::InvalidGltf;
 					} else {
 						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat &&
 							accessor.componentType != ComponentType::Short &&
 							accessor.componentType != ComponentType::Byte)
 							return Error::InvalidGltf;
@@ -414,13 +432,18 @@ fg::Error fg::validate(const Asset& asset) {
 						return Error::InvalidGltf;
 					if (!isExtensionUsed(extensions::KHR_mesh_quantization)) {
 						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat &&
 							accessor.componentType != ComponentType::UnsignedByte &&
 							accessor.componentType != ComponentType::UnsignedShort) {
 							return Error::InvalidGltf;
 						}
 					} else {
-						if (accessor.componentType == ComponentType::Double ||
-							accessor.componentType == ComponentType::UnsignedInt) {
+						if (accessor.componentType != ComponentType::Float &&
+							accessor.componentType != ComponentType::HalfFloat &&
+							accessor.componentType != ComponentType::Byte &&
+							accessor.componentType != ComponentType::UnsignedByte &&
+							accessor.componentType != ComponentType::Short &&
+							accessor.componentType != ComponentType::UnsignedShort) {
 							return Error::InvalidGltf;
 						}
 					}
@@ -428,6 +451,7 @@ fg::Error fg::validate(const Asset& asset) {
 					if (accessor.type != AccessorType::Vec3 && accessor.type != AccessorType::Vec4)
 						return Error::InvalidGltf;
 					if (accessor.componentType != ComponentType::Float &&
+						accessor.componentType != ComponentType::HalfFloat &&
 						accessor.componentType != ComponentType::UnsignedByte &&
 						accessor.componentType != ComponentType::UnsignedShort) {
 						return Error::InvalidGltf;
@@ -443,6 +467,7 @@ fg::Error fg::validate(const Asset& asset) {
 					if (accessor.type != AccessorType::Vec4)
 						return Error::InvalidGltf;
 					if (accessor.componentType != ComponentType::Float &&
+						accessor.componentType != ComponentType::HalfFloat &&
 						accessor.componentType != ComponentType::UnsignedByte &&
 						accessor.componentType != ComponentType::UnsignedShort) {
 						return Error::InvalidGltf;

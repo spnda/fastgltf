@@ -124,7 +124,7 @@ namespace fastgltf {
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_variants
 		KHR_materials_variants = 1 << 24,
 
-		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_accessor_float64
+		// See https://github.com/KhronosGroup/glTF/pull/2397
 		KHR_accessor_float64 = 1 << 25,
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_draco_mesh_compression
@@ -156,6 +156,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/pull/2235
 		EXT_texture_avif = 1ULL << 35,
+
+		// See https://github.com/KhronosGroup/glTF/pull/2397
+		KHR_accessor_float16 = 1ULL << 36,
 	};
 	// clang-format on
 
@@ -243,6 +246,7 @@ namespace fastgltf {
 		inline constexpr std::string_view EXT_texture_avif = "EXT_texture_avif";
 		inline constexpr std::string_view EXT_texture_webp = "EXT_texture_webp";
 		inline constexpr std::string_view GODOT_single_root = "GODOT_single_root";
+		inline constexpr std::string_view KHR_accessor_float16 = "KHR_accessor_float16";
 		inline constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
 		inline constexpr std::string_view KHR_draco_mesh_compression = "KHR_draco_mesh_compression";
 		inline constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
@@ -284,6 +288,7 @@ namespace fastgltf {
 		{ extensions::EXT_texture_avif,                         Extensions::EXT_texture_avif },
 		{ extensions::EXT_texture_webp,                         Extensions::EXT_texture_webp },
 		{ extensions::GODOT_single_root,                        Extensions::GODOT_single_root },
+		{ extensions::KHR_accessor_float16,                     Extensions::KHR_accessor_float16 },
 		{ extensions::KHR_accessor_float64,                     Extensions::KHR_accessor_float64 },
 		{ extensions::KHR_draco_mesh_compression,               Extensions::KHR_draco_mesh_compression },
 		{ extensions::KHR_implicit_shapes,                      Extensions::KHR_implicit_shapes},
