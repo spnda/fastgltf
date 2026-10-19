@@ -575,6 +575,11 @@ namespace fastgltf {
 		FASTGLTF_EXPORT template <typename T, std::size_t N = initial_small_vector_storage>
 		using small_vector = small_vector<T, N, std::pmr::polymorphic_allocator<T>>;
 	} // namespace pmr
+
+#if FASTGLTF_HAS_CONTAINERS_RANGES
+	template <std::ranges::input_range R, typename Alloc = std::allocator<std::ranges::range_value_t<R>>>
+	small_vector(std::from_range_t, R&&, Alloc = Alloc()) -> small_vector<std::ranges::range_value_t<R>, initial_small_vector_storage, Alloc>;
+#endif
 } // namespace fastgltf
 
 #endif

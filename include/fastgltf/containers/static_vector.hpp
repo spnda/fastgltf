@@ -279,6 +279,11 @@ namespace fastgltf {
 		FASTGLTF_EXPORT template <typename T>
 		using static_vector = static_vector<T, std::pmr::polymorphic_allocator<T>>;
 	} // namespace pmr
+
+#if FASTGLTF_HAS_CONTAINERS_RANGES
+	template <std::ranges::input_range R, typename Alloc = std::allocator<std::ranges::range_value_t<R>>>
+	static_vector(std::from_range_t, R&&, Alloc = Alloc()) -> static_vector<std::ranges::range_value_t<R>, Alloc>;
+#endif
 } // namespace fastgltf
 
 #endif
