@@ -405,6 +405,8 @@ constexpr DestType getAccessorComponentAt(ComponentType componentType, AccessorT
 			return internal::convertComponent<DestType, double>(bytes, idx, type, normalized);
 		case ComponentType::Invalid:
 			return DestType {};
+		default:
+			FASTGLTF_UNREACHABLE
 	}
 }
 
@@ -452,6 +454,8 @@ ElementType getAccessorElementAt(ComponentType componentType, const std::byte* b
 			return convertAccessorElement<ElementType, double>(bytes, normalized, Seq{});
 		case ComponentType::Invalid:
 			return ElementType{};
+		default:
+			FASTGLTF_UNREACHABLE
 	}
 }
 
