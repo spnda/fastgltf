@@ -33,6 +33,13 @@
 
 #include <fastgltf/util.hpp>
 
+// GCC predefines __FLT16_MAX__ in C++ mode on x86 since GCC 12, but only accepts _Float16 in C++ since GCC 13.
+#if defined(__FLT16_MAX__) && (defined(__clang__) || __GNUC__ >= 13)
+#define FASTGLTF_HAS_FLOAT16 1
+#else
+#define FASTGLTF_HAS_FLOAT16 0
+#endif
+
 namespace fastgltf {
 	namespace internal {
 		static_assert(std::numeric_limits<float>::is_iec559 &&
@@ -111,7 +118,7 @@ namespace fastgltf {
 		std::uint16_t bits;
 
 		[[nodiscard]] constexpr std::uint16_t floatToHalf(const float value) noexcept {
-#if defined(__FLT16_MAX__)
+#if FASTGLTF_HAS_FLOAT16
 			// Special case for some architectures where the compiler implements the _Float16 type. For
 			// example, on arm64 (or other architectures that have scalar fp16 support) this compiles down
 			// to a single fcvt instruction. Both GCC and Clang support _Float16 on arm and x86 in recent
@@ -119,7 +126,7 @@ namespace fastgltf {
 			// https://releases.llvm.org/16.0.0/tools/clang/docs/LanguageExtensions.html#half-precision-floating-point
 			return std::bit_cast<std::uint16_t>(static_cast<_Float16>(value));
 #else
-			return floatToHalf(value);
+			return internal::floatToHalf(value);
 #endif
 		}
 
@@ -134,7 +141,7 @@ namespace fastgltf {
 		template <typename T>
 		requires (std::is_arithmetic_v<T> && !std::same_as<T, bool>)
 		[[nodiscard]] constexpr explicit operator T() const noexcept {
-#if defined(__FLT16_MAX__)
+#if FASTGLTF_HAS_FLOAT16
 			// Again special handling of 16-bit floats depending on compiler support, see above.
 			return static_cast<T>(std::bit_cast<_Float16>(bits));
 #else

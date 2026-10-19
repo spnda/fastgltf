@@ -35,26 +35,26 @@
 #endif
 
 #if defined(__STDCPP_FLOAT16_T__) && __STDCPP_FLOAT16_T__
-#define FASTGLTF_HAS_FLOAT16 1
+#define FASTGLTF_HAS_STDFLOAT16 1
 #else
-#define FASTGLTF_HAS_FLOAT16 0
+#define FASTGLTF_HAS_STDFLOAT16 0
 #endif
 
 #if defined(__STDCPP_FLOAT32_T__) && __STDCPP_FLOAT32_T__
-#define FASTGLTF_HAS_FLOAT32 1
+#define FASTGLTF_HAS_STDFLOAT32 1
 #else
-#define FASTGLTF_HAS_FLOAT32 0
+#define FASTGLTF_HAS_STDFLOAT32 0
 #endif
 
 #if defined(__STDCPP_FLOAT64_T__) && __STDCPP_FLOAT64_T__
-#define FASTGLTF_HAS_FLOAT64 1
+#define FASTGLTF_HAS_STDFLOAT64 1
 #else
-#define FASTGLTF_HAS_FLOAT64 0
+#define FASTGLTF_HAS_STDFLOAT64 0
 #endif
 #else
-#define FASTGLTF_HAS_FLOAT16 0
-#define FASTGLTF_HAS_FLOAT32 0
-#define FASTGLTF_HAS_FLOAT64 0
+#define FASTGLTF_HAS_STDFLOAT16 0
+#define FASTGLTF_HAS_STDFLOAT32 0
+#define FASTGLTF_HAS_STDFLOAT64 0
 #endif
 
 namespace fastgltf {
@@ -117,21 +117,21 @@ struct ComponentTypeConverter<double> {
 	static constexpr auto type = ComponentType::Double;
 };
 
-#if FASTGLTF_HAS_FLOAT16
+#if FASTGLTF_HAS_STDFLOAT16
 template <>
 struct ComponentTypeConverter<std::float16_t> {
 	static constexpr auto type = ComponentType::HalfFloat;
 };
 #endif
 
-#if FASTGLTF_HAS_FLOAT32
+#if FASTGLTF_HAS_STDFLOAT32
 template <>
 struct ComponentTypeConverter<std::float32_t> {
 	static constexpr auto type = ComponentType::Float;
 };
 #endif
 
-#if FASTGLTF_HAS_FLOAT64
+#if FASTGLTF_HAS_STDFLOAT64
 template <>
 struct ComponentTypeConverter<std::float64_t> {
 	static constexpr auto type = ComponentType::Double;
@@ -163,15 +163,15 @@ template<> struct ElementTraits<HalfFloat> : ElementTraitsBase<HalfFloat, Access
 template<> struct ElementTraits<float> : ElementTraitsBase<float, AccessorType::Scalar> {};
 template<> struct ElementTraits<double> : ElementTraitsBase<double, AccessorType::Scalar> {};
 
-#if FASTGLTF_HAS_FLOAT16
+#if FASTGLTF_HAS_STDFLOAT16
 template<> struct ElementTraits<std::float16_t> : ElementTraitsBase<std::float16_t, AccessorType::Scalar> {};
 #endif
 
-#if FASTGLTF_HAS_FLOAT32
+#if FASTGLTF_HAS_STDFLOAT32
 template<> struct ElementTraits<std::float32_t> : ElementTraitsBase<std::float32_t, AccessorType::Scalar> {};
 #endif
 
-#if FASTGLTF_HAS_FLOAT64
+#if FASTGLTF_HAS_STDFLOAT64
 template<> struct ElementTraits<std::float64_t> : ElementTraitsBase<std::float64_t, AccessorType::Scalar> {};
 #endif
 
@@ -196,17 +196,17 @@ template<> struct ElementTraits<math::u32vec2> : ElementTraitsBase<math::u32vec2
 template<> struct ElementTraits<math::u32vec3> : ElementTraitsBase<math::u32vec3, AccessorType::Vec3, std::uint32_t> {};
 template<> struct ElementTraits<math::u32vec4> : ElementTraitsBase<math::u32vec4, AccessorType::Vec4, std::uint32_t> {};
 
-#if FASTGLTF_HAS_FLOAT16
+#if FASTGLTF_HAS_STDFLOAT16
 template<> struct ElementTraits<math::vec<std::float16_t, 2>> : ElementTraitsBase<math::vec<std::float16_t, 2>, AccessorType::Vec2, std::float16_t> {};
 template<> struct ElementTraits<math::vec<std::float16_t, 3>> : ElementTraitsBase<math::vec<std::float16_t, 3>, AccessorType::Vec3, std::float16_t> {};
 template<> struct ElementTraits<math::vec<std::float16_t, 4>> : ElementTraitsBase<math::vec<std::float16_t, 4>, AccessorType::Vec4, std::float16_t> {};
 #endif
-#if FASTGLTF_HAS_FLOAT32
+#if FASTGLTF_HAS_STDFLOAT32
 template<> struct ElementTraits<math::vec<std::float32_t, 2>> : ElementTraitsBase<math::vec<std::float32_t, 2>, AccessorType::Vec2, std::float32_t> {};
 template<> struct ElementTraits<math::vec<std::float32_t, 3>> : ElementTraitsBase<math::vec<std::float32_t, 3>, AccessorType::Vec3, std::float32_t> {};
 template<> struct ElementTraits<math::vec<std::float32_t, 4>> : ElementTraitsBase<math::vec<std::float32_t, 4>, AccessorType::Vec4, std::float32_t> {};
 #endif
-#if FASTGLTF_HAS_FLOAT64
+#if FASTGLTF_HAS_STDFLOAT64
 template<> struct ElementTraits<math::vec<std::float64_t, 2>> : ElementTraitsBase<math::vec<std::float64_t, 2>, AccessorType::Vec2, std::float64_t> {};
 template<> struct ElementTraits<math::vec<std::float64_t, 3>> : ElementTraitsBase<math::vec<std::float64_t, 3>, AccessorType::Vec3, std::float64_t> {};
 template<> struct ElementTraits<math::vec<std::float64_t, 4>> : ElementTraitsBase<math::vec<std::float64_t, 4>, AccessorType::Vec4, std::float64_t> {};
@@ -265,7 +265,7 @@ constexpr HalfFloat deserializeComponent<HalfFloat>(const std::byte* bytes, std:
 	return HalfFloat::fromBits(deserializeComponent<std::uint16_t>(bytes, index));
 }
 
-#if FASTGLTF_HAS_FLOAT32
+#if FASTGLTF_HAS_STDFLOAT32
 template<>
 constexpr std::float32_t deserializeComponent<std::float32_t>(const std::byte* bytes, std::size_t index) {
 	return std::bit_cast<std::float32_t>(deserializeComponent<std::uint32_t>(bytes, index));
@@ -287,7 +287,7 @@ constexpr float deserializeComponent<float>(const std::byte* bytes, std::size_t 
 }
 #endif
 
-#if FASTGLTF_HAS_FLOAT64
+#if FASTGLTF_HAS_STDFLOAT64
 template<>
 constexpr std::float64_t deserializeComponent<std::float64_t>(const std::byte* bytes, std::size_t index) {
 	return std::bit_cast<std::float64_t>(deserializeComponent<std::uint64_t>(bytes, index));
@@ -317,7 +317,7 @@ constexpr DestType convertComponent(const SourceType& source, bool normalized) {
 	if constexpr (std::is_same_v<SourceType, HalfFloat>) {
 		if constexpr (std::is_same_v<DestType, HalfFloat>) {
 			return source;
-#if FASTGLTF_HAS_FLOAT16
+#if FASTGLTF_HAS_STDFLOAT16
 		} else if constexpr (std::is_same_v<DestType, std::float16_t> && std::is_same_v<SourceType, HalfFloat>) {
 			return std::bit_cast<std::float16_t>(source.toBits());
 #endif
