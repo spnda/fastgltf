@@ -11,7 +11,7 @@
 #include <fastgltf/crc32.hpp>
 #include "gltf_path.hpp"
 
-constexpr auto benchmarkOptions = fastgltf::Options::DontRequireValidAssetMember;
+constexpr auto benchmarkOptions = fastgltf::Options::None;
 
 #ifdef HAS_RAPIDJSON
 #include "rapidjson/document.h"

@@ -28,6 +28,8 @@
 #error "fastgltf requires C++20"
 #endif
 
+#include <charconv>
+
 #include <simdjson.h>
 #include <simdutf.h>
 
@@ -43,25 +45,56 @@ namespace fs = std::filesystem;
 namespace fastgltf {
 	namespace internal {
 		/** GLBs are always little-endian, meaning we need to read the values accordingly */
-		[[nodiscard]] inline auto readBinaryHeader(GltfDataGetter& getter) noexcept {
+		[[nodiscard]] inline auto readBinaryHeader(GltfDataGetter& getter) {
 			std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
 			getter.read(bytes.data(), bytes.size());
 
 			BinaryGltfHeader header {};
 			readUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
 			readUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
-			readUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
 			return header;
 		}
 
-		[[nodiscard]] inline auto readBinaryChunk(GltfDataGetter& getter) noexcept {
-			std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
-			getter.read(bytes.data(), bytes.size());
+		[[nodiscard]] inline std::uint64_t readBinaryLength(GltfDataGetter& getter, const BinaryGltfHeader& header) {
+			if (header.version == 3) {
+				std::array<std::byte, sizeof(std::uint64_t)> bytes {};
+				getter.read(bytes.data(), bytes.size());
 
-			BinaryGltfChunk chunk {};
-			readUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
-			readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
-			return chunk;
+				std::uint64_t x;
+				readUint64LE(x, bytes.data());
+				return x;
+			} else {
+				std::array<std::byte, sizeof(std::uint32_t)> bytes {};
+				getter.read(bytes.data(), bytes.size());
+
+				std::uint32_t x;
+				readUint32LE(x, bytes.data());
+				return x;
+			}
+		}
+
+		[[nodiscard]] inline auto readBinaryChunk(GltfDataGetter& getter, const std::uint32_t version) {
+			if (version == 3) {
+				std::array<std::byte, sizeof(BinaryGltfChunkV3)> bytes {};
+				getter.read(bytes.data(), bytes.size());
+
+				BinaryGltfChunkV3 chunk {};
+				readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunkV3, chunkType)]);
+				readUint32LE(chunk.encoding, &bytes[offsetof(BinaryGltfChunkV3, encoding)]);
+				readUint64LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunkV3, chunkLength)]);
+				return chunk;
+			} else {
+				std::array<std::byte, sizeof(BinaryGltfChunkV2)> bytes {};
+				getter.read(bytes.data(), bytes.size());
+
+				BinaryGltfChunkV2 chunk {};
+				readUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunkV2, chunkLength)]);
+				readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunkV2, chunkType)]);
+				return BinaryGltfChunkV3 {
+					.chunkType = chunk.chunkType,
+					.chunkLength = chunk.chunkLength,
+				};
+			}
 		}
 	}
 
@@ -454,49 +487,83 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 	return Error::None;
 }
 
+namespace {
+	[[nodiscard]] fg::Expected<fg::Version> parseVersionString(const std::string_view version) noexcept {
+		using namespace fastgltf;
+		Version ret {};
+
+		// The glTF specification allows any version string of the format ^[0-9]+\\.[0-9]+$ for both
+		// version and minVersion.
+
+		const auto* const end = version.data() + version.size(); // from_chars requires pointers, not iterators
+		auto [dot, majorError] = std::from_chars(version.data(), end, ret.major);
+		if (majorError != std::errc {} || dot == end || *dot != '.')
+			return Error::InvalidVersion;
+
+		auto [last, minorError] = std::from_chars(std::next(dot), end, ret.minor);
+		if (minorError != std::errc {} || last != end)
+			return Error::InvalidVersion;
+		return ret;
+	}
+}
+
+fg::Error fg::Parser::parseAssetInfo(const simdjson::dom::object& root, AssetInfo& info) {
+	using namespace simdjson;
+
+	dom::object assetInfo;
+	if (const auto error = root["asset"].get_object().get(assetInfo); error == NO_SUCH_FIELD) [[unlikely]] {
+		return Error::MissingField;
+	} else if (error != SUCCESS) [[unlikely]] {
+		return Error::InvalidJson;
+	}
+
+	std::string_view versionString;
+	if (const auto error = assetInfo["version"].get_string().get(versionString); error != SUCCESS) [[unlikely]] {
+		return error == NO_SUCH_FIELD ? Error::MissingField : Error::InvalidVersion;
+	}
+
+	auto version = parseVersionString(versionString);
+	if (version.has_error())
+		return version.error();
+	if (version->major != 2) [[unlikely]]
+		return Error::UnsupportedVersion;
+	info.version = *version;
+
+	std::string_view copyright;
+	if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) [[likely]] {
+		info.copyright = copyright;
+	}
+
+	std::string_view generator;
+	if (assetInfo["generator"].get_string().get(generator) == SUCCESS) [[likely]] {
+		info.generator = generator;
+	}
+
+	std::string_view minVersionString;
+	if (const auto strError = assetInfo["minVersion"].get_string().get(minVersionString);
+		strError == SUCCESS) {
+		if (auto minVersion = parseVersionString(minVersionString); minVersion.has_error()) {
+			return minVersion.error();
+		} else {
+			if (*minVersion > Version { 2, 1 }) [[unlikely]]
+				return Error::UnsupportedVersion;
+			info.minVersion = *minVersion;
+		}
+	} else if (strError != NO_SUCH_FIELD) [[unlikely]] {
+		return Error::InvalidVersion;
+	}
+
+	return Error::None;
+}
+
 fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category categories) {
 	using namespace simdjson;
 	fillCategories(categories);
 
 	Asset asset {};
 
-	if (!hasBit(options, Options::DontRequireValidAssetMember)) {
-		dom::object assetInfo;
-		AssetInfo info {};
-		if (const auto error = root["asset"].get_object().get(assetInfo); error == NO_SUCH_FIELD) {
-			return Error::MissingField;
-		} else if (error != SUCCESS) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		std::string_view version;
-		if (const auto error = assetInfo["version"].get_string().get(version); error != SUCCESS) [[unlikely]] {
-			return error == NO_SUCH_FIELD ? Error::MissingField : Error::InvalidGltf;
-		}
-
-		const auto major = static_cast<std::uint32_t>(version.substr(0, 1)[0] - '0');
-		// std::uint32_t minor = version.substr(2, 3)[0] - '0';
-		if (major != 2U) {
-			return Error::UnsupportedVersion;
-		}
-		info.gltfVersion = version;
-
-		std::string_view copyright;
-		if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) [[likely]] {
-			info.copyright = copyright;
-		}
-
-		std::string_view generator;
-		if (assetInfo["generator"].get_string().get(generator) == SUCCESS) [[likely]] {
-			info.generator = generator;
-		}
-
-		std::string_view minVersion;
-		if (assetInfo["minVersion"].get_string().get(minVersion) == SUCCESS) [[likely]] {
-			info.minVersion = minVersion;
-		}
-
-		asset.assetInfo = std::move(info);
+	if (const auto err = parseAssetInfo(root, asset.assetInfo); err != Error::None) {
+		return err;
 	}
 
 	if (dom::array extensionsRequired; root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) [[likely]] {
@@ -679,7 +746,7 @@ namespace fastgltf {
 			error == SUCCESS) [[likely]] {
 			const auto num = getNumComponents(accessor.type);
 
-			if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
+			if (isFloatingPoint(accessor.componentType)) {
 				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
 				return parseMinMaxArray<double>(elements, ref.value());
 			} else {
@@ -710,7 +777,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			return Error::InvalidGltf;
 		}
 		accessor.componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
-		if (accessor.componentType == ComponentType::Double && (!hasBit(options, Options::AllowDouble) || !hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
+		if (accessor.componentType == ComponentType::Double && !(hasBit(options, Options::AllowDouble) || hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
 			return Error::InvalidGltf;
 		}
 
@@ -752,7 +819,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		}
 
 		// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
-		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || accessor.componentType == ComponentType::Float)) {
+		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || isFloatingPoint(accessor.componentType))) {
 			return Error::InvalidGltf;
 		}
 
@@ -3920,21 +3987,25 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 	if (header.magic != internal::binaryGltfHeaderMagic) {
 		return Error::InvalidGLB;
 	}
-	if (header.version != 2) {
+	if (header.version != 2 && header.version != 3) {
 		return Error::UnsupportedVersion;
 	}
-	if (header.length > data.totalSize()) {
+
+	auto fileLength = internal::readBinaryLength(data, header);
+	if (fileLength > data.totalSize()) {
 		return Error::InvalidGLB;
 	}
 
 	// The glTF 2 spec specifies that in GLB files the order of chunks is predefined. Specifically,
 	//  1. JSON chunk
 	//  2. BIN chunk (optional)
-	auto jsonChunk = internal::readBinaryChunk(data);
+	auto jsonChunk = internal::readBinaryChunk(data, header.version);
 	if (jsonChunk.chunkType != internal::binaryGltfJsonChunkMagic ||
-		jsonChunk.chunkLength > data.totalSize() - sizeof(internal::BinaryGltfHeader)) {
+		jsonChunk.chunkLength > data.totalSize() - data.bytesRead()) {
 		return Error::InvalidGLB;
 	}
+	if (jsonChunk.encoding != 0)
+		return Error::UnsupportedVersion;
 
 	// Create a string view of the JSON chunk in the GLB data buffer. The documentation of parse()
 	// says the padding can be initialised to anything, apparently. Therefore, this should work.
@@ -3949,8 +4020,9 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 	}
 
 	// Is there enough room for another chunk header?
-	if (header.length > (data.bytesRead() + sizeof(internal::BinaryGltfChunk))) {
-		auto binaryChunk = internal::readBinaryChunk(data);
+	const auto chunkSize = header.version == 3 ? sizeof(internal::BinaryGltfChunkV3) : sizeof(internal::BinaryGltfChunkV2);
+	if (fileLength > (data.bytesRead() + chunkSize)) {
+		auto binaryChunk = internal::readBinaryChunk(data, header.version);
 
 		if (binaryChunk.chunkType != internal::binaryGltfDataChunkMagic) {
 			return Error::InvalidGLB;

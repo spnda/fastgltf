@@ -18,6 +18,7 @@ add_executable(fastgltf_tests EXCLUDE_FROM_ALL "main.cpp"
         "uri_tests.cpp"
         "util_tests.cpp"
         "vector_tests.cpp"
+        "version_tests.cpp"
         "write_tests.cpp"
 )
 

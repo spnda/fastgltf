@@ -42,14 +42,21 @@ namespace fastgltf::internal {
 		std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
 		writeUint32LE(header.magic, &bytes[offsetof(BinaryGltfHeader, magic)]);
 		writeUint32LE(header.version, &bytes[offsetof(BinaryGltfHeader, version)]);
-		writeUint32LE(header.length, &bytes[offsetof(BinaryGltfHeader, length)]);
 		return bytes;
 	}
 
-	inline auto writeBinaryChunk(const BinaryGltfChunk& chunk) noexcept {
-		std::array<std::byte, sizeof(BinaryGltfChunk)> bytes {};
-		writeUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunk, chunkLength)]);
-		writeUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
+	inline auto writeBinaryChunk(const BinaryGltfChunkV2& chunk) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfChunkV2)> bytes {};
+		writeUint32LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunkV2, chunkLength)]);
+		writeUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunkV2, chunkType)]);
+		return bytes;
+	}
+
+	inline auto writeBinaryChunk(const BinaryGltfChunkV3& chunk) noexcept {
+		std::array<std::byte, sizeof(BinaryGltfChunkV3)> bytes {};
+		writeUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunkV3, chunkType)]);
+		writeUint32LE(chunk.encoding, &bytes[offsetof(BinaryGltfChunkV3, encoding)]);
+		writeUint64LE(chunk.chunkLength, &bytes[offsetof(BinaryGltfChunkV3, chunkLength)]);
 		return bytes;
 	}
 }
@@ -2227,24 +2234,21 @@ std::string fg::Exporter::writeJson(const Asset &asset) {
 		// Write asset info
 		{
 			auto asset_obj = scoped_object<"asset">(builder);
-			if (asset.assetInfo.has_value()) {
-				builder.append_key_value<"version">(asset.assetInfo->gltfVersion);
-				if (!asset.assetInfo->copyright.empty()) {
-					builder.append_comma();
-					builder.append_key_value<"copyright">(asset.assetInfo->copyright);
-				}
-				if (!asset.assetInfo->generator.empty()) {
-					builder.append_comma();
-					builder.append_key_value<"generator">(asset.assetInfo->generator);
-				}
-				if (!asset.assetInfo->minVersion.empty()) {
-					builder.append_comma();
-					builder.append_key_value<"minVersion">(asset.assetInfo->minVersion);
-				}
-			} else {
-				append_const_key_value<"generator", "fastgltf">(builder);
+			builder.append_key_value<"version">(asset.assetInfo.version.asString());
+			if (!asset.assetInfo.copyright.empty()) {
 				builder.append_comma();
-				append_const_key_value<"version", "2.0">(builder);
+				builder.append_key_value<"copyright">(asset.assetInfo.copyright);
+			}
+			if (!asset.assetInfo.generator.empty()) {
+				builder.append_comma();
+				builder.append_key_value<"generator">(asset.assetInfo.generator);
+			} else {
+				builder.append_comma();
+				append_const_key_value<"generator", "fastgltf">(builder);
+			}
+			if (asset.assetInfo.minVersion.has_value()) {
+				builder.append_comma();
+				builder.append_key_value<"minVersion">(asset.assetInfo.minVersion->asString());
 			}
 		}
 
@@ -2365,23 +2369,37 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 	result.bufferPaths = std::move(bufferPaths);
 	result.imagePaths = std::move(imagePaths);
 
+	const bool binaryFormat3 = [&] {
+		// TODO: Do we want to expose an option to force writing format 3 files?
+		return asset.assetInfo.minVersion.has_value() && asset.assetInfo.minVersion >= Version { 2, 1 };
+	}();
+	const auto chunkAlignment = binaryFormat3 ? 8 : 4;
+
 	// TODO: Add ExportOption enumeration for disabling this?
+	const std::uint64_t maxBufferSize = binaryFormat3
+		? std::numeric_limits<decltype(internal::BinaryGltfChunkV3::chunkLength)>::max()
+		: std::numeric_limits<decltype(internal::BinaryGltfChunkV2::chunkLength)>::max();
 	const bool withEmbeddedBuffer = !asset.buffers.empty() &&
 			// We only support writing Vectors and ByteViews as embedded buffers
 			(std::holds_alternative<sources::Array>(asset.buffers.front().data) ||
 				std::holds_alternative<sources::ByteView>(asset.buffers.front().data) ||
 				std::holds_alternative<sources::Vector>(asset.buffers.front().data)) &&
-			asset.buffers.front().byteLength < std::numeric_limits<decltype(internal::BinaryGltfChunk::chunkLength)>::max();
+			asset.buffers.front().byteLength < maxBufferSize;
 
 	std::size_t binarySize = 0;
-	binarySize += sizeof(internal::BinaryGltfHeader); // glTF header
-	binarySize += sizeof(internal::BinaryGltfChunk) + alignUp(json.size(), 4); // JSON chunk
-	if (withEmbeddedBuffer) {
-		binarySize += sizeof(internal::BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4); // BIN chunk
+	{
+		const std::size_t headerSize = sizeof(internal::BinaryGltfHeader) + (binaryFormat3 ? sizeof(std::uint64_t) : sizeof(std::uint32_t));
+		const std::size_t chunkHeaderSize = binaryFormat3 ? sizeof(internal::BinaryGltfChunkV3) : sizeof(internal::BinaryGltfChunkV2);
+
+		binarySize += headerSize; // glTF header
+		binarySize += chunkHeaderSize + alignUp(json.size(), chunkAlignment); // JSON chunk
+		if (withEmbeddedBuffer) {
+			binarySize += chunkHeaderSize + alignUp(asset.buffers.front().byteLength, chunkAlignment); // BIN chunk
+		}
 	}
 
 	// A GLB is limited to 2^32 bytes since the length field in the file header is a 32-bit integer.
-	if (binarySize >= static_cast<std::size_t>(std::numeric_limits<decltype(internal::BinaryGltfHeader::length)>::max())) {
+	if (!binaryFormat3 && binarySize >= static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
 		return Error::InvalidGLB;
 	}
 
@@ -2394,22 +2412,42 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 	// Write glTF header
 	internal::BinaryGltfHeader header {};
 	header.magic = internal::binaryGltfHeaderMagic;
-	header.version = 2;
-	header.length = static_cast<std::uint32_t>(binarySize);
+	header.version = binaryFormat3 ? 3 : 2;
 	auto headerBytes = writeBinaryHeader(header);
 	write(headerBytes.data(), headerBytes.size());
 
+	if (header.version == 3) {
+		std::array<std::byte, sizeof(std::uint64_t)> bytes {};
+		internal::writeUint64LE(static_cast<std::uint64_t>(binarySize), bytes.data());
+		write(bytes.data(), bytes.size());
+	} else {
+		std::array<std::byte, sizeof(std::uint32_t)> bytes {};
+		internal::writeUint32LE(static_cast<std::uint32_t>(binarySize), bytes.data());
+		write(bytes.data(), bytes.size());
+	}
+
 	// Write JSON chunk
-	internal::BinaryGltfChunk jsonChunk {};
-	jsonChunk.chunkType = internal::binaryGltfJsonChunkMagic;
-	jsonChunk.chunkLength = static_cast<std::uint32_t>(alignUp(json.size(), 4));
-	auto chunkBytes = writeBinaryChunk(jsonChunk);
-	write(chunkBytes.data(), chunkBytes.size());
+	if (header.version == 3) {
+		internal::BinaryGltfChunkV3 jsonChunk {
+			.chunkType = internal::binaryGltfJsonChunkMagic,
+			.encoding = 0,
+			.chunkLength = static_cast<std::uint64_t>(alignUp(json.size(), chunkAlignment)),
+		};
+		auto chunkBytes = writeBinaryChunk(jsonChunk);
+		write(chunkBytes.data(), chunkBytes.size());
+	} else {
+		internal::BinaryGltfChunkV2 jsonChunk {
+			.chunkLength = static_cast<std::uint32_t>(alignUp(json.size(), chunkAlignment)),
+			.chunkType = internal::binaryGltfJsonChunkMagic,
+		};
+		auto chunkBytes = writeBinaryChunk(jsonChunk);
+		write(chunkBytes.data(), chunkBytes.size());
+	}
 
 	write(json.data(), json.size());
 
-	// 4 bytes padding with space character (0x20)
-	for (std::size_t i = json.size(); i % 4 != 0; ++i) {
+	// 4 or 8 bytes padding with space character (0x20)
+	for (std::size_t i = json.size(); i % chunkAlignment != 0; ++i) {
 		static constexpr std::uint8_t space = 0x20U;
 		write(&space, sizeof space);
 	}
@@ -2418,11 +2456,22 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 		const auto& buffer = asset.buffers.front();
 
 		// Write BIN chunk
-		internal::BinaryGltfChunk dataChunk {};
-		dataChunk.chunkType = internal::binaryGltfDataChunkMagic;
-		dataChunk.chunkLength = static_cast<std::uint32_t>(alignUp(buffer.byteLength, 4));
-		chunkBytes = writeBinaryChunk(dataChunk);
-		write(chunkBytes.data(), chunkBytes.size());
+		if (header.version == 3) {
+			internal::BinaryGltfChunkV3 dataChunk {
+				.chunkType = internal::binaryGltfDataChunkMagic,
+				.encoding = 0,
+				.chunkLength = static_cast<std::uint64_t>(alignUp(buffer.byteLength, chunkAlignment)),
+			};
+			auto chunkBytes = writeBinaryChunk(dataChunk);
+			write(chunkBytes.data(), chunkBytes.size());
+		} else {
+			internal::BinaryGltfChunkV2 dataChunk {
+				.chunkLength = static_cast<std::uint32_t>(alignUp(buffer.byteLength, chunkAlignment)),
+				.chunkType = internal::binaryGltfDataChunkMagic,
+			};
+			auto chunkBytes = writeBinaryChunk(dataChunk);
+			write(chunkBytes.data(), chunkBytes.size());
+		}
 
 		std::visit(visitor {
 			[](auto&) {},
@@ -2437,8 +2486,8 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBi
 			},
 		}, buffer.data);
 
-		// 4 bytes padding with zeros
-		for (std::size_t i = buffer.byteLength; i % 4 != 0; ++i) {
+		// 4 or 8 bytes padding with zeros
+		for (std::size_t i = buffer.byteLength; i % chunkAlignment != 0; ++i) {
 			static constexpr std::uint8_t zero = 0x0U;
 			write(&zero, sizeof zero);
 		}
