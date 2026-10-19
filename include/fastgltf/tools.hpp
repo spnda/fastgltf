@@ -34,14 +34,25 @@
 #include <stdfloat>
 #endif
 
+#if defined(__STDCPP_FLOAT16_T__) && __STDCPP_FLOAT16_T__
+#define FASTGLTF_HAS_FLOAT16 1
+#else
+#define FASTGLTF_HAS_FLOAT16 0
+#endif
+
 #if defined(__STDCPP_FLOAT32_T__) && __STDCPP_FLOAT32_T__
 #define FASTGLTF_HAS_FLOAT32 1
+#else
+#define FASTGLTF_HAS_FLOAT32 0
 #endif
 
 #if defined(__STDCPP_FLOAT64_T__) && __STDCPP_FLOAT64_T__
 #define FASTGLTF_HAS_FLOAT64 1
+#else
+#define FASTGLTF_HAS_FLOAT64 0
 #endif
 #else
+#define FASTGLTF_HAS_FLOAT16 0
 #define FASTGLTF_HAS_FLOAT32 0
 #define FASTGLTF_HAS_FLOAT64 0
 #endif
@@ -82,6 +93,21 @@ struct ComponentTypeConverter<std::uint32_t> {
 };
 
 template<>
+struct ComponentTypeConverter<std::int64_t> {
+	static constexpr auto type = ComponentType::Int64;
+};
+
+template<>
+struct ComponentTypeConverter<std::uint64_t> {
+	static constexpr auto type = ComponentType::UnsignedInt64;
+};
+
+template <>
+struct ComponentTypeConverter<HalfFloat> {
+	static constexpr auto type = ComponentType::HalfFloat;
+};
+
+template<>
 struct ComponentTypeConverter<float> {
 	static constexpr auto type = ComponentType::Float;
 };
@@ -90,6 +116,13 @@ template<>
 struct ComponentTypeConverter<double> {
 	static constexpr auto type = ComponentType::Double;
 };
+
+#if FASTGLTF_HAS_FLOAT16
+template <>
+struct ComponentTypeConverter<std::float16_t> {
+	static constexpr auto type = ComponentType::HalfFloat;
+};
+#endif
 
 #if FASTGLTF_HAS_FLOAT32
 template <>
@@ -123,9 +156,16 @@ template<> struct ElementTraits<std::int16_t> : ElementTraitsBase<std::int16_t, 
 template<> struct ElementTraits<std::uint16_t> : ElementTraitsBase<std::uint16_t, AccessorType::Scalar> {};
 template<> struct ElementTraits<std::int32_t> : ElementTraitsBase<std::int32_t, AccessorType::Scalar> {};
 template<> struct ElementTraits<std::uint32_t> : ElementTraitsBase<std::uint32_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::int64_t> : ElementTraitsBase<std::int64_t, AccessorType::Scalar> {};
+template<> struct ElementTraits<std::uint64_t> : ElementTraitsBase<std::uint64_t, AccessorType::Scalar> {};
 
+template<> struct ElementTraits<HalfFloat> : ElementTraitsBase<HalfFloat, AccessorType::Scalar> {};
 template<> struct ElementTraits<float> : ElementTraitsBase<float, AccessorType::Scalar> {};
 template<> struct ElementTraits<double> : ElementTraitsBase<double, AccessorType::Scalar> {};
+
+#if FASTGLTF_HAS_FLOAT16
+template<> struct ElementTraits<std::float16_t> : ElementTraitsBase<std::float16_t, AccessorType::Scalar> {};
+#endif
 
 #if FASTGLTF_HAS_FLOAT32
 template<> struct ElementTraits<std::float32_t> : ElementTraitsBase<std::float32_t, AccessorType::Scalar> {};
@@ -156,6 +196,25 @@ template<> struct ElementTraits<math::u32vec2> : ElementTraitsBase<math::u32vec2
 template<> struct ElementTraits<math::u32vec3> : ElementTraitsBase<math::u32vec3, AccessorType::Vec3, std::uint32_t> {};
 template<> struct ElementTraits<math::u32vec4> : ElementTraitsBase<math::u32vec4, AccessorType::Vec4, std::uint32_t> {};
 
+#if FASTGLTF_HAS_FLOAT16
+template<> struct ElementTraits<math::vec<std::float16_t, 2>> : ElementTraitsBase<math::vec<std::float16_t, 2>, AccessorType::Vec2, std::float16_t> {};
+template<> struct ElementTraits<math::vec<std::float16_t, 3>> : ElementTraitsBase<math::vec<std::float16_t, 3>, AccessorType::Vec3, std::float16_t> {};
+template<> struct ElementTraits<math::vec<std::float16_t, 4>> : ElementTraitsBase<math::vec<std::float16_t, 4>, AccessorType::Vec4, std::float16_t> {};
+#endif
+#if FASTGLTF_HAS_FLOAT32
+template<> struct ElementTraits<math::vec<std::float32_t, 2>> : ElementTraitsBase<math::vec<std::float32_t, 2>, AccessorType::Vec2, std::float32_t> {};
+template<> struct ElementTraits<math::vec<std::float32_t, 3>> : ElementTraitsBase<math::vec<std::float32_t, 3>, AccessorType::Vec3, std::float32_t> {};
+template<> struct ElementTraits<math::vec<std::float32_t, 4>> : ElementTraitsBase<math::vec<std::float32_t, 4>, AccessorType::Vec4, std::float32_t> {};
+#endif
+#if FASTGLTF_HAS_FLOAT64
+template<> struct ElementTraits<math::vec<std::float64_t, 2>> : ElementTraitsBase<math::vec<std::float64_t, 2>, AccessorType::Vec2, std::float64_t> {};
+template<> struct ElementTraits<math::vec<std::float64_t, 3>> : ElementTraitsBase<math::vec<std::float64_t, 3>, AccessorType::Vec3, std::float64_t> {};
+template<> struct ElementTraits<math::vec<std::float64_t, 4>> : ElementTraitsBase<math::vec<std::float64_t, 4>, AccessorType::Vec4, std::float64_t> {};
+#endif
+
+template<> struct ElementTraits<math::hvec2> : ElementTraitsBase<math::hvec2, AccessorType::Vec2, HalfFloat> {};
+template<> struct ElementTraits<math::hvec3> : ElementTraitsBase<math::hvec3, AccessorType::Vec3, HalfFloat> {};
+template<> struct ElementTraits<math::hvec4> : ElementTraitsBase<math::hvec4, AccessorType::Vec4, HalfFloat> {};
 template<> struct ElementTraits<math::fvec2> : ElementTraitsBase<math::fvec2, AccessorType::Vec2, float> {};
 template<> struct ElementTraits<math::fvec3> : ElementTraitsBase<math::fvec3, AccessorType::Vec3, float> {};
 template<> struct ElementTraits<math::fvec4> : ElementTraitsBase<math::fvec4, AccessorType::Vec4, float> {};
@@ -170,8 +229,11 @@ template<> struct ElementTraits<math::fmat2x2> : ElementTraitsBase<math::fmat2x2
 template<> struct ElementTraits<math::fmat3x3> : ElementTraitsBase<math::fmat3x3, AccessorType::Mat3, float> {};
 template<> struct ElementTraits<math::fmat4x4> : ElementTraitsBase<math::fmat4x4, AccessorType::Mat4, float> {};
 
+template <typename T>
+inline constexpr bool isComponentType = std::is_arithmetic_v<T> || std::is_same_v<T, HalfFloat>;
+
 template <typename ElementType>
-concept Element = std::is_arithmetic_v<typename ElementTraits<ElementType>::component_type>
+concept Element = isComponentType<typename ElementTraits<ElementType>::component_type>
 		&& ElementTraits<ElementType>::type != AccessorType::Invalid
 		&& ElementTraits<ElementType>::enum_component_type != ComponentType::Invalid
 		&& std::is_default_constructible_v<ElementType>
@@ -198,6 +260,11 @@ constexpr T deserializeComponent(const std::byte* bytes, std::size_t index) {
 	return ret;
 }
 
+template<>
+constexpr HalfFloat deserializeComponent<HalfFloat>(const std::byte* bytes, std::size_t index) {
+	return HalfFloat::fromBits(deserializeComponent<std::uint16_t>(bytes, index));
+}
+
 #if FASTGLTF_HAS_FLOAT32
 template<>
 constexpr std::float32_t deserializeComponent<std::float32_t>(const std::byte* bytes, std::size_t index) {
@@ -215,7 +282,7 @@ constexpr float deserializeComponent<float>(const std::byte* bytes, std::size_t 
 				  std::numeric_limits<float>::radix == 2 &&
 				  std::numeric_limits<float>::digits == 24 &&
 				  std::numeric_limits<float>::max_exponent == 128,
-				  "Float deserialization is only supported on IEE754 platforms");
+				  "Float deserialization is only supported on IEEE754 platforms");
 	return std::bit_cast<float>(deserializeComponent<std::uint32_t>(bytes, index));
 }
 #endif
@@ -237,34 +304,51 @@ constexpr double deserializeComponent<double>(const std::byte* bytes, std::size_
 				  std::numeric_limits<double>::radix == 2 &&
 				  std::numeric_limits<double>::digits == 53 &&
 				  std::numeric_limits<double>::max_exponent == 1024,
-				  "Float deserialization is only supported on IEE754 platforms");
+				  "Float deserialization is only supported on IEEE754 platforms");
 	return std::bit_cast<double>(deserializeComponent<std::uint64_t>(bytes, index));
 }
 #endif
 
 template <typename DestType, typename SourceType>
 constexpr DestType convertComponent(const SourceType& source, bool normalized) {
-	if (normalized) {
-		if constexpr (std::is_floating_point_v<SourceType> && std::is_integral_v<DestType>) {
-			// float -> int conversion
-			return static_cast<DestType>(std::round(source * static_cast<SourceType>(std::numeric_limits<DestType>::max())));
-		} else if constexpr (std::is_integral_v<SourceType> && std::is_floating_point_v<DestType>) {
-			// int -> float conversion
-			DestType minValue;
-			if constexpr (std::is_signed_v<DestType>) {
-				minValue = static_cast<DestType>(-1.0);
-			} else {
-				minValue = static_cast<DestType>(0.0);
-			}
-
-			// We have to use max here because for uchar -> float we could have -128 but 1.0 should represent 127,
-			// which is why -128 and -127 both equate to 1.0.
-			return fastgltf::max(static_cast<DestType>(source) / static_cast<DestType>(std::numeric_limits<SourceType>::max()),
-								 minValue);
+	// The custom HalfFloat type can only be created from a float and cast to a float,
+	// and since it's a floating point type it can never be normalized. This branch
+	// avoids invoking the HalfFloat(T) constructors which fail to compile when T != float.
+	if constexpr (std::is_same_v<SourceType, HalfFloat>) {
+		if constexpr (std::is_same_v<DestType, HalfFloat>) {
+			return source;
+#if FASTGLTF_HAS_FLOAT16
+		} else if constexpr (std::is_same_v<DestType, std::float16_t> && std::is_same_v<SourceType, HalfFloat>) {
+			return std::bit_cast<std::float16_t>(source.toBits());
+#endif
+		} else {
+			return convertComponent<DestType>(static_cast<float>(source), normalized);
 		}
-	}
+	} else if constexpr (std::is_same_v<DestType, HalfFloat>) {
+		return HalfFloat(convertComponent<float>(source, normalized));
+	} else {
+		if (normalized) {
+			if constexpr (std::is_floating_point_v<SourceType> && std::is_integral_v<DestType>) {
+				// float -> int conversion
+				return static_cast<DestType>(std::round(source * static_cast<SourceType>(std::numeric_limits<DestType>::max())));
+			} else if constexpr (std::is_integral_v<SourceType> && std::is_floating_point_v<DestType>) {
+				// int -> float conversion
+				DestType minValue;
+				if constexpr (std::is_signed_v<DestType>) {
+					minValue = static_cast<DestType>(-1.0);
+				} else {
+					minValue = static_cast<DestType>(0.0);
+				}
 
-	return static_cast<DestType>(source);
+				// We have to use max here because for uchar -> float we could have -128 but 1.0 should represent 127,
+				// which is why -128 and -127 both equate to 1.0.
+				return fastgltf::max(static_cast<DestType>(source) / static_cast<DestType>(std::numeric_limits<SourceType>::max()),
+									 minValue);
+			}
+		}
+
+		return static_cast<DestType>(source);
+	}
 }
 
 template <typename DestType, typename SourceType>
@@ -309,12 +393,17 @@ constexpr DestType getAccessorComponentAt(ComponentType componentType, AccessorT
 			return internal::convertComponent<DestType, std::int32_t>(bytes, idx, type, normalized);
 		case ComponentType::UnsignedInt:
 			return internal::convertComponent<DestType, std::uint32_t>(bytes, idx, type, normalized);
+		case ComponentType::Int64:
+			return internal::convertComponent<DestType, std::int64_t>(bytes, idx, type, normalized);
+		case ComponentType::UnsignedInt64:
+			return internal::convertComponent<DestType, std::uint64_t>(bytes, idx, type, normalized);
+		case ComponentType::HalfFloat:
+			return internal::convertComponent<DestType, HalfFloat>(bytes, idx, type, normalized);
 		case ComponentType::Float:
 			return internal::convertComponent<DestType, float>(bytes, idx, type, normalized);
 		case ComponentType::Double:
 			return internal::convertComponent<DestType, double>(bytes, idx, type, normalized);
 		case ComponentType::Invalid:
-		default:
 			return DestType {};
 	}
 }
@@ -323,7 +412,7 @@ template <typename ElementType, typename SourceType, std::size_t... I>
 requires Element<ElementType>
 constexpr ElementType convertAccessorElement(const std::byte* bytes, bool normalized, std::index_sequence<I...>) {
 	using Traits = ElementTraits<ElementType>;
-	static_assert(std::is_arithmetic_v<typename Traits::component_type>, "Accessor traits must provide a valid component type");
+	static_assert(isComponentType<typename Traits::component_type>, "Accessor traits must provide a valid component type");
 
 	if constexpr (std::is_aggregate_v<ElementType>) {
 		return {convertComponent<typename Traits::component_type, SourceType>(
@@ -351,12 +440,17 @@ ElementType getAccessorElementAt(ComponentType componentType, const std::byte* b
 			return convertAccessorElement<ElementType, std::int32_t>(bytes, normalized, Seq{});
 		case ComponentType::UnsignedInt:
 			return convertAccessorElement<ElementType, std::uint32_t>(bytes, normalized, Seq{});
+		case ComponentType::Int64:
+			return convertAccessorElement<ElementType, std::int64_t>(bytes, normalized, Seq{});
+		case ComponentType::UnsignedInt64:
+			return convertAccessorElement<ElementType, std::uint64_t>(bytes, normalized, Seq{});
+		case ComponentType::HalfFloat:
+			return convertAccessorElement<ElementType, HalfFloat>(bytes, normalized, Seq{});
 		case ComponentType::Float:
 			return convertAccessorElement<ElementType, float>(bytes, normalized, Seq{});
 		case ComponentType::Double:
 			return convertAccessorElement<ElementType, double>(bytes, normalized, Seq{});
 		case ComponentType::Invalid:
-		default:
 			return ElementType{};
 	}
 }
@@ -400,6 +494,11 @@ inline bool findSparseIndex(ComponentType componentType, const std::byte* bytes,
 			return findSparseIndex<std::int32_t>(bytes, indexCount, desiredIndex, resultIndex);
 		case ComponentType::UnsignedInt:
 			return findSparseIndex<std::uint32_t>(bytes, indexCount, desiredIndex, resultIndex);
+		case ComponentType::Int64:
+			return findSparseIndex<std::int64_t>(bytes, indexCount, desiredIndex, resultIndex);
+		case ComponentType::UnsignedInt64:
+			return findSparseIndex<std::uint64_t>(bytes, indexCount, desiredIndex, resultIndex);
+		case ComponentType::HalfFloat:
 		case ComponentType::Float:
 		case ComponentType::Double:
 		case ComponentType::Invalid:

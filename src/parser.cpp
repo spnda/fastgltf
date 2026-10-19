@@ -746,7 +746,7 @@ namespace fastgltf {
 			error == SUCCESS) [[likely]] {
 			const auto num = getNumComponents(accessor.type);
 
-			if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
+			if (isFloatingPoint(accessor.componentType)) {
 				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
 				return parseMinMaxArray<double>(elements, ref.value());
 			} else {
@@ -777,7 +777,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			return Error::InvalidGltf;
 		}
 		accessor.componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
-		if (accessor.componentType == ComponentType::Double && (!hasBit(options, Options::AllowDouble) || !hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
+		if (accessor.componentType == ComponentType::Double && !(hasBit(options, Options::AllowDouble) || hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
 			return Error::InvalidGltf;
 		}
 
@@ -819,7 +819,7 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		}
 
 		// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
-		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || accessor.componentType == ComponentType::Float)) {
+		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || isFloatingPoint(accessor.componentType))) {
 			return Error::InvalidGltf;
 		}
 

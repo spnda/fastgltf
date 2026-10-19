@@ -118,18 +118,31 @@ namespace fastgltf {
 		Invalid         = 0,
 		Byte            = (0 << 13) | 5120,
 		UnsignedByte    = (0 << 13) | 5121,
+
 		Short           = (1 << 13) | 5122,
 		UnsignedShort   = (1 << 13) | 5123,
 		/**
-		 * Signed integers are not officially allowed by the glTF spec, but are placed here for
-		 * the sake of completeness.
+		 * Half floats are allowed either when using glTF 2.1 or KHR_accessor_float16.
+		 */
+		HalfFloat       = (1 << 13) | 5131,
+
+		/**
+		 * Signed integers are allowed when using glTF 2.1.
 		 */
 		Int             = (3 << 13) | 5124,
 		UnsignedInt     = (3 << 13) | 5125,
 		Float           = (3 << 13) | 5126,
+
 		/**
-		 * Doubles are only allowed through the KHR_accessor_float64 extension, but can also
-		 * be enabled by specifying the AllowDouble option.
+		 * Signed 64-bit integers are allowed when using glTF 2.1.
+		 */
+		Int64           = (7 << 13) | 5134,
+		/**
+		 * Unsigned 64-bit integers are allowed when using glTF 2.1.
+		 */
+		UnsignedInt64   = (7 << 13) | 5135,
+		/**
+		 * Doubles are allowed either when using glTF 2.1, KHR_accessor_float64, or with AllowDouble.
 		 */
 		Double          = (7 << 13) | 5130,
 	};
@@ -366,22 +379,34 @@ namespace fastgltf {
 		return static_cast<std::uint32_t>(to_underlying(type) & 0x1FFF); // 2^13 - 1 in hex, to mask the lower 13 bits.
 	}
 
+	FASTGLTF_EXPORT constexpr auto isFloatingPoint(ComponentType type) noexcept {
+		return
+			type == ComponentType::HalfFloat ||
+			type == ComponentType::Float ||
+			type == ComponentType::Double;
+	}
+
 	namespace internal {
 		/**
 		 * This order matters as we assume that their glTF constant is ascending to index it.
 		 */
 		inline constexpr std::array components = {
-			ComponentType::Byte,
-			ComponentType::UnsignedByte,
-			ComponentType::Short,
-			ComponentType::UnsignedShort,
-			ComponentType::Int,
-			ComponentType::UnsignedInt,
-			ComponentType::Float,
-			ComponentType::Invalid,
-			ComponentType::Invalid,
-			ComponentType::Invalid,
-			ComponentType::Double,
+			ComponentType::Byte, // 5120
+			ComponentType::UnsignedByte, // 5121
+			ComponentType::Short, // 5122
+			ComponentType::UnsignedShort, // 5123
+			ComponentType::Int, // 5124
+			ComponentType::UnsignedInt, // 5125
+			ComponentType::Float, // 5126
+			ComponentType::Invalid, // 5127
+			ComponentType::Invalid, // 5128
+			ComponentType::Invalid, // 5129
+			ComponentType::Double, // 5130
+			ComponentType::HalfFloat, // 5131
+			ComponentType::Invalid, // 5132
+			ComponentType::Invalid, // 5133
+			ComponentType::Int64, // 5134
+			ComponentType::UnsignedInt64, // 5135
 		};
 
 		[[nodiscard]] constexpr auto getComponentType(const std::underlying_type_t<ComponentType> componentType) noexcept {
