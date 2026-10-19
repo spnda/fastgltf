@@ -29,6 +29,7 @@
 
 #if !defined(FASTGLTF_MODULE)
 #include <cassert>
+#include <cstdint>
 #include <functional>
 #include <ostream>
 #endif

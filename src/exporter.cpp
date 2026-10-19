@@ -54,6 +54,92 @@ namespace fastgltf::internal {
 	}
 }
 
+struct fastgltf::Exporter::impl {
+	Error errorCode = Error::None;
+	ExportOptions options = ExportOptions::None;
+	bool exportingBinary = false;
+
+	std::filesystem::path bufferFolder = "";
+	std::filesystem::path imageFolder = "";
+
+	void* userPointer = nullptr;
+	ExtrasWriteCallback* extrasWriteCallback = nullptr;
+
+	std::vector<std::optional<std::filesystem::path>> bufferPaths;
+	std::vector<std::optional<std::filesystem::path>> imagePaths;
+
+	void setBufferPath(std::filesystem::path folder);
+	void setImagePath(std::filesystem::path folder);
+	void setExtrasWriteCallback(ExtrasWriteCallback* callback) noexcept;
+	void setUserPointer(void* pointer) noexcept;
+
+	void writeAccessors(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeAnimations(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeCameras(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeImages(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeLights(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeMaterialExtensions(const Material& material, simdjson::builder::string_builder& builder);
+	void writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeMeshes(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeNodes(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeSamplers(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeScenes(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeShapes(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeSkins(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeTextures(const Asset& asset, simdjson::builder::string_builder& builder);
+	void writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder);
+
+	std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
+	std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
+
+	std::string writeJson(const Asset& asset);
+
+	Expected<ExportResult<std::string>> writeGltfJson(const Asset& asset, ExportOptions options = ExportOptions::None);
+	Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
+};
+
+namespace fastgltf {
+	fg::Exporter::Exporter() : _impl(std::make_unique<fg::Exporter::impl>()) {}
+	fg::Exporter::~Exporter() = default;
+
+	std::span<std::optional<std::filesystem::path>> fg::Exporter::getBufferPaths() {
+		return _impl->bufferPaths;
+	}
+
+	std::span<std::optional<std::filesystem::path>> fg::Exporter::getImagePaths() {
+		return _impl->imagePaths;
+	}
+
+	void fg::Exporter::setBufferPath(fs::path folder) {
+		_impl->setBufferPath(std::move(folder));
+	}
+
+	void fg::Exporter::setImagePath(fs::path folder) {
+		_impl->setImagePath(std::move(folder));
+	}
+
+	void fg::Exporter::setExtrasWriteCallback(ExtrasWriteCallback* callback) noexcept {
+		_impl->setExtrasWriteCallback(callback);
+	}
+
+	void fg::Exporter::setUserPointer(void* pointer) noexcept {
+		_impl->setUserPointer(pointer);
+	}
+
+	fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset &asset, ExportOptions options) {
+		return _impl->writeGltfJson(asset, options);
+	}
+
+	fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset &asset, ExportOptions options) {
+		return _impl->writeGltfBinary(asset, options);
+	}
+} // namespace fastgltf
+
 void fg::prettyPrintJson(std::string& json) {
 	std::size_t i = 0;
 	std::size_t depth = 0;
@@ -280,29 +366,29 @@ namespace fastgltf {
 	}
 } // namespace fastgltf
 
-void fg::Exporter::setBufferPath(fs::path folder) {
+void fg::Exporter::impl::setBufferPath(fs::path folder) {
 	if (!folder.is_relative()) {
 		return;
 	}
 	bufferFolder = std::move(folder);
 }
 
-void fg::Exporter::setImagePath(fs::path folder) {
+void fg::Exporter::impl::setImagePath(fs::path folder) {
 	if (!folder.is_relative()) {
 		return;
 	}
 	imageFolder = std::move(folder);
 }
 
-void fg::Exporter::setExtrasWriteCallback(ExtrasWriteCallback* callback) noexcept {
+void fg::Exporter::impl::setExtrasWriteCallback(ExtrasWriteCallback *callback) noexcept {
 	extrasWriteCallback = callback;
 }
 
-void fg::Exporter::setUserPointer(void* pointer) noexcept {
+void fg::Exporter::impl::setUserPointer(void* pointer) noexcept {
 	userPointer = pointer;
 }
 
-void fg::Exporter::writeAccessors(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeAccessors(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.accessors.empty())
 		return;
 
@@ -384,8 +470,7 @@ void fg::Exporter::writeAccessors(const Asset& asset, simdjson::builder::string_
 	}
 }
 
-void fg::Exporter::writeAnimations(const Asset& asset, simdjson::builder::string_builder& builder)
-{
+void fg::Exporter::impl::writeAnimations(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.animations.empty())
 		return;
 
@@ -473,7 +558,7 @@ void fg::Exporter::writeAnimations(const Asset& asset, simdjson::builder::string
 	}
 }
 
-void fg::Exporter::writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.buffers.empty())
 		return;
 
@@ -554,7 +639,7 @@ void fg::Exporter::writeBuffers(const Asset& asset, simdjson::builder::string_bu
 	}
 }
 
-void fg::Exporter::writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.bufferViews.empty())
 		return;
 
@@ -662,7 +747,7 @@ void fg::Exporter::writeBufferViews(const Asset& asset, simdjson::builder::strin
 	}
 }
 
-void fg::Exporter::writeCameras(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeCameras(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.cameras.empty())
 		return;
 
@@ -732,7 +817,7 @@ void fg::Exporter::writeCameras(const Asset& asset, simdjson::builder::string_bu
 	}
 }
 
-void fg::Exporter::writeImages(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.images.empty())
 		return;
 
@@ -800,7 +885,7 @@ void fg::Exporter::writeImages(const Asset& asset, simdjson::builder::string_bui
 	}
 }
 
-void fg::Exporter::writeLights(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeLights(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.lights.empty())
 		return;
 
@@ -866,7 +951,7 @@ void fg::Exporter::writeLights(const Asset& asset, simdjson::builder::string_bui
 	}
 }
 
-void fg::Exporter::writeMaterialExtensions(const Material &material, simdjson::builder::string_builder &builder) {
+void fg::Exporter::impl::writeMaterialExtensions(const Material &material, simdjson::builder::string_builder &builder) {
 	auto obj = scoped_object<"extensions">(builder);
 
 	comma_separator extensions_comma { builder };
@@ -1180,7 +1265,7 @@ void fg::Exporter::writeMaterialExtensions(const Material &material, simdjson::b
 	}
 }
 
-void fg::Exporter::writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.materials.empty())
 		return;
 
@@ -1281,7 +1366,7 @@ void fg::Exporter::writeMaterials(const Asset& asset, simdjson::builder::string_
 	}
 }
 
-void fg::Exporter::writeMeshes(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeMeshes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.meshes.empty())
 		return;
 
@@ -1420,7 +1505,7 @@ void fg::Exporter::writeMeshes(const Asset& asset, simdjson::builder::string_bui
 	}
 }
 
-void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeNodes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.nodes.empty())
 		return;
 
@@ -1668,7 +1753,7 @@ void fg::Exporter::writeNodes(const Asset& asset, simdjson::builder::string_buil
 	}
 }
 
-void fg::Exporter::writeSamplers(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeSamplers(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.samplers.empty())
 		return;
 
@@ -1714,7 +1799,7 @@ void fg::Exporter::writeSamplers(const Asset& asset, simdjson::builder::string_b
 	}
 }
 
-void fg::Exporter::writeScenes(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeScenes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.scenes.empty())
 		return;
 
@@ -1754,7 +1839,7 @@ void fg::Exporter::writeScenes(const Asset& asset, simdjson::builder::string_bui
 	}
 }
 
-void fg::Exporter::writeSkins(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeSkins(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.skins.empty())
 		return;
 
@@ -1793,7 +1878,7 @@ void fg::Exporter::writeSkins(const Asset& asset, simdjson::builder::string_buil
 	}
 }
 
-void fg::Exporter::writeTextures(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeTextures(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.textures.empty())
 		return;
 
@@ -1861,7 +1946,7 @@ void fg::Exporter::writeTextures(const Asset& asset, simdjson::builder::string_b
 	}
 }
 
-void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeShapes(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.shapes.empty()) {
 		return;
 	}
@@ -1937,7 +2022,7 @@ void fg::Exporter::writeShapes(const Asset& asset, simdjson::builder::string_bui
 	}
 }
 
-void fg::Exporter::writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.physicsMaterials.empty()) {
 		return;
 	}
@@ -1997,7 +2082,7 @@ void fg::Exporter::writePhysicsMaterials(const Asset& asset, simdjson::builder::
 	}
 }
 
-void fg::Exporter::writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.collisionFilters.empty()) {
 		return;
 	}
@@ -2039,7 +2124,7 @@ void fg::Exporter::writeCollisionFilters(const Asset& asset, simdjson::builder::
 	}
 }
 
-void fg::Exporter::writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.physicsJoints.empty()) {
 		return;
 	}
@@ -2151,7 +2236,7 @@ void fg::Exporter::writePhysicsJoints(const Asset& asset, simdjson::builder::str
 	}
 }
 
-void fg::Exporter::writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder) {
+void fg::Exporter::impl::writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder) {
 	auto extensions = scoped_object<"extensions">(builder);
 
 	comma_separator comma { builder };
@@ -2201,7 +2286,7 @@ void fg::Exporter::writeExtensions(const Asset& asset, simdjson::builder::string
 	}
 }
 
-fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) {
+fs::path fg::Exporter::impl::getBufferFilePath(const Asset& asset, std::size_t index) {
 	const auto& bufferName = asset.buffers[index].name;
 	if (bufferName.empty()) {
 		return bufferFolder / ("buffer" + std::to_string(index) + ".bin");
@@ -2209,7 +2294,7 @@ fs::path fg::Exporter::getBufferFilePath(const Asset& asset, std::size_t index) 
 	return bufferFolder / (bufferName + ".bin");
 }
 
-fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
+fs::path fg::Exporter::impl::getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType) {
 	auto extension = internal::getFileExtensionForMime(mimeType);
 	const auto& imageName = asset.images[index].name;
 	if (imageName.empty()) {
@@ -2218,7 +2303,7 @@ fs::path fg::Exporter::getImageFilePath(const Asset& asset, std::size_t index, M
 	return imageFolder / (std::string(imageName) + std::string(extension));
 }
 
-std::string fg::Exporter::writeJson(const Asset &asset) {
+std::string fg::Exporter::impl::writeJson(const Asset &asset) {
 	simdjson::builder::string_builder builder;
 
 	{
@@ -2323,7 +2408,7 @@ std::string fg::Exporter::writeJson(const Asset &asset) {
 	return std::string(builder);
 }
 
-fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const Asset& asset, ExportOptions _options) {
+fg::Expected<fg::ExportResult<std::string>> fg::Exporter::impl::writeGltfJson(const Asset& asset, ExportOptions _options) {
 	bufferPaths.clear();
 	imagePaths.clear();
 	options = _options;
@@ -2348,7 +2433,7 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::writeGltfJson(const As
 	return result;
 }
 
-fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::writeGltfBinary(const Asset& asset, ExportOptions _options) {
+fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::impl::writeGltfBinary(const Asset& asset, ExportOptions _options) {
 	bufferPaths.clear();
 	imagePaths.clear();
 	options = _options;

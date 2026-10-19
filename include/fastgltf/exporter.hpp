@@ -33,8 +33,6 @@
 #include <vector>
 #endif
 
-#include <simdjson.h>
-
 #include <fastgltf/error.hpp>
 #include <fastgltf/types.hpp>
 
@@ -84,47 +82,18 @@ namespace fastgltf {
 	 * If you want to let fastgltf handle the file writing too, use fastgltf::FileExporter.
 	 */
 	FASTGLTF_EXPORT class Exporter {
+		struct impl;
+
+		std::unique_ptr<impl> _impl;
+
 	protected:
-		Error errorCode = Error::None;
-		ExportOptions options = ExportOptions::None;
-		bool exportingBinary = false;
-
-		std::filesystem::path bufferFolder = "";
-		std::filesystem::path imageFolder = "";
-
-		void* userPointer = nullptr;
-		ExtrasWriteCallback* extrasWriteCallback = nullptr;
-
-		std::vector<std::optional<std::filesystem::path>> bufferPaths;
-		std::vector<std::optional<std::filesystem::path>> imagePaths;
-
-		void writeAccessors(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeAnimations(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeCameras(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeImages(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeLights(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeMaterialExtensions(const Material& material, simdjson::builder::string_builder& builder);
-		void writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeMeshes(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeNodes(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writePhysicsMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writePhysicsJoints(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeSamplers(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeScenes(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeShapes(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeSkins(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeTextures(const Asset& asset, simdjson::builder::string_builder& builder);
-		void writeExtensions(const Asset& asset, simdjson::builder::string_builder& builder);
-
-		std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
-		std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
-
-		std::string writeJson(const Asset& asset);
+		std::span<std::optional<std::filesystem::path>> getBufferPaths();
+		std::span<std::optional<std::filesystem::path>> getImagePaths();
 
 	public:
+		explicit Exporter();
+		~Exporter();
+
 		/**
 		 * Sets the relative base path for buffer URIs.
 		 *
