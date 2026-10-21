@@ -2921,7 +2921,7 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				auto diffuseTransmissionError = extensionField.value.get_object().get(diffuseTransmissionObject);
 				if (diffuseTransmissionError != SUCCESS) FASTGLTF_UNLIKELY {
 					return Error::InvalidGltf;
-				}	
+				}
 
 				auto diffuseTransmission = std::make_unique<MaterialDiffuseTransmission>();
 
@@ -3802,14 +3802,14 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 		if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) FASTGLTF_LIKELY {
 			if (hasBit(config.extensions, Extensions::KHR_lights_punctual)) {
 				dom::object lightsObject;
-				if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) FASTGLTF_LIKELY {
+				if (const auto lightsError = extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject); lightsError == SUCCESS) FASTGLTF_LIKELY {
 					std::uint64_t light;
 					if (auto lightError = lightsObject["light"].get_uint64().get(light); lightError == SUCCESS) FASTGLTF_LIKELY {
 						node.lightIndex = static_cast<std::size_t>(light);
 					} else {
 						return lightError == NO_SUCH_FIELD || lightError == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
 					}
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (lightsError != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
 				}
 			}
@@ -4427,7 +4427,7 @@ fg::Error fg::Parser::parseCollisionFilters(const simdjson::dom::array& collisio
 }
 
 fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoints, Asset& asset) {
-	using namespace simdjson; 
+	using namespace simdjson;
 
 	asset.physicsJoints.reserve(physicsJoints.size());
 	for (auto physicsJointValue : physicsJoints) {
@@ -4871,7 +4871,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
-		
+
 	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
@@ -4896,7 +4896,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 			return Error::InvalidGltf;
 		}
-		
+
 	} else if (error != NO_SUCH_FIELD) FASTGLTF_UNLIKELY {
 		return Error::InvalidGltf;
 	}
@@ -6774,7 +6774,7 @@ void fg::Exporter::writeShapes(const Asset& asset, std::string& json) {
 			json += ',';
 		}
 	}
-	json += "]}";    
+	json += "]}";
 }
 #endif
 
