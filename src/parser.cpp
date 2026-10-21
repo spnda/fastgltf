@@ -2722,14 +2722,14 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 		if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) [[likely]] {
 			if (hasBit(config.extensions, Extensions::KHR_lights_punctual)) {
 				dom::object lightsObject;
-				if (extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject) == SUCCESS) [[likely]] {
+				if (const auto lightsError = extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject); lightsError == SUCCESS) [[likely]] {
 					std::uint64_t light;
 					if (auto lightError = lightsObject["light"].get_uint64().get(light); lightError == SUCCESS) [[likely]] {
 						node.lightIndex = static_cast<std::size_t>(light);
 					} else {
 						return lightError == NO_SUCH_FIELD || lightError == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
 					}
-				} else if (error != NO_SUCH_FIELD) {
+				} else if (lightsError != NO_SUCH_FIELD) {
 					return Error::InvalidGltf;
 				}
 			}

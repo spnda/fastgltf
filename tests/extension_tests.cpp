@@ -209,6 +209,33 @@ TEST_CASE("Extension KHR_lights_punctual", "[gltf-loader]") {
 	}
 }
 
+TEST_CASE("KHR_lights_punctual: node with matrix and no light extension", "[gltf-loader]") {
+	constexpr std::string_view json = R"({
+		"asset":{"version":"2.0"},
+		"nodes":[{"matrix":[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], "extensions":{}}],
+		"scenes":[{"nodes":[0]}],
+		"scene":0
+	})";
+
+	auto data = fastgltf::GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.has_value());
+
+	auto asset = fastgltf::Parser(fastgltf::Extensions::KHR_lights_punctual)
+		.loadGltfJson(data.get(), {});
+	REQUIRE(asset.has_value());
+
+	REQUIRE(asset->nodes.size() == 1);
+	auto& node = asset->nodes[0];
+	REQUIRE(std::holds_alternative<fastgltf::math::fmat4x4>(node.transform));
+	CHECK(std::get<fastgltf::math::fmat4x4>(node.transform) ==
+		fastgltf::math::fmat4x4(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1));
+
+	CHECK(!node.lightIndex.has_value());
+
+	REQUIRE(asset->defaultScene.has_value());
+	CHECK(asset->defaultScene.value() == 0);
+}
+
 // TODO: Add tests for EXT_texture_webp extension
 
 TEST_CASE("Extension KHR_materials_specular", "[gltf-loader]") {
