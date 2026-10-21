@@ -164,7 +164,7 @@ extensions can also contain ``sources::Fallback`` buffers that have no data of
 their own.
 
 An enabled option makes a missing local file a parsing error
-(``Error::MissingExternalFile``), rather than leaving a URI for later loading.
+(``Error::MissingExternalBuffer``), rather than leaving a URI for later loading.
 Always check the returned ``Expected<Asset>`` before accessing the asset.
 Loading an image reads its encoded bytes; it does not decode PNG, JPEG or other
 image formats into pixels.

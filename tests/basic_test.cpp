@@ -113,7 +113,7 @@ TEST_CASE("External loading options report missing local files", "[gltf-loader][
 	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
 	REQUIRE(data.error() == Error::None);
 	Parser parser;
-	CHECK(parser.loadGltfJson(data.get(), path, options).error() == Error::MissingExternalFile);
+	CHECK(parser.loadGltfJson(data.get(), path, options).error() == Error::MissingExternalBuffer);
 	CHECK(parser.loadGltfJson(data.get(), path, Options::None).error() == Error::None);
 }
 
