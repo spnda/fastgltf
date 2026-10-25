@@ -879,11 +879,29 @@ namespace fastgltf {
 		std::string name;
 	};
 
+	FASTGLTF_EXPORT struct Version {
+		// The spec allows all values up to 999999999, and log2(999999999) == 29.897
+		std::uint32_t major = 2;
+		std::uint32_t minor = 0;
+
+		[[nodiscard]] std::string asString() const {
+			return std::to_string(major) + "." + std::to_string(minor);
+		}
+
+		// MSVC was being stupid with modules and failed to see std::partial_ordering here idk
+		[[nodiscard]] constexpr std::strong_ordering operator<=>(const Version& other) const noexcept {
+			if (const auto cmp = major <=> other.major; cmp != 0)
+				return cmp;
+			return minor <=> other.minor;
+		}
+		bool operator==(const Version&) const = default;
+	};
+
 	FASTGLTF_EXPORT struct AssetInfo {
 		std::string copyright;
 		std::string generator;
-		std::string gltfVersion;
-		std::string minVersion;
+		Version version;
+		optional<Version> minVersion;
 	};
 
 	FASTGLTF_EXPORT struct Camera {
@@ -1761,10 +1779,7 @@ namespace fastgltf {
 		friend class Parser;
 
 	public:
-		/**
-		 * This will only ever have no value if #Options::DontRequireValidAssetMember was specified.
-		 */
-		optional<AssetInfo> assetInfo;
+		AssetInfo assetInfo;
 		std::vector<std::string> extensionsUsed;
 		std::vector<std::string> extensionsRequired;
 

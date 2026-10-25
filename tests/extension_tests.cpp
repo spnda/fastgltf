@@ -16,7 +16,7 @@ TEST_CASE("Extension KHR_texture_transform", "[gltf-loader]") {
 	REQUIRE(jsonData.isOpen());
 
 	fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_transform);
-	auto asset = parser.loadGltfJson(jsonData, transformTest, fastgltf::Options::DontRequireValidAssetMember, fastgltf::Category::Materials);
+	auto asset = parser.loadGltfJson(jsonData, transformTest, fastgltf::Options::None, fastgltf::Category::Materials);
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
@@ -36,7 +36,7 @@ TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
 
 	SECTION("Loading KHR_texture_basisu") {
 		fastgltf::Parser parser(fastgltf::Extensions::KHR_texture_basisu);
-		auto asset = parser.loadGltfJson(jsonData, path, fastgltf::Options::DontRequireValidAssetMember,
+		auto asset = parser.loadGltfJson(jsonData, path, fastgltf::Options::None,
 									 fastgltf::Category::Textures | fastgltf::Category::Images);
 		REQUIRE(asset.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
@@ -61,7 +61,7 @@ TEST_CASE("Extension KHR_texture_basisu", "[gltf-loader]") {
 	SECTION("Testing requiredExtensions") {
 		// We specify no extensions, yet the StainedGlassLamp requires KHR_texture_basisu.
 		fastgltf::Parser parser(fastgltf::Extensions::None);
-		auto stainedGlassLamp = parser.loadGltfJson(jsonData, path, fastgltf::Options::DontRequireValidAssetMember);
+		auto stainedGlassLamp = parser.loadGltfJson(jsonData, path);
 		REQUIRE(stainedGlassLamp.error() == fastgltf::Error::MissingExtensions);
 	}
 }
@@ -467,6 +467,7 @@ TEST_CASE("Extension KHR_materials_pbrSpecularGlossiness", "[gltf-loader]") {
 
 TEST_CASE("Extension KHR_materials_dispersion", "[gltf-loader]") {
 	constexpr std::string_view json = R"({
+		"asset": { "version": "2.0" },
 		"extensionsUsed": ["KHR_materials_dispersion"],
 		"materials": [{
 			"extensions": {
@@ -481,7 +482,7 @@ TEST_CASE("Extension KHR_materials_dispersion", "[gltf-loader]") {
 	REQUIRE(jsonData.error() == fastgltf::Error::None);
 
 	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_dispersion);
-	auto asset = parser.loadGltfJson(jsonData.get(), {}, fastgltf::Options::DontRequireValidAssetMember);
+	auto asset = parser.loadGltfJson(jsonData.get(), {});
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 

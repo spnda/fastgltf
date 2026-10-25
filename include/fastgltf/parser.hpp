@@ -173,7 +173,8 @@ namespace fastgltf {
 
 	// clang-format off
 	FASTGLTF_EXPORT enum class FASTGLTF_FLAG_ENUM Options : std::uint64_t {
-		None                            = 0,
+		None = 0,
+
 		/**
 		 * This allows 5130 as an accessor component type. 5130 is the OpenGL constant GL_DOUBLE,
 		 * which is by default not listed as an allowed component type in the glTF spec.
@@ -183,19 +184,14 @@ namespace fastgltf {
 		 * The glTF normally only allows these component types:
 		 * https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#accessor-data-types
 		 */
-		AllowDouble                     = 1 << 0,
-
-		/**
-		 * This skips validating the asset field, as it is usually there and not used anyway.
-		 */
-		DontRequireValidAssetMember     = 1 << 1,
+		AllowDouble = 1 << 0,
 
 		/**
 		 * Loads all the GLB buffers into CPU memory. If disabled, fastgltf will only provide
 		 * a byte offset and length into the GLB file, which can be useful when using APIs like
 		 * DirectStorage or Metal IO.
 		 */
-		LoadGLBBuffers [[deprecated("This is now default behaviour")]]   = 1 << 3,
+		LoadGLBBuffers [[deprecated("This is now default behaviour")]] = 1 << 3,
 
 		/**
 		 * Loads buffers referenced by local file URIs into sources::Array, or sources::CustomBuffer
@@ -205,7 +201,7 @@ namespace fastgltf {
 		 * Embedded buffers are loaded independently of this option. To load external image files,
 		 * specify LoadExternalImages as well. Data URIs are decoded independently of this option.
 		 */
-		LoadExternalBuffers             = 1 << 4,
+		LoadExternalBuffers = 1 << 4,
 
 		/**
 		 * This option makes fastgltf automatically decompose the transformation matrices of nodes
@@ -213,7 +209,7 @@ namespace fastgltf {
 		 * TRS components, instead of matrices or TRS, which should simplify working with nodes,
 		 * especially with animations.
 		 */
-		DecomposeNodeMatrices           = 1 << 5,
+		DecomposeNodeMatrices = 1 << 5,
 
 		/**
 		 * Loads images referenced by local file URIs into sources::Array, or sources::CustomBuffer
@@ -223,14 +219,14 @@ namespace fastgltf {
 		 * external backing buffers requires LoadExternalBuffers. Data URIs are decoded independently
 		 * of this option. Image file contents are not decoded into pixels.
 		 */
-		LoadExternalImages              = 1 << 7,
+		LoadExternalImages = 1 << 7,
 
 		/**
 		 * Lets fastgltf generate indices for all mesh primitives without indices. This currently
 		 * does not de-duplicate the vertices. This is entirely for compatibility and simplifying the
 		 * loading process.
 		 */
-		GenerateMeshIndices             = 1 << 8,
+		GenerateMeshIndices = 1 << 8,
 	};
 	// clang-format on
 
@@ -592,6 +588,10 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT GltfType determineGltfFileType(GltfDataGetter& data);
 
+	namespace detail {
+		Expected<Version> parseVersionString(std::string_view version) noexcept;
+	}
+
 	/**
 	 * Some internals the parser passes on to each glTF instance.
 	 */
@@ -656,6 +656,7 @@ namespace fastgltf {
 		Error parseTextures(const simdjson::dom::array& array, Asset& asset);
 		Error parseShapes(const simdjson::dom::array& shapes, Asset& asset);
 
+		Error parseAssetInfo(const simdjson::dom::object& root, AssetInfo& info);
 		Expected<Asset> parse(simdjson::dom::object root, Category categories);
 
 	public:
