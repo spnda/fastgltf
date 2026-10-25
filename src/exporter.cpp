@@ -2323,7 +2323,7 @@ std::string fg::Exporter::impl::writeJson(const Asset &asset) {
 				builder.append_key_value<"generator">(asset.assetInfo.generator);
 			} else {
 				builder.append_comma();
-				builder.append_key_value<"generator", "fastgltf">();
+				append_const_key_value<"generator", "fastgltf " FASTGLTF_QUOTE(FASTGLTF_VERSION)>(builder);
 			}
 			if (asset.assetInfo.minVersion.has_value()) {
 				builder.append_comma();
