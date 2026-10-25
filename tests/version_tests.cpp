@@ -2,6 +2,23 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+TEST_CASE("Detect valid/invalid version strings", "[gltf-loader][gltf-2.1]") {
+	using namespace fastgltf;
+
+	// These are the example version strings from the glTF 2.1 specification that are deemed valid
+	CHECK(detail::parseVersionString("0.0").has_value());
+	CHECK(detail::parseVersionString("0.12").has_value());
+	CHECK(detail::parseVersionString("2.0").has_value());
+	CHECK(detail::parseVersionString("12.34").has_value());
+	CHECK(detail::parseVersionString("999999999.999999999").has_value());
+
+	// These are the example version strings from the glTF 2.1 specification that are deemed invalid
+	CHECK(detail::parseVersionString("+1.0").has_error());
+	CHECK(detail::parseVersionString("2.0.1").has_error());
+	CHECK(detail::parseVersionString("2.00").has_error());
+	CHECK(detail::parseVersionString("01.1").has_error());
+}
+
 TEST_CASE("Detect invalid or unsupported versions", "[gltf-loader][gltf-2.1]") {
 	std::string_view json;
 	fastgltf::Error expectedError;
@@ -23,6 +40,10 @@ TEST_CASE("Detect invalid or unsupported versions", "[gltf-loader][gltf-2.1]") {
 		json = R"({"asset":{"version":"A.B"}})";
 		expectedError = fastgltf::Error::InvalidVersion;
 	}
+	SECTION("Preceeding zeroes in version") {
+		json = R"({"asset":{"version":"02.000"}})";
+		expectedError = fastgltf::Error::InvalidVersion;
+	}
 
 	SECTION("Multi-digit version") {
 		json = R"({"asset":{"version":"20.0"}})";
@@ -32,11 +53,6 @@ TEST_CASE("Detect invalid or unsupported versions", "[gltf-loader][gltf-2.1]") {
 		json = R"({"asset":{"version":"2.100"}})";
 		expectedError = fastgltf::Error::None;
 		expectedVersion = fastgltf::Version{2, 100};
-	}
-	SECTION("Preceeding zeroes in version") {
-		json = R"({"asset":{"version":"02.000"}})";
-		expectedError = fastgltf::Error::None;
-		expectedVersion = fastgltf::Version{2, 0};
 	}
 
 	SECTION("Version 1.0") {

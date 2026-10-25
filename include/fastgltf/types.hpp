@@ -880,8 +880,9 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct Version {
-		std::uint8_t major = 2;
-		std::uint8_t minor = 0;
+		// The spec allows all values up to 999999999, and log2(999999999) == 29.897
+		std::uint32_t major = 2;
+		std::uint32_t minor = 0;
 
 		[[nodiscard]] std::string asString() const {
 			return std::to_string(major) + "." + std::to_string(minor);

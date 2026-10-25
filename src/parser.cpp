@@ -459,17 +459,27 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 namespace fastgltf::detail {
 	Expected<Version> parseVersionString(const std::string_view version) noexcept {
 		Version ret {};
+		static constexpr std::uint32_t max_version_num = 999999999;
 
-		// The glTF specification allows any version string of the format ^[0-9]+\\.[0-9]+$ for both
-		// version and minVersion.
+		// The glTF 2.0 specification allowed versions to be of the form ^[0-9]+\\.[0-9]+$ for both
+		// version and minVersion. glTF 2.1 restricted it to ^(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})$
+		// This function implements the glTF 2.1 version parsing to be more strict.
 
 		const auto* const end = version.data() + version.size(); // from_chars requires pointers, not iterators
 		auto [dot, majorError] = std::from_chars(version.data(), end, ret.major);
 		if (majorError != std::errc {} || dot == end || *dot != '.')
 			return Error::InvalidVersion;
 
+		const auto majorDigits = dot - version.data();
+		if ((majorDigits > 1 && version[0] == '0') || ret.major > max_version_num)
+			return Error::InvalidVersion;
+
 		auto [last, minorError] = std::from_chars(std::next(dot), end, ret.minor);
 		if (minorError != std::errc {} || last != end)
+			return Error::InvalidVersion;
+
+		const auto minorDigits = last - std::next(dot);
+		if ((minorDigits > 1 && *std::next(dot) == '0') || ret.minor > max_version_num)
 			return Error::InvalidVersion;
 		return ret;
 	}
