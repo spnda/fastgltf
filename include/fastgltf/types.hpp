@@ -888,7 +888,7 @@ namespace fastgltf {
 			return std::to_string(major) + "." + std::to_string(minor);
 		}
 
-		auto operator<=>(const Version&) const = default;
+		std::strong_ordering operator<=>(const Version&) const = default;
 	};
 
 	FASTGLTF_EXPORT struct AssetInfo {
