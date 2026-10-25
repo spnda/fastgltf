@@ -456,9 +456,8 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 	return Error::None;
 }
 
-namespace {
-	[[nodiscard]] fg::Expected<fg::Version> parseVersionString(const std::string_view version) noexcept {
-		using namespace fastgltf;
+namespace fastgltf::detail {
+	Expected<Version> parseVersionString(const std::string_view version) noexcept {
 		Version ret {};
 
 		// The glTF specification allows any version string of the format ^[0-9]+\\.[0-9]+$ for both
@@ -491,7 +490,7 @@ fg::Error fg::Parser::parseAssetInfo(const simdjson::dom::object& root, AssetInf
 		return error == NO_SUCH_FIELD ? Error::MissingField : Error::InvalidVersion;
 	}
 
-	auto version = parseVersionString(versionString);
+	auto version = detail::parseVersionString(versionString);
 	if (version.has_error())
 		return version.error();
 	if (version->major != 2) [[unlikely]]
@@ -511,7 +510,7 @@ fg::Error fg::Parser::parseAssetInfo(const simdjson::dom::object& root, AssetInf
 	std::string_view minVersionString;
 	if (const auto strError = assetInfo["minVersion"].get_string().get(minVersionString);
 		strError == SUCCESS) {
-		if (auto minVersion = parseVersionString(minVersionString); minVersion.has_error()) {
+		if (auto minVersion = detail::parseVersionString(minVersionString); minVersion.has_error()) {
 			return minVersion.error();
 		} else {
 			if (*minVersion > Version { 2, 0 }) [[unlikely]]

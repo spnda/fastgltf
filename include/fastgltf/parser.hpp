@@ -588,6 +588,10 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT GltfType determineGltfFileType(GltfDataGetter& data);
 
+	namespace detail {
+		Expected<Version> parseVersionString(std::string_view version) noexcept;
+	}
+
 	/**
 	 * Some internals the parser passes on to each glTF instance.
 	 */

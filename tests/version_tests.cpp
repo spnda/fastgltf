@@ -99,3 +99,21 @@ TEST_CASE("Detect invalid version combinations in validation", "[gltf-loader]") 
 
 	CHECK(fastgltf::validate(asset.get()) == fastgltf::Error::InvalidVersion);
 }
+
+TEST_CASE("Version comparisons", "[gltf-loader]") {
+	using namespace fastgltf;
+	CHECK(Version(2, 0) < Version(3, 0));
+	CHECK(Version(2, 0) < Version(2, 1));
+	CHECK(Version(2, 1) < Version(2, 10));
+	CHECK(Version(2, 10) < Version(3, 0));
+
+	REQUIRE(detail::parseVersionString("2.0").has_value());
+	REQUIRE(detail::parseVersionString("2.1").has_value());
+	REQUIRE(detail::parseVersionString("2.10").has_value());
+	REQUIRE(detail::parseVersionString("3.0").has_value());
+
+	CHECK(*detail::parseVersionString("2.0") < *detail::parseVersionString("3.0"));
+	CHECK(*detail::parseVersionString("2.0") < *detail::parseVersionString("2.1"));
+	CHECK(*detail::parseVersionString("2.1") < *detail::parseVersionString("2.10"));
+	CHECK(*detail::parseVersionString("2.10") < *detail::parseVersionString("3.0"));
+}
