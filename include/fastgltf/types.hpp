@@ -888,7 +888,13 @@ namespace fastgltf {
 			return std::to_string(major) + "." + std::to_string(minor);
 		}
 
-		std::strong_ordering operator<=>(const Version&) const = default;
+		// MSVC was being stupid with modules and failed to see std::partial_ordering here idk
+		[[nodiscard]] constexpr std::strong_ordering operator<=>(const Version& other) const noexcept {
+			if (const auto cmp = major <=> other.major; cmp != 0)
+				return cmp;
+			return minor <=> other.minor;
+		}
+		bool operator==(const Version&) const = default;
 	};
 
 	FASTGLTF_EXPORT struct AssetInfo {
