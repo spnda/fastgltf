@@ -45,6 +45,7 @@ module;
 #include <array>
 #include <bit>
 #include <cmath>
+#include <compare>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
