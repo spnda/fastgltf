@@ -143,7 +143,13 @@ fg::Error fg::validate(const Asset& asset) {
 		if (animation.samplers.empty())
 			return Error::InvalidGltf;
 		for (const auto& channel : animation.channels) {
+			if (channel.samplerIndex >= animation.samplers.size())
+				return Error::InvalidGltf;
+
 			const auto& sampler = animation.samplers[channel.samplerIndex];
+
+			if (sampler.inputAccessor >= asset.accessors.size())
+				return Error::InvalidGltf;
 
 			const auto& inputAccessor = asset.accessors[sampler.inputAccessor];
 			// The accessor MUST be of scalar type with floating-point components
@@ -151,14 +157,21 @@ fg::Error fg::validate(const Asset& asset) {
 				return Error::InvalidGltf;
 			if (inputAccessor.componentType != ComponentType::Float && inputAccessor.componentType != ComponentType::Double)
 				return Error::InvalidGltf;
-			if (inputAccessor.bufferViewIndex && asset.bufferViews[*inputAccessor.bufferViewIndex].meshoptCompression)
-				continue;
+			if (inputAccessor.bufferViewIndex) {
+				if (*inputAccessor.bufferViewIndex >= asset.bufferViews.size())
+					return Error::InvalidGltf;
+				if (asset.bufferViews[*inputAccessor.bufferViewIndex].meshoptCompression)
+					continue;
+			}
 
 			if (inputAccessor.count == 0)
 				continue;
 
 			if (channel.path == AnimationPath::Weights)
 				continue; // TODO: For weights, the input count needs to be multiplied by the morph target count.
+
+			if (sampler.outputAccessor >= asset.accessors.size())
+				return Error::InvalidGltf;
 
 			const auto& outputAccessor = asset.accessors[sampler.outputAccessor];
 			if (outputAccessor.bufferViewIndex && asset.bufferViews[*outputAccessor.bufferViewIndex].meshoptCompression)
