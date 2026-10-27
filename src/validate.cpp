@@ -116,8 +116,14 @@ fg::Error fg::validate(const Asset& asset) {
 		}
 
 		if (accessor.sparse) {
+			if (accessor.sparse->indicesBufferView >= asset.bufferViews.size())
+				return Error::InvalidGltf;
+
 			const auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
 			if (indicesView.byteStride || indicesView.target)
+				return Error::InvalidGltf;
+
+			if (accessor.sparse->valuesBufferView >= asset.bufferViews.size())
 				return Error::InvalidGltf;
 
 			const auto& valueView = asset.bufferViews[accessor.sparse->valuesBufferView];
