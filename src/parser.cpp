@@ -570,6 +570,13 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 	}
 
+	variantCount = 0;
+	if (hasBit(config.extensions, Extensions::KHR_materials_variants)) {
+		dom::array variants;
+		if (root.at_pointer("/extensions/KHR_materials_variants/variants").get_array().get(variants) == SUCCESS)
+			variantCount = variants.size();
+	}
+
 	auto readCategories = Category::None;
 	for (const auto object : root) {
 		auto hashedKey = crc32c(object.key);
@@ -2477,6 +2484,9 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 						if (variant.get_uint64().get(variantIndex) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
+
+						if (variantIndex >= variantCount) [[unlikely]]
+							return Error::InvalidGltf;
 
 						primitive.mappings.resize(max(primitive.mappings.size(),
 													  static_cast<std::size_t>(variantIndex + 1)));

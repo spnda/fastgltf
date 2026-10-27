@@ -778,3 +778,24 @@ TEST_CASE("Integer accessor bounds with really big/small floats", "[gltf-loader]
     REQUIRE(data.error() == Error::None);
     CHECK(Parser().loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
 }
+
+TEST_CASE("Reject out of bounds material variant indices", "[gltf-loader]") {
+	using namespace fastgltf;
+	const auto index = GENERATE(as<std::string>{}, "0", "1", "18446744073709551615");
+	constexpr std::string_view json_base = R"({
+		"asset": {"version":"2.0"},
+		"meshes": [{
+			"primitives": [{
+				"attributes": {},
+				"extensions": {
+					"KHR_materials_variants": {
+						"mappings": [{
+							"material": 0,
+							"variants": [
+	)";
+	const auto json = std::string(json_base) + index + "]}]}}}]}]}";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+	CHECK(Parser(Extensions::KHR_materials_variants).loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
+}
