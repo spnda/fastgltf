@@ -1,6 +1,6 @@
 #include <cstdint>
 
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 
 #include "fuzz_helper.hpp"
 
@@ -11,6 +11,17 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, const std::size_
 
 	constexpr auto all_extensions = ~fastgltf::Extensions::None;
 	auto asset = fastgltf::Parser(all_extensions).loadGltf(buffer.get(), {});
-	(void)asset;
+	if (asset.has_error())
+		return 0;
+
+	auto exported = fastgltf::Exporter().writeGltfJson(asset.get(), fastgltf::ExportOptions::ValidateAsset);
+	if (exported.has_error())
+		return 0;
+
+	auto exported_data = fastgltf::GltfDataBuffer::FromBytes(
+		reinterpret_cast<const std::byte*>(exported->output.data()), exported->output.size());
+	auto reparsed = fastgltf::Parser(all_extensions).loadGltfJson(exported_data.get(), {});
+	FUZZ_CHECK(reparsed.has_value()); // Otherwise the parser, exporter, or validator should've failed.
+
 	return 0;
 }
