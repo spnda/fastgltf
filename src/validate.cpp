@@ -326,6 +326,9 @@ fg::Error fg::validate(const Asset& asset) {
 	}
 
 	for (const auto& mesh : asset.meshes) {
+		if (mesh.primitives.empty())
+			return Error::InvalidGltf;
+
 		for (const auto& primitive : mesh.primitives) {
 			if (primitive.materialIndex.has_value() && *primitive.materialIndex >= asset.materials.size())
 				return Error::InvalidGltf;

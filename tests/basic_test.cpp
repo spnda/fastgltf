@@ -799,3 +799,25 @@ TEST_CASE("Reject out of bounds material variant indices", "[gltf-loader]") {
 	REQUIRE(data.error() == Error::None);
 	CHECK(Parser(Extensions::KHR_materials_variants).loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
 }
+
+TEST_CASE("Reject missing primitives array", "[gltf-loader]") {
+	using namespace fastgltf;
+	std::string json = R"({
+		"asset": {"version":"2.0"},
+		"meshes": [{)";
+
+	constexpr std::string_view valid_primitive = R"("primitives":[{"attributes":{}}])";
+	const auto primitive_json = GENERATE_REF(as<std::string>{}, "", R"("primitives":[])", valid_primitive);
+	json += primitive_json;
+
+	json += R"(
+		}]
+	})";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+
+	CAPTURE(primitive_json);
+	const auto expected_err = primitive_json == valid_primitive ? Error::None : Error::InvalidGltf;
+	CHECK(Parser().loadGltfJson(data.get(), {}).error() == expected_err);
+}

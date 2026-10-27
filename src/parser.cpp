@@ -2541,8 +2541,8 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
 		dom::array array;
 		auto meshError = getJsonArray(meshObject, "primitives", &array);
-		if (meshError != Error::None) {
-			return meshError == Error::MissingField ? Error::InvalidGltf : meshError;
+		if (meshError != Error::None || array.size() == 0) {
+			return Error::InvalidGltf;
 		}
 
 		mesh.primitives.reserve(array.size());
