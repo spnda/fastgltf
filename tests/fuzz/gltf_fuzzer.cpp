@@ -9,7 +9,8 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, const std::size_
 		reinterpret_cast<const std::byte*>(data), size);
 	FUZZ_CHECK(buffer.has_value()); // This should not fail unless OOM
 
-	auto asset = fastgltf::Parser().loadGltfJson(buffer.get(), {});
+	constexpr auto all_extensions = ~fastgltf::Extensions::None;
+	auto asset = fastgltf::Parser(all_extensions).loadGltf(buffer.get(), {});
 	(void)asset;
 	return 0;
 }
