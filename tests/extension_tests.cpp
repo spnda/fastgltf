@@ -226,9 +226,9 @@ TEST_CASE("KHR_lights_punctual: node with matrix and no light extension", "[gltf
 
 	REQUIRE(asset->nodes.size() == 1);
 	auto& node = asset->nodes[0];
-	REQUIRE(std::holds_alternative<fastgltf::math::fmat4x4>(node.transform));
-	CHECK(std::get<fastgltf::math::fmat4x4>(node.transform) ==
-		fastgltf::math::fmat4x4(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1));
+	REQUIRE(std::holds_alternative<fastgltf::math::nmat4x4>(node.transform));
+	CHECK(std::get<fastgltf::math::nmat4x4>(node.transform) ==
+		fastgltf::math::nmat4x4(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1));
 
 	CHECK(!node.lightIndex.has_value());
 

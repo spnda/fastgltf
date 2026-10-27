@@ -1545,22 +1545,22 @@ void fg::Exporter::impl::writeNodes(const Asset& asset, simdjson::builder::strin
 
 		visit_exhaustive(visitor {
 			[&](const TRS& trs) {
-				if (trs.rotation != math::fquat(0.f, 0.f, 0.f, 1.f)) {
+				if (trs.rotation != math::nquat(0.f, 0.f, 0.f, 1.f)) {
 					comma();
 					append_key_range<"rotation">(builder, trs.rotation);
 				}
 
-				if (trs.scale != math::fvec3(1.f)) {
+				if (trs.scale != math::nvec3(1.f)) {
 					comma();
 					append_key_range<"scale">(builder, trs.scale);
 				}
 
-				if (trs.translation != math::fvec3(0.f)) {
+				if (trs.translation != math::nvec3(0.f)) {
 					comma();
 					append_key_range<"translation">(builder, trs.translation);
 				}
 			},
-			[&](const math::fmat4x4& matrix) {
+			[&](const math::nmat4x4& matrix) {
 				comma();
 				auto arr = scoped_array<"matrix">(builder);
 				for (std::size_t i = 0; i < matrix.columns(); ++i) {
@@ -1642,7 +1642,7 @@ void fg::Exporter::impl::writeNodes(const Asset& asset, simdjson::builder::strin
 						motionComma();
 						builder.append_key_value<"mass">(*motion.mass);
 					}
-					if (motion.centerOfMass != math::fvec3(0)) {
+					if (motion.centerOfMass != math::nvec3(0)) {
 						motionComma();
 						append_key_range<"centerOfMass">(builder, motion.centerOfMass);
 					}
@@ -1654,11 +1654,11 @@ void fg::Exporter::impl::writeNodes(const Asset& asset, simdjson::builder::strin
 						motionComma();
 						append_key_range<"inertiaOrientation">(builder, *motion.inertialOrientation);
 					}
-					if (motion.linearVelocity != math::fvec3(0)) {
+					if (motion.linearVelocity != math::nvec3(0)) {
 						motionComma();
 						append_key_range<"linearVelocity">(builder, motion.linearVelocity);
 					}
-					if (motion.angularVelocity != math::fvec3(0)) {
+					if (motion.angularVelocity != math::nvec3(0)) {
 						motionComma();
 						append_key_range<"angularVelocity">(builder, motion.angularVelocity);
 					}

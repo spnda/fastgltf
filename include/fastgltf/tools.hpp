@@ -859,11 +859,11 @@ void copyComponentsFromAccessor(const Asset& asset, const Accessor& accessor, vo
  */
 FASTGLTF_EXPORT inline auto getLocalTransformMatrix(const Node& node) {
 	return visit_exhaustive(visitor {
-		[&](const math::fmat4x4& matrix) {
+		[&](const math::nmat4x4& matrix) {
 			return matrix;
 		},
 		[&](const TRS& trs) {
-			return scale(rotate(translate(math::fmat4x4(), trs.translation), trs.rotation), trs.scale);
+			return scale(rotate(translate(math::nmat4x4(), trs.translation), trs.rotation), trs.scale);
 		}
 	}, node.transform);
 }
@@ -871,7 +871,7 @@ FASTGLTF_EXPORT inline auto getLocalTransformMatrix(const Node& node) {
 /**
  * Computes the transform matrix for a given node, and multiplies the given base with that matrix.
  */
-FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fmat4x4& base = math::fmat4x4()) {
+FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::nmat4x4& base = math::nmat4x4()) {
 	return base * getLocalTransformMatrix(node);
 }
 
@@ -881,11 +881,11 @@ FASTGLTF_EXPORT inline auto getTransformMatrix(const Node& node, const math::fma
  */
 FASTGLTF_EXPORT template <typename AssetType, typename Callback>
 requires std::same_as<std::remove_cvref_t<AssetType>, Asset>
-	  && std::is_invocable_v<Callback, fastgltf::Node&, const fastgltf::math::fmat4x4&>
-void iterateSceneNodes(AssetType&& asset, std::size_t sceneIndex, math::fmat4x4 initial, Callback callback) {
+	  && std::is_invocable_v<Callback, fastgltf::Node&, const fastgltf::math::nmat4x4&>
+void iterateSceneNodes(AssetType&& asset, std::size_t sceneIndex, math::nmat4x4 initial, Callback callback) {
 	auto& scene = asset.scenes[sceneIndex];
 
-	auto function = [&](std::size_t nodeIndex, math::fmat4x4 nodeMatrix, auto& self) -> void {
+	auto function = [&](std::size_t nodeIndex, math::nmat4x4 nodeMatrix, auto& self) -> void {
 		assert(asset.nodes.size() > nodeIndex);
 		auto& node = asset.nodes[nodeIndex];
 		nodeMatrix = getTransformMatrix(node, nodeMatrix);

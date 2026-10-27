@@ -590,7 +590,7 @@ fg::Error fg::validate(const Asset& asset) {
 		TRS trs;
 		// The "translation", "rotation", "scale", and "matrix" properties of the single root node MUST either be not defined or have default values.
 		if (!std::holds_alternative<TRS>(transform)){
-			math::decomposeTransformMatrix(std::get<math::fmat4x4>(transform), trs.scale, trs.rotation, trs.translation);
+			math::decomposeTransformMatrix(std::get<math::nmat4x4>(transform), trs.scale, trs.rotation, trs.translation);
 		} else {
 			trs = std::get<TRS>(transform);
 		}
