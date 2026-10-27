@@ -3204,13 +3204,14 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 				return Error::InvalidGltf;
 			}
 
+			auto& box = shape.emplace<BoxShape>();
+
 			dom::array sizeArray;
 			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
 				if (sizeArray.size() != 3) {
 					return Error::InvalidGltf;
 				}
 
-				auto& box = shape.emplace<BoxShape>();
 				auto curIndex = 0;
 				for (auto sizeNum : sizeArray) {
 					double value;
@@ -3508,7 +3509,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 					return Error::InvalidGltf;
 				}
 
-				if(limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) [[unlikely]] {
+				if (limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) [[unlikely]] {
 					// A limit may only have one of these
 					return Error::InvalidGltf;
 				}
@@ -3552,12 +3553,15 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				dom::array linearAxesArray;
 				if (auto error = limitObject["linearAxes"].get_array().get(linearAxesArray); error == SUCCESS) {
-					for(auto axisValue : linearAxesArray) {
+					if (linearAxesArray.size() == 0 || linearAxesArray.size() > 3)
+						return Error::InvalidGltf;
+
+					for (auto axisValue : linearAxesArray) {
 						if (limit.linearAxes.size() == limit.linearAxes.max_size()) [[unlikely]]
 							return Error::InvalidGltf;
 
 						std::uint64_t axis;
-						if(axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
+						if (axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
 							limit.linearAxes.emplace_back(static_cast<uint8_t>(axis));
 						} else {
 							return Error::InvalidGltf;
@@ -3569,6 +3573,9 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				dom::array angularAxesArray;
 				if (auto error = limitObject["angularAxes"].get_array().get(angularAxesArray); error == SUCCESS) {
+					if (angularAxesArray.size() == 0 || angularAxesArray.size() > 3)
+						return Error::InvalidGltf;
+
 					for (auto axisValue : angularAxesArray) {
 						if (limit.angularAxes.size() == limit.angularAxes.max_size()) [[unlikely]]
 							return Error::InvalidGltf;

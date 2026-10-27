@@ -821,3 +821,34 @@ TEST_CASE("Reject missing primitives array", "[gltf-loader]") {
 	const auto expected_err = primitive_json == valid_primitive ? Error::None : Error::InvalidGltf;
 	CHECK(Parser().loadGltfJson(data.get(), {}).error() == expected_err);
 }
+
+TEST_CASE("Reject empty linearAxes/angularAxes", "[gltf-loader]") {
+	using namespace fastgltf;
+	std::string json = R"({
+		"asset": {"version":"2.0"},
+		"extensionsUsed": ["KHR_physics_rigid_bodies"],
+		"extensions": {
+			"KHR_physics_rigid_bodies": {
+				"physicsJoints": [{
+					"limits":[{
+						"linearAxes":[)";
+
+	const auto axes_json = GENERATE(as<std::string>{}, "", "0", "1", "0,1", "3", "0,1,2,3");
+	json += axes_json;
+
+	json += R"(
+						]
+					}]
+				}]
+			}
+		}
+	})";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+
+	CAPTURE(axes_json);
+	const auto expected_err = axes_json.empty() || axes_json == "3" || axes_json == "0,1,2,3"
+		? Error::InvalidGltf : Error::None;
+	CHECK(Parser(Extensions::KHR_physics_rigid_bodies).loadGltfJson(data.get(), {}).error() == expected_err);
+}
