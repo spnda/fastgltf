@@ -616,6 +616,7 @@ namespace fastgltf {
 		std::unique_ptr<simdjson::dom::parser> jsonParser;
 
 		ParserInternalConfig config = {};
+
 		DataSource glbBuffer;
 		std::size_t variantCount = 0;
 		std::filesystem::path directory;

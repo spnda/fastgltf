@@ -4047,6 +4047,8 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path 
 
 	options = _options;
 	directory = std::move(_directory);
+	variantCount = 0;
+	glbBuffer = std::monostate();
 
 #if !defined(__ANDROID__)
 	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
@@ -4073,6 +4075,8 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 
 	options = _options;
 	directory = std::move(_directory);
+	variantCount = 0;
+	glbBuffer = std::monostate();
 
 #if !defined(__ANDROID__)
 	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
