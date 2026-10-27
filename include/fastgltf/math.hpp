@@ -446,12 +446,12 @@ namespace fastgltf::math {
 		std::array<T, 4> _data;
 
 	public:
-		constexpr explicit quat() noexcept : _data {0.f, 0.f, 0.f, 1.f} {}
+		constexpr explicit quat() noexcept : _data { T(0), T(0), T(0), T(1) } {}
 
 		/** Creates a new quaternion from 4 floats in the order X, Y, Z, W */
 		template <typename... Args>
 		requires (sizeof...(Args) == 4)
-		constexpr explicit quat(Args... args) noexcept : _data { std::forward<Args>(args)... } {}
+		constexpr explicit quat(Args... args) noexcept : _data { T(std::forward<Args>(args))... } {}
 
 		static constexpr auto fromPointer(T* ptr) noexcept {
 			quat<T> ret;
@@ -945,6 +945,13 @@ namespace fastgltf::math {
 			length(matrix.col(1)),
 			length(matrix.col(2))
 		);
+
+		// If the scale is zero anywhere we want to avoid a 0/0=NaN below. The rotation is undefined
+		// anway, so just return zero there.
+		if (scale.x() == T(0) || scale.y() == T(0) || scale.z() == T(0)) {
+			rotation = quat<T>(0, 0, 0, 1);
+			return;
+		}
 
 		// Remove the scaling from the matrix, leaving only the rotation.
 		// matrix is now the rotation matrix.
