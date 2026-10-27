@@ -765,3 +765,16 @@ TEST_CASE("Test glTF file loading", "[gltf-loader]") {
 	}
 }
 #endif
+
+TEST_CASE("Integer accessor bounds with really big/small floats", "[gltf-loader]") {
+	using namespace fastgltf;
+	const auto bound = GENERATE("9223372036854775808.0", "-1.2e31", "1e300");
+	constexpr std::string_view json_base = R"(
+		{"asset":{"version":"2.0"},"accessors":[{"componentType":5125,"count":1,"type":"SCALAR","min":[0],"max":[
+	)";
+	const auto json = std::string(json_base) + bound + "]}]}";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+    REQUIRE(data.error() == Error::None);
+    CHECK(Parser().loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
+}

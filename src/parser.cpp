@@ -699,6 +699,10 @@ namespace fastgltf {
 					if (element.get_double().get(value) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
+					// Reject any values outside of the 2^63 range of std::int64_t
+					if (!(value >= -0x1p63 && value < 0x1p63)) [[unlikely]] {
+						return Error::InvalidGltf;
+					}
 					data[idx++] = static_cast<std::int64_t>(value);
 				} else {
 					// Note that the glTF spec doesn't care about any integer larger than 32-bits, so
