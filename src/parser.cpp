@@ -723,6 +723,8 @@ namespace fastgltf {
 		if (const auto error = accessorObject[key].get_array().get(elements);
 			error == SUCCESS) [[likely]] {
 			const auto num = getNumComponents(accessor.type);
+			if (num == 0) [[unlikely]]
+				return Error::InvalidGltf;
 
 			if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
 				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
@@ -763,7 +765,12 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		accessor.type = internal::getAccessorType(accessorType);
+		if (const auto type = internal::getAccessorType(accessorType);
+			type != AccessorType::Invalid) [[likely]] {
+			accessor.type = type;
+		} else {
+			return Error::InvalidGltf;
+		}
 
 		std::uint64_t accessorCount;
 		if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) [[unlikely]] {

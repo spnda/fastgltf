@@ -407,23 +407,21 @@ namespace fastgltf {
 		 * Gets the AccessorType by its string representation found in glTF files.
 		 */
 		[[nodiscard]] constexpr auto getAccessorType(const std::string_view accessorTypeName) noexcept {
-			assert(!accessorTypeName.empty());
-			switch (accessorTypeName[0]) {
-				case 'S': return AccessorType::Scalar;
-				case 'V': {
-					const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-					if (componentCount + 1 >= accessorTypes.size()) {
-						return AccessorType::Invalid;
-					}
-					return accessorTypes[componentCount + 1];
-				}
-				case 'M': {
-					const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-					if (componentCount + 4 >= accessorTypes.size()) {
-						return AccessorType::Invalid;
-					}
-					return accessorTypes[componentCount + 4];
-				}
+			switch (crc32c(accessorTypeName)) {
+				case force_consteval<crc32c("SCALAR")>:
+					return AccessorType::Scalar;
+				case force_consteval<crc32c("VEC2")>:
+					return AccessorType::Vec2;
+				case force_consteval<crc32c("VEC3")>:
+					return AccessorType::Vec3;
+				case force_consteval<crc32c("VEC4")>:
+					return AccessorType::Vec4;
+				case force_consteval<crc32c("MAT2")>:
+					return AccessorType::Mat2;
+				case force_consteval<crc32c("MAT3")>:
+					return AccessorType::Mat3;
+				case force_consteval<crc32c("MAT4")>:
+					return AccessorType::Mat4;
 				default:
 					return AccessorType::Invalid;
 			}
