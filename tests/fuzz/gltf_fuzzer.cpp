@@ -24,7 +24,7 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, const std::size_
 
 	auto exported_data = fastgltf::GltfDataBuffer::FromBytes(
 		reinterpret_cast<const std::byte*>(exported->output.data()), exported->output.size());
-	auto reparsed = fastgltf::Parser(all_extensions).loadGltfJson(exported_data.get(), {});
+	auto reparsed = fastgltf::Parser(all_extensions).loadGltfJson(exported_data.get(), {}, fuzzable_options);
 	FUZZ_CHECK(reparsed.has_value()); // Otherwise the parser, exporter, or validator should've failed.
 
 	return 0;
