@@ -376,6 +376,48 @@ namespace fastgltf::math {
 		return ret;
 	}
 
+	/** Returns true if all elements of vec are true. */
+	FASTGLTF_EXPORT template <std::size_t N>
+	[[nodiscard]] bool all(const vec<bool, N>& vec) noexcept {
+		for (std::size_t i = 0; i < N; ++i)
+			if (!vec[i])
+				return false;
+		return true;
+	}
+
+	/** Returns true if at least one element of vec is true. */
+	FASTGLTF_EXPORT template <std::size_t N>
+	[[nodiscard]] bool any(const vec<bool, N>& vec) noexcept {
+		for (std::size_t i = 0; i < N; ++i)
+			if (vec[i])
+				return true;
+		return false;
+	}
+
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
+	[[nodiscard]] vec<bool, N> equal(const vec<T, N>& a, const T& b) noexcept {
+		vec<bool, N> ret;
+		for (std::size_t i = 0; i < N; ++i)
+			ret[i] = a[i] == b;
+		return ret;
+	}
+	FASTGLTF_EXPORT template <typename T, std::size_t N>
+	[[nodiscard]] vec<bool, N> equal(const vec<T, N>& a, const vec<T, N>& b) noexcept {
+		vec<bool, N> ret;
+		for (std::size_t i = 0; i < N; ++i)
+			ret[i] = a[i] == b[i];
+		return ret;
+	}
+
+	FASTGLTF_EXPORT template <typename T, std::size_t N, std::invocable<T> F>
+	[[nodiscard]] auto transform(const vec<T, N>& a, F&& func) noexcept {
+		using U = std::invoke_result_t<F, T>;
+		vec<U, N> ret;
+		for (std::size_t i = 0; i < N; ++i)
+			ret[i] = std::invoke(func, a[i]);
+		return ret;
+	}
+
 	FASTGLTF_EXPORT template <std::size_t N> using s8vec = vec<std::int8_t, N>;
 	FASTGLTF_EXPORT using s8vec2 = s8vec<2>;
 	FASTGLTF_EXPORT using s8vec3 = s8vec<3>;
@@ -443,7 +485,8 @@ namespace fastgltf::math {
 	class quat {
 		static_assert(std::is_floating_point_v<T>);
 
-		std::array<T, 4> _data;
+		static constexpr std::size_t N = 4;
+		std::array<T, N> _data;
 
 	public:
 		constexpr explicit quat() noexcept : _data { T(0), T(0), T(0), T(1) } {}
@@ -460,10 +503,10 @@ namespace fastgltf::math {
 			return ret;
 		}
 
-		[[nodiscard]] constexpr std::size_t size() const noexcept {
-			return _data.size();
+		[[nodiscard]] static constexpr std::size_t size() noexcept {
+			return N;
 		}
-		[[nodiscard]] constexpr std::size_t size_bytes() const noexcept {
+		[[nodiscard]] static constexpr std::size_t size_bytes() noexcept {
 			return size() * sizeof(T);
 		}
 
@@ -620,6 +663,15 @@ namespace fastgltf::math {
 			T(1) - T(2) * (rot.x() * rot.x() + rot.y() * rot.y())
 		);
 		return mat<T, 3, 3>(c1, c2, c3);
+	}
+
+	FASTGLTF_EXPORT template <typename T, std::invocable<T> F>
+	[[nodiscard]] auto transform(const quat<T>& q, F&& func) noexcept {
+		using U = std::invoke_result_t<F, T>;
+		vec<U, quat<T>::size()> ret;
+		for (std::size_t i = 0; i < q.size(); ++i)
+			ret[i] = std::invoke(func, q[i]);
+		return ret;
 	}
 
 	FASTGLTF_EXPORT using fquat = quat<float>;

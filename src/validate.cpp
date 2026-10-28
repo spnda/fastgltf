@@ -474,6 +474,7 @@ fg::Error fg::validate(const Asset& asset) {
 		if (node.meshIndex.has_value() && asset.meshes.size() <= node.meshIndex.value())
 			return Error::InvalidGltf;
 
+		constexpr auto isnotfinite = [](auto x) { return !std::isfinite(x); };
 		if (const auto* pTRS = std::get_if<TRS>(&node.transform)) {
 			if (pTRS->rotation.x() > 1.0 || pTRS->rotation.x() < -1.0)
 				return Error::InvalidGltf;
@@ -483,6 +484,18 @@ fg::Error fg::validate(const Asset& asset) {
 				return Error::InvalidGltf;
 			if (pTRS->rotation.w() > 1.0 || pTRS->rotation.w() < -1.0)
 				return Error::InvalidGltf;
+
+			if (math::any(math::transform(pTRS->translation, isnotfinite)))
+				return Error::InvalidGltf;
+			if (math::any(math::transform(pTRS->scale, isnotfinite)))
+				return Error::InvalidGltf;
+			if (math::any(math::transform(pTRS->rotation, isnotfinite)))
+				return Error::InvalidGltf;
+		} else if (const auto* pMatrix = std::get_if<fastgltf::math::nmat4x4>(&node.transform)) {
+			for (std::size_t i = 0; i < pMatrix->columns(); ++i) {
+				if (math::any(math::transform(pMatrix->col(i), isnotfinite)))
+					return Error::InvalidGltf;
+			}
 		}
 
 		if ((node.skinIndex.has_value() || !node.weights.empty()) && !node.meshIndex.has_value()) {

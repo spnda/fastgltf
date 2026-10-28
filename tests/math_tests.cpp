@@ -294,3 +294,14 @@ TEST_CASE("Test TRS parsing and optional decomposition", "[maths]") {
 		REQUIRE(glm::all(glm::epsilonEqual(glm::make_vec3(scale.data()), glmScale, glm::epsilon<float>())));
 	}
 }
+
+TEST_CASE("Relational vector operations", "[maths]") {
+	CHECK(!fastgltf::math::any(fastgltf::math::vec<bool, 3>(false, false, false)));
+	CHECK(fastgltf::math::any(fastgltf::math::vec<bool, 3>(false, false, true)));
+	CHECK(fastgltf::math::any(fastgltf::math::vec<bool, 3>(true, true, true)));
+
+	CHECK(!fastgltf::math::all(fastgltf::math::vec<bool, 3>(false, false, false)));
+	CHECK(!fastgltf::math::all(fastgltf::math::vec<bool, 3>(false, false, true)));
+	CHECK(!fastgltf::math::all(fastgltf::math::vec<bool, 3>(true, false, true)));
+	CHECK(fastgltf::math::all(fastgltf::math::vec<bool, 3>(true, true, true)));
+}

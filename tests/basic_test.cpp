@@ -852,3 +852,36 @@ TEST_CASE("Reject empty linearAxes/angularAxes", "[gltf-loader]") {
 		? Error::InvalidGltf : Error::None;
 	CHECK(Parser(Extensions::KHR_physics_rigid_bodies).loadGltfJson(data.get(), {}).error() == expected_err);
 }
+
+TEST_CASE("Detect inf/NaN values in node transforms", "[gltf-loader]") {
+	using namespace fastgltf;
+	Asset asset;
+	Error expected;
+
+	SECTION("Usual vector") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.5f, 1.f, 1.f),
+		} } };
+		expected = Error::None;
+	}
+	SECTION("Infinity") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.f, 1.f, std::numeric_limits<float>::infinity()),
+		} } };
+		expected = Error::InvalidGltf;
+	}
+	SECTION("Signaling NaN") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.f, std::numeric_limits<float>::signaling_NaN(), 1.f),
+		} } };
+		expected = Error::InvalidGltf;
+	}
+	SECTION("Quiet NaN") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.f, std::numeric_limits<float>::quiet_NaN(), 1.f),
+		} } };
+		expected = Error::InvalidGltf;
+	}
+
+	CHECK(validate(asset) == expected);
+}
