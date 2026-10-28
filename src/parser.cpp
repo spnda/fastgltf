@@ -419,10 +419,10 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 					case PrimitiveType::Points: return positionCount;
 					case PrimitiveType::Lines: return positionCount / 2;
 					case PrimitiveType::LineLoop:
-					case PrimitiveType::LineStrip: return max<std::size_t>(0, positionCount - 1);
+					case PrimitiveType::LineStrip: return max<std::size_t>(1, positionCount) - 1;
 					case PrimitiveType::Triangles: return positionCount / 3;
-					case PrimitiveType::TriangleStrip: return max<std::size_t>(0U, positionCount - 2);
-					case PrimitiveType::TriangleFan: return max<std::size_t>(0U, positionCount - 2);
+					case PrimitiveType::TriangleStrip: return max<std::size_t>(2, positionCount) - 2;
+					case PrimitiveType::TriangleFan: return max<std::size_t>(2, positionCount) - 2;
 					default: FASTGLTF_UNREACHABLE
 				}
 			}();
