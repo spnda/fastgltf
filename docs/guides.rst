@@ -77,14 +77,15 @@ which additionally provides the transform matrix for each node.
 
 .. code:: c++
 
-   fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::fmat4x4(),
-                               [&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
+   fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::nmat4x4(),
+                               [&](fastgltf::Node& node, fastgltf::math::nmat4x4 matrix) {
        if (node.meshIndex.has_value()) {
            drawMesh(viewer, *node.meshIndex, matrix);
        }
    });
 
-The ``fmat4x4`` which is passed into the function is an initial transform matrix.
+The ``nmat4x4`` which is passed into the function is an initial transform matrix.
+``nmat4x4`` is usually a ``mat<float, 4, 4>``, see the ``FASTGLTF_USE_64BIT_FLOAT`` CMake option for more information.
 Normally, this is just an identity matrix. However, this provides the possibility to transform the entire scene.
 
 Also, **fastgltf** provides a single function for getting the local transform matrix for each node.
@@ -92,7 +93,7 @@ This may be useful for implementing your own iteration function.
 
 .. code:: c++
 
-   auto mat4 = fastgltf::getTranformMatrix(node);
+   fastgltf::math::nmat4x4 mat4 = fastgltf::getTransformMatrix(node);
 
 How to read glTF extras
 =======================

@@ -67,6 +67,8 @@ namespace fastgltf {
 		FASTGLTF_EXPORT using nvec2 = vec<num, 2>;
 		FASTGLTF_EXPORT using nvec3 = vec<num, 3>;
 		FASTGLTF_EXPORT using nvec4 = vec<num, 4>;
+		FASTGLTF_EXPORT using nquat = quat<num>;
+		FASTGLTF_EXPORT using nmat4x4 = mat<num, 4, 4>;
 	}
 
 #pragma region Enums
@@ -407,23 +409,21 @@ namespace fastgltf {
 		 * Gets the AccessorType by its string representation found in glTF files.
 		 */
 		[[nodiscard]] constexpr auto getAccessorType(const std::string_view accessorTypeName) noexcept {
-			assert(!accessorTypeName.empty());
-			switch (accessorTypeName[0]) {
-				case 'S': return AccessorType::Scalar;
-				case 'V': {
-					const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-					if (componentCount + 1 >= accessorTypes.size()) {
-						return AccessorType::Invalid;
-					}
-					return accessorTypes[componentCount + 1];
-				}
-				case 'M': {
-					const auto componentCount = static_cast<std::size_t>(accessorTypeName[3] - '2');
-					if (componentCount + 4 >= accessorTypes.size()) {
-						return AccessorType::Invalid;
-					}
-					return accessorTypes[componentCount + 4];
-				}
+			switch (crc32c(accessorTypeName)) {
+				case force_consteval<crc32c("SCALAR")>:
+					return AccessorType::Scalar;
+				case force_consteval<crc32c("VEC2")>:
+					return AccessorType::Vec2;
+				case force_consteval<crc32c("VEC3")>:
+					return AccessorType::Vec3;
+				case force_consteval<crc32c("VEC4")>:
+					return AccessorType::Vec4;
+				case force_consteval<crc32c("MAT2")>:
+					return AccessorType::Mat2;
+				case force_consteval<crc32c("MAT3")>:
+					return AccessorType::Mat3;
+				case force_consteval<crc32c("MAT4")>:
+					return AccessorType::Mat4;
 				default:
 					return AccessorType::Invalid;
 			}
@@ -951,9 +951,9 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct TRS {
-		math::fvec3 translation = math::fvec3(0.f);
-		math::fquat rotation = math::fquat(0.f, 0.f, 0.f, 1.f);
-		math::fvec3 scale = math::fvec3(1.f);
+		math::nvec3 translation = math::nvec3(0.f);
+		math::nquat rotation = math::nquat(0.f, 0.f, 0.f, 1.f);
+		math::nvec3 scale = math::nvec3(1.f);
 	};
 
 	FASTGLTF_EXPORT struct Attribute {
@@ -973,7 +973,7 @@ namespace fastgltf {
 	};
 
 	FASTGLTF_EXPORT struct BoxShape {
-		math::fvec3 size = { 1, 1, 1 };
+		math::nvec3 size = { 1, 1, 1 };
 	};
 
 	FASTGLTF_EXPORT struct CapsuleShape {
@@ -1019,27 +1019,27 @@ namespace fastgltf {
 		/**
 		 * Center of mass of the rigid body in node space
 		 */
-		math::fvec3 centerOfMass = { 0, 0, 0 };
+		math::nvec3 centerOfMass = { 0, 0, 0 };
 
 		/**
 		 * The principal moments of inertia. Larger values imply the rigid body is harder to rotate
 		 */
-		optional<math::fvec3> inertialDiagonal;
+		optional<math::nvec3> inertialDiagonal;
 
 		/**
 		 * The quaternion rotating from inertia major axis space to node space
 		 */
-		optional<math::fvec4> inertialOrientation;
+		optional<math::nvec4> inertialOrientation;
 
 		/**
 		 * Initial linear velocity of the rigid body in node space
 		 */
-		math::fvec3 linearVelocity = {0, 0, 0};
+		math::nvec3 linearVelocity = {0, 0, 0};
 
 		/**
 		 * Initial angular velocity of the rigid body in node space
 		 */
-		math::fvec3 angularVelocity = {0, 0, 0};
+		math::nvec3 angularVelocity = {0, 0, 0};
 
 		/**
 		 * A multiplier applied to the acceleration due to gravity
@@ -1249,7 +1249,7 @@ namespace fastgltf {
 		 * transformation matrix, which cannot skew or shear. The latter can be decomposed into
 		 * the TRS components by specifying Options::DecomposeNodeMatrices.
 		 */
-		std::variant<TRS, math::fmat4x4> transform;
+		std::variant<TRS, math::nmat4x4> transform;
 
 		bool visible = true;
 		bool selectable = true;

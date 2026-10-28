@@ -765,3 +765,123 @@ TEST_CASE("Test glTF file loading", "[gltf-loader]") {
 	}
 }
 #endif
+
+TEST_CASE("Integer accessor bounds with really big/small floats", "[gltf-loader]") {
+	using namespace fastgltf;
+	const auto bound = GENERATE("9223372036854775808.0", "-1.2e31", "1e300");
+	constexpr std::string_view json_base = R"(
+		{"asset":{"version":"2.0"},"accessors":[{"componentType":5125,"count":1,"type":"SCALAR","min":[0],"max":[
+	)";
+	const auto json = std::string(json_base) + bound + "]}]}";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+    REQUIRE(data.error() == Error::None);
+    CHECK(Parser().loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
+}
+
+TEST_CASE("Reject out of bounds material variant indices", "[gltf-loader]") {
+	using namespace fastgltf;
+	const auto index = GENERATE(as<std::string>{}, "0", "1", "18446744073709551615");
+	constexpr std::string_view json_base = R"({
+		"asset": {"version":"2.0"},
+		"meshes": [{
+			"primitives": [{
+				"attributes": {},
+				"extensions": {
+					"KHR_materials_variants": {
+						"mappings": [{
+							"material": 0,
+							"variants": [
+	)";
+	const auto json = std::string(json_base) + index + "]}]}}}]}]}";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+	CHECK(Parser(Extensions::KHR_materials_variants).loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
+}
+
+TEST_CASE("Reject missing primitives array", "[gltf-loader]") {
+	using namespace fastgltf;
+	std::string json = R"({
+		"asset": {"version":"2.0"},
+		"meshes": [{)";
+
+	constexpr std::string_view valid_primitive = R"("primitives":[{"attributes":{}}])";
+	const auto primitive_json = GENERATE_REF(as<std::string>{}, "", R"("primitives":[])", valid_primitive);
+	json += primitive_json;
+
+	json += R"(
+		}]
+	})";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+
+	CAPTURE(primitive_json);
+	const auto expected_err = primitive_json == valid_primitive ? Error::None : Error::InvalidGltf;
+	CHECK(Parser().loadGltfJson(data.get(), {}).error() == expected_err);
+}
+
+TEST_CASE("Reject empty linearAxes/angularAxes", "[gltf-loader]") {
+	using namespace fastgltf;
+	std::string json = R"({
+		"asset": {"version":"2.0"},
+		"extensionsUsed": ["KHR_physics_rigid_bodies"],
+		"extensions": {
+			"KHR_physics_rigid_bodies": {
+				"physicsJoints": [{
+					"limits":[{
+						"linearAxes":[)";
+
+	const auto axes_json = GENERATE(as<std::string>{}, "", "0", "1", "0,1", "3", "0,1,2,3");
+	json += axes_json;
+
+	json += R"(
+						]
+					}]
+				}]
+			}
+		}
+	})";
+
+	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
+	REQUIRE(data.error() == Error::None);
+
+	CAPTURE(axes_json);
+	const auto expected_err = axes_json.empty() || axes_json == "3" || axes_json == "0,1,2,3"
+		? Error::InvalidGltf : Error::None;
+	CHECK(Parser(Extensions::KHR_physics_rigid_bodies).loadGltfJson(data.get(), {}).error() == expected_err);
+}
+
+TEST_CASE("Detect inf/NaN values in node transforms", "[gltf-loader]") {
+	using namespace fastgltf;
+	Asset asset;
+	Error expected;
+
+	SECTION("Usual vector") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.5f, 1.f, 1.f),
+		} } };
+		expected = Error::None;
+	}
+	SECTION("Infinity") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.f, 1.f, std::numeric_limits<float>::infinity()),
+		} } };
+		expected = Error::InvalidGltf;
+	}
+	SECTION("Signaling NaN") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.f, std::numeric_limits<float>::signaling_NaN(), 1.f),
+		} } };
+		expected = Error::InvalidGltf;
+	}
+	SECTION("Quiet NaN") {
+		asset.nodes = { Node { .transform = TRS {
+			.scale = math::nvec3(0.f, std::numeric_limits<float>::quiet_NaN(), 1.f),
+		} } };
+		expected = Error::InvalidGltf;
+	}
+
+	CHECK(validate(asset) == expected);
+}

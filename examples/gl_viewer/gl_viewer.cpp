@@ -944,8 +944,8 @@ int main(int argc, char* argv[]) {
 		if (!asset.scenes.empty() && sceneIndex < asset.scenes.size()) {
 			// Update the camera view and projection matrices
 			if (viewer.cameraIndex.has_value()) {
-				fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::fmat4x4(),
-											[&](fastgltf::Node& node, fastgltf::math::fmat4x4 matrix) {
+				fastgltf::iterateSceneNodes(asset, sceneIndex, fastgltf::math::nmat4x4(),
+											[&](fastgltf::Node& node, fastgltf::math::nmat4x4 matrix) {
 					if (node.cameraIndex.has_value() && &node == cameraNodes[*viewer.cameraIndex]) {
 						viewer.viewMatrix = matrix;
 					}

@@ -67,6 +67,15 @@ namespace fastgltf {
 		}
 	}
 
+	[[nodiscard]] inline bool toNum(const double in, num& out) noexcept {
+		out = static_cast<num>(in);
+		return std::isfinite(out);
+	}
+	[[nodiscard]] inline bool toNum(const double in, optional<num>& out) noexcept {
+		out = static_cast<num>(in);
+		return std::isfinite(*out);
+	}
+
 	[[nodiscard]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
 
@@ -163,14 +172,16 @@ namespace fastgltf {
 		if constexpr (type == internal::TextureInfoType::NormalTexture) {
 			double scale;
 			if (const auto error = child["scale"].get_double().get(scale); error == SUCCESS) [[likely]] {
-				reinterpret_cast<NormalTextureInfo*>(info)->scale = static_cast<num>(scale);
+				if (!toNum(scale, reinterpret_cast<NormalTextureInfo*>(info)->scale)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 		} else if constexpr (type == internal::TextureInfoType::OcclusionTexture) {
 			double strength;
 			if (const auto error = child["strength"].get_double().get(strength); error == SUCCESS) [[likely]] {
-				reinterpret_cast<OcclusionTextureInfo*>(info)->strength = static_cast<num>(strength);
+				if (!toNum(strength, reinterpret_cast<OcclusionTextureInfo*>(info)->strength)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -189,7 +200,8 @@ namespace fastgltf {
 
 				double rotation = 0.0F;
 				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) [[likely]] {
-					transform.rotation = static_cast<num>(rotation);
+					if (!toNum(rotation, transform.rotation)) [[unlikely]]
+						return Error::InvalidGltf;
 				}
 
 				dom::array array;
@@ -199,7 +211,8 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						transform.uvOffset[i] = static_cast<num>(val);
+						if (!toNum(val, transform.uvOffset[i])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				}
 
@@ -209,7 +222,8 @@ namespace fastgltf {
 						if (array.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						transform.uvScale[i] = static_cast<num>(val);
+						if (!toNum(val, transform.uvScale[i])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				}
 			}
@@ -405,10 +419,10 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 					case PrimitiveType::Points: return positionCount;
 					case PrimitiveType::Lines: return positionCount / 2;
 					case PrimitiveType::LineLoop:
-					case PrimitiveType::LineStrip: return max<std::size_t>(0, positionCount - 1);
+					case PrimitiveType::LineStrip: return max<std::size_t>(1, positionCount) - 1;
 					case PrimitiveType::Triangles: return positionCount / 3;
-					case PrimitiveType::TriangleStrip: return max<std::size_t>(0U, positionCount - 2);
-					case PrimitiveType::TriangleFan: return max<std::size_t>(0U, positionCount - 2);
+					case PrimitiveType::TriangleStrip: return max<std::size_t>(2, positionCount) - 2;
+					case PrimitiveType::TriangleFan: return max<std::size_t>(2, positionCount) - 2;
 					default: FASTGLTF_UNREACHABLE
 				}
 			}();
@@ -570,6 +584,13 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 	}
 
+	variantCount = 0;
+	if (hasBit(config.extensions, Extensions::KHR_materials_variants)) {
+		dom::array variants;
+		if (root.at_pointer("/extensions/KHR_materials_variants/variants").get_array().get(variants) == SUCCESS)
+			variantCount = variants.size();
+	}
+
 	auto readCategories = Category::None;
 	for (const auto object : root) {
 		auto hashedKey = crc32c(object.key);
@@ -699,6 +720,10 @@ namespace fastgltf {
 					if (element.get_double().get(value) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
+					// Reject any values outside of the 2^63 range of std::int64_t
+					if (!(value >= -0x1p63 && value < 0x1p63)) [[unlikely]] {
+						return Error::InvalidGltf;
+					}
 					data[idx++] = static_cast<std::int64_t>(value);
 				} else {
 					// Note that the glTF spec doesn't care about any integer larger than 32-bits, so
@@ -723,6 +748,8 @@ namespace fastgltf {
 		if (const auto error = accessorObject[key].get_array().get(elements);
 			error == SUCCESS) [[likely]] {
 			const auto num = getNumComponents(accessor.type);
+			if (num == 0) [[unlikely]]
+				return Error::InvalidGltf;
 
 			if (accessor.componentType == ComponentType::Float || accessor.componentType == ComponentType::Double) {
 				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
@@ -763,7 +790,12 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 		if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-		accessor.type = internal::getAccessorType(accessorType);
+		if (const auto type = internal::getAccessorType(accessorType);
+			type != AccessorType::Invalid) [[likely]] {
+			accessor.type = type;
+		} else {
+			return Error::InvalidGltf;
+		}
 
 		std::uint64_t accessorCount;
 		if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) [[unlikely]] {
@@ -1301,25 +1333,29 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 			Camera::Perspective perspective {};
 			double value;
 			if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) [[likely]] {
-				perspective.aspectRatio = static_cast<num>(value);
+				if (!toNum(value, perspective.aspectRatio)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			if (auto error = perspectiveCamera["zfar"].get_double().get(value); error == SUCCESS) [[likely]] {
-				perspective.zfar = static_cast<num>(value);
+				if (!toNum(value, perspective.zfar)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) [[likely]] {
-				perspective.yfov = static_cast<num>(value);
+				if (!toNum(value, perspective.yfov)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else {
 				return Error::InvalidGltf;
 			}
 
 			if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
-				perspective.znear = static_cast<num>(value);
+				if (!toNum(value, perspective.znear)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else {
 				return Error::InvalidGltf;
 			}
@@ -1334,25 +1370,29 @@ fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) 
 			Camera::Orthographic orthographic {};
 			double value;
 			if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) [[likely]] {
-				orthographic.xmag = static_cast<num>(value);
+				if (!toNum(value, orthographic.xmag)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else {
 				return Error::InvalidGltf;
 			}
 
 			if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) [[likely]] {
-				orthographic.ymag = static_cast<num>(value);
+				if (!toNum(value, orthographic.ymag)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else {
 				return Error::InvalidGltf;
 			}
 
 			if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) [[likely]] {
-				orthographic.zfar = static_cast<num>(value);
+				if (!toNum(value, orthographic.zfar)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else {
 				return Error::InvalidGltf;
 			}
 
 			if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
-				orthographic.znear = static_cast<num>(value);
+				if (!toNum(value, orthographic.znear)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else {
 				return Error::InvalidGltf;
 			}
@@ -1620,7 +1660,8 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 
 			double innerConeAngle;
 			if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) [[likely]] {
-				light.innerConeAngle = static_cast<num>(innerConeAngle);
+				if (!toNum(innerConeAngle, light.innerConeAngle)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error == NO_SUCH_FIELD) {
 				light.innerConeAngle = 0.0f;
 			} else {
@@ -1629,7 +1670,8 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 
 			double outerConeAngle;
 			if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) [[likely]] {
-				light.outerConeAngle = static_cast<num>(outerConeAngle);
+				if (!toNum(outerConeAngle, light.outerConeAngle)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error == NO_SUCH_FIELD) {
 				light.outerConeAngle = static_cast<num>(std::numbers::pi / 4.0);
 			} else {
@@ -1645,7 +1687,8 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 			for (std::size_t i = 0U; i < colorArray.size(); ++i) {
 				double color;
 				if (colorArray.at(i).get_double().get(color) == SUCCESS) [[likely]] {
-					light.color[i] = static_cast<num>(color);
+					if (!toNum(color, light.color[i])) [[unlikely]]
+						return Error::InvalidGltf;
 				} else {
 					return Error::InvalidGltf;
 				}
@@ -1658,14 +1701,16 @@ fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& ass
 
 		double intensity;
 		if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) [[likely]] {
-			light.intensity = static_cast<num>(intensity);
+			if (!toNum(intensity, light.intensity)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else {
 			light.intensity = 1.0f;
 		}
 
 		double range;
 		if (lightObject["range"].get_double().get(range) == SUCCESS) [[likely]] {
-			light.range = static_cast<num>(range);
+			if (!toNum(range, light.range)) [[unlikely]]
+				return Error::InvalidGltf;
 		}
 
 		std::string_view name;
@@ -1698,16 +1743,18 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 
 				double anisotropyStrength;
 				if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength);
-						error == SUCCESS) [[likely]] {
-					anisotropy.anisotropyStrength = static_cast<num>(anisotropyStrength);
+					error == SUCCESS) [[likely]] {
+					if (!toNum(anisotropyStrength, anisotropy.anisotropyStrength)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
 
 				double anisotropyRotation;
 				if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation);
-						error == SUCCESS) [[likely]] {
-					anisotropy.anisotropyRotation = static_cast<num>(anisotropyRotation);
+					error == SUCCESS) [[likely]] {
+					if (!toNum(anisotropyRotation, anisotropy.anisotropyRotation)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -1734,9 +1781,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				auto& clearcoat = material.clearcoat.emplace();
 
 				double clearcoatFactor;
-				if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor); error ==
-																									   SUCCESS) {
-					clearcoat.clearcoatFactor = static_cast<num>(clearcoatFactor);
+				if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor);
+					error == SUCCESS) {
+					if (!toNum(clearcoatFactor, clearcoat.clearcoatFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -1752,7 +1800,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double clearcoatRoughnessFactor;
 				if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(
 							clearcoatRoughnessFactor); error == SUCCESS) [[likely]] {
-					clearcoat.clearcoatRoughnessFactor = static_cast<num>(clearcoatRoughnessFactor);
+					if (!toNum(clearcoatRoughnessFactor, clearcoat.clearcoatRoughnessFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -1789,7 +1838,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double dispersionFactor;
 				auto error = dispersionObject["dispersion"].get_double().get(dispersionFactor);
 				if (error == SUCCESS) [[likely]] {
-					material.dispersion = static_cast<num>(dispersionFactor);
+					if (!toNum(dispersionFactor, material.dispersion)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -1808,7 +1858,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double emissiveStrength;
 				auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
 				if (error == SUCCESS) [[likely]] {
-					material.emissiveStrength = static_cast<num>(emissiveStrength);
+					if (!toNum(emissiveStrength, material.emissiveStrength)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -1827,7 +1878,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double ior;
 				auto error = iorObject["ior"].get_double().get(ior);
 				if (error == SUCCESS) [[likely]] {
-					material.ior = static_cast<num>(ior);
+					if (!toNum(ior, material.ior)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidJson;
 				}
@@ -1848,7 +1900,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double iridescenceFactor;
 				if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor);
 						error == SUCCESS) [[likely]] {
-					iridescence.iridescenceFactor = static_cast<num>(iridescenceFactor);
+					if (!toNum(iridescenceFactor, iridescence.iridescenceFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -1862,9 +1915,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				}
 
 				double iridescenceIor;
-				if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor); error ==
-																									   SUCCESS) {
-					iridescence.iridescenceIor = static_cast<num>(iridescenceIor);
+				if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor);
+					error == SUCCESS) {
+					if (!toNum(iridescenceIor, iridescence.iridescenceIor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -1872,7 +1926,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double iridescenceThicknessMinimum;
 				if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(
 							iridescenceThicknessMinimum); error == SUCCESS) [[likely]] {
-					iridescence.iridescenceThicknessMinimum = static_cast<num>(iridescenceThicknessMinimum);
+					if (!toNum(iridescenceThicknessMinimum, iridescence.iridescenceThicknessMinimum)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -1880,7 +1935,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double iridescenceThicknessMaximum;
 				if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(
 							iridescenceThicknessMaximum); error == SUCCESS) [[likely]] {
-					iridescence.iridescenceThicknessMaximum = static_cast<num>(iridescenceThicknessMaximum);
+					if (!toNum(iridescenceThicknessMaximum, iridescence.iridescenceThicknessMaximum)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -1908,8 +1964,10 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				auto& diffuseTransmission = material.diffuseTransmission.emplace();
 
 				double diffuseTransmissionFactor;
-				if (auto error = diffuseTransmissionObject["diffuseTransmissionFactor"].get_double().get(diffuseTransmissionFactor); error == SUCCESS) [[likely]] {
-					diffuseTransmission.diffuseTransmissionFactor = static_cast<num>(diffuseTransmissionFactor);
+				if (auto error = diffuseTransmissionObject["diffuseTransmissionFactor"].get_double().get(diffuseTransmissionFactor);
+					error == SUCCESS) [[likely]] {
+					if (!toNum(diffuseTransmissionFactor, diffuseTransmission.diffuseTransmissionFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -1932,7 +1990,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						diffuseTransmission.diffuseTransmissionColorFactor[i++] = static_cast<num>(value);
+						if (!toNum(value, diffuseTransmission.diffuseTransmissionColorFactor[i++])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				}
 
@@ -1969,7 +2028,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						sheen.sheenColorFactor[i++] = static_cast<num>(value);
+						if (!toNum(value, sheen.sheenColorFactor[i++])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -1986,7 +2046,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double sheenRoughnessFactor;
 				if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor);
 						error == SUCCESS) [[likely]] {
-					sheen.sheenRoughnessFactor = static_cast<num>(sheenRoughnessFactor);
+					if (!toNum(sheenRoughnessFactor, sheen.sheenRoughnessFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2015,7 +2076,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double specularFactor;
 				if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error ==
 																									SUCCESS) {
-					specular.specularFactor = static_cast<num>(specularFactor);
+					if (!toNum(specularFactor, specular.specularFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2040,7 +2102,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						specular.specularColorFactor[i++] = static_cast<num>(value);
+						if (!toNum(value, specular.specularColorFactor[i++])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2070,7 +2133,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 				double transmissionFactor;
 				if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor);
 						error == SUCCESS) [[likely]] {
-					transmission.transmissionFactor = static_cast<num>(transmissionFactor);
+					if (!toNum(transmissionFactor, transmission.transmissionFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2111,7 +2175,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 
 				double thicknessFactor;
 				if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) [[likely]] {
-					volume.thicknessFactor = static_cast<num>(thicknessFactor);
+					if (!toNum(thicknessFactor, volume.thicknessFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2125,7 +2190,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 
 				double attenuationDistance;
 				if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) [[likely]] {
-					volume.attenuationDistance = static_cast<num>(attenuationDistance);
+					if (!toNum(attenuationDistance, volume.attenuationDistance)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2141,7 +2207,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						(volume.attenuationColor)[i++] = static_cast<num>(value);
+						if (!toNum(value, (volume.attenuationColor)[i++])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2215,7 +2282,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						specularGlossiness.diffuseFactor[i++] = static_cast<num>(value);
+						if (!toNum(value, specularGlossiness.diffuseFactor[i++])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2239,7 +2307,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
 							return Error::InvalidGltf;
 						}
-						specularGlossiness.specularFactor[i++] = static_cast<num>(value);
+						if (!toNum(value, specularGlossiness.specularFactor[i++])) [[unlikely]]
+							return Error::InvalidGltf;
 					}
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
@@ -2247,7 +2316,8 @@ fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Mat
 
 				double glossinessFactor;
 				if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) [[likely]] {
-					specularGlossiness.glossinessFactor = static_cast<num>(glossinessFactor);
+					if (!toNum(glossinessFactor, specularGlossiness.glossinessFactor)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -2290,7 +2360,8 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 				if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				material.emissiveFactor[i] = static_cast<num>(val);
+				if (!toNum(val, material.emissiveFactor[i])) [[unlikely]]
+					return Error::InvalidGltf;
 			}
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -2338,18 +2409,21 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 					if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
-					pbr.baseColorFactor[i] = static_cast<num>(val);
+					if (!toNum(val, pbr.baseColorFactor[i])) [[unlikely]]
+						return Error::InvalidGltf;
 				}
 			}
 
 			double factor;
 			if (auto error = pbrMetallicRoughness["metallicFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
-				pbr.metallicFactor = static_cast<num>(factor);
+				if (!toNum(factor, pbr.metallicFactor)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 			if (auto error = pbrMetallicRoughness["roughnessFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
-				pbr.roughnessFactor = static_cast<num>(factor);
+				if (!toNum(factor, pbr.roughnessFactor)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
@@ -2387,7 +2461,8 @@ fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& ass
 
 		double alphaCutoff;
 		if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) [[likely]] {
-			material.alphaCutoff = static_cast<num>(alphaCutoff);
+			if (!toNum(alphaCutoff, material.alphaCutoff)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
@@ -2467,6 +2542,9 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 							return Error::InvalidGltf;
 						}
 
+						if (variantIndex >= variantCount) [[unlikely]]
+							return Error::InvalidGltf;
+
 						primitive.mappings.resize(max(primitive.mappings.size(),
 													  static_cast<std::size_t>(variantIndex + 1)));
 						primitive.mappings[static_cast<std::size_t>(variantIndex)] = materialIndex;
@@ -2520,8 +2598,8 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
 		dom::array array;
 		auto meshError = getJsonArray(meshObject, "primitives", &array);
-		if (meshError != Error::None) {
-			return meshError == Error::MissingField ? Error::InvalidGltf : meshError;
+		if (meshError != Error::None || array.size() == 0) {
+			return Error::InvalidGltf;
 		}
 
 		mesh.primitives.reserve(array.size());
@@ -2557,6 +2635,10 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
 			std::uint64_t value;
 			if (auto error = primitiveObject["mode"].get_uint64().get(value); error == SUCCESS) [[likely]] {
+				// TODO: Validate this and all other enumerations against known values using a helper function and a switch?
+				//       Maybe a toEnum similar to the toNum function which lets us easily and generically detect errors?
+				if (value > to_underlying(PrimitiveType::TriangleFan)) [[unlikely]]
+					return Error::InvalidGltf;
 				primitive.type = static_cast<PrimitiveType>(value);
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
@@ -2594,7 +2676,8 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 				if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				mesh.weights.emplace_back(static_cast<num>(val));
+				if (!toNum(val, mesh.weights.emplace_back())) [[unlikely]]
+					return Error::InvalidGltf;
 			}
 		} else if (meshError != Error::MissingField && meshError != Error::None) {
 			return Error::InvalidGltf;
@@ -2672,7 +2755,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
-					node.weights.emplace_back(static_cast<num>(val));
+					if (!toNum(val, node.weights.emplace_back())) [[unlikely]]
+						return Error::InvalidGltf;
 				}
 			} else {
 				return Error::InvalidGltf;
@@ -2684,14 +2768,15 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 			if (array.size() != 16) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
-			math::fmat4x4 transformMatrix;
+			math::nmat4x4 transformMatrix;
 			std::size_t i = 0, j = 0;
 			for (auto num : array) {
 				double val;
 				if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				transformMatrix.col(i)[j++] = static_cast<fastgltf::num>(val);
+				if (!toNum(val, transformMatrix.col(i)[j++])) [[unlikely]]
+					return Error::InvalidGltf;
 				if (j == 4) {
 					j = 0;
 					++i;
@@ -2719,7 +2804,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
-					trs.scale[i] = static_cast<fastgltf::num>(val);
+					if (!toNum(val, trs.scale[i])) [[unlikely]]
+						return Error::InvalidGltf;
 					++i;
 				}
 			} else if (scaleError != NO_SUCH_FIELD) [[unlikely]] {
@@ -2736,7 +2822,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
-					trs.translation[i] = static_cast<fastgltf::num>(val);
+					if (!toNum(val, trs.translation[i])) [[unlikely]]
+						return Error::InvalidGltf;
 					++i;
 				}
 			} else if (translationError != NO_SUCH_FIELD) [[unlikely]] {
@@ -2753,7 +2840,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
 					}
-					trs.rotation[i] = static_cast<fastgltf::num>(val);
+					if (!toNum(val, trs.rotation[i])) [[unlikely]]
+						return Error::InvalidGltf;
 					++i;
 				}
 			} else if (rotationError != NO_SUCH_FIELD) [[unlikely]] {
@@ -3103,7 +3191,10 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 
 			double radius;
 			if (error = sphereObject["radius"].get_double().get(radius); error == SUCCESS) {
-				shape = SphereShape{ static_cast<num>(radius) };
+				num sphereRadius;
+				if (!toNum(radius, sphereRadius)) [[unlikely]]
+					return Error::InvalidGltf;
+				shape = SphereShape{ sphereRadius };
 			} else if(error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -3117,18 +3208,20 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 				return Error::InvalidGltf;
 			}
 
+			auto& box = shape.emplace<BoxShape>();
+
 			dom::array sizeArray;
 			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
 				if (sizeArray.size() != 3) {
 					return Error::InvalidGltf;
 				}
 
-				auto& box = shape.emplace<BoxShape>();
 				auto curIndex = 0;
 				for (auto sizeNum : sizeArray) {
 					double value;
 					if (sizeNum.get_double().get(value) == SUCCESS) [[likely]] {
-						box.size[curIndex] = static_cast<num>(value);
+						if (!toNum(value, box.size[curIndex])) [[unlikely]]
+							return Error::InvalidGltf;
 					} else {
 						return Error::InvalidGltf;
 					}
@@ -3152,21 +3245,24 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 
 			double height;
 			if (error = capsuleObject["height"].get_double().get(height); error == SUCCESS) {
-				capsule.height = static_cast<num>(height);
+				if (!toNum(height, capsule.height)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			double radiusBottom;
 			if (error = capsuleObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
-				capsule.radiusBottom = static_cast<num>(radiusBottom);
+				if (!toNum(radiusBottom, capsule.radiusBottom)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			double radiusTop;
 			if (error = capsuleObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
-				capsule.radiusTop = static_cast<num>(radiusTop);
+				if (!toNum(radiusTop, capsule.radiusTop)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -3185,21 +3281,24 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 
 			double height;
 			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) {
-				cylinder.height = static_cast<num>(height);
+				if (!toNum(height, cylinder.height)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			double radiusBottom;
 			if (error = cylinderObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
-				cylinder.radiusBottom = static_cast<num>(radiusBottom);
+				if (!toNum(radiusBottom, cylinder.radiusBottom)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			double radiusTop;
 			if (error = cylinderObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
-				cylinder.radiusTop = static_cast<num>(radiusTop);
+				if (!toNum(radiusTop, cylinder.radiusTop)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -3218,14 +3317,16 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 
 			double sizeX;
 			if (error = planeObject["sizeX"].get_double().get(sizeX); error == SUCCESS) {
-				plane.sizeX = static_cast<num>(sizeX);
+				if (!toNum(sizeX, plane.sizeX)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
 			double sizeZ;
 			if (error = planeObject["sizeZ"].get_double().get(sizeZ); error == SUCCESS) {
-				plane.sizeZ = static_cast<num>(sizeZ);
+				if (!toNum(sizeZ, plane.sizeZ)) [[unlikely]]
+					return Error::InvalidGltf;
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -3266,21 +3367,24 @@ fg::Error fg::Parser::parsePhysicsMaterials(const simdjson::dom::array& physicsM
 
 		double staticFriction;
 		if (auto error = materialObject["staticFriction"].get_double().get(staticFriction); error == SUCCESS) {
-		   material.staticFriction = static_cast<num>(staticFriction);
+			if (!toNum(staticFriction, material.staticFriction)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		double dynamicFriction;
 		if (auto error = materialObject["dynamicFriction"].get_double().get(dynamicFriction); error == SUCCESS) {
-		   material.dynamicFriction = static_cast<num>(dynamicFriction);
+			if (!toNum(dynamicFriction, material.dynamicFriction)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		double restitution;
 		if (auto error = materialObject["restitution"].get_double().get(restitution); error == SUCCESS) {
-		   material.restitution = static_cast<num>(restitution);
+			if (!toNum(restitution, material.restitution)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
@@ -3409,7 +3513,7 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 					return Error::InvalidGltf;
 				}
 
-				if(limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) [[unlikely]] {
+				if (limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) [[unlikely]] {
 					// A limit may only have one of these
 					return Error::InvalidGltf;
 				}
@@ -3421,40 +3525,47 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				double limitMin;
 				if (auto error = limitObject["min"].get_double().get(limitMin); error == SUCCESS) {
-					limit.min = static_cast<num>(limitMin);
+					if (!toNum(limitMin, limit.min)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				double limitMax;
 				if (auto error = limitObject["max"].get_double().get(limitMax); error == SUCCESS) {
-					limit.max = static_cast<num>(limitMax);
+					if (!toNum(limitMax, limit.max)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				double stiffness;
 				if (auto error = limitObject["stiffness"].get_double().get(stiffness); error == SUCCESS) {
-					limit.stiffness = static_cast<num>(stiffness);
+					if (!toNum(stiffness, limit.stiffness)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				double damping;
 				if (auto error = limitObject["damping"].get_double().get(damping); error == SUCCESS) {
-					limit.damping = static_cast<num>(damping);
+					if (!toNum(damping, limit.damping)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				dom::array linearAxesArray;
 				if (auto error = limitObject["linearAxes"].get_array().get(linearAxesArray); error == SUCCESS) {
-					for(auto axisValue : linearAxesArray) {
+					if (linearAxesArray.size() == 0 || linearAxesArray.size() > 3)
+						return Error::InvalidGltf;
+
+					for (auto axisValue : linearAxesArray) {
 						if (limit.linearAxes.size() == limit.linearAxes.max_size()) [[unlikely]]
 							return Error::InvalidGltf;
 
 						std::uint64_t axis;
-						if(axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
+						if (axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
 							limit.linearAxes.emplace_back(static_cast<uint8_t>(axis));
 						} else {
 							return Error::InvalidGltf;
@@ -3466,6 +3577,9 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				dom::array angularAxesArray;
 				if (auto error = limitObject["angularAxes"].get_array().get(angularAxesArray); error == SUCCESS) {
+					if (angularAxesArray.size() == 0 || angularAxesArray.size() > 3)
+						return Error::InvalidGltf;
+
 					for (auto axisValue : angularAxesArray) {
 						if (limit.angularAxes.size() == limit.angularAxes.max_size()) [[unlikely]]
 							return Error::InvalidGltf;
@@ -3530,7 +3644,8 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				double maxForce;
 				if (error = driveValue["maxForce"].get_double().get(maxForce); error == SUCCESS) {
-					drive.maxForce = static_cast<num>(maxForce);
+					if (!toNum(maxForce, drive.maxForce)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -3544,14 +3659,16 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				double positionTarget;
 				if (error = driveValue["positionTarget"].get_double().get(positionTarget); error == SUCCESS) {
-					drive.positionTarget = static_cast<num>(positionTarget);
+					if (!toNum(positionTarget, drive.positionTarget)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				double stiffness;
 				if (error = driveValue["stiffness"].get_double().get(stiffness); error == SUCCESS) {
-					drive.stiffness = static_cast<num>(stiffness);
+					if (!toNum(stiffness, drive.stiffness)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -3565,14 +3682,16 @@ fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoin
 
 				double velocityTarget;
 				if (error = driveValue["velocityTarget"].get_double().get(velocityTarget); error == SUCCESS) {
-					drive.velocityTarget = static_cast<num>(velocityTarget);
+					if (!toNum(velocityTarget, drive.velocityTarget)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
 				double damping;
 				if (error = driveValue["damping"].get_double().get(damping); error == SUCCESS) {
-					drive.damping = static_cast<num>(damping);
+					if (!toNum(damping, drive.damping)) [[unlikely]]
+						return Error::InvalidGltf;
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
@@ -3612,7 +3731,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 		double mass;
 		if (error = motionObject["mass"].get_double().get(mass); error == SUCCESS) {
-			motion.mass = static_cast<num>(mass);
+			if (!toNum(mass, motion.mass)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
@@ -3629,7 +3749,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				motion.centerOfMass[i] = static_cast<num>(val);
+				if (!toNum(val, motion.centerOfMass[i])) [[unlikely]]
+					return Error::InvalidGltf;
 				++i;
 			}
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
@@ -3642,7 +3763,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				return Error::InvalidGltf;
 			}
 
-			math::fvec3 inertialDiagonal;
+			math::nvec3 inertialDiagonal;
 
 			auto i = 0U;
 			for (auto numValue : inertiaDiagonalArray) {
@@ -3650,7 +3771,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				inertialDiagonal[i] = static_cast<num>(val);
+				if (!toNum(val, inertialDiagonal[i])) [[unlikely]]
+					return Error::InvalidGltf;
 				++i;
 			}
 
@@ -3666,7 +3788,7 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				return Error::InvalidGltf;
 			}
 
-			math::fvec4 inertialOrientation;
+			math::nvec4 inertialOrientation;
 
 			auto i = 0U;
 			for (auto numValue : inertialOrientationArray) {
@@ -3674,7 +3796,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				inertialOrientation[i] = static_cast<num>(val);
+				if (!toNum(val, inertialOrientation[i])) [[unlikely]]
+					return Error::InvalidGltf;
 				++i;
 			}
 
@@ -3696,7 +3819,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				motion.linearVelocity[i] = static_cast<num>(val);
+				if (!toNum(val, motion.linearVelocity[i])) [[unlikely]]
+					return Error::InvalidGltf;
 				++i;
 			}
 
@@ -3716,7 +3840,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
-				motion.angularVelocity[i] = static_cast<num>(val);
+				if (!toNum(val, motion.angularVelocity[i])) [[unlikely]]
+					return Error::InvalidGltf;
 				++i;
 			}
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
@@ -3725,7 +3850,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 		double gravityFactor;
 		if (error = motionObject["gravityFactor"].get_double().get(gravityFactor); error == SUCCESS) {
-			motion.gravityFactor = static_cast<num>(gravityFactor);
+			if (!toNum(gravityFactor, motion.gravityFactor)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
@@ -3925,6 +4051,8 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path 
 
 	options = _options;
 	directory = std::move(_directory);
+	variantCount = 0;
+	glbBuffer = std::monostate();
 
 #if !defined(__ANDROID__)
 	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
@@ -3951,6 +4079,8 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 
 	options = _options;
 	directory = std::move(_directory);
+	variantCount = 0;
+	glbBuffer = std::monostate();
 
 #if !defined(__ANDROID__)
 	// If we never have to load the files ourselves, we're fine with the directory being invalid/blank.
@@ -3977,7 +4107,7 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 	//  2. BIN chunk (optional)
 	auto jsonChunk = internal::readBinaryChunk(data);
 	if (jsonChunk.chunkType != internal::binaryGltfJsonChunkMagic ||
-		jsonChunk.chunkLength > data.totalSize() - sizeof(internal::BinaryGltfHeader)) {
+		jsonChunk.chunkLength > data.totalSize() - sizeof(internal::BinaryGltfHeader) - sizeof(internal::BinaryGltfChunk)) {
 		return Error::InvalidGLB;
 	}
 

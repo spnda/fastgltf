@@ -116,8 +116,14 @@ fg::Error fg::validate(const Asset& asset) {
 		}
 
 		if (accessor.sparse) {
+			if (accessor.sparse->indicesBufferView >= asset.bufferViews.size())
+				return Error::InvalidGltf;
+
 			const auto& indicesView = asset.bufferViews[accessor.sparse->indicesBufferView];
 			if (indicesView.byteStride || indicesView.target)
+				return Error::InvalidGltf;
+
+			if (accessor.sparse->valuesBufferView >= asset.bufferViews.size())
 				return Error::InvalidGltf;
 
 			const auto& valueView = asset.bufferViews[accessor.sparse->valuesBufferView];
@@ -143,7 +149,13 @@ fg::Error fg::validate(const Asset& asset) {
 		if (animation.samplers.empty())
 			return Error::InvalidGltf;
 		for (const auto& channel : animation.channels) {
+			if (channel.samplerIndex >= animation.samplers.size())
+				return Error::InvalidGltf;
+
 			const auto& sampler = animation.samplers[channel.samplerIndex];
+
+			if (sampler.inputAccessor >= asset.accessors.size())
+				return Error::InvalidGltf;
 
 			const auto& inputAccessor = asset.accessors[sampler.inputAccessor];
 			// The accessor MUST be of scalar type with floating-point components
@@ -151,14 +163,21 @@ fg::Error fg::validate(const Asset& asset) {
 				return Error::InvalidGltf;
 			if (inputAccessor.componentType != ComponentType::Float && inputAccessor.componentType != ComponentType::Double)
 				return Error::InvalidGltf;
-			if (inputAccessor.bufferViewIndex && asset.bufferViews[*inputAccessor.bufferViewIndex].meshoptCompression)
-				continue;
+			if (inputAccessor.bufferViewIndex) {
+				if (*inputAccessor.bufferViewIndex >= asset.bufferViews.size())
+					return Error::InvalidGltf;
+				if (asset.bufferViews[*inputAccessor.bufferViewIndex].meshoptCompression)
+					continue;
+			}
 
 			if (inputAccessor.count == 0)
 				continue;
 
 			if (channel.path == AnimationPath::Weights)
 				continue; // TODO: For weights, the input count needs to be multiplied by the morph target count.
+
+			if (sampler.outputAccessor >= asset.accessors.size())
+				return Error::InvalidGltf;
 
 			const auto& outputAccessor = asset.accessors[sampler.outputAccessor];
 			if (outputAccessor.bufferViewIndex && asset.bufferViews[*outputAccessor.bufferViewIndex].meshoptCompression)
@@ -313,6 +332,9 @@ fg::Error fg::validate(const Asset& asset) {
 	}
 
 	for (const auto& mesh : asset.meshes) {
+		if (mesh.primitives.empty())
+			return Error::InvalidGltf;
+
 		for (const auto& primitive : mesh.primitives) {
 			if (primitive.materialIndex.has_value() && *primitive.materialIndex >= asset.materials.size())
 				return Error::InvalidGltf;
@@ -452,6 +474,7 @@ fg::Error fg::validate(const Asset& asset) {
 		if (node.meshIndex.has_value() && asset.meshes.size() <= node.meshIndex.value())
 			return Error::InvalidGltf;
 
+		constexpr auto isnotfinite = [](auto x) { return !std::isfinite(x); };
 		if (const auto* pTRS = std::get_if<TRS>(&node.transform)) {
 			if (pTRS->rotation.x() > 1.0 || pTRS->rotation.x() < -1.0)
 				return Error::InvalidGltf;
@@ -461,6 +484,18 @@ fg::Error fg::validate(const Asset& asset) {
 				return Error::InvalidGltf;
 			if (pTRS->rotation.w() > 1.0 || pTRS->rotation.w() < -1.0)
 				return Error::InvalidGltf;
+
+			if (math::any(math::transform(pTRS->translation, isnotfinite)))
+				return Error::InvalidGltf;
+			if (math::any(math::transform(pTRS->scale, isnotfinite)))
+				return Error::InvalidGltf;
+			if (math::any(math::transform(pTRS->rotation, isnotfinite)))
+				return Error::InvalidGltf;
+		} else if (const auto* pMatrix = std::get_if<fastgltf::math::nmat4x4>(&node.transform)) {
+			for (std::size_t i = 0; i < pMatrix->columns(); ++i) {
+				if (math::any(math::transform(pMatrix->col(i), isnotfinite)))
+					return Error::InvalidGltf;
+			}
 		}
 
 		if ((node.skinIndex.has_value() || !node.weights.empty()) && !node.meshIndex.has_value()) {
@@ -568,7 +603,7 @@ fg::Error fg::validate(const Asset& asset) {
 		TRS trs;
 		// The "translation", "rotation", "scale", and "matrix" properties of the single root node MUST either be not defined or have default values.
 		if (!std::holds_alternative<TRS>(transform)){
-			math::decomposeTransformMatrix(std::get<math::fmat4x4>(transform), trs.scale, trs.rotation, trs.translation);
+			math::decomposeTransformMatrix(std::get<math::nmat4x4>(transform), trs.scale, trs.rotation, trs.translation);
 		} else {
 			trs = std::get<TRS>(transform);
 		}
