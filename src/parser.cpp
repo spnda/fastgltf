@@ -2635,6 +2635,10 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
 			std::uint64_t value;
 			if (auto error = primitiveObject["mode"].get_uint64().get(value); error == SUCCESS) [[likely]] {
+				// TODO: Validate this and all other enumerations against known values using a helper function and a switch?
+				//       Maybe a toEnum similar to the toNum function which lets us easily and generically detect errors?
+				if (value > to_underlying(PrimitiveType::TriangleFan)) [[unlikely]]
+					return Error::InvalidGltf;
 				primitive.type = static_cast<PrimitiveType>(value);
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
