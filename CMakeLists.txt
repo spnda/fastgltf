@@ -24,15 +24,23 @@ option(FASTGLTF_ENABLE_GLTF_RS "Enables the benchmark usage of gltf-rs" OFF)
 option(FASTGLTF_ENABLE_ASSIMP "Enables the benchmark usage of assimp" OFF)
 
 if (FASTGLTF_ENABLE_FUZZING)
-    if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        message(FATAL_ERROR "fastgltf: Fuzzing requires Clang")
-    endif()
+    if (DEFINED ENV{LIB_FUZZING_ENGINE})
+        # OSS-Fuzz sets flags globally itself
+        set(FASTGLTF_FUZZER_LINK_FLAGS $ENV{LIB_FUZZING_ENGINE})
+    else ()
+        if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            message(FATAL_ERROR "fastgltf: Fuzzing requires Clang")
+        endif()
 
-    set(FASTGLTF_SANITIZER_FLAGS
-        -fsanitize=address,undefined
-        -fno-sanitize-recover=undefined
-        -fno-omit-frame-pointer
-    )
+        set(FASTGLTF_FUZZER_COMPILE_FLAGS
+            -fsanitize=fuzzer-no-link,address,undefined
+            -fno-sanitize-recover=undefined
+            -fno-omit-frame-pointer
+        )
+        set(FASTGLTF_FUZZER_LINK_FLAGS
+            -fsanitize=fuzzer,address,undefined
+        )
+    endif()
 endif()
 
 set(FASTGLTF_COMPILE_TARGET cxx_std_20)
@@ -150,9 +158,7 @@ elseif (FASTGLTF_ENABLE_CPP_MODULES)
 endif ()
 
 if (FASTGLTF_ENABLE_FUZZING)
-    target_compile_options(fastgltf PRIVATE
-        -fsanitize=fuzzer-no-link ${FASTGLTF_SANITIZER_FLAGS}
-    )
+    target_compile_options(fastgltf PRIVATE ${FASTGLTF_FUZZER_COMPILE_FLAGS})
     add_subdirectory(tests/fuzz)
 endif()
 

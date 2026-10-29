@@ -3,16 +3,13 @@ function (fastgltf_add_fuzzer NAME)
     fastgltf_compiler_flags(${NAME})
 
     target_compile_features(${NAME} PRIVATE ${FASTGLTF_COMPILE_TARGET})
-    target_compile_options(${NAME} PRIVATE
-        -fsanitize=fuzzer
-        ${FASTGLTF_SANITIZER_FLAGS}
-    )
-    target_link_options(${NAME} PRIVATE
-        -fsanitize=fuzzer
-        ${FASTGLTF_SANITIZER_FLAGS}
-    )
+    target_compile_options(${NAME} PRIVATE ${FASTGLTF_FUZZER_COMPILE_FLAGS})
 
-    target_link_libraries(${NAME} PRIVATE fastgltf::fastgltf)
+    target_link_libraries(${NAME} PRIVATE
+        fastgltf::fastgltf
+        # for compat with OSS-Fuzz, since it'll try and link libraries itself
+        ${FASTGLTF_FUZZER_LINK_FLAGS}
+    )
 
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/corpus/${NAME})
 endfunction()
