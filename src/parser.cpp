@@ -623,10 +623,12 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			return Error::InvalidGltf;
 		}
 
-#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>:       \
-				if (hasBit(categories, Category::name))   \
-					error = parse##name(array, asset);                     \
-				readCategories |= Category::name;         \
+#define KEY_SWITCH_CASE(name, id) case force_consteval<crc32c(FASTGLTF_QUOTE(id))>:               \
+				if (hasBit(readCategories, Category::name))                                       \
+					return Error::InvalidGltf;                                                    \
+				if (hasBit(categories, Category::name))                                           \
+					error = parse##name(array, asset);                                            \
+				readCategories |= Category::name;                                                 \
 				break;
 
 		auto error = Error::None;

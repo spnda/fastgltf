@@ -882,3 +882,12 @@ TEST_CASE("Detect inf/NaN values in node transforms", "[gltf-loader]") {
 
 	CHECK(validate(asset) == expected);
 }
+
+TEST_CASE("Error on duplicated keys", "[gltf-loader]") {
+	constexpr std::string_view json = R"({"asset":{"version":"2.0"}, "nodes":[], "nodes":[]})";
+	CAPTURE(json);
+	auto data = fastgltf::GltfDataString(json);
+	auto asset = fastgltf::Parser().loadGltfJson(data, {});
+	CHECK(asset.has_error());
+	CHECK(asset.error() != fastgltf::Error::None);
+}

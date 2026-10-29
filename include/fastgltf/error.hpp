@@ -235,8 +235,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 			return !has_error();
 		}
 		[[nodiscard]] error_type error() const {
-			// TODO: Is this reasonable?
-			return _hasError ? *getErrorStorage() : Error::None;
+			return _hasError ? *getErrorStorage() : E();
 		}
 
 		/**
