@@ -65,11 +65,11 @@ fg::Error fg::validate(const Asset& asset) {
 			return Error::InvalidGltf;
 		if (accessor.componentType == ComponentType::Invalid)
 			return Error::InvalidGltf;
-		if (accessor.count < 1)
-			return Error::InvalidGltf;
-		if (accessor.bufferViewIndex.has_value() &&
-			accessor.bufferViewIndex.value() >= asset.bufferViews.size())
-			return Error::InvalidGltf;
+
+		if (const auto error = validateAccessorBounds(asset, accessor);
+			error != Error::None) [[unlikely]]
+			return error;
+
 		if (accessor.byteOffset != 0) {
 			// The offset of an accessor into a bufferView (i.e., accessor.byteOffset)
 			// and the offset of an accessor into a buffer (i.e., accessor.byteOffset + bufferView.byteOffset)
@@ -87,14 +87,6 @@ fg::Error fg::validate(const Asset& asset) {
 				if (bufferView.byteStride.has_value() && bufferView.byteStride.value() % componentByteSize != 0)
 					return Error::InvalidGltf;
 			}
-		}
-
-		if (accessor.bufferViewIndex.has_value()) {
-			const auto& bufferView = asset.bufferViews[accessor.bufferViewIndex.value()];
-			const auto stride = bufferView.byteStride.value_or(getElementByteSize(accessor.type, accessor.componentType));
-			if (accessor.byteOffset + stride * (accessor.count - 1) +
-				getComponentByteSize(accessor.componentType) * getNumComponents(accessor.type) > bufferView.byteLength)
-				return Error::InvalidGltf;
 		}
 
 		if (accessor.max.has_value()) {
@@ -617,6 +609,61 @@ fg::Error fg::validate(const Asset& asset) {
 		if (trs.translation != defaultTRS.translation) {
 			return Error::InvalidGltf;
 		}
+	}
+
+	return Error::None;
+}
+
+namespace {
+	std::size_t getBufferSize(const fg::Buffer& buffer) {
+		return std::visit(fg::visitor {
+			[&](const auto&) { return buffer.byteLength; },
+			[](const fg::sources::Array& array) { return array.bytes.size_bytes(); },
+			[](const fg::sources::Vector& vec) { return vec.bytes.size(); },
+			[](const fg::sources::ByteView& bv) { return bv.bytes.size(); },
+		}, buffer.data);
+	}
+}
+
+fg::Error fg::validateAccessorBounds(const Asset& asset, const Accessor& accessor) {
+	if (accessor.count < 1) [[unlikely]]
+		return Error::InvalidGltf;
+
+	const auto elementSize = getElementByteSize(accessor.type, accessor.componentType);
+	if (elementSize == 0) [[unlikely]]
+		return Error::InvalidGltf;
+
+	if (accessor.bufferViewIndex.has_value()) {
+		if (*accessor.bufferViewIndex >= asset.bufferViews.size()) [[unlikely]]
+			return Error::InvalidGltf;
+
+		const auto& bufferView = asset.bufferViews[*accessor.bufferViewIndex];
+
+		if (bufferView.byteLength < 1) [[unlikely]]
+			return Error::InvalidGltf;
+
+		if (bufferView.byteStride.has_value() &&
+				(*bufferView.byteStride < 4U ||
+					*bufferView.byteStride > 252U ||
+					*bufferView.byteStride % 4 != 0)) [[unlikely]]
+			return Error::InvalidGltf;
+
+		const auto stride = bufferView.byteStride.value_or(elementSize);
+		if (accessor.byteOffset > bufferView.byteLength ||
+			(bufferView.byteLength - accessor.byteOffset) < elementSize) [[unlikely]]
+			return Error::InvalidGltf;
+
+		if (accessor.count - 1 >
+			(bufferView.byteLength - accessor.byteOffset - elementSize) / stride) [[unlikely]]
+			return Error::InvalidGltf;
+
+		if (bufferView.bufferIndex >= asset.buffers.size()) [[unlikely]]
+			return Error::InvalidGltf;
+
+		const auto bufferSize = getBufferSize(asset.buffers[bufferView.bufferIndex]);
+		if (bufferView.byteOffset > bufferSize ||
+			bufferView.byteLength > bufferSize - bufferView.byteOffset) [[unlikely]]
+			return Error::InvalidGltf;
 	}
 
 	return Error::None;

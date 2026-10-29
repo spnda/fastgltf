@@ -35,6 +35,7 @@
 
 #include <fastgltf/base64.hpp>
 #include <fastgltf/crc32.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/glb.hpp>
 #include <fastgltf/parser.hpp>
 #include <fastgltf/types.hpp>
@@ -406,13 +407,18 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 				continue;
 
 			auto positionAttribute = primitive.findAttribute("POSITION");
-			if (positionAttribute == primitive.attributes.end()) {
+			if (positionAttribute == primitive.attributes.end()) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
-			if (positionAttribute->accessorIndex >= asset.accessors.size()) {
+			if (positionAttribute->accessorIndex >= asset.accessors.size()) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
-			auto positionCount = asset.accessors[positionAttribute->accessorIndex].count;
+			auto& positionAccessor = asset.accessors[positionAttribute->accessorIndex];
+			auto positionCount = positionAccessor.count;
+
+			if (const auto error = validateAccessorBounds(asset, positionAccessor);
+				error != Error::None) [[unlikely]]
+				return error;
 
 			auto primitiveCount = [&]() -> std::size_t {
 				switch (primitive.type) {

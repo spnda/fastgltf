@@ -37,6 +37,16 @@ namespace fastgltf {
 	 * when debugging an asset related issue.
 	*/
 	FASTGLTF_EXPORT [[nodiscard]] Error validate(const Asset& asset);
+
+	/**
+	 * Checks if the given accessor points at a valid range in a valid buffer view that points at a valid range
+	 * in a valid buffer. This guarantees that the accessor can be used to read a range of data in the asset.
+	 *
+	 * This is useful when loading vertices, indices, ... through accessors using the functions in tools.hpp
+	 * to not read out of bounds. Note that if the buffer's data is not yet loaded or is a custom buffer,
+	 * then this only checks against the buffer's byteLength.
+	 */
+	FASTGLTF_EXPORT [[nodiscard]] Error validateAccessorBounds(const Asset& asset, const Accessor& accessor);
 }
 
 #endif
