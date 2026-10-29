@@ -513,7 +513,7 @@ namespace fastgltf {
 		[[nodiscard]] std::size_t totalSize() override;
 
 		[[nodiscard]] explicit operator std::span<std::byte>() const FASTGLTF_LIFETIMEBOUND {
-			return {static_cast<std::byte*>(mappedFile), fileSize};
+			return { static_cast<std::byte*>(mappedFile), static_cast<std::size_t>(fileSize) };
 		}
 	};
 #endif
