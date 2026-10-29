@@ -29,6 +29,7 @@
 #endif
 
 #include <charconv>
+#include <numeric>
 
 #include <simdjson.h>
 #include <simdutf.h>
@@ -342,62 +343,33 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 }
 
 namespace fastgltf {
-template<typename T>
-static void writeIndices(static_vector<std::byte>& generatedIndices,
-	const PrimitiveType type, const std::size_t primitiveCount) {
+	template<typename T>
+	static void writeIndices(static_vector<std::byte>& generatedIndices) {
+		const std::span indices(reinterpret_cast<T*>(generatedIndices.data()),
+			generatedIndices.size() / sizeof(T));
 
-	const std::span indices(reinterpret_cast<T*>(generatedIndices.data()),
-		generatedIndices.size() / sizeof(T));
-
-	// Generate the correct indices for every primitive topology
-	switch (type) {
-		case PrimitiveType::Points: {
-			for (std::size_t i = 0; i < primitiveCount; ++i)
-				indices[i] = static_cast<T>(i);
-			break;
-		}
-		case PrimitiveType::Lines:
-		case PrimitiveType::LineLoop:
-		case PrimitiveType::LineStrip: {
-			for (std::size_t i = 0; i < primitiveCount; ++i) {
-				indices[i * 2 + 0] = static_cast<T>(i * 2 + 0);
-				indices[i * 2 + 1] = static_cast<T>(i * 2 + 1);
-			}
-			break;
-		}
-		case PrimitiveType::Triangles:
-		case PrimitiveType::TriangleStrip:
-		case PrimitiveType::TriangleFan: {
-			for (std::size_t i = 0; i < primitiveCount; ++i) {
-				indices[i * 3 + 0] = static_cast<T>(i * 3 + 0);
-				indices[i * 3 + 1] = static_cast<T>(i * 3 + 1);
-				indices[i * 3 + 2] = static_cast<T>(i * 3 + 2);
-			}
-			break;
-		}
-		default: FASTGLTF_UNREACHABLE
-	}
-}
-
-static std::pair<static_vector<std::byte>, ComponentType> writeIndices(
-	const PrimitiveType type, const std::size_t indexCount, const std::size_t primitiveCount) {
-
-	if (indexCount < 255) {
-		static_vector<std::byte> generatedIndices(for_overwrite, indexCount * sizeof(std::uint8_t));
-		writeIndices<std::uint8_t>(generatedIndices, type, primitiveCount);
-		return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedByte);
+		std::iota(indices.begin(), indices.end(), T(0));
 	}
 
-	if (indexCount < 65535) {
-		static_vector<std::byte> generatedIndices(for_overwrite, indexCount * sizeof(std::uint16_t));
-		writeIndices<std::uint16_t>(generatedIndices, type, primitiveCount);
-		return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedShort);
-	}
+	static std::pair<static_vector<std::byte>, ComponentType> writeIndices(
+		const std::size_t primitiveCount) {
 
-	static_vector<std::byte> generatedIndices(for_overwrite, indexCount * sizeof(std::uint32_t));
-	writeIndices<std::uint32_t>(generatedIndices, type, primitiveCount);
-	return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedInt);
-}
+		if (primitiveCount < 255) {
+			static_vector<std::byte> generatedIndices(for_overwrite, primitiveCount * sizeof(std::uint8_t));
+			writeIndices<std::uint8_t>(generatedIndices);
+			return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedByte);
+		}
+
+		if (primitiveCount < 65535) {
+			static_vector<std::byte> generatedIndices(for_overwrite, primitiveCount * sizeof(std::uint16_t));
+			writeIndices<std::uint16_t>(generatedIndices);
+			return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedShort);
+		}
+
+		static_vector<std::byte> generatedIndices(for_overwrite, primitiveCount * sizeof(std::uint32_t));
+		writeIndices<std::uint32_t>(generatedIndices);
+		return std::make_pair(std::move(generatedIndices), ComponentType::UnsignedInt);
+	}
 }
 
 fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
@@ -420,33 +392,7 @@ fg::Error fg::Parser::generateMeshIndices(fastgltf::Asset& asset) const {
 				error != Error::None) [[unlikely]]
 				return error;
 
-			auto primitiveCount = [&]() -> std::size_t {
-				switch (primitive.type) {
-					case PrimitiveType::Points: return positionCount;
-					case PrimitiveType::Lines: return positionCount / 2;
-					case PrimitiveType::LineLoop:
-					case PrimitiveType::LineStrip: return max<std::size_t>(1, positionCount) - 1;
-					case PrimitiveType::Triangles: return positionCount / 3;
-					case PrimitiveType::TriangleStrip: return max<std::size_t>(2, positionCount) - 2;
-					case PrimitiveType::TriangleFan: return max<std::size_t>(2, positionCount) - 2;
-					default: FASTGLTF_UNREACHABLE
-				}
-			}();
-			auto indexCount = [&]() -> std::size_t {
-				switch (primitive.type) {
-					case PrimitiveType::Points: return primitiveCount;
-					case PrimitiveType::Lines:
-					case PrimitiveType::LineLoop:
-					case PrimitiveType::LineStrip: return primitiveCount * 2;
-					case PrimitiveType::Triangles:
-					case PrimitiveType::TriangleStrip:
-					case PrimitiveType::TriangleFan: return primitiveCount * 3;
-					default: FASTGLTF_UNREACHABLE
-				}
-			}();
-
-			auto [generatedIndices, componentType] =
-				writeIndices(primitive.type, indexCount, primitiveCount);
+			auto [generatedIndices, componentType] = writeIndices(positionCount);
 
 			auto bufferIdx = asset.buffers.size();
 			auto& buffer = asset.buffers.emplace_back();
