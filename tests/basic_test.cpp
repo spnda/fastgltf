@@ -62,13 +62,16 @@ TEST_CASE("External loading options preserve embedded and remote image sources",
 			{"uri": "https://example.invalid/image.png"}
 		]
 	})";
+
 	const auto options = GENERATE(Options::None, Options::LoadExternalBuffers | Options::LoadExternalImages);
 	CAPTURE(options);
-	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(data.error() == Error::None);
+
+	auto data = GltfDataString(json);
+
 	Parser parser;
 	std::vector<std::vector<std::byte>> allocations;
 	bool customAllocations = false;
+
 	SECTION("Default allocations") {}
 	SECTION("Custom allocations") {
 		customAllocations = true;
@@ -79,7 +82,8 @@ TEST_CASE("External loading options preserve embedded and remote image sources",
 			return { buffers.back().data(), buffers.size() - 1 };
 		});
 	}
-	auto asset = parser.loadGltfJson(data.get(), path, options);
+
+	auto asset = parser.loadGltfJson(data, path, options);
 	REQUIRE(asset.error() == Error::None);
 	REQUIRE(asset->buffers.size() == 2);
 	REQUIRE(asset->images.size() == 3);
@@ -112,11 +116,10 @@ TEST_CASE("External loading options report missing local files", "[gltf-loader][
 		json = R"({"asset":{"version":"2.0"},"images":[{"uri":"missing.png"}]})";
 		options = Options::LoadExternalImages;
 	}
-	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(data.error() == Error::None);
+	auto data = fastgltf::GltfDataString(json);
 	Parser parser;
-	CHECK(parser.loadGltfJson(data.get(), path, options).error() == Error::MissingExternalFile);
-	CHECK(parser.loadGltfJson(data.get(), path, Options::None).error() == Error::None);
+	CHECK(parser.loadGltfJson(data, path, options).error() == Error::MissingExternalFile);
+	CHECK(parser.loadGltfJson(data, path, Options::None).error() == Error::None);
 }
 
 TEST_CASE("Scenes without nodes keep their indices", "[gltf-loader]") {
@@ -132,11 +135,10 @@ TEST_CASE("Scenes without nodes keep their indices", "[gltf-loader]") {
 		]
 	})";
 
-	auto data = fastgltf::GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(data.error() == fastgltf::Error::None);
+	auto data = fastgltf::GltfDataString(json);
 
 	fastgltf::Parser parser;
-	auto asset = parser.loadGltfJson(data.get(), {}, noOptions);
+	auto asset = parser.loadGltfJson(data, {}, noOptions);
 	REQUIRE(asset.has_value());
 
 	CHECK(asset->scenes.size() == 3);
@@ -733,12 +735,10 @@ TEST_CASE("Test extras callback", "[gltf-loader]") {
 
 		// Update the data buffer
 		auto& string = json.get().output;
-		auto reexportedJson = fastgltf::GltfDataBuffer::FromBytes(
-				reinterpret_cast<const std::byte*>(string.data()), string.size());
-		REQUIRE(reexportedJson.error() == fastgltf::Error::None);
+		auto reexportedJson = fastgltf::GltfDataString(std::move(string));
 
 		nodeNames.clear();
-		auto reparsed = parseJson(reexportedJson.get());
+		auto reparsed = parseJson(reexportedJson);
 		REQUIRE(reparsed.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(reparsed.get()) == fastgltf::Error::None);
 
@@ -774,9 +774,8 @@ TEST_CASE("Integer accessor bounds with really big/small floats", "[gltf-loader]
 	)";
 	const auto json = std::string(json_base) + bound + "]}]}";
 
-	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-    REQUIRE(data.error() == Error::None);
-    CHECK(Parser().loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
+	auto data = fastgltf::GltfDataString(json);
+    CHECK(Parser().loadGltfJson(data, {}).error() == Error::InvalidGltf);
 }
 
 TEST_CASE("Reject out of bounds material variant indices", "[gltf-loader]") {
@@ -795,9 +794,9 @@ TEST_CASE("Reject out of bounds material variant indices", "[gltf-loader]") {
 	)";
 	const auto json = std::string(json_base) + index + "]}]}}}]}]}";
 
-	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(data.error() == Error::None);
-	CHECK(Parser(Extensions::KHR_materials_variants).loadGltfJson(data.get(), {}).error() == Error::InvalidGltf);
+	auto data = fastgltf::GltfDataString(json);
+	CHECK(Parser(Extensions::KHR_materials_variants)
+		.loadGltfJson(data, {}).error() == Error::InvalidGltf);
 }
 
 TEST_CASE("Reject missing primitives array", "[gltf-loader]") {
@@ -814,12 +813,11 @@ TEST_CASE("Reject missing primitives array", "[gltf-loader]") {
 		}]
 	})";
 
-	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(data.error() == Error::None);
-
 	CAPTURE(primitive_json);
+	auto data = fastgltf::GltfDataString(json);
+
 	const auto expected_err = primitive_json == valid_primitive ? Error::None : Error::InvalidGltf;
-	CHECK(Parser().loadGltfJson(data.get(), {}).error() == expected_err);
+	CHECK(Parser().loadGltfJson(data, {}).error() == expected_err);
 }
 
 TEST_CASE("Reject empty linearAxes/angularAxes", "[gltf-loader]") {
@@ -844,13 +842,12 @@ TEST_CASE("Reject empty linearAxes/angularAxes", "[gltf-loader]") {
 		}
 	})";
 
-	auto data = GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(data.error() == Error::None);
-
 	CAPTURE(axes_json);
+	auto data = fastgltf::GltfDataString(json);
+
 	const auto expected_err = axes_json.empty() || axes_json == "3" || axes_json == "0,1,2,3"
 		? Error::InvalidGltf : Error::None;
-	CHECK(Parser(Extensions::KHR_physics_rigid_bodies).loadGltfJson(data.get(), {}).error() == expected_err);
+	CHECK(Parser(Extensions::KHR_physics_rigid_bodies).loadGltfJson(data, {}).error() == expected_err);
 }
 
 TEST_CASE("Detect inf/NaN values in node transforms", "[gltf-loader]") {

@@ -381,12 +381,11 @@ TEST_CASE("Generate mesh indices", "[gltf-loader]") {
 	]
 })";
 
-		auto buf = fastgltf::GltfDataBuffer::FromBytes(
-			reinterpret_cast<const std::byte*>(json.data()), json.size());
+		auto buf = fastgltf::GltfDataString(json);
 
 		fastgltf::Parser parser;
 		auto asset = parser.loadGltf(
-			buf.get(), {}, fastgltf::Options::GenerateMeshIndices);
+			buf, {}, fastgltf::Options::GenerateMeshIndices);
 
 		REQUIRE(asset.error() == fastgltf::Error::InvalidGltf);
 	}

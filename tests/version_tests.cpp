@@ -87,10 +87,8 @@ TEST_CASE("Detect invalid or unsupported versions", "[gltf-loader][gltf-2.1]") {
 	CAPTURE(json);
 	CAPTURE(expectedError);
 
-	auto data = fastgltf::GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(!data.has_error());
-
-	auto asset = fastgltf::Parser().loadGltfJson(data.get(), {});
+	auto data = fastgltf::GltfDataString(json);
+	auto asset = fastgltf::Parser().loadGltfJson(data, {});
 	if (expectedError != fastgltf::Error::None) {
 		REQUIRE(asset.has_error());
 		CHECK(asset.error() == expectedError);
@@ -107,10 +105,8 @@ TEST_CASE("Detect invalid version combinations in validation", "[gltf-loader]") 
 	constexpr std::string_view json = R"({"asset":{"version":"2.0", "minVersion":"2.1"}})";
 	CAPTURE(json);
 
-	auto data = fastgltf::GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(!data.has_error());
-
-	auto asset = fastgltf::Parser().loadGltfJson(data.get(), {});
+	auto data = fastgltf::GltfDataString(json);
+	auto asset = fastgltf::Parser().loadGltfJson(data, {});
 	REQUIRE(asset.has_value());
 
 	CHECK(asset->assetInfo.version == fastgltf::Version { 2, 0 });

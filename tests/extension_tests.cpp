@@ -217,11 +217,9 @@ TEST_CASE("KHR_lights_punctual: node with matrix and no light extension", "[gltf
 		"scene":0
 	})";
 
-	auto data = fastgltf::GltfDataBuffer::FromBytes(reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(data.has_value());
-
+	auto data = fastgltf::GltfDataString(json);
 	auto asset = fastgltf::Parser(fastgltf::Extensions::KHR_lights_punctual)
-		.loadGltfJson(data.get(), {});
+		.loadGltfJson(data, {});
 	REQUIRE(asset.has_value());
 
 	REQUIRE(asset->nodes.size() == 1);
@@ -477,12 +475,9 @@ TEST_CASE("Extension KHR_materials_dispersion", "[gltf-loader]") {
 			}
 		}]
 	})";
-	auto jsonData = fastgltf::GltfDataBuffer::FromBytes(
-			reinterpret_cast<const std::byte*>(json.data()), json.size());
-	REQUIRE(jsonData.error() == fastgltf::Error::None);
-
+	auto data = fastgltf::GltfDataString(json);
 	fastgltf::Parser parser(fastgltf::Extensions::KHR_materials_dispersion);
-	auto asset = parser.loadGltfJson(jsonData.get(), {});
+	auto asset = parser.loadGltfJson(data, {});
 	REQUIRE(asset.error() == fastgltf::Error::None);
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 

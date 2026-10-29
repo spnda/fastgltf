@@ -367,6 +367,39 @@ fg::AndroidGltfDataBuffer::AndroidGltfDataBuffer(const fs::path& path, std::uint
 }
 #endif
 #pragma endregion
+
+fg::GltfDataString::GltfDataString(std::string&& str) : _str(std::move(str)) {
+	_str.append(simdjson::SIMDJSON_PADDING, '\0');
+}
+
+fg::GltfDataString::GltfDataString(std::string_view view) {
+	_str.reserve(view.size() + simdjson::SIMDJSON_PADDING);
+	_str = view;
+	_str.append(simdjson::SIMDJSON_PADDING, '\0');
+}
+
+void fg::GltfDataString::read(void *ptr, std::size_t count) {
+	std::memcpy(ptr, _str.data() + _offset, count);
+	_offset += count;
+}
+
+std::span<std::byte> fg::GltfDataString::read(std::size_t count, [[maybe_unused]] std::size_t padding) {
+	std::span sub(reinterpret_cast<std::byte*>(_str.data()) + _offset, count);
+	_offset += count;
+	return sub;
+}
+
+void fg::GltfDataString::reset() {
+	_offset = 0;
+}
+
+std::size_t fg::GltfDataString::bytesRead() {
+	return _offset;
+}
+
+std::size_t fg::GltfDataString::totalSize() {
+	return _str.size() - simdjson::SIMDJSON_PADDING;
+}
 #pragma endregion
 
 #pragma region Parser I/O

@@ -566,6 +566,39 @@ namespace fastgltf {
 	#endif
 
 	/**
+	 * A string for glTF files that adheres to the GltfDataGetter interface.
+	 */
+	FASTGLTF_EXPORT class GltfDataString : public GltfDataGetter {
+		std::string _str;
+
+		std::size_t _offset = 0;
+
+	public:
+		/**
+		 * Creates a new data string from the given str.
+		 * Note that this might reallocate if str.capacity() < str.size() + SIMDJSON_PADDING.
+		 */
+		explicit GltfDataString(std::string&& str);
+
+		/**
+		 * Creates a new data string from the given string view by copying the string.
+		 */
+		explicit GltfDataString(std::string_view view);
+
+		explicit GltfDataString(const char* cstr) : GltfDataString(std::string_view(cstr)) {}
+
+		void read(void* ptr, std::size_t count) override;
+
+		[[nodiscard]] std::span<std::byte> read(std::size_t count, std::size_t padding) FASTGLTF_LIFETIMEBOUND override;
+
+		void reset() override;
+
+		[[nodiscard]] std::size_t bytesRead() override;
+
+		[[nodiscard]] std::size_t totalSize() override;
+	};
+
+	/**
 	 * Enum to represent the type of a glTF file. glTFs can either be the standard JSON file with
 	 * paths to buffers or with a base64 embedded buffers, or they can be in a so called GLB
 	 * container format which has two or more chunks of binary data, where one represents buffers
