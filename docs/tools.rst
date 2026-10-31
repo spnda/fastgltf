@@ -188,10 +188,10 @@ The following snippet illustrates how one could potentially load vertex position
 
    fastgltf::Primitive* primitive = ...;
 
-   // findAttribute returns a iterator into the underlying vector of primitive attributes.
-   // Note that the glTF spec requires every primitive to have a POSITION,
-   // so it's perfectly valid to assert that positionIt is never nullptr.
-   auto* positionIt = primitive->findAttribute("POSITION");
+   // findAttribute returns an iterator into the underlying vector of primitive attributes. Note
+   // that the glTF spec requires every primitive to have a POSITION, so it's perfectly valid to
+   // assert that positionIt is never equal to primitive->attributes.end().
+   auto positionIt = primitive->findAttribute("POSITION");
    auto& positionAccessor = asset.accessors[positionIt->accessorIndex];
    if (!positionAccessor.bufferViewIndex.has_value())
       continue;

@@ -375,7 +375,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
     outMesh.primitives.resize(mesh.primitives.size());
 
     for (auto it = mesh.primitives.begin(); it != mesh.primitives.end(); ++it) {
-		auto* positionIt = it->findAttribute("POSITION");
+		auto positionIt = it->findAttribute("POSITION");
 		assert(positionIt != it->attributes.end()); // A mesh primitive is required to hold the POSITION attribute.
 		assert(it->indicesAccessor.has_value()); // We specify GenerateMeshIndices, so we should always have indices
 
@@ -438,7 +438,7 @@ bool loadMesh(Viewer* viewer, fastgltf::Mesh& mesh) {
         }
 
 		auto texcoordAttribute = std::string("TEXCOORD_") + std::to_string(baseColorTexcoordIndex);
-        if (const auto* texcoord = it->findAttribute(texcoordAttribute); texcoord != it->attributes.end()) {
+        if (const auto texcoord = it->findAttribute(texcoordAttribute); texcoord != it->attributes.end()) {
             // Tex coord
 			auto& texCoordAccessor = asset.accessors[texcoord->accessorIndex];
             if (!texCoordAccessor.bufferViewIndex.has_value())
@@ -516,10 +516,10 @@ bool loadImage(Viewer* viewer, fastgltf::Image& image) {
         [](auto& arg) {},
         [&](fastgltf::sources::URI& filePath) {
             assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
-            assert(filePath.uri.isLocalPath()); // We're only capable of loading local files.
+            assert(filePath.uri->isLocalPath()); // We're only capable of loading local files.
             int width, height, nrChannels;
 
-            const std::string path(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
+            const std::string path(filePath.uri->path().begin(), filePath.uri->path().end()); // Thanks C++.
             unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
             glTextureStorage2D(texture, getLevelCount(width, height), GL_RGBA8, width, height);
             glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
