@@ -956,7 +956,7 @@ void copyComponentsFromAccessor(const Asset& asset, const Accessor& accessor, vo
 	} else {
 		for (std::size_t i = 0; i < accessor.count; ++i) {
 			for (std::size_t j = 0; j < componentCount; ++j) {
-				auto* pDest = reinterpret_cast<ComponentType*>(dstBytes + elemSize * i) + j;
+				auto* pDest = reinterpret_cast<ComponentType*>(dstBytes) + i * componentCount + j;
 				*pDest = internal::getAccessorComponentAt<ComponentType>(
 					accessor.componentType, accessor.type, &srcBytes[i * srcStride], j, accessor.normalized);
 			}
