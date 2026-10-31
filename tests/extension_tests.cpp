@@ -622,7 +622,7 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 
 	REQUIRE(asset->shapes.size() == 7);
 
-	const auto& box0 = asset->shapes.at(0);
+	const auto& box0 = asset->shapes.at(0).data;
 	REQUIRE(std::holds_alternative<fastgltf::BoxShape>(box0));
 	std::visit(fastgltf::visitor {
 		[](const fastgltf::BoxShape& box) {
@@ -635,7 +635,7 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 		}
 	}, box0);
 
-	const auto& sphere4 = asset->shapes.at(4);
+	const auto& sphere4 = asset->shapes.at(4).data;
 	REQUIRE(std::holds_alternative<fastgltf::SphereShape>(sphere4));
 	std::visit(fastgltf::visitor{
 		[](const fastgltf::SphereShape& sphere) {
@@ -646,7 +646,7 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 		}
 	}, sphere4);
 
-	const auto& capsule6 = asset->shapes.at(6);
+	const auto& capsule6 = asset->shapes.at(6).data;
 	REQUIRE(std::holds_alternative<fastgltf::CapsuleShape>(capsule6));
 	std::visit(fastgltf::visitor {
 		[](const fastgltf::CapsuleShape& capsule) {
@@ -659,7 +659,7 @@ TEST_CASE("Extension KHR_implicit_shapes", "[gltf-loader]") {
 		}
 	}, capsule6);
 
-	const auto& cylinder2 = asset->shapes.at(2);
+	const auto& cylinder2 = asset->shapes.at(2).data;
 	REQUIRE(std::holds_alternative<fastgltf::CylinderShape>(cylinder2));
 	std::visit(fastgltf::visitor {
 		[](const fastgltf::CylinderShape& cylinder) {

@@ -1028,7 +1028,10 @@ namespace fastgltf {
 		bool doubleSided = false;
 	};
 
-	using Shape = std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape, PlaneShape>;
+	FASTGLTF_EXPORT struct Shape {
+		std::variant<SphereShape, BoxShape, CapsuleShape, CylinderShape, PlaneShape> data;
+		std::string name;
+	};
 
 	FASTGLTF_EXPORT struct Motion {
 		/**

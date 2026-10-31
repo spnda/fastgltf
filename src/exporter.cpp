@@ -2011,7 +2011,7 @@ void fg::Exporter::impl::writeShapes(const Asset& asset, simdjson::builder::stri
 				builder.append_comma();
 				builder.append_key_value<"doubleSided">(plane.doubleSided);
 			}
-		}, shape);
+		}, shape.data);
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.shapes.begin(), it)), Category::Shapes, userPointer);
@@ -2019,6 +2019,11 @@ void fg::Exporter::impl::writeShapes(const Asset& asset, simdjson::builder::stri
 				builder.append_comma();
 				append_raw_key_value<"extras">(builder, *extras);
 			}
+		}
+
+		if (!it->name.empty()) {
+			builder.append_comma();
+			builder.append_key_value<"name">(it->name);
 		}
 	}
 }

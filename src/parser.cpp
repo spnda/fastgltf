@@ -3285,12 +3285,12 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 				return Error::InvalidGltf;
 			}
 
+			auto& sphere = shape.data.emplace<SphereShape>();
+
 			double radius;
 			if (error = sphereObject["radius"].get_double().get(radius); error == SUCCESS) {
-				num sphereRadius;
-				if (!toNum(radius, sphereRadius)) [[unlikely]]
+				if (!toNum(radius, sphere.radius)) [[unlikely]]
 					return Error::InvalidGltf;
-				shape = SphereShape{ sphereRadius };
 			} else if(error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -3304,7 +3304,7 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 				return Error::InvalidGltf;
 			}
 
-			auto& box = shape.emplace<BoxShape>();
+			auto& box = shape.data.emplace<BoxShape>();
 
 			dom::array sizeArray;
 			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
@@ -3337,7 +3337,7 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 				return Error::InvalidGltf;
 			}
 
-			auto& capsule = shape.emplace<CapsuleShape>();
+			auto& capsule = shape.data.emplace<CapsuleShape>();
 
 			double height;
 			if (error = capsuleObject["height"].get_double().get(height); error == SUCCESS) {
@@ -3373,7 +3373,7 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 				return Error::InvalidGltf;
 			}
 
-			auto& cylinder = shape.emplace<CylinderShape>();
+			auto& cylinder = shape.data.emplace<CylinderShape>();
 
 			double height;
 			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) {
@@ -3409,7 +3409,7 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 				return Error::InvalidGltf;
 			}
 
-			auto& plane = shape.emplace<PlaneShape>();
+			auto& plane = shape.data.emplace<PlaneShape>();
 
 			double sizeX;
 			if (error = planeObject["sizeX"].get_double().get(sizeX); error == SUCCESS) {
@@ -3444,6 +3444,11 @@ fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& ass
 			} else if (extrasError != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+		}
+
+		std::string_view name;
+		if (shapeObject["name"].get_string().get(name) == SUCCESS) {
+			shape.name.assign(name);
 		}
 	}
 
