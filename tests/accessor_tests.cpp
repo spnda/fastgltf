@@ -44,6 +44,98 @@ TEST_CASE("Test data type conversion", "[gltf-tools]") {
 	}
 }
 
+TEST_CASE("Half float deserialization", "[gltf-tools]") {
+	std::uint16_t float16_value;
+	float actual_value;
+
+	// These values have been taken from
+	// https://en.wikipedia.org/wiki/Half-precision_floating-point_format#Half_precision_examples
+	SECTION("Zero") {
+		float16_value = 0b0'00000'0000000000;
+		actual_value = 0.f;
+	}
+	SECTION("Largest subnormal number") {
+		float16_value = 0b0'00000'1111111111;
+		actual_value = 0.000060975552f;
+	}
+	SECTION("Smallest normal number") {
+		float16_value = 0b0'00001'0000000000;
+		actual_value = 0.00006103515625f;
+	}
+	SECTION("One") {
+		float16_value = 0b0'01111'0000000000;
+		actual_value = 1.f;
+	}
+	SECTION("Largest finite number") {
+		float16_value = 0b0'11110'1111111111;
+		actual_value = 65504.f;
+	}
+	SECTION("Negative zero") {
+		float16_value = 0b1'00000'0000000000;
+		actual_value = -0.f;
+	}
+	SECTION("-2") {
+		float16_value = 0b1'10000'0000000000;
+		actual_value = -2.f;
+	}
+	SECTION("Infinity") {
+		float16_value = 0b0'11111'0000000000;
+		actual_value = std::numeric_limits<float>::infinity();
+	}
+	SECTION("Negative infinity") {
+		float16_value = 0b1'11111'0000000000;
+		actual_value = -std::numeric_limits<float>::infinity();
+	}
+
+	CAPTURE(float16_value);
+	CAPTURE(actual_value);
+
+	auto converted = fastgltf::internal::getAccessorComponentAt<float>(
+		fastgltf::ComponentType::HalfFloat, fastgltf::AccessorType::Scalar,
+		reinterpret_cast<const std::byte*>(&float16_value), 0);
+	CHECK(converted == actual_value);
+
+#if FASTGLTF_HAS_FLOAT16
+	// Compare the _Float16 path against the generic fallback
+	CHECK(std::bit_cast<_Float16>(float16_value) == actual_value);
+	CHECK(static_cast<float>(std::bit_cast<_Float16>(float16_value)) == fastgltf::internal::halfToFloat(float16_value));
+#endif
+}
+
+TEST_CASE("Float to half conversion", "[gltf-tools]") {
+	std::array<float, 8> data {{
+		0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f,
+	}};
+
+	auto vec0 = fastgltf::internal::getAccessorElementAt<fastgltf::math::hvec4>(
+		fastgltf::ComponentType::Float, reinterpret_cast<const std::byte*>(data.data()));
+	auto vec1 = fastgltf::internal::getAccessorElementAt<fastgltf::math::hvec4>(
+		fastgltf::ComponentType::Float, reinterpret_cast<const std::byte*>(data.data() + 4));
+
+	CHECK(fastgltf::math::fvec4(vec0) == fastgltf::math::fvec4(0.f, 1.f, 2.f, 3.f));
+	CHECK(fastgltf::math::fvec4(vec1) == fastgltf::math::fvec4(4.f, 5.f, 6.f, 7.f));
+}
+
+TEST_CASE("binary32<->binary16 full sweep", "[gltf-tools]") {
+#if FASTGLTF_HAS_FLOAT16
+	SECTION("Compare against _Float16") {
+		for (std::uint32_t i = 0; i <= 0xFFFF; ++i) {
+			const auto half = static_cast<std::uint16_t>(i);
+			CAPTURE(half);
+
+			const float expected = static_cast<float>(std::bit_cast<_Float16>(half));
+			const float actual = fastgltf::internal::halfToFloat(half);
+
+			if (std::isnan(expected)) {
+				CHECK(std::isnan(actual));
+			} else {
+				CHECK(std::bit_cast<std::uint32_t>(actual) == std::bit_cast<std::uint32_t>(expected));
+			}
+		}
+	}
+#endif
+}
+
 TEST_CASE("Test normalized accessor data conversion", "[gltf-tools]") {
 	// copyFromAccessor has to denormalize a normalized accessor, just like iterateAccessor and getAccessorElement.
 	constexpr std::array<std::int16_t, 6> components {{ 32767, 0, -32767, -32767, 16384, 32767 }};

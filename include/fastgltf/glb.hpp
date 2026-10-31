@@ -38,19 +38,12 @@ namespace fastgltf::internal {
 	constexpr std::uint32_t binaryGltfJsonChunkMagic = 0x4E4F534A;
 	constexpr std::uint32_t binaryGltfDataChunkMagic = 0x004E4942;
 
-	struct BinaryGltfHeader {
-		std::uint32_t magic;
-		std::uint32_t version;
-		std::uint32_t length;
-	};
-	static_assert(sizeof(BinaryGltfHeader) == 12, "Binary glTF header must be 12 bytes");
-	static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
-
 	constexpr void readUint32LE(std::uint32_t& x, std::byte* bytes) noexcept {
-		x = static_cast<std::uint32_t>(bytes[0])
-				| (static_cast<std::uint32_t>(bytes[1]) << 8)
-				| (static_cast<std::uint32_t>(bytes[2]) << 16)
-				| (static_cast<std::uint32_t>(bytes[3]) << 24);
+		x =
+			static_cast<std::uint32_t>(bytes[0]) |
+			(static_cast<std::uint32_t>(bytes[1]) << 8) |
+			(static_cast<std::uint32_t>(bytes[2]) << 16) |
+			(static_cast<std::uint32_t>(bytes[3]) << 24);
 	}
 
 	constexpr void writeUint32LE(std::uint32_t x, std::byte* buffer) noexcept {
@@ -60,11 +53,50 @@ namespace fastgltf::internal {
 		buffer[3] = static_cast<std::byte>(x >> 24);
 	}
 
-	struct BinaryGltfChunk {
+	constexpr void readUint64LE(std::uint64_t& x, std::byte* bytes) noexcept {
+		x =
+			static_cast<std::uint64_t>(bytes[0]) |
+			(static_cast<std::uint64_t>(bytes[1]) << 8) |
+			(static_cast<std::uint64_t>(bytes[2]) << 16) |
+			(static_cast<std::uint64_t>(bytes[3]) << 24) |
+			(static_cast<std::uint64_t>(bytes[4]) << 32) |
+			(static_cast<std::uint64_t>(bytes[5]) << 40) |
+			(static_cast<std::uint64_t>(bytes[6]) << 48) |
+			(static_cast<std::uint64_t>(bytes[7]) << 56);
+	}
+
+	constexpr void writeUint64LE(std::uint64_t x, std::byte* buffer) noexcept {
+		buffer[0] = static_cast<std::byte>(x);
+		buffer[1] = static_cast<std::byte>(x >> 8);
+		buffer[2] = static_cast<std::byte>(x >> 16);
+		buffer[3] = static_cast<std::byte>(x >> 24);
+		buffer[4] = static_cast<std::byte>(x >> 32);
+		buffer[5] = static_cast<std::byte>(x >> 40);
+		buffer[6] = static_cast<std::byte>(x >> 48);
+		buffer[7] = static_cast<std::byte>(x >> 56);
+	}
+
+	struct BinaryGltfHeader {
+		std::uint32_t magic;
+		std::uint32_t version;
+		// std::uint32/64_t length; <- The length is loaded separately due to struct alignment
+	};
+	static_assert(sizeof(BinaryGltfHeader) == 8, "Binary glTF header must be 8 bytes");
+	static_assert(std::is_trivially_copyable_v<BinaryGltfHeader>);
+
+	struct BinaryGltfChunkV2 {
 		std::uint32_t chunkLength;
 		std::uint32_t chunkType;
 	};
-	static_assert(sizeof(BinaryGltfChunk) == 8, "Binary glTF chunk must be 8 bytes");
-	static_assert(std::is_trivially_copyable_v<BinaryGltfChunk>);
+	static_assert(sizeof(BinaryGltfChunkV2) == 8, "Binary glTF version 2 chunk must be 8 bytes");
+	static_assert(std::is_trivially_copyable_v<BinaryGltfChunkV2>);
+
+	struct BinaryGltfChunkV3 {
+		std::uint32_t chunkType;
+		std::uint32_t encoding;
+		std::uint64_t chunkLength;
+	};
+	static_assert(sizeof(BinaryGltfChunkV3) == 16, "Binary glTF version 3 chunk must be 16 bytes");
+	static_assert(std::is_trivially_copyable_v<BinaryGltfChunkV3>);
 }
 #endif

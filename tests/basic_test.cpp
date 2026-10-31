@@ -153,50 +153,61 @@ TEST_CASE("Component type tests", "[gltf-loader]") {
 	using namespace fastgltf;
 
 	// clang-format off
-	REQUIRE(fastgltf::getNumComponents(AccessorType::Scalar) ==  1);
-	REQUIRE(fastgltf::getNumComponents(AccessorType::Vec2)   ==  2);
-	REQUIRE(fastgltf::getNumComponents(AccessorType::Vec3)   ==  3);
-	REQUIRE(fastgltf::getNumComponents(AccessorType::Vec4)   ==  4);
-	REQUIRE(fastgltf::getNumComponents(AccessorType::Mat2)   ==  4);
-	REQUIRE(fastgltf::getNumComponents(AccessorType::Mat3)   ==  9);
-	REQUIRE(fastgltf::getNumComponents(AccessorType::Mat4)   == 16);
+	CHECK(fastgltf::getNumComponents(AccessorType::Scalar) ==  1);
+	CHECK(fastgltf::getNumComponents(AccessorType::Vec2)   ==  2);
+	CHECK(fastgltf::getNumComponents(AccessorType::Vec3)   ==  3);
+	CHECK(fastgltf::getNumComponents(AccessorType::Vec4)   ==  4);
+	CHECK(fastgltf::getNumComponents(AccessorType::Mat2)   ==  4);
+	CHECK(fastgltf::getNumComponents(AccessorType::Mat3)   ==  9);
+	CHECK(fastgltf::getNumComponents(AccessorType::Mat4)   == 16);
 
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::Byte)          ==  8);
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::UnsignedByte)  ==  8);
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::Short)         == 16);
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::UnsignedShort) == 16);
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::UnsignedInt)   == 32);
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::Float)         == 32);
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::Double)        == 64);
-	REQUIRE(fastgltf::getComponentBitSize(ComponentType::Invalid)       ==  0);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::Byte)          ==  8);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::UnsignedByte)  ==  8);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::Short)         == 16);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::UnsignedShort) == 16);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::HalfFloat)     == 16);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::UnsignedInt)   == 32);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::Int)           == 32);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::Float)         == 32);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::Double)        == 64);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::Int64)         == 64);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::UnsignedInt64) == 64);
+	CHECK(fastgltf::getComponentBitSize(ComponentType::Invalid)       ==  0);
 
-	REQUIRE(fastgltf::getElementByteSize(AccessorType::Scalar, ComponentType::Byte)  == 1);
-	REQUIRE(fastgltf::getElementByteSize(AccessorType::Vec4,   ComponentType::Byte)  == 4);
-	REQUIRE(fastgltf::getElementByteSize(AccessorType::Vec4,   ComponentType::Short) == 8);
+	CHECK(fastgltf::getElementByteSize(AccessorType::Scalar, ComponentType::Byte)  == 1);
+	CHECK(fastgltf::getElementByteSize(AccessorType::Vec4,   ComponentType::Byte)  == 4);
+	CHECK(fastgltf::getElementByteSize(AccessorType::Vec4,   ComponentType::Short) == 8);
 
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::Byte) == 5120);
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::UnsignedByte) == 5121);
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::Short) == 5122);
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::UnsignedShort) == 5123);
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::UnsignedInt) == 5125);
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::Float) == 5126);
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::Double) == 5130);
-	REQUIRE(fastgltf::getGLComponentType(ComponentType::Invalid) == 0);
+	CHECK(fastgltf::getGLComponentType(ComponentType::Byte)          == 5120);
+	CHECK(fastgltf::getGLComponentType(ComponentType::UnsignedByte)  == 5121);
+	CHECK(fastgltf::getGLComponentType(ComponentType::Short)         == 5122);
+	CHECK(fastgltf::getGLComponentType(ComponentType::UnsignedShort) == 5123);
+	CHECK(fastgltf::getGLComponentType(ComponentType::Int)           == 5124);
+	CHECK(fastgltf::getGLComponentType(ComponentType::UnsignedInt)   == 5125);
+	CHECK(fastgltf::getGLComponentType(ComponentType::Float)         == 5126);
+	CHECK(fastgltf::getGLComponentType(ComponentType::Double)        == 5130);
+	CHECK(fastgltf::getGLComponentType(ComponentType::HalfFloat)     == 5131);
+	CHECK(fastgltf::getGLComponentType(ComponentType::Int64)         == 5134);
+	CHECK(fastgltf::getGLComponentType(ComponentType::UnsignedInt64) == 5135);
+	CHECK(fastgltf::getGLComponentType(ComponentType::Invalid)       == 0);
+
+	CHECK(internal::getComponentType(5000) == ComponentType::Invalid);
+	CHECK(internal::getComponentType(5120) == ComponentType::Byte);
+	CHECK(internal::getComponentType(5121) == ComponentType::UnsignedByte);
+	CHECK(internal::getComponentType(5122) == ComponentType::Short);
+	CHECK(internal::getComponentType(5123) == ComponentType::UnsignedShort);
+	CHECK(internal::getComponentType(5125) == ComponentType::UnsignedInt);
+	CHECK(internal::getComponentType(5126) == ComponentType::Float);
+	CHECK(internal::getComponentType(5130) == ComponentType::Double);
+	CHECK(internal::getComponentType(5131) == ComponentType::HalfFloat);
+	CHECK(internal::getComponentType(5134) == ComponentType::Int64);
+	CHECK(internal::getComponentType(5135) == ComponentType::UnsignedInt64);
+	CHECK(internal::getComponentType(5200) == ComponentType::Invalid);
 	// clang-format on
 }
 
 TEST_CASE("string<->enum conversion functions", "[gltf-loader]") {
 	using namespace fastgltf;
-	SECTION("Component types") {
-		REQUIRE(internal::getComponentType(5120) == ComponentType::Byte);
-		REQUIRE(internal::getComponentType(5121) == ComponentType::UnsignedByte);
-		REQUIRE(internal::getComponentType(5122) == ComponentType::Short);
-		REQUIRE(internal::getComponentType(5123) == ComponentType::UnsignedShort);
-		REQUIRE(internal::getComponentType(5125) == ComponentType::UnsignedInt);
-		REQUIRE(internal::getComponentType(5126) == ComponentType::Float);
-		REQUIRE(internal::getComponentType(5130) == ComponentType::Double);
-		REQUIRE(internal::getComponentType(5131) == ComponentType::Invalid);
-	}
 	SECTION("Accessor type") {
 		REQUIRE(internal::getAccessorTypeName(AccessorType::Scalar) == "SCALAR");
 		REQUIRE(internal::getAccessorTypeName(AccessorType::Vec2) == "VEC2");
