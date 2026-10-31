@@ -1,8 +1,10 @@
 #include <string>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <fastgltf/containers/optional.hpp>
+#include <fastgltf/parser.hpp>
 
 TEST_CASE("Test basic optional interface", "[optional-tests]") {
 	// We have no specialization for std::uint32_t, and therefore this is just
@@ -238,4 +240,23 @@ TEST_CASE("Test boxed_optional<T> copy and move operations", "[optional-tests]")
 		REQUIRE(moved.has_value());
 		REQUIRE(*moved == long1);
 	}
+}
+
+TEST_CASE("Reject glTF indices which are equal to the sentinel value", "[optional-tests][gltf-loader]") {
+	std::size_t sentinelValue;
+	fastgltf::optional_flag_value<std::size_t>::set_empty(sentinelValue);
+	const auto sentinel = std::to_string(sentinelValue);
+
+	const auto json = GENERATE_REF(as<std::string>(),
+		R"({"asset":{"version":"2.0"},"materials":[{"normalTexture":{"index":)" + sentinel + "}}]}",
+		R"({"asset":{"version":"2.0"},"scene":)" + sentinel + "}",
+		R"({"asset":{"version":"2.0"},"bufferViews":[{"buffer":0,"byteLength":1,"byteStride":)" + sentinel + "}]}"
+	);
+
+	CAPTURE(json);
+	auto data = fastgltf::GltfDataString(std::move(json));
+
+	auto asset = fastgltf::Parser().loadGltfJson(data, {});
+	REQUIRE(asset.has_error());
+	CHECK(asset.error() == fastgltf::Error::ValueOutOfRange);
 }

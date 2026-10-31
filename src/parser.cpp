@@ -69,60 +69,79 @@ namespace fastgltf {
 		}
 	}
 
-	[[nodiscard]] inline bool toNum(const double in, num& out) noexcept {
+	[[nodiscard]] FASTGLTF_FORCEINLINE bool toNum(const double in, num& out) noexcept {
 		out = static_cast<num>(in);
 		return std::isfinite(out);
 	}
-	[[nodiscard]] inline bool toNum(const double in, optional<num>& out) noexcept {
+	[[nodiscard]] FASTGLTF_FORCEINLINE bool toNum(const double in, optional<num>& out) noexcept {
 		out = static_cast<num>(in);
 		return std::isfinite(*out);
 	}
 
-	[[nodiscard]] inline bool getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
+	template <typename T>
+	requires has_flag_traits<T> && (std::is_integral_v<T> || std::is_enum_v<T>)
+	[[nodiscard]] FASTGLTF_FORCEINLINE bool isValidOptionalValue(std::uint64_t value) noexcept {
+		const auto narrowed = static_cast<T>(value);
+		return static_cast<std::uint64_t>(narrowed) == value &&
+			!optional_flag_value<T>::is_empty(narrowed);
+	}
+
+	/**
+	 * Checks if the given glTF index is a valid index and does not collide with the sentinel
+	 * used with fastgltf::flagged_optional.
+	 */
+	[[nodiscard]] FASTGLTF_FORCEINLINE bool isValidIndex(std::uint64_t idx) noexcept {
+		return isValidOptionalValue<std::size_t>(idx);
+	}
+
+	[[nodiscard]] inline Error getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
 
 		dom::object source;
 		if (element.get(source) != simdjson::SUCCESS) [[unlikely]] {
-			return false;
+			return Error::InvalidGltf;
 		}
 		std::uint64_t imageIndex;
 		if (source["source"].get_uint64().get(imageIndex) != simdjson::SUCCESS) [[unlikely]] {
-			return false;
+			return Error::InvalidGltf;
 		}
 
+		if (!isValidIndex(imageIndex)) [[unlikely]]
+			return Error::ValueOutOfRange;
+
 		imageIndexOut = static_cast<std::size_t>(imageIndex);
-		return true;
+		return Error::None;
 	}
 
-	[[nodiscard]] inline bool parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
+	[[nodiscard]] inline Error parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
 		for (auto extension : extensions) {
 			switch (crc32c(extension.key)) {
 				case force_consteval<crc32c(extensions::KHR_texture_basisu)>: {
 					if (!hasBit(extensionFlags, Extensions::KHR_texture_basisu))
 						break;
-					if (!getImageIndexForExtension(extension.value, texture.basisuImageIndex))
-						return false;
+					if (auto error = getImageIndexForExtension(extension.value, texture.basisuImageIndex); error != Error::None)
+						return error;
 					break;
 				}
 				case force_consteval<crc32c(extensions::MSFT_texture_dds)>: {
 					if (!hasBit(extensionFlags, Extensions::MSFT_texture_dds))
 						break;
-					if (!getImageIndexForExtension(extension.value, texture.ddsImageIndex))
-						return false;
+					if (auto error = getImageIndexForExtension(extension.value, texture.ddsImageIndex); error != Error::None)
+						return error;
 					break;
 				}
 				case force_consteval<crc32c(extensions::EXT_texture_webp)>: {
 					if (!hasBit(extensionFlags, Extensions::EXT_texture_webp))
 						break;
-					if (!getImageIndexForExtension(extension.value, texture.webpImageIndex))
-						return false;
+					if (auto error = getImageIndexForExtension(extension.value, texture.webpImageIndex); error != Error::None)
+						return error;
 					break;
 				}
 				case force_consteval<crc32c(extensions::EXT_texture_avif)>: {
 					if (!hasBit(extensionFlags, Extensions::EXT_texture_avif))
 						break;
-					if (!getImageIndexForExtension(extension.value, texture.avifImageIndex))
-						return false;
+					if (auto error = getImageIndexForExtension(extension.value, texture.avifImageIndex); error != Error::None)
+						return error;
 					break;
 				}
 				default:
@@ -130,7 +149,7 @@ namespace fastgltf {
 			}
 		}
 
-		return true;
+		return Error::None;
 	}
 
 	[[nodiscard]] inline Error getJsonArray(const simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept {
@@ -160,12 +179,16 @@ namespace fastgltf {
 
 		std::uint64_t index;
 		if (child["index"].get_uint64().get(index) == SUCCESS) [[likely]] {
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			info->textureIndex = static_cast<std::size_t>(index);
 		} else {
 			return Error::InvalidGltf;
 		}
 
 		if (const auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) [[likely]] {
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			info->texCoordIndex = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
@@ -197,6 +220,8 @@ namespace fastgltf {
 				transform.rotation = 0.0F;
 
 				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) [[likely]] {
+					if (!isValidIndex(index)) [[unlikely]]
+						return Error::ValueOutOfRange;
 					transform.texCoordIndex = index;
 				}
 
@@ -334,6 +359,8 @@ template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::objec
 		if (field.value.get_uint64().get(accessorIndex) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
+		if (!isValidIndex(accessorIndex)) [[unlikely]]
+			return Error::ValueOutOfRange;
 		attributes.emplace_back(Attribute {
 			.name = std::string(key),
 			.accessorIndex = static_cast<std::size_t>(accessorIndex),
@@ -551,6 +578,8 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			if (object.value.get_uint64().get(defaultScene) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+			if (!isValidIndex(defaultScene)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			asset.defaultScene = static_cast<std::size_t>(defaultScene);
 			continue;
 		}
@@ -760,6 +789,8 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 
 		std::uint64_t bufferView;
 		if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) [[likely]] {
+			if (!isValidIndex(bufferView)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
 		}
 
@@ -805,6 +836,8 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+			if (!isValidIndex(value)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			sparse.indicesBufferView = static_cast<std::size_t>(value);
 
 			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
@@ -831,6 +864,8 @@ fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asse
 			if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+			if (!isValidIndex(value)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			sparse.valuesBufferView = static_cast<std::size_t>(value);
 
 			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
@@ -891,6 +926,8 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 			if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+			if (!isValidIndex(sampler)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			channel.samplerIndex = static_cast<std::size_t>(sampler);
 
 			dom::object targetObject;
@@ -899,6 +936,8 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 			} else {
 				std::uint64_t node;
 				if (auto error = targetObject["node"].get_uint64().get(node); error == SUCCESS) [[likely]] {
+					if (!isValidIndex(node)) [[unlikely]]
+						return Error::ValueOutOfRange;
 					channel.nodeIndex = static_cast<std::size_t>(node);
 				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 					// the glTF spec allows the node index of an animation channel to be absent, and requires
@@ -944,12 +983,16 @@ fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& a
 			if (samplerObject["input"].get_uint64().get(input) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+			if (!isValidIndex(input)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			sampler.inputAccessor = static_cast<std::size_t>(input);
 
 			std::uint64_t output;
 			if (samplerObject["output"].get_uint64().get(output) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+			if (!isValidIndex(output)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			sampler.outputAccessor = static_cast<std::size_t>(output);
 
 			std::string_view interpolation;
@@ -1103,6 +1146,8 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 		if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 		}
+		if (!isValidIndex(number)) [[unlikely]]
+			return Error::ValueOutOfRange;
 		view.bufferIndex = static_cast<std::size_t>(number);
 
 		if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
@@ -1117,6 +1162,8 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 		view.byteLength = static_cast<std::size_t>(number);
 
 		if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) [[likely]] {
+			if (!isValidOptionalValue<std::size_t>(number)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			view.byteStride = static_cast<std::size_t>(number);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
@@ -1142,6 +1189,8 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 				if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
 					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
 				}
+				if (!isValidIndex(number)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				compression.bufferIndex = static_cast<std::size_t>(number);
 
 				if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
@@ -1541,6 +1590,8 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 				return Error::InvalidGltf;
 			}
 
+			if (!isValidIndex(bufferViewIndex)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			image.data = sources::BufferView {
 				.bufferViewIndex = static_cast<std::size_t>(bufferViewIndex),
 				.mimeType = internal::getMimeTypeFromString(mimeType),
@@ -2486,6 +2537,9 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 						return Error::InvalidGltf;
 					}
 
+					if (!isValidIndex(materialIndex)) [[unlikely]]
+						return Error::ValueOutOfRange;
+
 					dom::array variantsArray;
 					if (mappingObject["variants"].get_array().get(variantsArray) != SUCCESS) [[unlikely]] {
 						return Error::InvalidGltf;
@@ -2521,6 +2575,8 @@ fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object
 				if (auto error = dracoObject["bufferView"].get_uint64().get(value); error != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
+				if (!isValidIndex(value)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				dracoCompression.bufferView = static_cast<std::size_t>(value);
 
 				dom::object attributesObject;
@@ -2599,12 +2655,16 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 			}
 
 			if (auto error = primitiveObject["indices"].get_uint64().get(value); error == SUCCESS) [[likely]] {
+				if (!isValidIndex(value)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				primitive.indicesAccessor = static_cast<std::size_t>(value);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 
 			if (auto error = primitiveObject["material"].get_uint64().get(value); error == SUCCESS) [[likely]] {
+				if (!isValidIndex(value)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				primitive.materialIndex = static_cast<std::size_t>(value);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
@@ -2670,16 +2730,22 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 
 		std::uint64_t index;
 		if (auto error = nodeObject["mesh"].get_uint64().get(index); error == SUCCESS) {
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			node.meshIndex = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		if (auto error = nodeObject["skin"].get_uint64().get(index); error == SUCCESS) {
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			node.skinIndex = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		if (auto error = nodeObject["camera"].get_uint64().get(index); error == SUCCESS) {
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			node.cameraIndex = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -2694,6 +2760,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 					return Error::InvalidGltf;
 				}
 
+				if (!isValidIndex(index)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				node.children.emplace_back(static_cast<std::size_t>(index));
 			}
 		} else if (childError != Error::MissingField) {
@@ -2812,6 +2880,8 @@ fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
 				if (const auto lightsError = extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject); lightsError == SUCCESS) [[likely]] {
 					std::uint64_t light;
 					if (auto lightError = lightsObject["light"].get_uint64().get(light); lightError == SUCCESS) [[likely]] {
+						if (!isValidIndex(light)) [[unlikely]]
+							return Error::ValueOutOfRange;
 						node.lightIndex = static_cast<std::size_t>(light);
 					} else {
 						return lightError == NO_SUCH_FIELD || lightError == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
@@ -2998,6 +3068,8 @@ fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& ass
 					return Error::InvalidGltf;
 				}
 
+				if (!isValidIndex(index)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				scene.nodeIndices.emplace_back(static_cast<std::size_t>(index));
 			}
 		} else if (nodeError != Error::MissingField) {
@@ -3023,11 +3095,15 @@ fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset
 
 		std::uint64_t index;
 		if (auto error = skinObject["inverseBindMatrices"].get_uint64().get(index); error == SUCCESS) [[likely]] {
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			skin.inverseBindMatrices = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
 		}
 		if (auto error = skinObject["skeleton"].get_uint64().get(index); error == SUCCESS) [[likely]] {
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			skin.skeleton = static_cast<std::size_t>(index);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
@@ -3042,6 +3118,8 @@ fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset
 			if (jointValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
+			if (!isValidIndex(index)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			skin.joints.emplace_back(index);
 		}
 
@@ -3077,6 +3155,8 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 
 		std::uint64_t sourceIndex;
 		if (auto error = textureObject["source"].get_uint64().get(sourceIndex); error == SUCCESS) [[likely]] {
+			if (!isValidIndex(sourceIndex)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			texture.imageIndex = static_cast<std::size_t>(sourceIndex);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
@@ -3084,8 +3164,8 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 
 		dom::object extensionsObject;
 		if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) [[likely]] {
-			if (!parseTextureExtensions(texture, extensionsObject, config.extensions)) {
-				return Error::InvalidGltf;
+			if (auto extensionError = parseTextureExtensions(texture, extensionsObject, config.extensions); extensionError != Error::None) {
+				return extensionError;
 			}
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
@@ -3095,6 +3175,8 @@ fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset&
 		// repeat wrapping and auto filtering SHOULD be used.
 		std::uint64_t samplerIndex;
 		if (auto error = textureObject["sampler"].get_uint64().get(samplerIndex); error == SUCCESS) [[likely]] {
+			if (!isValidIndex(samplerIndex)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
 		} else if (error != NO_SUCH_FIELD) {
 			return Error::InvalidGltf;
@@ -3822,12 +3904,16 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		if (colliderObject["geometry"].get_object().get(geometryObject) == SUCCESS) [[likely]] {
 			std::uint64_t shape;
 			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) [[likely]] {
+				if (!isValidIndex(shape)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				collider.geometry.shape = static_cast<std::size_t>(shape);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 			std::uint64_t geometryMesh;
 			if (error = geometryObject["mesh"].get_uint64().get(geometryMesh); error == SUCCESS) {
+				if (!isValidIndex(geometryMesh)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				collider.geometry.mesh = static_cast<std::size_t>(geometryMesh);
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
@@ -3844,6 +3930,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 		std::uint64_t physicsMaterial;
 		if (error = colliderObject["physicsMaterial"].get_uint64().get(physicsMaterial); error == SUCCESS) {
+			if (!isValidIndex(physicsMaterial)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			collider.physicsMaterial = static_cast<std::size_t>(physicsMaterial);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -3851,6 +3939,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 		std::uint64_t collisionFilter;
 		if (error = colliderObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
+			if (!isValidIndex(collisionFilter)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			collider.collisionFilter = static_cast<std::size_t>(collisionFilter);
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
@@ -3868,12 +3958,16 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 			std::uint64_t shape;
 			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) [[likely]] {
+				if (!isValidIndex(shape)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				geometryTrigger.geometry.shape = static_cast<std::size_t>(shape);
 			} else if (error != NO_SUCH_FIELD) {
 				return Error::InvalidGltf;
 			}
 			std::uint64_t meshIndex;
 			if (error = geometryObject["mesh"].get_uint64().get(meshIndex); error == SUCCESS) {
+				if (!isValidIndex(meshIndex)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				geometryTrigger.geometry.mesh = static_cast<std::size_t>(meshIndex);
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
@@ -3888,6 +3982,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 			// The trigger can only have a collision filter if it has geometry, otherwise it defers to the nodes
 			std::uint64_t collisionFilter;
 			if (error = triggerObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
+				if (!isValidIndex(collisionFilter)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				geometryTrigger.collisionFilter = static_cast<std::size_t>(collisionFilter);
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
@@ -3908,6 +4004,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 				if (num.get_uint64().get(val) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
+				if (!isValidIndex(val)) [[unlikely]]
+					return Error::ValueOutOfRange;
 				nodeTrigger.nodes[i] = static_cast<std::size_t>(val);
 				++i;
 			}
@@ -3924,6 +4022,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 		auto& joint = rigidBody.joint.emplace();
 		std::uint64_t connectedNodeId;
 		if (jointObject["connectedNode"].get_uint64().get(connectedNodeId) == SUCCESS) [[likely]] {
+			if (!isValidIndex(connectedNodeId)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			joint.connectedNode = connectedNodeId;
 		} else {
 			return Error::InvalidGltf;
@@ -3931,6 +4031,8 @@ fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_r
 
 		std::uint64_t jointId;
 		if (jointObject["joint"].get_uint64().get(jointId) == SUCCESS) [[likely]] {
+			if (!isValidIndex(jointId)) [[unlikely]]
+				return Error::ValueOutOfRange;
 			joint.joint = static_cast<std::size_t>(jointId);
 		} else {
 			return Error::InvalidGltf;

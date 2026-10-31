@@ -44,6 +44,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 		UnknownRequiredExtension, ///< An extension required by the glTF is not supported by fastgltf.
 		UnsupportedVersion, ///< The glTF version is not supported by fastgltf.
 		InvalidVersion, ///< The glTF version string is invalid or not recognized.
+		ValueOutOfRange, ///< A numeric value in the JSON is outside of the range fastgltf can represent.
 
 		InvalidJson, ///< An error occurred while parsing the JSON.
 		MissingField, ///< A field is missing that is required by the glTF spec.
@@ -71,6 +72,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 			case Error::UnknownRequiredExtension: return "UnknownRequiredExtension";
 			case Error::UnsupportedVersion: return "UnsupportedVersion";
 			case Error::InvalidVersion: return "InvalidVersion";
+			case Error::ValueOutOfRange: return "ValueOutOfRange";
 			case Error::InvalidJson: return "InvalidJson";
 			case Error::MissingField: return "MissingField";
 			case Error::UnexpectedJsonType: return "UnexpectedJsonType";
@@ -93,6 +95,7 @@ FASTGLTF_EXPORT namespace fastgltf {
 			case Error::MissingExtensions: return "One or more extensions are required by the glTF but not enabled in the Parser.";
 			case Error::UnknownRequiredExtension: return "An extension required by the glTF is not supported by fastgltf.";
 			case Error::InvalidVersion: return "The glTF version string is invalid or not recognized.";
+			case Error::ValueOutOfRange: return "A numeric value in the JSON is outside of the range fastgltf can represent.";
 			case Error::InvalidJson: return "An error occurred while parsing the JSON.";
 			case Error::InvalidGltf: return "The glTF is either missing something or has invalid data.";
 			case Error::InvalidGLB: return "The GLB container is invalid.";
