@@ -94,6 +94,64 @@ namespace fastgltf {
 		return isValidOptionalValue<std::size_t>(idx);
 	}
 
+	[[nodiscard]] bool isValidEnum(PrimitiveType value) noexcept {
+		switch (value) {
+			case PrimitiveType::Points:
+			case PrimitiveType::Lines:
+			case PrimitiveType::LineLoop:
+			case PrimitiveType::LineStrip:
+			case PrimitiveType::Triangles:
+			case PrimitiveType::TriangleStrip:
+			case PrimitiveType::TriangleFan:
+				return true;
+		}
+		return false;
+	}
+	[[nodiscard]] bool isValidEnum(BufferTarget value) noexcept {
+		switch (value) {
+			case BufferTarget::ArrayBuffer:
+			case BufferTarget::ElementArrayBuffer:
+				return true;
+		}
+		return false;
+	}
+	[[nodiscard]] bool isValidEnum(Filter value) noexcept {
+		switch (value) {
+			case Filter::Nearest:
+			case Filter::Linear:
+			case Filter::NearestMipMapNearest:
+			case Filter::LinearMipMapNearest:
+			case Filter::NearestMipMapLinear:
+			case Filter::LinearMipMapLinear:
+				return true;
+		}
+		return false;
+	}
+	[[nodiscard]] bool isValidEnum(Wrap value) noexcept {
+		switch (value) {
+			case Wrap::ClampToEdge:
+			case Wrap::MirroredRepeat:
+			case Wrap::Repeat:
+				return true;
+		}
+		return false;
+	}
+
+	template <typename T>
+	requires std::is_enum_v<T>
+	[[nodiscard]] FASTGLTF_FORCEINLINE bool toEnum(const std::uint64_t in, T& out) noexcept {
+		out = static_cast<T>(in);
+		return static_cast<std::uint64_t>(out) == in && isValidEnum(out);
+	}
+	template <typename T>
+	requires std::is_enum_v<T>
+	[[nodiscard]] FASTGLTF_FORCEINLINE bool toEnum(const std::uint64_t in, optional<T>& out) noexcept {
+		if (optional_flag_value<T>::is_empty(static_cast<T>(in)))
+			return false;
+		out = static_cast<T>(in);
+		return static_cast<std::uint64_t>(*out) == in && isValidEnum(*out);
+	}
+
 	[[nodiscard]] inline Error getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
 		using namespace simdjson;
 
@@ -1170,7 +1228,8 @@ fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, 
 		}
 
 		if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			view.target = static_cast<BufferTarget>(number);
+			if (!toEnum<BufferTarget>(number, view.target)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidJson;
 		}
@@ -2645,11 +2704,8 @@ fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
 
 			std::uint64_t value;
 			if (auto error = primitiveObject["mode"].get_uint64().get(value); error == SUCCESS) [[likely]] {
-				// TODO: Validate this and all other enumerations against known values using a helper function and a switch?
-				//       Maybe a toEnum similar to the toNum function which lets us easily and generically detect errors?
-				if (value > to_underlying(PrimitiveType::TriangleFan)) [[unlikely]]
+				if (!toEnum(value, primitive.type)) [[unlikely]]
 					return Error::InvalidGltf;
-				primitive.type = static_cast<PrimitiveType>(value);
 			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
@@ -2990,23 +3046,27 @@ fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset&
 		}
 
 		if (auto error = samplerObject["magFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			sampler.magFilter = static_cast<Filter>(number);
+			if (!toEnum<Filter>(number, sampler.magFilter)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		if (auto error = samplerObject["minFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			sampler.minFilter = static_cast<Filter>(number);
+			if (!toEnum<Filter>(number, sampler.minFilter)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
 		if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			sampler.wrapS = static_cast<Wrap>(number);
+			if (!toEnum<Wrap>(number, sampler.wrapS)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 		if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			sampler.wrapT = static_cast<Wrap>(number);
+			if (!toEnum<Wrap>(number, sampler.wrapT)) [[unlikely]]
+				return Error::InvalidGltf;
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}

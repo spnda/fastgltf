@@ -891,3 +891,22 @@ TEST_CASE("Error on duplicated keys", "[gltf-loader]") {
 	CHECK(asset.has_error());
 	CHECK(asset.error() != fastgltf::Error::None);
 }
+
+TEST_CASE("Reject glTFs with invalid enum values", "[gltf-loader][optional-tests]") {
+	const auto json = GENERATE(as<std::string>(),
+		R"({"asset":{"version":"2.0"},"bufferViews":[{"buffer":0,"byteLength":7,"target":3439999999999999}]})",
+		R"({"asset":{"version":"2.0"},"samplers":[{"magFilter":0}]})",
+		R"({"asset":{"version":"2.0"},"samplers":[{"minFilter":0}]})",
+		R"({"asset":{"version":"2.0"},"samplers":[{"wrapS":0}]})",
+		R"({"asset":{"version":"2.0"},"samplers":[{"wrapT":0}]})",
+		// this used to wrap in the static_cast<PrimitiveType> to Points
+		R"({"asset":{"version":"2.0"},"meshes":[{"primitives":[{"attributes":{},"mode":256}]}]})"
+	);
+
+	CAPTURE(json);
+	auto data = fastgltf::GltfDataString(std::move(json));
+
+	auto asset = fastgltf::Parser().loadGltfJson(data, {});
+	REQUIRE(asset.has_error());
+	CHECK(asset.error() == fastgltf::Error::InvalidGltf);
+}
