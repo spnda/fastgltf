@@ -33,13 +33,13 @@ function(fastgltf_download_simdjson)
     fastgltf_fetch_file(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.h"
             ${FASTGLTF_SIMDJSON_HEADER_FILE}
-            a54fc11a2278b2395e8f403d4114db83830fcb237566a2c78b834278fcab094b
+            ca53ddca5f927b993ded4225b8fd85f18f9374e70e4f2d56376f42d661ff010a
     )
 
     fastgltf_fetch_file(
             "https://github.com/simdjson/simdjson/releases/download/v${FASTGLTF_SIMDJSON_TARGET_VERSION}/simdjson.cpp"
             ${FASTGLTF_SIMDJSON_SOURCE_FILE}
-            86b3829fa8641a5980670d0f6dad15a80ee310654edc29afb9eb5a011a8750e7
+            0652d8dd436b210a8840267cbd0bb4c1908f6551790e7dcd543412ba54b002c9
     )
 endfunction()
 
@@ -47,13 +47,13 @@ function(fastgltf_download_simdutf)
     fastgltf_fetch_file(
             "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.h"
             ${FASTGLTF_SIMDUTF_HEADER_FILE}
-            27cbcc731b268c36932fabeccd8b7a940804cc51b1325e2221a76b26c5bfab23
+            90d39faf26030d18a6caec00b34a09ca4855804e7c2a9d59bf93d5d506347486
     )
 
     fastgltf_fetch_file(
             "https://github.com/simdutf/simdutf/releases/download/v${FASTGLTF_SIMDUTF_TARGET_VERSION}/simdutf.cpp"
             ${FASTGLTF_SIMDUTF_SOURCE_FILE}
-            9d99344ce132040987d11841b1d69900a90ab902efcda61b6552fc6c4515589d
+            566033aa28edfaaa12aff8dfcfc720bc0dea0af1c0a0462bbd903c4cba1814b7
     )
 endfunction()
 
@@ -74,7 +74,7 @@ else()
         set(FASTGLTF_SIMDJSON_TARGET simdjson::simdjson)
     elseif (FASTGLTF_DOWNLOAD_SIMDJSON)
         # Download and configure simdjson
-        set(FASTGLTF_SIMDJSON_TARGET_VERSION "5.0.4")
+        set(FASTGLTF_SIMDJSON_TARGET_VERSION "5.1.0")
         file(MAKE_DIRECTORY ${FASTGLTF_SIMDJSON_DL_DIR})
 
         set(FASTGLTF_SIMDJSON_HEADER_FILE "${FASTGLTF_SIMDJSON_DL_DIR}/simdjson.h")
@@ -111,7 +111,7 @@ else()
         message(STATUS "fastgltf: Found simdutf config (${simdutf_VERSION})")
         set(FASTGLTF_SIMDUTF_TARGET simdutf::simdutf)
     elseif(FASTGLTF_DOWNLOAD_SIMDUTF)
-        set(FASTGLTF_SIMDUTF_TARGET_VERSION "9.2.1")
+        set(FASTGLTF_SIMDUTF_TARGET_VERSION "9.3.3")
         file(MAKE_DIRECTORY ${FASTGLTF_SIMDUTF_DL_DIR})
 
         set(FASTGLTF_SIMDUTF_HEADER_FILE "${FASTGLTF_SIMDUTF_DL_DIR}/simdutf.h")
