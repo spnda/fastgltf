@@ -42,9 +42,6 @@
  * The fastgltf::math namespace contains all math functions and types which are needed for working with glTF assets.
  */
 namespace fastgltf::math {
-	FASTGLTF_EXPORT template <std::floating_point T>
-	[[deprecated]] inline constexpr T pi_v = std::numbers::pi_v<T>;
-
 	/** Value clamp using std::less */
 	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] decltype(auto) clamp(const T& v, const T& min, const T& max) noexcept {
