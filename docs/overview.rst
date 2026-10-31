@@ -113,8 +113,8 @@ Usage
 .. _conan: https://conan.io/
 
 **fastgltf** is a C++20 library and only depends on simdjson.
-By using the included CMake 3.11 script, simdjson is automatically downloaded while configuring by default.
-The library is tested on GCC 9, GCC 10, Clang 13, and MSVC 14 (Visual Studio 2022) using CI.
+By using the included CMake 3.13 script, simdjson is automatically downloaded while configuring by default.
+The library is tested on GCC 12, GCC 15, Clang 16, Clang 22, and MSVC 18 (Visual Studio 2026) on x86 and arm64 using CI.
 **fastgltf** is also available from vcpkg_ and conan_.
 
 The following snippet illustrates how to use **fastgltf** to load a glTF file.
