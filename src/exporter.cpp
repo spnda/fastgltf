@@ -2404,8 +2404,10 @@ std::string fg::Exporter::impl::writeJson(const Asset &asset) {
 	}
 
 	if (hasBit(options, ExportOptions::PrettyPrintJson)) {
-		// TODO: how do we solve this now
-		// return simdjson::prettify(builder);
+		auto json = std::string(builder);
+		if (hasBit(options, ExportOptions::PrettyPrintJson))
+        	prettyPrintJson(json);
+		return json;
 	}
 
 	return std::string(builder);
