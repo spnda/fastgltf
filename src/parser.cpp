@@ -94,7 +94,7 @@ namespace fastgltf {
 		return isValidOptionalValue<std::size_t>(idx);
 	}
 
-	[[nodiscard]] bool isValidEnum(PrimitiveType value) noexcept {
+	[[nodiscard]] inline bool isValidEnum(PrimitiveType value) noexcept {
 		switch (value) {
 			case PrimitiveType::Points:
 			case PrimitiveType::Lines:
@@ -107,7 +107,7 @@ namespace fastgltf {
 		}
 		return false;
 	}
-	[[nodiscard]] bool isValidEnum(BufferTarget value) noexcept {
+	[[nodiscard]] inline bool isValidEnum(BufferTarget value) noexcept {
 		switch (value) {
 			case BufferTarget::ArrayBuffer:
 			case BufferTarget::ElementArrayBuffer:
@@ -115,7 +115,7 @@ namespace fastgltf {
 		}
 		return false;
 	}
-	[[nodiscard]] bool isValidEnum(Filter value) noexcept {
+	[[nodiscard]] inline bool isValidEnum(Filter value) noexcept {
 		switch (value) {
 			case Filter::Nearest:
 			case Filter::Linear:
@@ -127,7 +127,7 @@ namespace fastgltf {
 		}
 		return false;
 	}
-	[[nodiscard]] bool isValidEnum(Wrap value) noexcept {
+	[[nodiscard]] inline bool isValidEnum(Wrap value) noexcept {
 		switch (value) {
 			case Wrap::ClampToEdge:
 			case Wrap::MirroredRepeat:
