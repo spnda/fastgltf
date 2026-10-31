@@ -46,7 +46,6 @@ jobs:
           cmake -B ${{ github.workspace }}/build
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DFASTGLTF_ENABLE_TESTS=ON
-          -DFASTGLTF_USE_CUSTOM_SMALLVECTOR=${{ matrix.custom_small_vector }}
           "-DCMAKE_C_FLAGS=${{ env.SANITIZER_FLAGS }}"
           "-DCMAKE_CXX_FLAGS=${{ env.SANITIZER_FLAGS }}"
 
