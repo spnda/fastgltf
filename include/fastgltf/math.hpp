@@ -901,7 +901,7 @@ namespace fastgltf::math {
 	}
 
 	/** Computes the affine inverse of a 4x4 matrix */
-	template <typename T>
+	FASTGLTF_EXPORT template <typename T>
 	[[nodiscard]] auto affineInverse(const mat<T, 4, 4>& m) noexcept {
 		const auto inv = inverse(mat<T, 3, 3>(m));
 		const auto l = -inv * vec<T, 3>(m.col(3));
