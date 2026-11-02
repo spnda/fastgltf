@@ -31,7 +31,6 @@
 #include <array>
 #include <cmath>
 #include <functional>
-#include <initializer_list>
 #include <numbers>
 #include <tuple>
 #endif
@@ -86,7 +85,7 @@ namespace fastgltf::math {
 		/** Creates a new vector with N components from N values in the order X, Y, Z, W */
 		template <typename... Args>
 		requires (sizeof...(Args) == N)
-		constexpr explicit vec(Args... args) noexcept : _data { T(std::forward<Args>(args))... } {}
+		constexpr vec(Args... args) noexcept : _data { T(std::forward<Args>(args))... } {}
 
 		static constexpr auto fromPointer(T* ptr) noexcept {
 			vec<T, N> ret;
@@ -137,16 +136,6 @@ namespace fastgltf::math {
 		constexpr vec& operator=(const vec<T, M>& other) noexcept {
 			for (std::size_t i = 0; i < N; ++i)
 				(*this)[i] = i < M ? other[i] : T(0);
-			return *this;
-		}
-
-		constexpr vec(std::initializer_list<T> list) noexcept {
-			for (auto it = std::begin(list); it != std::end(list); ++it)
-				(*this)[std::distance(std::begin(list), it)] = *it;
-		}
-		constexpr vec& operator=(std::initializer_list<T> list) noexcept {
-			for (auto it = std::begin(list); it != std::end(list); ++it)
-				(*this)[std::distance(std::begin(list), it)] = *it;
 			return *this;
 		}
 
