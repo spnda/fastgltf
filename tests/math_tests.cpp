@@ -66,6 +66,7 @@ static std::ostream& operator <<(std::ostream& os, const glm::quat& value) {
 }
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 TEST_CASE("Vector initialization", "[maths]") {
 	SECTION("Default init") {
@@ -195,6 +196,40 @@ TEST_CASE("Vector operations", "[maths]") {
 		fastgltf::math::fvec3 a(2, 2, -1);
 		fastgltf::math::fvec3 b(3, -1, 2);
 		REQUIRE(cross(a, b) == fastgltf::math::fvec3(3, -7, -8));
+	}
+}
+
+TEST_CASE("Quaternion operations", "[maths]") {
+	SECTION("Equality") {
+		fastgltf::math::fquat q1(1.f, 2.f, 3.f, 4.f);
+		fastgltf::math::fquat q2(1.f, 2.f, 3.f, 4.f);
+		REQUIRE(q1 == q2);
+		auto q3 = GENERATE(
+			fastgltf::math::fquat {1.f, 2.f, 3.f, 5.f},
+			fastgltf::math::fquat {1.f, 2.f, 2.f, 4.f},
+			fastgltf::math::fquat {1.f, 3.f, 3.f, 4.f},
+			fastgltf::math::fquat {2.f, 2.f, 3.f, 4.f}
+		);
+		REQUIRE(q1 != q3);
+	}
+
+	SECTION("Multiplication") {
+		fastgltf::math::fquat q(1.f, 2.f, 3.f, 4.f);
+		CHECK(q * 2 == fastgltf::math::fquat(2.f, 4.f, 6.f, 8.f));
+		q *= 2;
+		CHECK(q == fastgltf::math::fquat(2.f, 4.f, 6.f, 8.f));
+	}
+
+	SECTION("Division") {
+		fastgltf::math::fquat q(2.f, 4.f, 6.f, 8.f);
+		CHECK(q / 2 == fastgltf::math::fquat(1.f, 2.f, 3.f, 4.f));
+		q /= 2;
+		CHECK(q == fastgltf::math::fquat(1.f, 2.f, 3.f, 4.f));
+	}
+
+	SECTION("Normalization") {
+		fastgltf::math::fquat q(0.f, 0.f, 0.f, 2.f);
+		CHECK(normalize(q) == fastgltf::math::fquat(0.f, 0.f, 0.f, 1.f));
 	}
 }
 
