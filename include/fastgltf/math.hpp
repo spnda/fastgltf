@@ -170,12 +170,10 @@ namespace fastgltf::math {
 		[[nodiscard]] constexpr decltype(auto) y() noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[1];
 		}
-		[[nodiscard]] constexpr decltype(auto) z() noexcept FASTGLTF_LIFETIMEBOUND {
-			static_assert(N >= 3);
+		[[nodiscard]] constexpr decltype(auto) z() noexcept FASTGLTF_LIFETIMEBOUND requires (N >= 3) {
 			return (*this)[2];
 		}
-		[[nodiscard]] constexpr decltype(auto) w() noexcept FASTGLTF_LIFETIMEBOUND {
-			static_assert(N >= 4);
+		[[nodiscard]] constexpr decltype(auto) w() noexcept FASTGLTF_LIFETIMEBOUND requires (N >= 4) {
 			return (*this)[3];
 		}
 		[[nodiscard]] constexpr decltype(auto) x() const noexcept FASTGLTF_LIFETIMEBOUND {
@@ -184,12 +182,10 @@ namespace fastgltf::math {
 		[[nodiscard]] constexpr decltype(auto) y() const noexcept FASTGLTF_LIFETIMEBOUND {
 			return (*this)[1];
 		}
-		[[nodiscard]] constexpr decltype(auto) z() const noexcept FASTGLTF_LIFETIMEBOUND {
-			static_assert(N >= 3);
+		[[nodiscard]] constexpr decltype(auto) z() const noexcept FASTGLTF_LIFETIMEBOUND requires (N >= 3) {
 			return (*this)[2];
 		}
-		[[nodiscard]] constexpr decltype(auto) w() const noexcept FASTGLTF_LIFETIMEBOUND {
-			static_assert(N >= 4);
+		[[nodiscard]] constexpr decltype(auto) w() const noexcept FASTGLTF_LIFETIMEBOUND requires (N >= 4) {
 			return (*this)[3];
 		}
 
@@ -478,10 +474,8 @@ namespace fastgltf::math {
 	FASTGLTF_EXPORT using f64vec4 = f64vec<4>;
 
 	/** A quaternion */
-	FASTGLTF_EXPORT template <typename T>
+	FASTGLTF_EXPORT template <std::floating_point T>
 	class quat {
-		static_assert(std::is_floating_point_v<T>);
-
 		static constexpr std::size_t N = 4;
 		std::array<T, N> _data;
 
