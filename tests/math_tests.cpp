@@ -65,6 +65,8 @@ static std::ostream& operator <<(std::ostream& os, const glm::quat& value) {
 	return os;
 }
 
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_template_test_macros.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
@@ -210,37 +212,70 @@ TEST_CASE("Vector operations", "[maths]") {
 	}
 }
 
-TEST_CASE("Quaternion operations", "[maths]") {
+TEMPLATE_TEST_CASE("Quaternion operations", "[maths]", float, double) {
+	using Quat = fastgltf::math::quat<TestType>;
+
 	SECTION("Equality") {
-		fastgltf::math::fquat q1(1.f, 2.f, 3.f, 4.f);
-		fastgltf::math::fquat q2(1.f, 2.f, 3.f, 4.f);
+		const Quat q1(1.f, 2.f, 3.f, 4.f);
+		const Quat q2(1.f, 2.f, 3.f, 4.f);
 		REQUIRE(q1 == q2);
-		auto q3 = GENERATE(
-			fastgltf::math::fquat {1.f, 2.f, 3.f, 5.f},
-			fastgltf::math::fquat {1.f, 2.f, 2.f, 4.f},
-			fastgltf::math::fquat {1.f, 3.f, 3.f, 4.f},
-			fastgltf::math::fquat {2.f, 2.f, 3.f, 4.f}
+		const auto q3 = GENERATE(
+			Quat {1.f, 2.f, 3.f, 5.f},
+			Quat {1.f, 2.f, 2.f, 4.f},
+			Quat {1.f, 3.f, 3.f, 4.f},
+			Quat {2.f, 2.f, 3.f, 4.f}
 		);
 		REQUIRE(q1 != q3);
 	}
 
 	SECTION("Multiplication") {
-		fastgltf::math::fquat q(1.f, 2.f, 3.f, 4.f);
-		CHECK(q * 2 == fastgltf::math::fquat(2.f, 4.f, 6.f, 8.f));
+		Quat q(1.f, -2.f, 3.f, -4.f);
+		CHECK(q * 2 == Quat(2.f, -4.f, 6.f, -8.f));
 		q *= 2;
-		CHECK(q == fastgltf::math::fquat(2.f, 4.f, 6.f, 8.f));
+		CHECK(q == Quat(2.f, -4.f, 6.f, -8.f));
 	}
 
-	SECTION("Division") {
-		fastgltf::math::fquat q(2.f, 4.f, 6.f, 8.f);
-		CHECK(q / 2 == fastgltf::math::fquat(1.f, 2.f, 3.f, 4.f));
+	SECTION("Scalar division") {
+		Quat q(2.f, -4.f, 6.f, -8.f);
+		CHECK(q / 2 == Quat(1.f, -2.f, 3.f, -4.f));
 		q /= 2;
-		CHECK(q == fastgltf::math::fquat(1.f, 2.f, 3.f, 4.f));
+		CHECK(q == Quat(1.f, -2.f, 3.f, -4.f));
 	}
 
-	SECTION("Normalization") {
-		fastgltf::math::fquat q(0.f, 0.f, 0.f, 2.f);
-		CHECK(normalize(q) == fastgltf::math::fquat(0.f, 0.f, 0.f, 1.f));
+	SECTION("Normalize a non-unit quaternion") {
+		const Quat q(0, 0, 0, 2);
+		REQUIRE(normalize(q) == Quat(0, 0, 0, 1));
+
+		const auto normalized = normalize(Quat(1, -2, 2, -4));
+		CHECK(normalized.x() == Catch::Approx(0.2));
+		CHECK(normalized.y() == Catch::Approx(-0.4));
+		CHECK(normalized.z() == Catch::Approx(0.4));
+		CHECK(normalized.w() == Catch::Approx(-0.8));
+		CHECK(std::sqrt(dot(normalized, normalized)) == Catch::Approx(1));
+	}
+
+	SECTION("Normalize a near-unit quaternion") {
+		const auto normalized = normalize(Quat(0, 0, 0.707, 0.707));
+		CHECK(normalized.x() == TestType(0));
+		CHECK(normalized.y() == TestType(0));
+		CHECK(normalized.z() == Catch::Approx(std::sqrt(0.5)));
+		CHECK(normalized.w() == Catch::Approx(std::sqrt(0.5)));
+		CHECK(std::sqrt(dot(normalized, normalized)) == Catch::Approx(1));
+	}
+
+	SECTION("Slerp between nearly parallel unit quaternions") {
+		const Quat a;
+		const auto z = TestType(0.02);
+		const Quat b(0, 0, z, std::sqrt(TestType(1) - z * z));
+		REQUIRE(dot(a, b) > TestType(0.9995));
+
+		const auto interpolated = slerp(a, b, TestType(0.5));
+		const auto expectedW = std::sqrt((TestType(1) + b.w()) / TestType(2));
+		CHECK(interpolated.x() == TestType(0));
+		CHECK(interpolated.y() == TestType(0));
+		CHECK(interpolated.z() == Catch::Approx(z / (TestType(2) * expectedW)));
+		CHECK(interpolated.w() == Catch::Approx(expectedW));
+		CHECK(std::sqrt(dot(interpolated, interpolated)) == Catch::Approx(1));
 	}
 }
 
