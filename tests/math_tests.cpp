@@ -65,6 +65,8 @@ static std::ostream& operator <<(std::ostream& os, const glm::quat& value) {
 	return os;
 }
 
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_template_test_macros.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("Vector initialization", "[maths]") {
@@ -195,6 +197,57 @@ TEST_CASE("Vector operations", "[maths]") {
 		fastgltf::math::fvec3 a(2, 2, -1);
 		fastgltf::math::fvec3 b(3, -1, 2);
 		REQUIRE(cross(a, b) == fastgltf::math::fvec3(3, -7, -8));
+	}
+}
+
+TEMPLATE_TEST_CASE("Quaternion operations", "[maths]", float, double) {
+	using Quat = fastgltf::math::quat<TestType>;
+
+	SECTION("Scalar division") {
+		constexpr Quat q(2, -4, 6, -8);
+		constexpr auto divided = q / TestType(2);
+		REQUIRE(divided == Quat(1, -2, 3, -4));
+		REQUIRE(q == Quat(2, -4, 6, -8));
+
+		auto assigned = q;
+		assigned /= TestType(2);
+		REQUIRE(divided == assigned);
+	}
+
+	SECTION("Normalize a non-unit quaternion") {
+		const Quat q(0, 0, 0, 2);
+		REQUIRE(normalize(q) == Quat(0, 0, 0, 1));
+
+		const auto normalized = normalize(Quat(1, -2, 2, -4));
+		REQUIRE(normalized.x() == Catch::Approx(0.2));
+		REQUIRE(normalized.y() == Catch::Approx(-0.4));
+		REQUIRE(normalized.z() == Catch::Approx(0.4));
+		REQUIRE(normalized.w() == Catch::Approx(-0.8));
+		REQUIRE(std::sqrt(dot(normalized, normalized)) == Catch::Approx(1));
+	}
+
+	SECTION("Normalize a near-unit quaternion") {
+		const auto normalized = normalize(Quat(0, 0, 0.707, 0.707));
+		REQUIRE(normalized.x() == TestType(0));
+		REQUIRE(normalized.y() == TestType(0));
+		REQUIRE(normalized.z() == Catch::Approx(std::sqrt(0.5)));
+		REQUIRE(normalized.w() == Catch::Approx(std::sqrt(0.5)));
+		REQUIRE(std::sqrt(dot(normalized, normalized)) == Catch::Approx(1));
+	}
+
+	SECTION("Slerp between nearly parallel unit quaternions") {
+		const Quat a;
+		const auto z = TestType(0.02);
+		const Quat b(0, 0, z, std::sqrt(TestType(1) - z * z));
+		REQUIRE(dot(a, b) > TestType(0.9995));
+
+		const auto interpolated = slerp(a, b, TestType(0.5));
+		const auto expectedW = std::sqrt((TestType(1) + b.w()) / TestType(2));
+		REQUIRE(interpolated.x() == TestType(0));
+		REQUIRE(interpolated.y() == TestType(0));
+		REQUIRE(interpolated.z() == Catch::Approx(z / (TestType(2) * expectedW)));
+		REQUIRE(interpolated.w() == Catch::Approx(expectedW));
+		REQUIRE(std::sqrt(dot(interpolated, interpolated)) == Catch::Approx(1));
 	}
 }
 

@@ -566,7 +566,7 @@ namespace fastgltf::math {
 		}
 
 		constexpr auto operator/(T scalar) const noexcept {
-			return quat<T>(*this) *= scalar;
+			return quat<T>(*this) /= scalar;
 		}
 		constexpr auto operator/=(T scalar) noexcept {
 			for (std::size_t i = 0; i < 4; ++i)
