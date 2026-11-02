@@ -144,15 +144,26 @@ TEST_CASE("Matrix initialization", "[maths]") {
 
 	SECTION("Conversion") {
 		const fastgltf::math::fmat2x2 mat2(2.f, 3.f, 4.f, 5.f);
-		fastgltf::math::fmat3x3 mat3(mat2);
-		REQUIRE(mat3.col(0) == fastgltf::math::fvec3(2.f, 3.f, 0.f));
-		REQUIRE(mat3.col(1) == fastgltf::math::fvec3(4.f, 5.f, 0.f));
-		REQUIRE(mat3.col(2) == fastgltf::math::fvec3(0.f, 0.f, 1.f));
-		REQUIRE(mat3.row(2) == fastgltf::math::fvec3(0.f, 0.f, 1.f));
+
+		fastgltf::math::fmat<4, 3> mat3(mat2);
+		CHECK(mat3.col(0) == fastgltf::math::fvec4(2.f, 3.f, 0.f, 0.f));
+		CHECK(mat3.col(1) == fastgltf::math::fvec4(4.f, 5.f, 0.f, 0.f));
+		CHECK(mat3.col(2) == fastgltf::math::fvec4(0.f, 0.f, 1.f, 0.f));
+
+		CHECK(mat3.row(2) == fastgltf::math::fvec3(0.f, 0.f, 1.f));
 
 		fastgltf::math::fmat2x2 loop(mat3);
-		REQUIRE(loop.col(0) == fastgltf::math::fvec2(2.f, 3.f));
-		REQUIRE(loop.col(1) == fastgltf::math::fvec2(4.f, 5.f));
+		CHECK(loop.col(0) == fastgltf::math::fvec2(2.f, 3.f));
+		CHECK(loop.col(1) == fastgltf::math::fvec2(4.f, 5.f));
+	}
+
+	SECTION("Init from list of values") {
+		fastgltf::math::fmat<3, 2> m(
+			1, 2, 3,
+			4, 1, 5
+		);
+		CHECK(m.col(0) == fastgltf::math::fvec3(1, 2, 3));
+		CHECK(m.col(1) == fastgltf::math::fvec3(4, 1, 5));
 	}
 }
 
@@ -234,6 +245,15 @@ TEST_CASE("Quaternion operations", "[maths]") {
 }
 
 TEST_CASE("Matrix operations", "[maths]") {
+	SECTION("Equality") {
+		fastgltf::math::fmat<3, 2> m(
+			1, 2, 3,
+			4, 1, 5
+		);
+		CHECK(m == m);
+		CHECK(m * 2 != m);
+	}
+
 	SECTION("Transposing") {
 		fastgltf::math::fmat<3, 2> m(
 			fastgltf::math::fvec3(1, 2, 3),

@@ -684,7 +684,7 @@ namespace fastgltf::math {
 
 		template <typename... Args, std::size_t... i>
 		constexpr void copy_values(const std::tuple<Args...>& tuple, std::integer_sequence<std::size_t, i...>) noexcept {
-			(..., (_data[i / M][i % N] = std::get<i>(std::move(tuple))));
+			(..., (_data[i / N][i % N] = std::get<i>(std::move(tuple))));
 		}
 
 	public:
@@ -776,7 +776,7 @@ namespace fastgltf::math {
 		}
 
 		[[nodiscard]] constexpr bool operator==(const mat<T, N, M>& other) const noexcept {
-			for (std::size_t i = 0; i < N; ++i)
+			for (std::size_t i = 0; i < columns(); ++i)
 				if (col(i) != other.col(i))
 					return false;
 			return true;
