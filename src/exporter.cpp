@@ -2196,7 +2196,6 @@ void fg::Exporter::impl::writePhysicsJoints(const Asset& asset, simdjson::builde
 
 				switch (drive.type) {
 				case DriveType::Linear:
-				case DriveType::Invalid:
 					append_const_key_value<"type", "linear">(builder);
 					break;
 				case DriveType::Angular:
@@ -2207,7 +2206,6 @@ void fg::Exporter::impl::writePhysicsJoints(const Asset& asset, simdjson::builde
 				builder.append_comma();
 				switch (drive.mode) {
 				case DriveMode::Force:
-				case DriveMode::Invalid:
 					append_const_key_value<"mode", "force">(builder);
 					break;
 				case DriveMode::Acceleration:

@@ -239,22 +239,10 @@ TEST_CASE("string<->enum conversion functions", "[gltf-loader]") {
 		REQUIRE(internal::getMimeTypeFromString("") == MimeType::None);
 	}
 	SECTION("Combine modes") {
-		REQUIRE(internal::getCombineMode("average") == CombineMode::Average);
-		REQUIRE(internal::getCombineMode("minimum") == CombineMode::Minimum);
-		REQUIRE(internal::getCombineMode("maximum") == CombineMode::Maximum);
-		REQUIRE(internal::getCombineMode("multiply") == CombineMode::Multiply);
-
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Average) == "average");
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Minimum) == "minimum");
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Maximum) == "maximum");
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Multiply) == "multiply");
-	}
-	SECTION("Drive type") {
-		REQUIRE(internal::getDriveType("linear") == DriveType::Linear);
-		REQUIRE(internal::getDriveType("angular") == DriveType::Angular);
-
-		REQUIRE(internal::getDriveMode("force") == DriveMode::Force);
-		REQUIRE(internal::getDriveMode("acceleration") == DriveMode::Acceleration);
 	}
 }
 

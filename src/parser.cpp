@@ -392,6 +392,274 @@ namespace fastgltf {
 	}
 } // namespace fastgltf
 
+#pragma region enum tag_invoke
+namespace simdjson {
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::AccessorType& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "SCALAR") {
+			out = AccessorType::Scalar;
+        } else if (str == "VEC2") {
+        	out = AccessorType::Vec2;
+		} else if (str == "VEC3") {
+			out = AccessorType::Vec3;
+		} else if (str == "VEC4") {
+			out = AccessorType::Vec4;
+		} else if (str == "MAT2") {
+			out = AccessorType::Mat2;
+		} else if (str == "MAT3") {
+			out = AccessorType::Mat3;
+		} else if (str == "MAT4") {
+			out = AccessorType::Mat4;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::ComponentType& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS)
+			return error;
+
+		if (value > std::numeric_limits<std::underlying_type_t<ComponentType>>::max()) {
+			return simdjson::INCORRECT_TYPE;
+		}
+		out = fastgltf::internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
+		if (out == ComponentType::Invalid) {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::PrimitiveType& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS)
+			return error;
+
+		if (!toEnum(value, out)) {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::BufferTarget& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS)
+			return error;
+
+		if (!toEnum(value, out)) {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::MeshoptCompressionMode& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "ATTRIBUTES") {
+			out = MeshoptCompressionMode::Attributes;
+        } else if (str == "TRIANGLES") {
+        	out = MeshoptCompressionMode::Triangles;
+		} else if (str == "INDICES") {
+			out = MeshoptCompressionMode::Indices;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::MeshoptCompressionFilter& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "NONE") {
+			out = MeshoptCompressionFilter::None;
+        } else if (str == "OCTAHEDRAL") {
+        	out = MeshoptCompressionFilter::Octahedral;
+		} else if (str == "QUATERNION") {
+			out = MeshoptCompressionFilter::Quaternion;
+		} else if (str == "EXPONENTIAL") {
+			out = MeshoptCompressionFilter::Exponential;
+		} else if (str == "COLOR") {
+			out = MeshoptCompressionFilter::Color;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::Filter& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS)
+			return error;
+
+		if (!toEnum(value, out)) {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::Wrap& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS)
+			return error;
+
+		if (!toEnum(value, out)) {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::AlphaMode& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "OPAQUE") {
+			out = AlphaMode::Opaque;
+		} else if (str == "MASK") {
+			out = AlphaMode::Mask;
+		} else if (str == "BLEND") {
+			out = AlphaMode::Blend;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::AnimationInterpolation& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "LINEAR") {
+			out = AnimationInterpolation::Linear;
+		} else if (str == "STEP") {
+			out = AnimationInterpolation::Step;
+		} else if (str == "CUBICSPLINE") {
+			out = AnimationInterpolation::CubicSpline;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::LightType& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "directional") {
+			out = LightType::Directional;
+		} else if (str == "spot") {
+			out = LightType::Spot;
+		} else if (str == "point") {
+			out = LightType::Point;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::CombineMode& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "average") {
+			out = CombineMode::Average;
+		} else if (str == "minimum") {
+			out = CombineMode::Minimum;
+		} else if (str == "maximum") {
+			out = CombineMode::Maximum;
+		} else if (str == "multiply") {
+			out = CombineMode::Multiply;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::DriveType& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "linear") {
+			out = DriveType::Linear;
+		} else if (str == "angular") {
+			out = DriveType::Angular;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static simdjson::error_code tag_invoke(simdjson::deserialize_tag, T& val, fastgltf::DriveMode& out) noexcept {
+		using namespace fastgltf;
+
+		std::string_view str;
+		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS)
+			return error;
+
+		if (str == "force") {
+			out = DriveMode::Force;
+		} else if (str == "acceleration") {
+			out = DriveMode::Acceleration;
+		} else {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+}
+#pragma endregion
+
 #pragma region glTF parsing
 fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const noexcept {
 	auto path = uri.path();
@@ -903,14 +1171,7 @@ fg::Error fg::Parser::parseAccessors(internal::JsonArray& accessorsJson, Asset& 
 			return Error::InvalidGltf;
 		}
 
-		std::string_view accessorType;
-		if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		if (const auto type = internal::getAccessorType(accessorType);
-			type != AccessorType::Invalid) [[likely]] {
-			accessor.type = type;
-		} else {
+		if (accessorObject["type"].get(accessor.type) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -1253,6 +1514,40 @@ fg::Error fg::Parser::parseBuffers(internal::JsonArray& buffersJson, Asset& asse
 	return Error::None;
 }
 
+namespace fastgltf::internal {
+	inline auto parseMeshoptCompression(
+			CompressedBufferView& compression, simdjson::ondemand::object& object) {
+		using namespace simdjson;
+
+		std::optional<std::uint64_t> buffer, byteLength, byteStride, count;
+		std::uint64_t byteOffset = 0;
+		std::optional<MeshoptCompressionMode> mode;
+		MeshoptCompressionFilter filter = MeshoptCompressionFilter::None;
+
+		auto result = object.for_each<"buffer", "byteOffset", "byteLength", "byteStride", "count", "mode", "filter">(
+			buffer, byteOffset, byteLength, byteStride, count, mode, filter
+		);
+		if (result.error != SUCCESS) [[unlikely]] {
+			return result.error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
+		}
+
+		if (!buffer || !byteLength || !byteStride || !count || !mode) [[unlikely]]
+			return Error::InvalidGltf;
+
+		if (!isValidIndex(*buffer)) [[unlikely]]
+			return Error::ValueOutOfRange;
+
+		compression.bufferIndex = static_cast<std::size_t>(*buffer);
+		compression.byteOffset = static_cast<std::size_t>(byteOffset);
+		compression.byteLength = static_cast<std::size_t>(*byteLength);
+		compression.byteStride = static_cast<std::size_t>(*byteStride);
+		compression.count = static_cast<std::size_t>(*count);
+		compression.mode = *mode;
+		compression.filter = filter;
+		return Error::None;
+	}
+}
+
 fg::Error fg::Parser::parseBufferViews(internal::JsonArray& bufferViewsJson, Asset& asset) {
 	using namespace simdjson;
 	auto& bufferViews = bufferViewsJson.value;
@@ -1265,161 +1560,82 @@ fg::Error fg::Parser::parseBufferViews(internal::JsonArray& bufferViewsJson, Ass
 			return Error::InvalidGltf;
 		}
 
-		std::uint64_t number;
-		BufferView view {};
-		if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-		}
-		if (!isValidIndex(number)) [[unlikely]]
-			return Error::ValueOutOfRange;
-		view.bufferIndex = static_cast<std::size_t>(number);
+		std::optional<std::uint64_t> buffer, byteLength, byteStride, target;
+		std::uint64_t byteOffset = 0;
+		std::string_view name;
+		optional<CompressedBufferView> meshoptCompression;
 
-		if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			view.byteOffset = static_cast<std::size_t>(number);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-		}
-		view.byteLength = static_cast<std::size_t>(number);
-
-		if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!isValidOptionalValue<std::size_t>(number)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			view.byteStride = static_cast<std::size_t>(number);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!toEnum<BufferTarget>(number, view.target)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		std::string_view string;
-		if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
-			view.name.assign(string);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		ondemand::object extensionObject;
-		if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) [[likely]] {
-			constexpr auto parseMeshoptCompression = [](CompressedBufferView& compression, ondemand::object& meshoptCompression) {
-				std::uint64_t number;
-				if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				if (!isValidIndex(number)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				compression.bufferIndex = static_cast<std::size_t>(number);
-
-				if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-					compression.byteOffset = static_cast<std::size_t>(number);
-				} else if (error == NO_SUCH_FIELD) {
-					compression.byteOffset = 0;
-				} else {
-					return Error::InvalidJson;
-				}
-
-				if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				compression.byteLength = static_cast<std::size_t>(number);
-
-				if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				compression.byteStride = static_cast<std::size_t>(number);
-
-				if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				compression.count = number;
-
-				std::string_view string;
-				if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				switch (crc32c(string)) {
-					case force_consteval<crc32c("ATTRIBUTES")>: {
-						compression.mode = MeshoptCompressionMode::Attributes;
-						break;
-					}
-					case force_consteval<crc32c("TRIANGLES")>: {
-						compression.mode = MeshoptCompressionMode::Triangles;
-						break;
-					}
-					case force_consteval<crc32c("INDICES")>: {
-						compression.mode = MeshoptCompressionMode::Indices;
-						break;
-					}
-					default: {
-						return Error::InvalidGltf;
-					}
-				}
-
-				if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) [[likely]] {
-					switch (crc32c(string)) {
-						case force_consteval<crc32c("NONE")>: {
-							compression.filter = MeshoptCompressionFilter::None;
-							break;
-						}
-						case force_consteval<crc32c("OCTAHEDRAL")>: {
-							compression.filter = MeshoptCompressionFilter::Octahedral;
-							break;
-						}
-						case force_consteval<crc32c("QUATERNION")>: {
-							compression.filter = MeshoptCompressionFilter::Quaternion;
-							break;
-						}
-						case force_consteval<crc32c("EXPONENTIAL")>: {
-							compression.filter = MeshoptCompressionFilter::Exponential;
-							break;
-						}
-						case force_consteval<crc32c("COLOR")>: {
-							compression.filter = MeshoptCompressionFilter::Color;
-							break;
-						}
-						default: {
-							return Error::InvalidGltf;
-						}
-					}
-				} else if (error == NO_SUCH_FIELD) {
-					compression.filter = MeshoptCompressionFilter::None;
-				} else {
-					return Error::InvalidJson;
-				}
-
-				return Error::None;
-			};
-
-			ondemand::object meshoptCompression;
-			if (hasBit(config.extensions, Extensions::KHR_meshopt_compression) &&
-				extensionObject[extensions::KHR_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
-
-				auto& compression = view.meshoptCompression.emplace();
-				if (const auto error = parseMeshoptCompression(compression, meshoptCompression); error != Error::None) [[unlikely]] {
+		auto result = bufferViewObject.for_each<"buffer", "byteOffset", "byteLength", "byteStride", "target", "name", "extensions", "extras">(
+			buffer, byteOffset, byteLength, byteStride, target, name,
+			[&](ondemand::value v) -> simdjson::error_code {
+				ondemand::object extensionObject;
+				if (const auto error = v.get_object().get(extensionObject);
+					error != simdjson::SUCCESS) [[unlikely]] {
 					return error;
 				}
-			} else if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) &&
-				extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
 
-				auto& compression = view.meshoptCompression.emplace();
-				if (const auto error = parseMeshoptCompression(compression, meshoptCompression); error != Error::None) [[unlikely]] {
-					return error;
+				ondemand::object meshoptCompressionObject;
+				if (hasBit(config.extensions, Extensions::KHR_meshopt_compression) &&
+					extensionObject[extensions::KHR_meshopt_compression].get_object().get(meshoptCompressionObject) == SUCCESS) {
+
+					auto& compression = meshoptCompression.emplace();
+					if (const auto error = internal::parseMeshoptCompression(compression, meshoptCompressionObject);
+						error != Error::None) [[unlikely]] {
+						return simdjson::UNEXPECTED_ERROR;
+					}
+				} else if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) &&
+					extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompressionObject) == SUCCESS) {
+
+					auto& compression = meshoptCompression.emplace();
+					if (const auto error = internal::parseMeshoptCompression(compression, meshoptCompressionObject);
+						error != Error::None) [[unlikely]] {
+						return simdjson::UNEXPECTED_ERROR;
+					}
 				}
+				return simdjson::SUCCESS;
+			},
+			[&](ondemand::value v) -> simdjson::error_code {
+				std::string_view extras;
+				if (const auto error = v.raw_json().get(extras);
+					error != SUCCESS) [[unlikely]]
+					return error;
+				config.extrasCallback(extras, asset.bufferViews.size(), Category::BufferViews, config.userPointer);
+				return simdjson::SUCCESS;
 			}
+		);
+		if (result.error != SUCCESS) [[unlikely]] {
+			return result.error == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
 		}
 
-		if (auto extrasError = parseExtras(config, bufferViewObject, asset.bufferViews.size(), Category::BufferViews); extrasError != Error::None) [[unlikely]]
-			return extrasError;
+		if (!buffer || !byteLength) [[unlikely]]
+			return Error::InvalidGltf;
+		if (!isValidIndex(*buffer)) [[unlikely]]
+			return Error::ValueOutOfRange;
 
-		asset.bufferViews.emplace_back(std::move(view));
+		auto& view = asset.bufferViews.emplace_back(BufferView {
+			.bufferIndex = static_cast<std::size_t>(*buffer),
+			.byteOffset = static_cast<std::size_t>(byteOffset),
+			.byteLength = static_cast<std::size_t>(*byteLength),
+			.byteStride = std::nullopt,
+			.target = std::nullopt,
+			.meshoptCompression = std::nullopt,
+			.name = std::string(name),
+		});
+
+		if (byteStride.has_value()) {
+			if (!isValidOptionalValue<std::size_t>(*byteStride)) [[unlikely]]
+				return Error::ValueOutOfRange;
+			view.byteStride = static_cast<std::size_t>(*byteStride);
+		}
+
+		if (target.has_value()) {
+			if (!toEnum<BufferTarget>(*target, view.target)) [[unlikely]]
+				return Error::InvalidGltf;
+		}
+
+		if (meshoptCompression.has_value()) {
+			view.meshoptCompression = std::move(*meshoptCompression);
+		}
 	}
 
 	return Error::None;
@@ -3474,16 +3690,12 @@ fg::Error fg::Parser::parsePhysicsMaterials(internal::JsonArray& physicsMaterial
 			return Error::InvalidGltf;
 		}
 
-		std::string_view frictionCombine;
-		if (auto error = materialObject["frictionCombine"].get_string().get(frictionCombine); error == SUCCESS) {
-			material.frictionCombine = internal::getCombineMode(frictionCombine);
+		if (auto error = materialObject["frictionCombine"].get(material.frictionCombine); error == SUCCESS) {
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
-		std::string_view restitutionCombine;
-		if (auto error = materialObject["restitutionCombine"].get_string().get(restitutionCombine); error == SUCCESS) {
-		   material.restitutionCombine = internal::getCombineMode(restitutionCombine);
+		if (auto error = materialObject["restitutionCombine"].get(material.restitutionCombine); error == SUCCESS) {
 		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
@@ -3697,23 +3909,11 @@ fg::Error fg::Parser::parsePhysicsJoints(internal::JsonArray& physicsJointsJson,
 
 				// Type, mode, and axis are required
 
-				std::string_view type;
-				if (driveObject["type"].get_string().get(type) == SUCCESS) [[likely]] {
-					drive.type = internal::getDriveType(type);
-					if (drive.type == DriveType::Invalid) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else {
+				if (driveObject["type"].get(drive.type) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
-				std::string_view mode;
-				if (driveObject["mode"].get_string().get(mode) == SUCCESS) [[likely]] {
-					drive.mode = internal::getDriveMode(mode);
-					if (drive.mode == DriveMode::Invalid) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else {
+				if (driveObject["mode"].get(drive.mode) != SUCCESS) [[unlikely]] {
 					return Error::InvalidGltf;
 				}
 
