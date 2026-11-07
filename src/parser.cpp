@@ -209,19 +209,19 @@ namespace fastgltf {
 	[[nodiscard]] simdjson::error_code parseArray(simdjson::ondemand::value value, Vec& vec,
 			F&& func) {
 		simdjson::ondemand::array array;
-		if (auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		std::size_t count;
-		if (auto error = array.count_elements().get(count); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = array.count_elements().get(count); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 		vec.reserve(count);
 
 		for (auto element : array) {
 			simdjson::ondemand::value elementValue;
-			if (auto error = element.get(elementValue); error != simdjson::SUCCESS) [[unlikely]]
+			if (const auto error = element.get(elementValue); error != simdjson::SUCCESS) [[unlikely]]
 				return error;
-			if (auto error = func(elementValue); error != simdjson::SUCCESS) [[unlikely]]
+			if (const auto error = func(elementValue); error != simdjson::SUCCESS) [[unlikely]]
 				return error;
 		}
 		return simdjson::SUCCESS;
@@ -230,14 +230,14 @@ namespace fastgltf {
 	template <typename Value, typename T>
 	[[nodiscard]] simdjson::error_code parseNumArray(Value& value, T& out) noexcept {
 		simdjson::ondemand::array array;
-		if (auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		std::size_t i = 0;
 		for (auto element : array) {
 			if (i == out.size()) [[unlikely]]
 				return simdjson::INCORRECT_TYPE;
-			if (auto error = element.get(out[i++]); error != simdjson::SUCCESS) [[unlikely]]
+			if (const auto error = element.get(out[i++]); error != simdjson::SUCCESS) [[unlikely]]
 				return error;
 		}
 		return i == out.size() ? simdjson::SUCCESS : simdjson::INCORRECT_TYPE;
@@ -251,7 +251,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "SCALAR") {
@@ -279,7 +279,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::underlying_type_t<fastgltf::ComponentType> value;
-		if (auto error = val.get(value); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get(value); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		out = fastgltf::internal::getComponentType(value);
@@ -294,7 +294,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::uint64_t value;
-		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (!toEnum(value, out)) [[unlikely]] {
@@ -308,7 +308,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::uint64_t value;
-		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (!toEnum(value, out)) [[unlikely]] {
@@ -323,7 +323,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "ATTRIBUTES") {
@@ -344,7 +344,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "NONE") {
@@ -368,7 +368,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::uint64_t value;
-		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (!toEnum(value, out)) [[unlikely]] {
@@ -382,7 +382,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::uint64_t value;
-		if (auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (!toEnum(value, out)) [[unlikely]] {
@@ -396,7 +396,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "OPAQUE") {
@@ -417,7 +417,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "LINEAR") {
@@ -437,7 +437,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "directional") {
@@ -457,7 +457,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "average") {
@@ -479,7 +479,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "linear") {
@@ -497,7 +497,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		std::string_view str;
-		if (auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		if (str == "force") {
@@ -513,7 +513,7 @@ namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::num& out) noexcept {
 		double number;
-		if (auto error = val.get_double().get(number); error != SUCCESS) [[unlikely]]
+		if (const auto error = val.get_double().get(number); error != SUCCESS) [[unlikely]]
 			return error;
 		return fastgltf::toNum(number, out) ? SUCCESS : INCORRECT_TYPE;
 	}
@@ -522,7 +522,7 @@ namespace simdjson {
 	static error_code tag_invoke(deserialize_tag, T& val,
 			fastgltf::flagged_optional<U>& out) noexcept {
 		U value;
-		if (auto error = val.get(value); error != SUCCESS) [[unlikely]]
+		if (const auto error = val.get(value); error != SUCCESS) [[unlikely]]
 			return error;
 		if (fastgltf::optional_flag_value<U>::is_empty(value)) [[unlikely]]
 			return NUMBER_OUT_OF_RANGE;
@@ -550,14 +550,14 @@ namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::math::nmat4x4& out) noexcept {
 		ondemand::array array;
-		if (auto error = val.get_array().get(array); error != SUCCESS) [[unlikely]]
+		if (const auto error = val.get_array().get(array); error != SUCCESS) [[unlikely]]
 			return error;
 
 		std::size_t i = 0;
 		for (auto element : array) {
 			if (i == 16) [[unlikely]]
 				return INCORRECT_TYPE;
-			if (auto error = element.get(out.col(i / 4)[i % 4]); error != SUCCESS) [[unlikely]]
+			if (const auto error = element.get(out.col(i / 4)[i % 4]); error != SUCCESS) [[unlikely]]
 				return error;
 			++i;
 		}
@@ -567,11 +567,11 @@ namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, std::vector<fastgltf::Attribute>& out) {
 		ondemand::object object;
-		if (auto error = val.get_object().get(object); error != SUCCESS) [[unlikely]]
+		if (const auto error = val.get_object().get(object); error != SUCCESS) [[unlikely]]
 			return error;
 
 		std::size_t count;
-		if (auto error = object.count_fields().get(count); error != SUCCESS) [[unlikely]]
+		if (const auto error = object.count_fields().get(count); error != SUCCESS) [[unlikely]]
 			return error;
 		out.reserve(count);
 
@@ -579,11 +579,11 @@ namespace simdjson {
 		// attribute map. The keys are only validated in the validate() method.
 		for (auto attribute : object) {
 			std::string_view name;
-			if (auto error = attribute.unescaped_key().get(name); error != SUCCESS) [[unlikely]]
+			if (const auto error = attribute.unescaped_key().get(name); error != SUCCESS) [[unlikely]]
 				return error;
 
 			fastgltf::optional<std::size_t> accessorIndex;
-			if (auto error = attribute.value().get(accessorIndex); error != SUCCESS) [[unlikely]]
+			if (const auto error = attribute.value().get(accessorIndex); error != SUCCESS) [[unlikely]]
 				return error;
 			out.emplace_back(fastgltf::Attribute {
 				.name = std::string(name),
@@ -604,7 +604,7 @@ namespace fastgltf {
 				return simdjson::SUCCESS;
 
 			std::string_view extras;
-			if (auto error = value.raw_json().get(extras); error != simdjson::SUCCESS) [[unlikely]]
+			if (const auto error = value.raw_json().get(extras); error != simdjson::SUCCESS) [[unlikely]]
 				return error;
 			config.extrasCallback(extras, objectIndex, category, config.userPointer);
 			return simdjson::SUCCESS;
@@ -1079,7 +1079,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(internal::JsonObject& rootJson, Catego
 	asset.availableCategories = readCategories;
 
 	if (hasBit(options, Options::GenerateMeshIndices)) {
-		if (auto error = generateMeshIndices(asset); error != Error::None) [[unlikely]] {
+		if (const auto error = generateMeshIndices(asset); error != Error::None) [[unlikely]] {
 			return error;
 		}
 	}
@@ -1151,7 +1151,7 @@ namespace simdjson {
 	static error_code tag_invoke(deserialize_tag, T& val,
 			fastgltf::AccessorBoundsNumbers& out) noexcept {
 		ondemand::array array;
-		if (auto error = val.get_array().get(array); error != SUCCESS) [[unlikely]]
+		if (const auto error = val.get_array().get(array); error != SUCCESS) [[unlikely]]
 			return error;
 
 		for (auto element : array) {
@@ -1171,6 +1171,7 @@ namespace simdjson {
 
 		fastgltf::optional<std::size_t> count, indicesBufferView, valuesBufferView;
 		std::optional<ComponentType> indexComponentType;
+
 		const auto readIndices = [&](ondemand::value indices) -> error_code {
 			return indices.get_object().for_each<"bufferView", "byteOffset", "componentType">(
 				indicesBufferView, out.indicesByteOffset, indexComponentType);
@@ -1184,6 +1185,7 @@ namespace simdjson {
 			count, readIndices, readValues);
 		if (error != SUCCESS) [[unlikely]]
 			return error;
+
 		if (!count || !indicesBufferView || !valuesBufferView || !indexComponentType) [[unlikely]]
 			return NO_SUCH_FIELD;
 
@@ -1263,6 +1265,7 @@ namespace simdjson {
 
 		fastgltf::optional<std::size_t> sampler;
 		std::optional<std::string_view> path;
+
 		// When node isn't defined, the channel SHOULD be ignored. That's left to the user.
 		const auto readTarget = [&](ondemand::value target) -> error_code {
 			return target.get_object().for_each<"node", "path">(out.nodeIndex, path);
@@ -1272,6 +1275,7 @@ namespace simdjson {
 			sampler, readTarget);
 		if (error != SUCCESS) [[unlikely]]
 			return error;
+
 		if (!sampler || !path) [[unlikely]]
 			return NO_SUCH_FIELD;
 
@@ -1292,11 +1296,13 @@ namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AnimationSampler& out) {
 		fastgltf::optional<std::size_t> input, output;
+
 		const auto error = val.get_object().template for_each<
 			"input", "interpolation", "output">(
 			input, out.interpolation, output);
 		if (error != SUCCESS) [[unlikely]]
 			return error;
+
 		if (!input || !output) [[unlikely]]
 			return NO_SUCH_FIELD;
 
@@ -1429,8 +1435,10 @@ namespace simdjson {
 
 		fastgltf::optional<std::size_t> buffer, byteLength, byteStride, count;
 		std::optional<MeshoptCompressionMode> mode;
+
 		out.byteOffset = 0;
 		out.filter = MeshoptCompressionFilter::None;
+
 		const auto error = val.get_object().template for_each<
 			"buffer", "byteOffset", "byteLength", "byteStride",
 			"count", "mode", "filter">(
@@ -1509,11 +1517,13 @@ namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Camera::Perspective& out) {
 		fastgltf::optional<fastgltf::num> yfov, znear;
+
 		const auto error = val.get_object().template for_each<
 			"aspectRatio", "yfov", "zfar", "znear">(
 			out.aspectRatio, yfov, out.zfar, znear);
 		if (error != SUCCESS) [[unlikely]]
 			return error;
+
 		if (!yfov || !znear) [[unlikely]]
 			return NO_SUCH_FIELD;
 
@@ -1525,11 +1535,13 @@ namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Camera::Orthographic& out) {
 		fastgltf::optional<fastgltf::num> xmag, ymag, zfar, znear;
+
 		const auto error = val.get_object().template for_each<
 			"xmag", "ymag", "zfar", "znear">(
 			xmag, ymag, zfar, znear);
 		if (error != SUCCESS) [[unlikely]]
 			return error;
+
 		if (!xmag || !ymag || !zfar || !znear) [[unlikely]]
 			return NO_SUCH_FIELD;
 
@@ -1584,7 +1596,7 @@ fg::Error fg::Parser::parseExtensions(internal::JsonObject& extensionsObjectJson
 	const auto readArray = [&](Error (Parser::*parseFunction)(internal::JsonArray&, Asset&)) {
 		return [this, &asset, parseFunction](ondemand::value value) {
 			internal::JsonArray array;
-			if (auto error = value.get(array.value); error != SUCCESS) [[unlikely]]
+			if (const auto error = value.get(array.value); error != SUCCESS) [[unlikely]]
 				return error;
 			return toErrorCode((this->*parseFunction)(array, asset));
 		};
@@ -2004,7 +2016,7 @@ fg::Error fg::Parser::parseMaterials(internal::JsonArray& materialsJson, Asset& 
 
 		const auto readExtensions = [&](ondemand::value value) -> error_code {
 			internal::JsonObject extensions;
-			if (auto error = value.get(extensions.value); error != SUCCESS) [[unlikely]]
+			if (const auto error = value.get(extensions.value); error != SUCCESS) [[unlikely]]
 				return error;
 			return toErrorCode(parseMaterialExtensions(extensions, material));
 		};
@@ -2037,7 +2049,7 @@ fg::Error fg::Parser::parsePrimitiveExtensions(internal::JsonObject& objectJson,
 
 		const auto readMappings = [&](ondemand::value mappingsValue) -> error_code {
 			ondemand::array mappings;
-			if (auto error = mappingsValue.get(mappings); error != SUCCESS) [[unlikely]]
+			if (const auto error = mappingsValue.get(mappings); error != SUCCESS) [[unlikely]]
 				return error;
 
 			// The material may come after the variants, so the variants are collected first.
@@ -2105,7 +2117,7 @@ fg::Error fg::Parser::parsePrimitives(internal::JsonArray& meshesJson, Mesh& mes
 
 		const auto readExtensions = [&](ondemand::value extensionsValue) -> error_code {
 			internal::JsonObject extensions;
-			if (auto error = extensionsValue.get(extensions.value); error != SUCCESS) [[unlikely]]
+			if (const auto error = extensionsValue.get(extensions.value); error != SUCCESS) [[unlikely]]
 				return error;
 			return toErrorCode(parsePrimitiveExtensions(extensions, primitive));
 		};
@@ -2146,7 +2158,7 @@ fg::Error fg::Parser::parseMeshes(internal::JsonArray& meshesJson, Asset& asset)
 
 		const auto readPrimitives = [&](ondemand::value primitivesValue) {
 			internal::JsonArray primitives;
-			if (auto error = primitivesValue.get(primitives.value); error != SUCCESS) [[unlikely]]
+			if (const auto error = primitivesValue.get(primitives.value); error != SUCCESS) [[unlikely]]
 				return error;
 			return toErrorCode(parsePrimitives(primitives, mesh));
 		};
@@ -2195,7 +2207,7 @@ fg::Error fg::Parser::parseNodes(internal::JsonArray& nodesJson, Asset& asset) {
 			if (!hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies))
 				return SUCCESS;
 			internal::JsonObject object;
-			if (auto error = rigidBodies.get(object.value); error != SUCCESS) [[unlikely]]
+			if (const auto error = rigidBodies.get(object.value); error != SUCCESS) [[unlikely]]
 				return error;
 			return toErrorCode(parsePhysicsRigidBody(object, node));
 		};
@@ -2505,7 +2517,7 @@ namespace fastgltf {
 	[[nodiscard]] inline simdjson::error_code parseAxes(simdjson::ondemand::value value,
 			inplace_vector<std::uint8_t, 3>& axes) noexcept {
 		simdjson::ondemand::array array;
-		if (auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
+		if (const auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
 			return error;
 
 		for (auto element : array) {
