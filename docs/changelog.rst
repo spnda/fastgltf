@@ -6,6 +6,15 @@ Changelog
 
 To view the full changelogs for each release please see the `GitHub releases <https://github.com/spnda/fastgltf/releases>`_.
 
+1.0.1
+=====
+
+- Fix `#166 <https://github.com/spnda/fastgltf/issues/166>`_: Replace \*= with /= in math::quat::operator/
+- Fix: math::affineInverse was missing in the C++ module
+- Fix: Correct init and equality operation for non square matrices
+- Fix: math::vec brace initialization now requires exactly N values
+- Fix: Return a vector of the correct length in matrix vector multiplication
+
 1.0.0
 =====
 

@@ -4,7 +4,7 @@ if ("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" VERSION_GREATER_EQUAL "3.24"
     cmake_policy(SET CMP0135 NEW)
 endif ()
 
-project(fastgltf VERSION 1.0.0 LANGUAGES C CXX)
+project(fastgltf VERSION 1.0.1 LANGUAGES C CXX)
 
 option(FASTGLTF_USE_64BIT_FLOAT "Default to 64-bit double precision floats for everything" OFF)
 
