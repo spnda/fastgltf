@@ -684,6 +684,7 @@ namespace fastgltf {
 		Error parseMaterialExtensions(internal::JsonObject& object, Material& material);
 		Error parseMaterials(internal::JsonArray& array, Asset& asset);
 		Error parsePrimitiveExtensions(internal::JsonObject& object, Primitive& primitive);
+		Error parsePrimitives(internal::JsonArray& array, Mesh& mesh);
 		Error parseMeshes(internal::JsonArray& array, Asset& asset);
 		Error parseNodes(internal::JsonArray& array, Asset& asset);
 		Error parsePhysicsMaterials(internal::JsonArray& physicsMaterials, Asset& asset);

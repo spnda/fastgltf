@@ -1095,6 +1095,8 @@ namespace fastgltf {
 		std::vector<std::size_t> nodes;
 	};
 
+	FASTGLTF_EXPORT using Trigger = std::variant<GeometryTrigger, NodeTrigger>;
+
 	FASTGLTF_EXPORT struct JointLimit {
 		/**
 		 * The linear axes to constrain (0=X, 1=Y, 2=Z)
@@ -1191,7 +1193,7 @@ namespace fastgltf {
 
 		optional<Collider> collider;
 
-		optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
+		optional<Trigger> trigger;
 
 		optional<Joint> joint;
 	};
