@@ -163,6 +163,9 @@ namespace fastgltf {
 	}
 
 	template <typename Vec>
+	requires requires (Vec vec, std::size_t count) {
+		vec.reserve(count);
+	}
 	[[nodiscard]] FASTGLTF_FORCEINLINE Error reserveElements(simdjson::ondemand::array& array, Vec& vec) {
 		std::size_t count;
 		if (array.count_elements().get(count) != simdjson::SUCCESS) [[unlikely]]
@@ -245,33 +248,35 @@ namespace fastgltf {
 } // namespace fastgltf
 
 #pragma region tag_invoke
+namespace fastgltf {
+	/**
+	 * Reads a JSON string and sets out to the value at the index of the matching key. The raw
+	 * string is matched without unescaping it, so a string with escape sequences never matches.
+	 */
+	template <simdjson::constevalutil::fixed_string... Keys, typename Value, typename Enum>
+	[[nodiscard]] FASTGLTF_FORCEINLINE simdjson::error_code readStringEnum(Value& value, Enum& out,
+			const Enum (&values)[sizeof...(Keys)]) noexcept {
+		simdjson::ondemand::raw_json_string string;
+		if (const auto error = value.get_raw_json_string().get(string);
+			error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		const auto index = simdjson::ondemand::key_selector<Keys...>::match_raw(string);
+		if (index == sizeof...(Keys)) [[unlikely]]
+			return simdjson::INCORRECT_TYPE;
+		out = values[index];
+		return simdjson::SUCCESS;
+	}
+} // namespace fastgltf
+
 namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AccessorType& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "SCALAR") {
-			out = AccessorType::Scalar;
-		} else if (str == "VEC2") {
-			out = AccessorType::Vec2;
-		} else if (str == "VEC3") {
-			out = AccessorType::Vec3;
-		} else if (str == "VEC4") {
-			out = AccessorType::Vec4;
-		} else if (str == "MAT2") {
-			out = AccessorType::Mat2;
-		} else if (str == "MAT3") {
-			out = AccessorType::Mat3;
-		} else if (str == "MAT4") {
-			out = AccessorType::Mat4;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::AccessorType;
+		return fastgltf::readStringEnum<
+			"SCALAR", "VEC2", "VEC3", "VEC4", "MAT2", "MAT3", "MAT4">(
+			val, out,
+			{ Scalar, Vec2, Vec3, Vec4, Mat2, Mat3, Mat4 });
 	}
 
 	template <typename T>
@@ -320,47 +325,21 @@ namespace simdjson {
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val,
 			fastgltf::MeshoptCompressionMode& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "ATTRIBUTES") {
-			out = MeshoptCompressionMode::Attributes;
-		} else if (str == "TRIANGLES") {
-			out = MeshoptCompressionMode::Triangles;
-		} else if (str == "INDICES") {
-			out = MeshoptCompressionMode::Indices;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::MeshoptCompressionMode;
+		return fastgltf::readStringEnum<
+			"ATTRIBUTES", "TRIANGLES", "INDICES">(
+			val, out,
+			{ Attributes, Triangles, Indices });
 	}
 
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val,
 			fastgltf::MeshoptCompressionFilter& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "NONE") {
-			out = MeshoptCompressionFilter::None;
-		} else if (str == "OCTAHEDRAL") {
-			out = MeshoptCompressionFilter::Octahedral;
-		} else if (str == "QUATERNION") {
-			out = MeshoptCompressionFilter::Quaternion;
-		} else if (str == "EXPONENTIAL") {
-			out = MeshoptCompressionFilter::Exponential;
-		} else if (str == "COLOR") {
-			out = MeshoptCompressionFilter::Color;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::MeshoptCompressionFilter;
+		return fastgltf::readStringEnum<
+			"NONE", "OCTAHEDRAL", "QUATERNION", "EXPONENTIAL", "COLOR">(
+			val, out,
+			{ None, Octahedral, Quaternion, Exponential, Color });
 	}
 
 	template <typename T>
@@ -393,121 +372,60 @@ namespace simdjson {
 
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AlphaMode& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "OPAQUE") {
-			out = AlphaMode::Opaque;
-		} else if (str == "MASK") {
-			out = AlphaMode::Mask;
-		} else if (str == "BLEND") {
-			out = AlphaMode::Blend;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::AlphaMode;
+		return fastgltf::readStringEnum<
+			"OPAQUE", "MASK", "BLEND">(
+			val, out,
+			{ Opaque, Mask, Blend });
 	}
 
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val,
 			fastgltf::AnimationInterpolation& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "LINEAR") {
-			out = AnimationInterpolation::Linear;
-		} else if (str == "STEP") {
-			out = AnimationInterpolation::Step;
-		} else if (str == "CUBICSPLINE") {
-			out = AnimationInterpolation::CubicSpline;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::AnimationInterpolation;
+		return fastgltf::readStringEnum<
+			"LINEAR", "STEP", "CUBICSPLINE">(
+			val, out,
+			{ Linear, Step, CubicSpline });
 	}
 
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::LightType& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "directional") {
-			out = LightType::Directional;
-		} else if (str == "spot") {
-			out = LightType::Spot;
-		} else if (str == "point") {
-			out = LightType::Point;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::LightType;
+		return fastgltf::readStringEnum<
+			"directional", "spot", "point">(
+			val, out,
+			{ Directional, Spot, Point });
 	}
 
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::CombineMode& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "average") {
-			out = CombineMode::Average;
-		} else if (str == "minimum") {
-			out = CombineMode::Minimum;
-		} else if (str == "maximum") {
-			out = CombineMode::Maximum;
-		} else if (str == "multiply") {
-			out = CombineMode::Multiply;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::CombineMode;
+		return fastgltf::readStringEnum<
+			"average", "minimum", "maximum", "multiply">(
+			val, out,
+			{ Average, Minimum, Maximum, Multiply });
 	}
 
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::DriveType& out) noexcept {
-		using namespace fastgltf;
-
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "linear") {
-			out = DriveType::Linear;
-		} else if (str == "angular") {
-			out = DriveType::Angular;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+		using enum fastgltf::DriveType;
+		return fastgltf::readStringEnum<"linear", "angular">(val, out, { Linear, Angular });
 	}
 
 	template <typename T>
 	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::DriveMode& out) noexcept {
-		using namespace fastgltf;
+		using enum fastgltf::DriveMode;
+		return fastgltf::readStringEnum<"force", "acceleration">(val, out, { Force, Acceleration });
+	}
 
-		std::string_view str;
-		if (const auto error = val.get_string().get(str); error != simdjson::SUCCESS) [[unlikely]]
-			return error;
-
-		if (str == "force") {
-			out = DriveMode::Force;
-		} else if (str == "acceleration") {
-			out = DriveMode::Acceleration;
-		} else [[unlikely]] {
-			return simdjson::INCORRECT_TYPE;
-		}
-		return simdjson::SUCCESS;
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AnimationPath& out) noexcept {
+		using enum fastgltf::AnimationPath;
+		return fastgltf::readStringEnum<
+			"translation", "rotation", "scale", "weights">(
+			val, out,
+			{ Translation, Rotation, Scale, Weights });
 	}
 
 	template <typename T>
@@ -1264,7 +1182,7 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		fastgltf::optional<std::size_t> sampler;
-		std::optional<std::string_view> path;
+		std::optional<AnimationPath> path;
 
 		// When node isn't defined, the channel SHOULD be ignored. That's left to the user.
 		const auto readTarget = [&](ondemand::value target) -> error_code {
@@ -1280,16 +1198,7 @@ namespace simdjson {
 			return NO_SUCH_FIELD;
 
 		out.samplerIndex = *sampler;
-		// Unknown paths are ignored, as extensions like KHR_animation_pointer may define them.
-		if (*path == "translation") {
-			out.path = AnimationPath::Translation;
-		} else if (*path == "rotation") {
-			out.path = AnimationPath::Rotation;
-		} else if (*path == "scale") {
-			out.path = AnimationPath::Scale;
-		} else if (*path == "weights") {
-			out.path = AnimationPath::Weights;
-		}
+		out.path = *path;
 		return SUCCESS;
 	}
 
