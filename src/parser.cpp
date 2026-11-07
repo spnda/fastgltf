@@ -28,6 +28,7 @@
 #error "fastgltf requires C++20"
 #endif
 
+#include <algorithm>
 #include <charconv>
 #include <numeric>
 
@@ -810,44 +811,31 @@ namespace fastgltf::detail {
 	}
 }
 
-fg::Error fg::Parser::parseAssetInfo(internal::JsonObject& rootJson, AssetInfo& info) {
-	using namespace simdjson;
-	auto& root = rootJson.value;
+namespace fastgltf {
+	/** Validates the version and minVersion of the asset object and stores them in info. */
+	[[nodiscard]] static Error parseAssetVersions(std::optional<std::string_view> versionString,
+			std::optional<std::string_view> minVersionString, AssetInfo& info) {
+		if (!versionString) [[unlikely]]
+			return Error::MissingField;
 
-	ondemand::value assetInfo;
-	if (const auto error = root["asset"].get(assetInfo); error == NO_SUCH_FIELD) [[unlikely]] {
-		return Error::MissingField;
-	} else if (error != SUCCESS) [[unlikely]] {
-		return Error::InvalidJson;
-	}
-
-	std::optional<std::string_view> versionString, minVersionString;
-	const auto error = assetInfo.get_object().for_each<
-		"version", "minVersion", "copyright", "generator">(
-		versionString, minVersionString, info.copyright, info.generator);
-	if (error != SUCCESS) [[unlikely]]
-		return toError(error);
-
-	if (!versionString) [[unlikely]]
-		return Error::MissingField;
-
-	auto version = detail::parseVersionString(*versionString);
-	if (version.has_error())
-		return version.error();
-	if (version->major != 2) [[unlikely]]
-		return Error::UnsupportedVersion;
-	info.version = *version;
-
-	if (minVersionString) {
-		auto minVersion = detail::parseVersionString(*minVersionString);
-		if (minVersion.has_error())
-			return minVersion.error();
-		if (*minVersion > Version { 2, 0 }) [[unlikely]]
+		auto version = detail::parseVersionString(*versionString);
+		if (version.has_error())
+			return version.error();
+		if (version->major != 2) [[unlikely]]
 			return Error::UnsupportedVersion;
-		info.minVersion = *minVersion;
+		info.version = *version;
+
+		if (minVersionString) {
+			auto minVersion = detail::parseVersionString(*minVersionString);
+			if (minVersion.has_error())
+				return minVersion.error();
+			if (*minVersion > Version { 2, 0 }) [[unlikely]]
+				return Error::UnsupportedVersion;
+			info.minVersion = *minVersion;
+		}
+		return Error::None;
 	}
-	return Error::None;
-}
+} // namespace fastgltf
 
 fg::Expected<fg::Asset> fg::Parser::parse(internal::JsonObject& rootJson, Category categories) {
 	using namespace simdjson;
@@ -856,50 +844,46 @@ fg::Expected<fg::Asset> fg::Parser::parse(internal::JsonObject& rootJson, Catego
 
 	Asset asset {};
 
-	// These lookups don't iterate the root object in order. Each string in the document may only be
-	// unescaped once, so the loop over the root object below skips the fields read here.
-	if (const auto err = parseAssetInfo(rootJson, asset.assetInfo); err != Error::None) {
-		return err;
-	}
+	// An initial pre-scan for things like the asset version, required extensions, and other
+	// important information we need to validate the rest of the asset.
+	{
+		std::optional<std::string_view> version, minVersion;
+		const auto readAsset = [&](ondemand::value assetInfo) -> error_code {
+			return assetInfo.get_object().for_each<"version", "minVersion", "copyright", "generator">(
+				version, minVersion, asset.assetInfo.copyright, asset.assetInfo.generator);
+		};
 
-	ondemand::array extensionsRequired;
-	if (root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) [[likely]] {
-		for (auto extension : extensionsRequired) {
-			std::string_view string;
-			if (extension.get_string().get(string) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
+		// Only the variants are counted here, their names are read in parseExtensions.
+		variantCount = 0;
+		const auto countVariants = [&](ondemand::value variants) -> error_code {
+			return variants.count_elements().get(variantCount);
+		};
+		const auto readMaterialVariants = [&](ondemand::value materialVariants) -> error_code {
+			return materialVariants.get_object().for_each<"variants">(countVariants);
+		};
+		const auto readExtensions = [&](ondemand::value extensions) -> error_code {
+			if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
+				return SUCCESS;
+			return extensions.get_object().for_each<"KHR_materials_variants">(readMaterialVariants);
+		};
 
-			bool known = false;
-			for (const auto& [extensionString, extensionEnum] : extensionStrings) {
-				if (extensionString == string) {
-					known = true;
-					if (!hasBit(config.extensions, extensionEnum)) {
-						// The extension is required, but not enabled by the user.
-						return Error::MissingExtensions;
-					}
-					break;
-				}
-			}
-			if (!known) [[unlikely]] {
+		if (const auto error = root.for_each<"asset", "extensionsRequired", "extensions">(
+			readAsset, asset.extensionsRequired, readExtensions); error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (const auto error = parseAssetVersions(version, minVersion, asset.assetInfo);
+			error != Error::None) [[unlikely]]
+			return error;
+
+		for (const auto& required : asset.extensionsRequired) {
+			const auto extension = std::ranges::find(extensionStrings, required,
+				&std::pair<std::string_view, Extensions>::first);
+			if (extension == extensionStrings.end()) [[unlikely]]
 				return Error::UnknownRequiredExtension;
-			}
 
-			asset.extensionsRequired.emplace_back(string);
-		}
-	}
-
-	variantCount = 0;
-	if (hasBit(config.extensions, Extensions::KHR_materials_variants)) {
-		// Only counts the variants; their names are read in parseExtensions.
-		ondemand::object extensionsObject, variantsObject;
-		ondemand::array variants;
-		const auto extension = extensions::KHR_materials_variants;
-		if (root["extensions"].get_object().get(extensionsObject) == SUCCESS &&
-			extensionsObject[extension].get_object().get(variantsObject) == SUCCESS &&
-			variantsObject["variants"].get_array().get(variants) == SUCCESS &&
-			variants.count_elements().get(variantCount) != SUCCESS) [[unlikely]] {
-			return Error::InvalidJson;
+			// The extension is required, but not enabled by the user.
+			if (!hasBit(config.extensions, extension->second)) [[unlikely]]
+				return Error::MissingExtensions;
 		}
 	}
 

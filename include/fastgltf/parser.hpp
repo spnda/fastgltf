@@ -696,7 +696,6 @@ namespace fastgltf {
 		Error parseTextures(internal::JsonArray& array, Asset& asset);
 		Error parseShapes(internal::JsonArray& shapes, Asset& asset);
 
-		Error parseAssetInfo(internal::JsonObject& root, AssetInfo& info);
 		Expected<Asset> parse(internal::JsonObject& root, Category categories);
 
 	public:
