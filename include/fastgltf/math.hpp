@@ -788,7 +788,7 @@ namespace fastgltf::math {
 			return ret;
 		}
 		constexpr auto operator*(vec<T, M> other) const noexcept {
-			vec<T, M> ret = col(0) * other[0];
+			vec<T, N> ret = col(0) * other[0];
 			for (std::size_t i = 1; i < columns(); ++i)
 				ret += col(i) * other[i];
 			return ret;
