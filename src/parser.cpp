@@ -80,15 +80,6 @@ namespace fastgltf {
 		}
 	}
 
-	[[nodiscard]] FASTGLTF_FORCEINLINE bool toNum(const double in, num& out) noexcept {
-		out = static_cast<num>(in);
-		return std::isfinite(out);
-	}
-	[[nodiscard]] FASTGLTF_FORCEINLINE bool toNum(const double in, optional<num>& out) noexcept {
-		out = static_cast<num>(in);
-		return std::isfinite(*out);
-	}
-
 	template <typename T>
 	requires has_flag_traits<T> && (std::is_integral_v<T> || std::is_enum_v<T>)
 	[[nodiscard]] FASTGLTF_FORCEINLINE bool isValidOptionalValue(std::uint64_t value) noexcept {
@@ -427,14 +418,6 @@ namespace simdjson {
 			"translation", "rotation", "scale", "weights">(
 			val, out,
 			{ Translation, Rotation, Scale, Weights });
-	}
-
-	template <typename T>
-	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::num& out) noexcept {
-		double number;
-		if (const auto error = val.get_double().get(number); error != SUCCESS) [[unlikely]]
-			return error;
-		return fastgltf::toNum(number, out) ? SUCCESS : INCORRECT_TYPE;
 	}
 
 	template <typename T, typename U>
