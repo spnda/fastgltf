@@ -497,17 +497,14 @@ namespace simdjson {
 		// We iterate through the JSON object and write each key/pair value into the
 		// attribute map. The keys are only validated in the validate() method.
 		for (auto attribute : object) {
-			std::string_view name;
-			if (const auto error = attribute.unescaped_key().get(name); error != SUCCESS) [[unlikely]]
+			auto& [name, accessorIndex] = out.emplace_back();
+			if (const auto error = attribute.unescaped_key(name); error != SUCCESS) [[unlikely]]
 				return error;
 
-			fastgltf::optional<std::size_t> accessorIndex;
-			if (const auto error = attribute.value().get(accessorIndex); error != SUCCESS) [[unlikely]]
+			fastgltf::optional<std::size_t> index;
+			if (const auto error = attribute.value().get(index); error != SUCCESS) [[unlikely]]
 				return error;
-			out.emplace_back(fastgltf::Attribute {
-				.name = std::string(name),
-				.accessorIndex = *accessorIndex,
-			});
+			accessorIndex = *index;
 		}
 		return SUCCESS;
 	}
@@ -955,12 +952,9 @@ fg::Expected<fg::Asset> fg::Parser::parse(internal::JsonObject& rootJson, Catego
 			KEY_SWITCH_CASE(Textures, textures)
 			case force_consteval<crc32c("extensionsUsed")>: {
 				for (auto usedValue : array.value) {
-					std::string_view usedString;
-					if (usedValue.get_string().get(usedString) == SUCCESS) [[likely]] {
-						asset.extensionsUsed.emplace_back(usedString);
-					} else {
+					auto& used = asset.extensionsUsed.emplace_back();
+					if (usedValue.get_string(used) != SUCCESS) [[unlikely]]
 						error = Error::InvalidGltf;
-					}
 				}
 				break;
 			}
@@ -1506,13 +1500,13 @@ fg::Error fg::Parser::parseExtensions(internal::JsonObject& extensionsObjectJson
 			return SUCCESS;
 
 		const auto readVariant = [&](ondemand::value variant) -> error_code {
-			std::optional<std::string_view> name;
+			std::optional<std::string> name;
 			if (const auto error = variant.get_object().for_each<"name">(name);
 				error != SUCCESS) [[unlikely]]
 				return error;
 			if (!name) [[unlikely]]
 				return NO_SUCH_FIELD;
-			asset.materialVariants.emplace_back(*name);
+			asset.materialVariants.emplace_back(std::move(*name));
 			return SUCCESS;
 		};
 		const auto readVariantArray = [&](ondemand::value variants) {
