@@ -454,7 +454,8 @@ TEST_CASE("Test empty scene omits nodes array", "[write-tests]") {
 	REQUIRE(result.error() == fastgltf::Error::None);
 	const auto& json = result.get().output;
 
-	REQUIRE(json.find(R"("nodes":[0])") != std::string::npos);
-	REQUIRE(json.find(R"("nodes":[])") == std::string::npos);
-	REQUIRE(json.find(R"({"name":"Empty"})") != std::string::npos);
+	CAPTURE(json);
+	CHECK(json.find(R"("nodes":[0])") != std::string::npos);
+	CHECK(json.find(R"("nodes":[])") == std::string::npos);
+	CHECK(json.find(R"({"name":"Empty"})") != std::string::npos);
 }
