@@ -18,6 +18,7 @@ Indices and tables
 ------------------
 
 * :doc:`overview`
+* :doc:`installation`
 * :doc:`tools`
 * :doc:`guides`
 * :doc:`options`
@@ -31,6 +32,7 @@ Indices and tables
    :maxdepth: 2
 
    overview
+   installation
    tools
    guides
    options
