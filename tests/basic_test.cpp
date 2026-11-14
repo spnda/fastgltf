@@ -239,22 +239,10 @@ TEST_CASE("string<->enum conversion functions", "[gltf-loader]") {
 		REQUIRE(internal::getMimeTypeFromString("") == MimeType::None);
 	}
 	SECTION("Combine modes") {
-		REQUIRE(internal::getCombineMode("average") == CombineMode::Average);
-		REQUIRE(internal::getCombineMode("minimum") == CombineMode::Minimum);
-		REQUIRE(internal::getCombineMode("maximum") == CombineMode::Maximum);
-		REQUIRE(internal::getCombineMode("multiply") == CombineMode::Multiply);
-
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Average) == "average");
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Minimum) == "minimum");
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Maximum) == "maximum");
 		REQUIRE(internal::getFrictionCombineName(CombineMode::Multiply) == "multiply");
-	}
-	SECTION("Drive type") {
-		REQUIRE(internal::getDriveType("linear") == DriveType::Linear);
-		REQUIRE(internal::getDriveType("angular") == DriveType::Angular);
-
-		REQUIRE(internal::getDriveMode("force") == DriveMode::Force);
-		REQUIRE(internal::getDriveMode("acceleration") == DriveMode::Acceleration);
 	}
 }
 
@@ -690,15 +678,21 @@ TEST_CASE("Test extras callback", "[gltf-loader]") {
 
 	// lambda callback to parse the glTF JSON from the jsonData buffer
 	auto parseJson = [&](fastgltf::GltfDataGetter& data) {
-		auto extrasCallback = [](simdjson::dom::object *extras, std::size_t objectIndex, fastgltf::Category category,
+		auto extrasCallback = [](std::string_view extras, std::size_t objectIndex, fastgltf::Category category,
 								 void *userPointer) {
 			if (category != fastgltf::Category::Nodes)
 				return;
 			auto *nodeNames = static_cast<std::vector<std::string> *>(userPointer);
 			nodeNames->resize(fastgltf::max(nodeNames->size(), objectIndex + 1));
 
+			simdjson::ondemand::parser parser;
+			simdjson::padded_string json(extras);
+
+			simdjson::ondemand::document document;
 			std::string_view nodeName;
-			if ((*extras)["name"].get_string().get(nodeName) == simdjson::SUCCESS) {
+			if (parser.iterate(json).get(document) == simdjson::SUCCESS &&
+				document["name"].get_string().get(nodeName) == simdjson::SUCCESS) {
+
 				(*nodeNames)[objectIndex] = std::string(nodeName);
 			}
 		};

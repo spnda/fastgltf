@@ -55,7 +55,6 @@ namespace fastgltf::internal {
 }
 
 struct fastgltf::Exporter::impl {
-	Error errorCode = Error::None;
 	ExportOptions options = ExportOptions::None;
 	bool exportingBinary = false;
 
@@ -75,11 +74,11 @@ struct fastgltf::Exporter::impl {
 
 	void writeAccessors(const Asset& asset, simdjson::builder::string_builder& builder);
 	void writeAnimations(const Asset& asset, simdjson::builder::string_builder& builder);
-	void writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder);
+	Error writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder);
 	void writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder);
 	void writeCameras(const Asset& asset, simdjson::builder::string_builder& builder);
 	void writeCollisionFilters(const Asset& asset, simdjson::builder::string_builder& builder);
-	void writeImages(const Asset& asset, simdjson::builder::string_builder& builder);
+	Error writeImages(const Asset& asset, simdjson::builder::string_builder& builder);
 	void writeLights(const Asset& asset, simdjson::builder::string_builder& builder);
 	void writeMaterialExtensions(const Material& material, simdjson::builder::string_builder& builder);
 	void writeMaterials(const Asset& asset, simdjson::builder::string_builder& builder);
@@ -97,7 +96,7 @@ struct fastgltf::Exporter::impl {
 	std::filesystem::path getBufferFilePath(const Asset& asset, std::size_t index);
 	std::filesystem::path getImageFilePath(const Asset& asset, std::size_t index, MimeType mimeType);
 
-	std::string writeJson(const Asset& asset);
+	Expected<std::string> writeJson(const Asset& asset);
 
 	Expected<ExportResult<std::string>> writeGltfJson(const Asset& asset, ExportOptions options = ExportOptions::None);
 	Expected<ExportResult<std::vector<std::byte>>> writeGltfBinary(const Asset& asset, ExportOptions options = ExportOptions::None);
@@ -559,9 +558,9 @@ void fg::Exporter::impl::writeAnimations(const Asset& asset, simdjson::builder::
 	}
 }
 
-void fg::Exporter::impl::writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder) {
+fg::Error fg::Exporter::impl::writeBuffers(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.buffers.empty())
-		return;
+		return Error::None;
 
 	auto buffers = scoped_array<"buffers">(builder);
 
@@ -572,45 +571,49 @@ void fg::Exporter::impl::writeBuffers(const Asset& asset, simdjson::builder::str
 		auto obj = scoped_object(builder);
 
 		auto bufferIdx = uabs(std::distance(asset.buffers.begin(), it));
-		std::visit(visitor {
+		const auto error = std::visit(visitor {
 			[&](auto&) {
 				// Covers BufferView and CustomBuffer.
-				errorCode = Error::InvalidGltf;
+				return Error::InvalidGltf;
 			},
 			[&]([[maybe_unused]] const sources::Array& vector) {
 				if (bufferIdx == 0 && exportingBinary) {
 					bufferPaths.emplace_back(std::nullopt);
-					return;
+					return Error::None;
 				}
 				auto path = getBufferFilePath(asset, bufferIdx);
 				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
 				builder.append_comma();
 				bufferPaths.emplace_back(path);
+				return Error::None;
 			},
 			[&]([[maybe_unused]] const sources::Vector& vector) {
 				if (bufferIdx == 0 && exportingBinary) {
 					bufferPaths.emplace_back(std::nullopt);
-					return;
+					return Error::None;
 				}
 				auto path = getBufferFilePath(asset, bufferIdx);
 				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
 				builder.append_comma();
 				bufferPaths.emplace_back(path);
+				return Error::None;
 			},
 			[&]([[maybe_unused]] const sources::ByteView& view) {
 				if (bufferIdx == 0 && exportingBinary) {
 					bufferPaths.emplace_back(std::nullopt);
-					return;
+					return Error::None;
 				}
 				auto path = getBufferFilePath(asset, bufferIdx);
 				builder.append_key_value<"uri">(fg::normalizeAndFormatPath(path));
 				builder.append_comma();
 				bufferPaths.emplace_back(path);
+				return Error::None;
 			},
 			[&](const sources::URI& uri) {
 				builder.append_key_value<"uri">(uri.uri->string());
 				builder.append_comma();
 				bufferPaths.emplace_back(std::nullopt);
+				return Error::None;
 			},
 			[&]([[maybe_unused]] const sources::Fallback& fallback) {
 				{
@@ -620,8 +623,11 @@ void fg::Exporter::impl::writeBuffers(const Asset& asset, simdjson::builder::str
 				}
 				builder.append_comma();
 				bufferPaths.emplace_back(std::nullopt);
+				return Error::None;
 			},
 		}, it->data);
+		if (error != Error::None) [[unlikely]]
+			return error;
 
 		builder.append_key_value<"byteLength">(it->byteLength);
 
@@ -638,6 +644,8 @@ void fg::Exporter::impl::writeBuffers(const Asset& asset, simdjson::builder::str
 			builder.append_key_value<"name">(it->name);
 		}
 	}
+
+	return Error::None;
 }
 
 void fg::Exporter::impl::writeBufferViews(const Asset& asset, simdjson::builder::string_builder& builder) {
@@ -818,9 +826,9 @@ void fg::Exporter::impl::writeCameras(const Asset& asset, simdjson::builder::str
 	}
 }
 
-void fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::string_builder& builder) {
+fg::Error fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::string_builder& builder) {
 	if (asset.images.empty())
-		return;
+		return Error::None;
 
 	auto images = scoped_array<"images">(builder);
 
@@ -831,15 +839,16 @@ void fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::stri
 		auto obj = scoped_object(builder);
 
 		auto imageIdx = uabs(std::distance(asset.images.begin(), it));
-		std::visit(visitor {
+		const auto error = std::visit(visitor {
 			[&](auto&) {
-				errorCode = Error::InvalidGltf;
+				return Error::InvalidGltf;
 			},
 			[&](const sources::BufferView& bufferView) {
 				builder.append_key_value<"bufferView">(bufferView.bufferViewIndex);
 				builder.append_comma();
 				builder.append_key_value<"mimeType">(internal::getMimeTypeString(bufferView.mimeType));
 				imagePaths.emplace_back(std::nullopt);
+				return Error::None;
 			},
 			[&](const sources::Array& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
@@ -849,6 +858,7 @@ void fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::stri
 					builder.append_key_value<"mimeType">(internal::getMimeTypeString(vector.mimeType));
 				}
 				imagePaths.emplace_back(path);
+				return Error::None;
 			},
 			[&](const sources::Vector& vector) {
 				auto path = getImageFilePath(asset, imageIdx, vector.mimeType);
@@ -858,6 +868,7 @@ void fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::stri
 					builder.append_key_value<"mimeType">(internal::getMimeTypeString(vector.mimeType));
 				}
 				imagePaths.emplace_back(path);
+				return Error::None;
 			},
 			[&](const sources::URI& uri) {
 				builder.append_key_value<"uri">(uri.uri->string());
@@ -866,10 +877,11 @@ void fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::stri
 					builder.append_key_value<"mimeType">(internal::getMimeTypeString(uri.mimeType));
 				}
 				imagePaths.emplace_back(std::nullopt);
+				return Error::None;
 			},
 		}, it->data);
-		if (errorCode != Error::None)
-			return;
+		if (error != Error::None) [[unlikely]]
+			return error;
 
 		if (extrasWriteCallback != nullptr) {
 			auto extras = extrasWriteCallback(uabs(std::distance(asset.images.begin(), it)), Category::Images, userPointer);
@@ -884,6 +896,8 @@ void fg::Exporter::impl::writeImages(const Asset& asset, simdjson::builder::stri
 			builder.append_key_value<"name">(it->name);
 		}
 	}
+
+	return Error::None;
 }
 
 void fg::Exporter::impl::writeLights(const Asset& asset, simdjson::builder::string_builder& builder) {
@@ -2196,7 +2210,6 @@ void fg::Exporter::impl::writePhysicsJoints(const Asset& asset, simdjson::builde
 
 				switch (drive.type) {
 				case DriveType::Linear:
-				case DriveType::Invalid:
 					append_const_key_value<"type", "linear">(builder);
 					break;
 				case DriveType::Angular:
@@ -2207,7 +2220,6 @@ void fg::Exporter::impl::writePhysicsJoints(const Asset& asset, simdjson::builde
 				builder.append_comma();
 				switch (drive.mode) {
 				case DriveMode::Force:
-				case DriveMode::Invalid:
 					append_const_key_value<"mode", "force">(builder);
 					break;
 				case DriveMode::Acceleration:
@@ -2309,7 +2321,7 @@ fs::path fg::Exporter::impl::getImageFilePath(const Asset& asset, std::size_t in
 	return imageFolder / (std::string(imageName) + std::string(extension));
 }
 
-std::string fg::Exporter::impl::writeJson(const Asset &asset) {
+fg::Expected<std::string> fg::Exporter::impl::writeJson(const Asset &asset) {
 	simdjson::builder::string_builder builder;
 
 	{
@@ -2356,7 +2368,8 @@ std::string fg::Exporter::impl::writeJson(const Asset &asset) {
 		}
 		if (!asset.buffers.empty()) {
 			builder.append_comma();
-			writeBuffers(asset, builder);
+			if (const auto error = writeBuffers(asset, builder); error != Error::None) [[unlikely]]
+				return error;
 		}
 		if (!asset.bufferViews.empty()) {
 			builder.append_comma();
@@ -2368,7 +2381,8 @@ std::string fg::Exporter::impl::writeJson(const Asset &asset) {
 		}
 		if (!asset.images.empty()) {
 			builder.append_comma();
-			writeImages(asset, builder);
+			if (const auto error = writeImages(asset, builder); error != Error::None) [[unlikely]]
+				return error;
 		}
 		if (!asset.materials.empty()) {
 			builder.append_comma();
@@ -2403,14 +2417,15 @@ std::string fg::Exporter::impl::writeJson(const Asset &asset) {
 		writeExtensions(asset, builder);
 	}
 
+	std::string json;
+	if (builder.move_to(json) != simdjson::SUCCESS)
+		return Error::Unknown;
+
 	if (hasBit(options, ExportOptions::PrettyPrintJson)) {
-		auto json = std::string(builder);
-		if (hasBit(options, ExportOptions::PrettyPrintJson))
-        	prettyPrintJson(json);
-		return json;
+       	prettyPrintJson(json);
 	}
 
-	return std::string(builder);
+	return json;
 }
 
 fg::Expected<fg::ExportResult<std::string>> fg::Exporter::impl::writeGltfJson(const Asset& asset, ExportOptions _options) {
@@ -2426,13 +2441,13 @@ fg::Expected<fg::ExportResult<std::string>> fg::Exporter::impl::writeGltfJson(co
 	}
 
 	// Fairly rudimentary approach of just composing the JSON string using a std::string.
-	std::string outputString = writeJson(asset);
-	if (errorCode != Error::None) {
-		return errorCode;
+	auto outputString = writeJson(asset);
+	if (outputString.has_error()) {
+		return outputString.error();
 	}
 
 	ExportResult<std::string> result;
-	result.output = std::move(outputString);
+	result.output = std::move(outputString.get());
 	result.bufferPaths = std::move(bufferPaths);
 	result.imagePaths = std::move(imagePaths);
 	return result;
@@ -2448,8 +2463,8 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::impl::write
 
 	ExportResult<std::vector<std::byte>> result;
 	auto json = writeJson(asset);
-	if (errorCode != Error::None) {
-		return errorCode;
+	if (json.has_error()) {
+		return json.error();
 	}
 
 	result.bufferPaths = std::move(bufferPaths);
@@ -2465,7 +2480,7 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::impl::write
 
 	std::size_t binarySize = 0;
 	binarySize += sizeof(internal::BinaryGltfHeader); // glTF header
-	binarySize += sizeof(internal::BinaryGltfChunk) + alignUp(json.size(), 4); // JSON chunk
+	binarySize += sizeof(internal::BinaryGltfChunk) + alignUp(json->size(), 4); // JSON chunk
 	if (withEmbeddedBuffer) {
 		binarySize += sizeof(internal::BinaryGltfChunk) + alignUp(asset.buffers.front().byteLength, 4); // BIN chunk
 	}
@@ -2492,14 +2507,14 @@ fg::Expected<fg::ExportResult<std::vector<std::byte>>> fg::Exporter::impl::write
 	// Write JSON chunk
 	internal::BinaryGltfChunk jsonChunk {};
 	jsonChunk.chunkType = internal::binaryGltfJsonChunkMagic;
-	jsonChunk.chunkLength = static_cast<std::uint32_t>(alignUp(json.size(), 4));
+	jsonChunk.chunkLength = static_cast<std::uint32_t>(alignUp(json->size(), 4));
 	auto chunkBytes = writeBinaryChunk(jsonChunk);
 	write(chunkBytes.data(), chunkBytes.size());
 
-	write(json.data(), json.size());
+	write(json->data(), json->size());
 
 	// 4 bytes padding with space character (0x20)
-	for (std::size_t i = json.size(); i % 4 != 0; ++i) {
+	for (std::size_t i = json->size(); i % 4 != 0; ++i) {
 		static constexpr std::uint8_t space = 0x20U;
 		write(&space, sizeof space);
 	}

@@ -44,13 +44,15 @@
 struct AAssetManager;
 #endif
 
-namespace simdjson::dom {
-	class array;
-	class object;
-	class parser;
-} // namespace simdjson::dom
-
 namespace fastgltf {
+	namespace internal {
+		// Wrappers around simdjson's types to not expose them in this header. Also, the ondemand types
+		// can't be forward declared.
+		struct JsonParser;
+		struct JsonObject;
+		struct JsonArray;
+	} // namespace internal
+
 	// clang-format off
 	FASTGLTF_EXPORT enum class FASTGLTF_FLAG_ENUM Extensions : std::uint64_t {
 		None = 0,
@@ -368,7 +370,7 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT using BufferMapCallback = BufferInfo(std::uint64_t bufferSize, void* userPointer);
 	FASTGLTF_EXPORT using BufferUnmapCallback = void(BufferInfo* bufferInfo, void* userPointer);
-	FASTGLTF_EXPORT using ExtrasParseCallback = void(simdjson::dom::object* extras, std::size_t objectIndex, Category objectType, void* userPointer);
+	FASTGLTF_EXPORT using ExtrasParseCallback = void(std::string_view extras, std::size_t objectIndex, Category objectType, void* userPointer);
 
 	/**
 	 * This interface defines how the parser can read the bytes making up a glTF or GLB file.
@@ -651,7 +653,7 @@ namespace fastgltf {
 	class Parser {
 		// The simdjson parser object. We want to share it between runs, so it does not need to
 		// reallocate over and over again. We're hiding it here to not leak the simdjson header.
-		std::unique_ptr<simdjson::dom::parser> jsonParser;
+		std::unique_ptr<internal::JsonParser> jsonParser;
 
 		ParserInternalConfig config = {};
 
@@ -662,9 +664,6 @@ namespace fastgltf {
 
 		static void fillCategories(Category& inputCategories) noexcept;
 
-		template <typename T>
-		Error parseAttributes(simdjson::dom::object& object, T& attributes);
-
 		auto decodeDataUri(const URIView& uri) const noexcept -> Expected<DataSource>;
 		auto loadFileFromUri(const URIView& uri) const noexcept -> Expected<DataSource>;
 #if defined(__ANDROID__)
@@ -673,31 +672,31 @@ namespace fastgltf {
 
 		Error generateMeshIndices(Asset& asset) const;
 
-		Error parseAccessors(const simdjson::dom::array& array, Asset& asset);
-		Error parseAnimations(simdjson::dom::array& array, Asset& asset);
-		Error parseBuffers(simdjson::dom::array& array, Asset& asset);
-		Error parseBufferViews(const simdjson::dom::array& array, Asset& asset);
-		Error parseCameras(simdjson::dom::array& array, Asset& asset);
-		Error parseCollisionFilters(const simdjson::dom::array& collisionFilters, Asset& asset);
-		Error parseExtensions(const simdjson::dom::object& extensionsObject, Asset& asset);
-		Error parseImages(simdjson::dom::array& array, Asset& asset);
-		Error parseLights(const simdjson::dom::array& array, Asset& asset);
-		Error parseMaterialExtensions(simdjson::dom::object& object, Material& material);
-		Error parseMaterials(simdjson::dom::array& array, Asset& asset);
-		Error parsePrimitiveExtensions(const simdjson::dom::object& object, Primitive& primitive);
-		Error parseMeshes(simdjson::dom::array& array, Asset& asset);
-		Error parseNodes(simdjson::dom::array& array, Asset& asset);
-		Error parsePhysicsMaterials(const simdjson::dom::array& physicsMaterials, Asset& asset);
-		Error parsePhysicsJoints(const simdjson::dom::array& physicsJoints, Asset& asset);
-		Error parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node);
-		Error parseSamplers(const simdjson::dom::array& array, Asset& asset);
-		Error parseScenes(const simdjson::dom::array& array, Asset& asset);
-		Error parseSkins(const simdjson::dom::array& array, Asset& asset);
-		Error parseTextures(const simdjson::dom::array& array, Asset& asset);
-		Error parseShapes(const simdjson::dom::array& shapes, Asset& asset);
+		Error parseAccessors(internal::JsonArray& array, Asset& asset);
+		Error parseAnimations(internal::JsonArray& array, Asset& asset);
+		Error parseBuffers(internal::JsonArray& array, Asset& asset);
+		Error parseBufferViews(internal::JsonArray& array, Asset& asset);
+		Error parseCameras(internal::JsonArray& array, Asset& asset);
+		Error parseCollisionFilters(internal::JsonArray& collisionFilters, Asset& asset);
+		Error parseExtensions(internal::JsonObject& extensionsObject, Asset& asset);
+		Error parseImages(internal::JsonArray& array, Asset& asset);
+		Error parseLights(internal::JsonArray& array, Asset& asset);
+		Error parseMaterialExtensions(internal::JsonObject& object, Material& material);
+		Error parseMaterials(internal::JsonArray& array, Asset& asset);
+		Error parsePrimitiveExtensions(internal::JsonObject& object, Primitive& primitive);
+		Error parsePrimitives(internal::JsonArray& array, Mesh& mesh);
+		Error parseMeshes(internal::JsonArray& array, Asset& asset);
+		Error parseNodes(internal::JsonArray& array, Asset& asset);
+		Error parsePhysicsMaterials(internal::JsonArray& physicsMaterials, Asset& asset);
+		Error parsePhysicsJoints(internal::JsonArray& physicsJoints, Asset& asset);
+		Error parsePhysicsRigidBody(internal::JsonObject& khr_physics_rigid_bodies, Node& node);
+		Error parseSamplers(internal::JsonArray& array, Asset& asset);
+		Error parseScenes(internal::JsonArray& array, Asset& asset);
+		Error parseSkins(internal::JsonArray& array, Asset& asset);
+		Error parseTextures(internal::JsonArray& array, Asset& asset);
+		Error parseShapes(internal::JsonArray& shapes, Asset& asset);
 
-		Error parseAssetInfo(const simdjson::dom::object& root, AssetInfo& info);
-		Expected<Asset> parse(simdjson::dom::object root, Category categories);
+		Expected<Asset> parse(internal::JsonObject& root, Category categories);
 
 	public:
 		explicit Parser(Extensions extensionsToLoad = Extensions::None) noexcept;

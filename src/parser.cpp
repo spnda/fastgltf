@@ -28,6 +28,7 @@
 #error "fastgltf requires C++20"
 #endif
 
+#include <algorithm>
 #include <charconv>
 #include <numeric>
 
@@ -46,6 +47,16 @@ namespace fs = std::filesystem;
 
 namespace fastgltf {
 	namespace internal {
+		struct JsonParser {
+			simdjson::ondemand::parser parser;
+		};
+		struct JsonObject {
+			simdjson::ondemand::object value;
+		};
+		struct JsonArray {
+			simdjson::ondemand::array value;
+		};
+
 		/** GLBs are always little-endian, meaning we need to read the values accordingly */
 		[[nodiscard]] inline auto readBinaryHeader(GltfDataGetter& getter) noexcept {
 			std::array<std::byte, sizeof(BinaryGltfHeader)> bytes {};
@@ -67,15 +78,6 @@ namespace fastgltf {
 			readUint32LE(chunk.chunkType, &bytes[offsetof(BinaryGltfChunk, chunkType)]);
 			return chunk;
 		}
-	}
-
-	[[nodiscard]] FASTGLTF_FORCEINLINE bool toNum(const double in, num& out) noexcept {
-		out = static_cast<num>(in);
-		return std::isfinite(out);
-	}
-	[[nodiscard]] FASTGLTF_FORCEINLINE bool toNum(const double in, optional<num>& out) noexcept {
-		out = static_cast<num>(in);
-		return std::isfinite(*out);
 	}
 
 	template <typename T>
@@ -152,169 +154,445 @@ namespace fastgltf {
 		return static_cast<std::uint64_t>(*out) == in && isValidEnum(*out);
 	}
 
-	[[nodiscard]] inline Error getImageIndexForExtension(const simdjson::dom::element& element, optional<std::size_t>& imageIndexOut) {
-		using namespace simdjson;
-
-		dom::object source;
-		if (element.get(source) != simdjson::SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		std::uint64_t imageIndex;
-		if (source["source"].get_uint64().get(imageIndex) != simdjson::SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (!isValidIndex(imageIndex)) [[unlikely]]
-			return Error::ValueOutOfRange;
-
-		imageIndexOut = static_cast<std::size_t>(imageIndex);
-		return Error::None;
+	template <typename Vec>
+	requires requires (Vec vec, std::size_t count) {
+		vec.reserve(count);
 	}
-
-	[[nodiscard]] inline Error parseTextureExtensions(Texture& texture, const simdjson::dom::object& extensions, const Extensions extensionFlags) {
-		for (auto extension : extensions) {
-			switch (crc32c(extension.key)) {
-				case force_consteval<crc32c(extensions::KHR_texture_basisu)>: {
-					if (!hasBit(extensionFlags, Extensions::KHR_texture_basisu))
-						break;
-					if (auto error = getImageIndexForExtension(extension.value, texture.basisuImageIndex); error != Error::None)
-						return error;
-					break;
-				}
-				case force_consteval<crc32c(extensions::MSFT_texture_dds)>: {
-					if (!hasBit(extensionFlags, Extensions::MSFT_texture_dds))
-						break;
-					if (auto error = getImageIndexForExtension(extension.value, texture.ddsImageIndex); error != Error::None)
-						return error;
-					break;
-				}
-				case force_consteval<crc32c(extensions::EXT_texture_webp)>: {
-					if (!hasBit(extensionFlags, Extensions::EXT_texture_webp))
-						break;
-					if (auto error = getImageIndexForExtension(extension.value, texture.webpImageIndex); error != Error::None)
-						return error;
-					break;
-				}
-				case force_consteval<crc32c(extensions::EXT_texture_avif)>: {
-					if (!hasBit(extensionFlags, Extensions::EXT_texture_avif))
-						break;
-					if (auto error = getImageIndexForExtension(extension.value, texture.avifImageIndex); error != Error::None)
-						return error;
-					break;
-				}
-				default:
-					break;
-			}
-		}
-
-		return Error::None;
-	}
-
-	[[nodiscard]] inline Error getJsonArray(const simdjson::dom::object& parent, std::string_view arrayName, simdjson::dom::array* array) noexcept {
-		using namespace simdjson;
-
-		const auto error = parent[arrayName].get_array().get(*array);
-		if (error == NO_SUCH_FIELD) {
-			return Error::MissingField;
-		}
-		if (error == SUCCESS) [[likely]] {
-			return Error::None;
-		}
-		return Error::InvalidJson;
-	}
-
-	template <internal::TextureInfoType type = internal::TextureInfoType::Standard>
-	Error parseTextureInfo(const simdjson::dom::object& object, const std::string_view key,
-		TextureInfo* info, const Extensions extensions) noexcept {
-		using namespace simdjson;
-
-		dom::object child;
-		if (auto childErr = object[key].get_object().get(child); childErr == NO_SUCH_FIELD) {
-			return Error::MissingField;
-		} else if (childErr != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		std::uint64_t index;
-		if (child["index"].get_uint64().get(index) == SUCCESS) [[likely]] {
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			info->textureIndex = static_cast<std::size_t>(index);
-		} else {
-			return Error::InvalidGltf;
-		}
-
-		if (const auto error = child["texCoord"].get_uint64().get(index); error == SUCCESS) [[likely]] {
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			info->texCoordIndex = static_cast<std::size_t>(index);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
+	[[nodiscard]] FASTGLTF_FORCEINLINE Error reserveElements(simdjson::ondemand::array& array, Vec& vec) {
+		std::size_t count;
+		if (array.count_elements().get(count) != simdjson::SUCCESS) [[unlikely]]
 			return Error::InvalidJson;
-		}
-
-		if constexpr (type == internal::TextureInfoType::NormalTexture) {
-			double scale;
-			if (const auto error = child["scale"].get_double().get(scale); error == SUCCESS) [[likely]] {
-				if (!toNum(scale, reinterpret_cast<NormalTextureInfo*>(info)->scale)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		} else if constexpr (type == internal::TextureInfoType::OcclusionTexture) {
-			double strength;
-			if (const auto error = child["strength"].get_double().get(strength); error == SUCCESS) [[likely]] {
-				if (!toNum(strength, reinterpret_cast<OcclusionTextureInfo*>(info)->strength)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		}
-
-		dom::object extensionsObject;
-		if (child["extensions"].get_object().get(extensionsObject) == SUCCESS) [[likely]] {
-			dom::object textureTransform;
-			if (hasBit(extensions, Extensions::KHR_texture_transform) && extensionsObject[extensions::KHR_texture_transform].get_object().get(textureTransform) == SUCCESS) [[likely]] {
-				auto& transform = info->transform.emplace();
-				transform.rotation = 0.0F;
-
-				if (textureTransform["texCoord"].get_uint64().get(index) == SUCCESS) [[likely]] {
-					if (!isValidIndex(index)) [[unlikely]]
-						return Error::ValueOutOfRange;
-					transform.texCoordIndex = index;
-				}
-
-				double rotation = 0.0F;
-				if (textureTransform["rotation"].get_double().get(rotation) == SUCCESS) [[likely]] {
-					if (!toNum(rotation, transform.rotation)) [[unlikely]]
-						return Error::InvalidGltf;
-				}
-
-				dom::array array;
-				if (textureTransform["offset"].get_array().get(array) == SUCCESS) [[likely]] {
-					for (auto i = 0U; i < 2; ++i) {
-						double val;
-						if (array.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(val, transform.uvOffset[i])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				}
-
-				if (textureTransform["scale"].get_array().get(array) == SUCCESS) [[likely]] {
-					for (auto i = 0U; i < 2; ++i) {
-						double val;
-						if (array.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(val, transform.uvScale[i])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				}
-			}
-		}
-
+		vec.reserve(count);
 		return Error::None;
+	}
+
+	/** Converts the result of reading JSON with simdjson to a fastgltf Error as closely as possible */
+	[[nodiscard]] constexpr Error toError(const simdjson::error_code error) noexcept {
+		switch (error) {
+			case simdjson::SUCCESS:
+				return Error::None;
+			case simdjson::INCORRECT_TYPE:
+			case simdjson::NO_SUCH_FIELD:
+			case simdjson::BIGINT_ERROR:
+				return Error::InvalidGltf;
+			case simdjson::NUMBER_OUT_OF_RANGE:
+				return Error::ValueOutOfRange;
+			default:
+				return Error::InvalidJson;
+		}
+	}
+
+	/**
+	 * The reverse of toError, for calling functions which return an Error from a handler.
+	 * Errors which toError can't return become a generic error.
+	 */
+	[[nodiscard]] constexpr simdjson::error_code toErrorCode(const Error error) noexcept {
+		switch (error) {
+			case Error::None:
+				return simdjson::SUCCESS;
+			case Error::InvalidGltf:
+				return simdjson::INCORRECT_TYPE;
+			case Error::ValueOutOfRange:
+				return simdjson::NUMBER_OUT_OF_RANGE;
+			default:
+				return simdjson::UNEXPECTED_ERROR;
+		}
+	}
+
+	/** Walks the JSON array, calling func with each element. func has to append to vec itself. */
+	template <typename Vec, typename F>
+	[[nodiscard]] simdjson::error_code parseArray(simdjson::ondemand::value value, Vec& vec,
+			F&& func) {
+		simdjson::ondemand::array array;
+		if (const auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		std::size_t count;
+		if (const auto error = array.count_elements().get(count); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+		vec.reserve(count);
+
+		for (auto element : array) {
+			simdjson::ondemand::value elementValue;
+			if (const auto error = element.get(elementValue); error != simdjson::SUCCESS) [[unlikely]]
+				return error;
+			if (const auto error = func(elementValue); error != simdjson::SUCCESS) [[unlikely]]
+				return error;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename Value, typename T>
+	[[nodiscard]] simdjson::error_code parseNumArray(Value& value, T& out) noexcept {
+		simdjson::ondemand::array array;
+		if (const auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		std::size_t i = 0;
+		for (auto element : array) {
+			if (i == out.size()) [[unlikely]]
+				return simdjson::INCORRECT_TYPE;
+			if (const auto error = element.get(out[i++]); error != simdjson::SUCCESS) [[unlikely]]
+				return error;
+		}
+		return i == out.size() ? simdjson::SUCCESS : simdjson::INCORRECT_TYPE;
+	}
+} // namespace fastgltf
+
+#pragma region tag_invoke
+namespace fastgltf {
+	/**
+	 * Reads a JSON string and sets out to the value at the index of the matching key. The raw
+	 * string is matched without unescaping it, so a string with escape sequences never matches.
+	 */
+	template <simdjson::constevalutil::fixed_string... Keys, typename Value, typename Enum>
+	[[nodiscard]] FASTGLTF_FORCEINLINE simdjson::error_code readStringEnum(Value& value, Enum& out,
+			const Enum (&values)[sizeof...(Keys)]) noexcept {
+		simdjson::ondemand::raw_json_string string;
+		if (const auto error = value.get_raw_json_string().get(string);
+			error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		const auto index = simdjson::ondemand::key_selector<Keys...>::match_raw(string);
+		if (index == sizeof...(Keys)) [[unlikely]]
+			return simdjson::INCORRECT_TYPE;
+		out = values[index];
+		return simdjson::SUCCESS;
+	}
+} // namespace fastgltf
+
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AccessorType& out) noexcept {
+		using enum fastgltf::AccessorType;
+		return fastgltf::readStringEnum<
+			"SCALAR", "VEC2", "VEC3", "VEC4", "MAT2", "MAT3", "MAT4">(
+			val, out,
+			{ Scalar, Vec2, Vec3, Vec4, Mat2, Mat3, Mat4 });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::ComponentType& out) noexcept {
+		using namespace fastgltf;
+
+		std::underlying_type_t<fastgltf::ComponentType> value;
+		if (const auto error = val.get(value); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		out = fastgltf::internal::getComponentType(value);
+		if (out == ComponentType::Invalid) [[unlikely]] {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::PrimitiveType& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		if (!toEnum(value, out)) [[unlikely]] {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::BufferTarget& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		if (!toEnum(value, out)) [[unlikely]] {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val,
+			fastgltf::MeshoptCompressionMode& out) noexcept {
+		using enum fastgltf::MeshoptCompressionMode;
+		return fastgltf::readStringEnum<
+			"ATTRIBUTES", "TRIANGLES", "INDICES">(
+			val, out,
+			{ Attributes, Triangles, Indices });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val,
+			fastgltf::MeshoptCompressionFilter& out) noexcept {
+		using enum fastgltf::MeshoptCompressionFilter;
+		return fastgltf::readStringEnum<
+			"NONE", "OCTAHEDRAL", "QUATERNION", "EXPONENTIAL", "COLOR">(
+			val, out,
+			{ None, Octahedral, Quaternion, Exponential, Color });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Filter& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		if (!toEnum(value, out)) [[unlikely]] {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Wrap& out) noexcept {
+		using namespace fastgltf;
+
+		std::uint64_t value;
+		if (const auto error = val.get_uint64().get(value); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		if (!toEnum(value, out)) [[unlikely]] {
+			return simdjson::INCORRECT_TYPE;
+		}
+		return simdjson::SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AlphaMode& out) noexcept {
+		using enum fastgltf::AlphaMode;
+		return fastgltf::readStringEnum<
+			"OPAQUE", "MASK", "BLEND">(
+			val, out,
+			{ Opaque, Mask, Blend });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val,
+			fastgltf::AnimationInterpolation& out) noexcept {
+		using enum fastgltf::AnimationInterpolation;
+		return fastgltf::readStringEnum<
+			"LINEAR", "STEP", "CUBICSPLINE">(
+			val, out,
+			{ Linear, Step, CubicSpline });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::LightType& out) noexcept {
+		using enum fastgltf::LightType;
+		return fastgltf::readStringEnum<
+			"directional", "spot", "point">(
+			val, out,
+			{ Directional, Spot, Point });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::CombineMode& out) noexcept {
+		using enum fastgltf::CombineMode;
+		return fastgltf::readStringEnum<
+			"average", "minimum", "maximum", "multiply">(
+			val, out,
+			{ Average, Minimum, Maximum, Multiply });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::DriveType& out) noexcept {
+		using enum fastgltf::DriveType;
+		return fastgltf::readStringEnum<"linear", "angular">(val, out, { Linear, Angular });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::DriveMode& out) noexcept {
+		using enum fastgltf::DriveMode;
+		return fastgltf::readStringEnum<"force", "acceleration">(val, out, { Force, Acceleration });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AnimationPath& out) noexcept {
+		using enum fastgltf::AnimationPath;
+		return fastgltf::readStringEnum<
+			"translation", "rotation", "scale", "weights">(
+			val, out,
+			{ Translation, Rotation, Scale, Weights });
+	}
+
+	template <typename T, typename U>
+	static error_code tag_invoke(deserialize_tag, T& val,
+			fastgltf::flagged_optional<U>& out) noexcept {
+		U value;
+		if (const auto error = val.get(value); error != SUCCESS) [[unlikely]]
+			return error;
+		if (fastgltf::optional_flag_value<U>::is_empty(value)) [[unlikely]]
+			return NUMBER_OUT_OF_RANGE;
+		out = std::move(value);
+		return SUCCESS;
+	}
+
+	template <typename T, typename U>
+	static error_code tag_invoke(deserialize_tag, T& val,
+		fastgltf::boxed_optional<U>& out) {
+		return val.get(out.emplace());
+	}
+
+	template <typename T, std::size_t N>
+	static error_code tag_invoke(deserialize_tag, T& val,
+			fastgltf::math::vec<fastgltf::num, N>& out) noexcept {
+		return fastgltf::parseNumArray(val, out);
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::math::nquat& out) noexcept {
+		return fastgltf::parseNumArray(val, out);
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::math::nmat4x4& out) noexcept {
+		ondemand::array array;
+		if (const auto error = val.get_array().get(array); error != SUCCESS) [[unlikely]]
+			return error;
+
+		std::size_t i = 0;
+		for (auto element : array) {
+			if (i == 16) [[unlikely]]
+				return INCORRECT_TYPE;
+			if (const auto error = element.get(out.col(i / 4)[i % 4]); error != SUCCESS) [[unlikely]]
+				return error;
+			++i;
+		}
+		return i == 16 ? SUCCESS : INCORRECT_TYPE;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, std::vector<fastgltf::Attribute>& out) {
+		ondemand::object object;
+		if (const auto error = val.get_object().get(object); error != SUCCESS) [[unlikely]]
+			return error;
+
+		std::size_t count;
+		if (const auto error = object.count_fields().get(count); error != SUCCESS) [[unlikely]]
+			return error;
+		out.reserve(count);
+
+		// We iterate through the JSON object and write each key/pair value into the
+		// attribute map. The keys are only validated in the validate() method.
+		for (auto attribute : object) {
+			auto& [name, accessorIndex] = out.emplace_back();
+			if (const auto error = attribute.unescaped_key(name); error != SUCCESS) [[unlikely]]
+				return error;
+
+			fastgltf::optional<std::size_t> index;
+			if (const auto error = attribute.value().get(index); error != SUCCESS) [[unlikely]]
+				return error;
+			accessorIndex = *index;
+		}
+		return SUCCESS;
+	}
+}
+#pragma endregion
+
+namespace fastgltf {
+	/** Passes the raw JSON of extras to the extras callback. Extras can have any type. */
+	[[nodiscard]] inline auto readExtras(const ParserInternalConfig& config,
+			const std::size_t objectIndex, const Category category) {
+		return [&config, objectIndex, category](simdjson::ondemand::value value) {
+			if (config.extrasCallback == nullptr)
+				return simdjson::SUCCESS;
+
+			std::string_view extras;
+			if (const auto error = value.raw_json().get(extras); error != simdjson::SUCCESS) [[unlikely]]
+				return error;
+			config.extrasCallback(extras, objectIndex, category, config.userPointer);
+			return simdjson::SUCCESS;
+		};
+	}
+} // namespace fastgltf
+
+namespace simdjson {
+	/** Reads the KHR_texture_transform object of a texture info. */
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::TextureTransform& out) {
+		out.rotation = 0;
+		return val.get_object().template for_each<"texCoord", "rotation", "offset", "scale">(
+			out.texCoordIndex, out.rotation, out.uvOffset, out.uvScale);
+	}
+} // namespace simdjson
+
+namespace fastgltf {
+	template <typename Info>
+	[[nodiscard]] simdjson::error_code parseTextureInfo(simdjson::ondemand::value value, Info& info,
+			const Extensions extensions) {
+		using namespace simdjson;
+
+		const auto readScale = [&](ondemand::value scale) -> error_code {
+			if constexpr (std::is_same_v<Info, NormalTextureInfo>)
+				return scale.get(info.scale);
+			else
+				return SUCCESS;
+		};
+		const auto readStrength = [&](ondemand::value strength) -> error_code {
+			if constexpr (std::is_same_v<Info, OcclusionTextureInfo>)
+				return strength.get(info.strength);
+			else
+				return SUCCESS;
+		};
+		const auto readExtensions = [&](ondemand::value infoExtensions) -> error_code {
+			if (!hasBit(extensions, Extensions::KHR_texture_transform))
+				return SUCCESS;
+			return infoExtensions.get_object().for_each<"KHR_texture_transform">(info.transform);
+		};
+
+		optional<std::size_t> index;
+		const auto error = value.get_object().for_each<
+			"index", "texCoord", "scale", "strength", "extensions">(
+			index, info.texCoordIndex, readScale, readStrength, readExtensions);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+		if (!index) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		info.textureIndex = *index;
+		return SUCCESS;
+	}
+
+	/** Reads a texture info object into the optional out. */
+	template <typename T>
+	[[nodiscard]] auto readTextureInfo(T& out, const Extensions extensions) {
+		return [&out, extensions](simdjson::ondemand::value value) {
+			return parseTextureInfo(value, out.emplace(), extensions);
+		};
+	}
+
+	[[nodiscard]] inline simdjson::error_code parseTextureExtensions(
+			simdjson::ondemand::value value, Texture& texture, const Extensions extensions) {
+		using namespace simdjson;
+
+		// Each of these extensions only defines the index of the image to use instead, as "source".
+		const auto readSource = [extensions](const Extensions extension,
+				optional<std::size_t>& out) {
+			return [enabled = hasBit(extensions, extension), &out](
+					ondemand::value value) -> error_code {
+				if (!enabled)
+					return SUCCESS;
+				if (const auto error = value.get_object().for_each<"source">(out);
+					error != SUCCESS) [[unlikely]]
+					return error;
+				return out ? SUCCESS : NO_SUCH_FIELD;
+			};
+		};
+
+		return value.get_object().for_each<
+			"KHR_texture_basisu",
+			"MSFT_texture_dds",
+			"EXT_texture_webp",
+			"EXT_texture_avif">(
+			readSource(Extensions::KHR_texture_basisu, texture.basisuImageIndex),
+			readSource(Extensions::MSFT_texture_dds, texture.ddsImageIndex),
+			readSource(Extensions::EXT_texture_webp, texture.webpImageIndex),
+			readSource(Extensions::EXT_texture_avif, texture.avifImageIndex));
 	}
 } // namespace fastgltf
 
@@ -326,12 +604,12 @@ fg::Expected<fg::DataSource> fg::Parser::decodeDataUri(const URIView& uri) const
 
 	const auto encodingEnd = path.find(',');
 	const auto encoding = path.substr(mimeEnd + 1, encodingEnd - mimeEnd - 1);
-	if (encoding != "base64") {
+	if (encoding != "base64") [[unlikely]] {
 		return Error::InvalidURI;
 	}
 
 	const auto encodedData = path.substr(encodingEnd + 1);
-	if (encodedData.size() < 4 || encodedData.size() % 4 != 0) {
+	if (encodedData.size() < 4 || encodedData.size() % 4 != 0) [[unlikely]] {
 		return Error::InvalidURI;
 	}
 
@@ -402,29 +680,6 @@ void fg::Parser::fillCategories(Category& inputCategories) noexcept {
 		inputCategories |= Category::BufferViews;
 	if (hasBit(inputCategories, Category::BufferViews))
 		inputCategories |= Category::Buffers;
-}
-
-template <typename T> fg::Error fg::Parser::parseAttributes(simdjson::dom::object& object, T& attributes) {
-	using namespace simdjson;
-
-	// We iterate through the JSON object and write each key/pair value into the
-	// attribute map. The keys are only validated in the validate() method.
-	attributes.reserve(object.size());
-	for (const auto field : object) {
-		const auto key = field.key;
-
-		std::uint64_t accessorIndex;
-		if (field.value.get_uint64().get(accessorIndex) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		if (!isValidIndex(accessorIndex)) [[unlikely]]
-			return Error::ValueOutOfRange;
-		attributes.emplace_back(Attribute {
-			.name = std::string(key),
-			.accessorIndex = static_cast<std::size_t>(accessorIndex),
-		});
-	}
-	return Error::None;
 }
 
 namespace fastgltf {
@@ -518,122 +773,113 @@ namespace fastgltf::detail {
 
 		const auto* const end = version.data() + version.size(); // from_chars requires pointers, not iterators
 		auto [dot, majorError] = std::from_chars(version.data(), end, ret.major);
-		if (majorError != std::errc {} || dot == end || *dot != '.')
+		if (majorError != std::errc {} || dot == end || *dot != '.') [[unlikely]]
 			return Error::InvalidVersion;
 
 		const auto majorDigits = dot - version.data();
-		if ((majorDigits > 1 && version[0] == '0') || ret.major > max_version_num)
+		if ((majorDigits > 1 && version[0] == '0') || ret.major > max_version_num) [[unlikely]]
 			return Error::InvalidVersion;
 
 		auto [last, minorError] = std::from_chars(std::next(dot), end, ret.minor);
-		if (minorError != std::errc {} || last != end)
+		if (minorError != std::errc {} || last != end) [[unlikely]]
 			return Error::InvalidVersion;
 
 		const auto minorDigits = last - std::next(dot);
-		if ((minorDigits > 1 && *std::next(dot) == '0') || ret.minor > max_version_num)
+		if ((minorDigits > 1 && *std::next(dot) == '0') || ret.minor > max_version_num) [[unlikely]]
 			return Error::InvalidVersion;
 		return ret;
 	}
 }
 
-fg::Error fg::Parser::parseAssetInfo(const simdjson::dom::object& root, AssetInfo& info) {
-	using namespace simdjson;
+namespace fastgltf {
+	/** Validates the version and minVersion of the asset object and stores them in info. */
+	[[nodiscard]] static Error parseAssetVersions(std::optional<std::string_view> versionString,
+			std::optional<std::string_view> minVersionString, AssetInfo& info) {
+		if (!versionString) [[unlikely]]
+			return Error::MissingField;
 
-	dom::object assetInfo;
-	if (const auto error = root["asset"].get_object().get(assetInfo); error == NO_SUCH_FIELD) [[unlikely]] {
-		return Error::MissingField;
-	} else if (error != SUCCESS) [[unlikely]] {
-		return Error::InvalidJson;
-	}
+		auto version = detail::parseVersionString(*versionString);
+		if (version.has_error())
+			return version.error();
+		if (version->major != 2) [[unlikely]]
+			return Error::UnsupportedVersion;
+		info.version = *version;
 
-	std::string_view versionString;
-	if (const auto error = assetInfo["version"].get_string().get(versionString); error != SUCCESS) [[unlikely]] {
-		return error == NO_SUCH_FIELD ? Error::MissingField : Error::InvalidVersion;
-	}
-
-	auto version = detail::parseVersionString(versionString);
-	if (version.has_error())
-		return version.error();
-	if (version->major != 2) [[unlikely]]
-		return Error::UnsupportedVersion;
-	info.version = *version;
-
-	std::string_view copyright;
-	if (assetInfo["copyright"].get_string().get(copyright) == SUCCESS) [[likely]] {
-		info.copyright = copyright;
-	}
-
-	std::string_view generator;
-	if (assetInfo["generator"].get_string().get(generator) == SUCCESS) [[likely]] {
-		info.generator = generator;
-	}
-
-	std::string_view minVersionString;
-	if (const auto strError = assetInfo["minVersion"].get_string().get(minVersionString);
-		strError == SUCCESS) {
-		if (auto minVersion = detail::parseVersionString(minVersionString); minVersion.has_error()) {
-			return minVersion.error();
-		} else {
+		if (minVersionString) {
+			auto minVersion = detail::parseVersionString(*minVersionString);
+			if (minVersion.has_error())
+				return minVersion.error();
 			if (*minVersion > Version { 2, 0 }) [[unlikely]]
 				return Error::UnsupportedVersion;
 			info.minVersion = *minVersion;
 		}
-	} else if (strError != NO_SUCH_FIELD) [[unlikely]] {
-		return Error::InvalidVersion;
+		return Error::None;
 	}
+} // namespace fastgltf
 
-	return Error::None;
-}
-
-fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category categories) {
+fg::Expected<fg::Asset> fg::Parser::parse(internal::JsonObject& rootJson, Category categories) {
 	using namespace simdjson;
+	auto& root = rootJson.value;
 	fillCategories(categories);
 
 	Asset asset {};
 
-	if (const auto err = parseAssetInfo(root, asset.assetInfo); err != Error::None) {
-		return err;
-	}
+	// An initial pre-scan for things like the asset version, required extensions, and other
+	// important information we need to validate the rest of the asset.
+	{
+		std::optional<std::string_view> version, minVersion;
+		const auto readAsset = [&](ondemand::value assetInfo) -> error_code {
+			return assetInfo.get_object().for_each<"version", "minVersion", "copyright", "generator">(
+				version, minVersion, asset.assetInfo.copyright, asset.assetInfo.generator);
+		};
 
-	if (dom::array extensionsRequired; root["extensionsRequired"].get_array().get(extensionsRequired) == SUCCESS) [[likely]] {
-		for (auto extension : extensionsRequired) {
-			std::string_view string;
-			if (extension.get_string().get(string) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
+		// Only the variants are counted here, their names are read in parseExtensions.
+		variantCount = 0;
+		const auto countVariants = [&](ondemand::value variants) -> error_code {
+			return variants.count_elements().get(variantCount);
+		};
+		const auto readMaterialVariants = [&](ondemand::value materialVariants) -> error_code {
+			return materialVariants.get_object().for_each<"variants">(countVariants);
+		};
+		const auto readExtensions = [&](ondemand::value extensions) -> error_code {
+			if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
+				return SUCCESS;
+			return extensions.get_object().for_each<"KHR_materials_variants">(readMaterialVariants);
+		};
 
-			bool known = false;
-			for (const auto& [extensionString, extensionEnum] : extensionStrings) {
-				if (extensionString == string) {
-					known = true;
-					if (!hasBit(config.extensions, extensionEnum)) {
-						// The extension is required, but not enabled by the user.
-						return Error::MissingExtensions;
-					}
-					break;
-				}
-			}
-			if (!known) {
+		if (const auto error = root.for_each<"asset", "extensionsRequired", "extensions">(
+			readAsset, asset.extensionsRequired, readExtensions); error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (const auto error = parseAssetVersions(version, minVersion, asset.assetInfo);
+			error != Error::None) [[unlikely]]
+			return error;
+
+		for (const auto& required : asset.extensionsRequired) {
+			const auto extension = std::ranges::find(extensionStrings, required,
+				&std::pair<std::string_view, Extensions>::first);
+			if (extension == extensionStrings.end()) [[unlikely]]
 				return Error::UnknownRequiredExtension;
-			}
 
-			asset.extensionsRequired.emplace_back(string);
+			// The extension is required, but not enabled by the user.
+			if (!hasBit(config.extensions, extension->second)) [[unlikely]]
+				return Error::MissingExtensions;
 		}
 	}
 
-	variantCount = 0;
-	if (hasBit(config.extensions, Extensions::KHR_materials_variants)) {
-		dom::array variants;
-		if (root.at_pointer("/extensions/KHR_materials_variants/variants").get_array().get(variants) == SUCCESS)
-			variantCount = variants.size();
-	}
+	if (root.reset().error() != SUCCESS) [[unlikely]]
+		return Error::InvalidJson;
 
 	auto readCategories = Category::None;
-	for (const auto object : root) {
-		auto hashedKey = crc32c(object.key);
+	for (auto object : root) {
+		std::string_view key;
+		if (object.escaped_key().get(key) != SUCCESS) [[unlikely]]
+				return Error::InvalidJson;
+
+		auto hashedKey = crc32c(key);
 		if (hashedKey == force_consteval<crc32c("scene")>) {
 			std::uint64_t defaultScene;
-			if (object.value.get_uint64().get(defaultScene) != SUCCESS) [[unlikely]] {
+			if (object.value().get_uint64().get(defaultScene) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 			if (!isValidIndex(defaultScene)) [[unlikely]]
@@ -643,22 +889,24 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 		}
 
 		if (hashedKey == force_consteval<crc32c("extensions")>) {
-			dom::object extensionsObject;
-			if (object.value.get_object().get(extensionsObject) != SUCCESS) [[unlikely]] {
+			internal::JsonObject extensionsObject;
+			if (object.value().get_object().get(extensionsObject.value) != SUCCESS) [[unlikely]] {
 				return Error::InvalidGltf;
 			}
 
-			if (auto error = parseExtensions(extensionsObject, asset); error != Error::None)
+			if (const auto error = parseExtensions(extensionsObject, asset);
+				error != Error::None) [[unlikely]]
 				return error;
 			continue;
 		}
 
-		if (hashedKey == force_consteval<crc32c("asset")> || hashedKey == force_consteval<crc32c("extras")>) {
+		if (hashedKey == force_consteval<crc32c("asset")> ||
+			hashedKey == force_consteval<crc32c("extras")>) {
 			continue;
 		}
 
-		dom::array array;
-		if (object.value.get_array().get(array) != SUCCESS) [[unlikely]] {
+		internal::JsonArray array;
+		if (object.value().get_array().get(array.value) != SUCCESS) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
 
@@ -686,13 +934,10 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 			KEY_SWITCH_CASE(Skins, skins)
 			KEY_SWITCH_CASE(Textures, textures)
 			case force_consteval<crc32c("extensionsUsed")>: {
-				for (auto usedValue : array) {
-					std::string_view usedString;
-					if (auto eError = usedValue.get_string().get(usedString); eError == SUCCESS) [[likely]] {
-						asset.extensionsUsed.emplace_back(usedString);
-					} else {
+				for (auto usedValue : array.value) {
+					auto& used = asset.extensionsUsed.emplace_back();
+					if (usedValue.get_string(used) != SUCCESS) [[unlikely]]
 						error = Error::InvalidGltf;
-					}
 				}
 				break;
 			}
@@ -704,7 +949,7 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 				break;
 		}
 
-		if (error != Error::None)
+		if (error != Error::None) [[unlikely]]
 			return error;
 
 #undef KEY_SWITCH_CASE
@@ -713,13 +958,14 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 	asset.availableCategories = readCategories;
 
 	if (hasBit(options, Options::GenerateMeshIndices)) {
-		if (auto error = generateMeshIndices(asset); error != Error::None) {
+		if (const auto error = generateMeshIndices(asset); error != Error::None) [[unlikely]] {
 			return error;
 		}
 	}
 
 	// Resize primitive mappings to match the global variant count
-	if (hasBit(config.extensions, Extensions::KHR_materials_variants) && !asset.materialVariants.empty()) {
+	if (hasBit(config.extensions, Extensions::KHR_materials_variants) &&
+		!asset.materialVariants.empty()) {
 		const auto variantCount = asset.materialVariants.size();
 		for (auto& mesh : asset.meshes) {
 			for (auto& primitive : mesh.primitives) {
@@ -736,414 +982,292 @@ fg::Expected<fg::Asset> fg::Parser::parse(simdjson::dom::object root, Category c
 }
 
 namespace fastgltf {
+	/**
+	 * The numbers of an accessor's min or max array. They're kept until the whole accessor has
+	 * been read, since componentType and type may come after them.
+	 */
+	struct AccessorBoundsNumbers {
+		std::array<simdjson::ondemand::number, 16> numbers;
+		std::size_t size = 0;
+	};
+
+	[[nodiscard]] inline Error convertBounds(const AccessorBoundsNumbers& bounds,
+			const Accessor& accessor, optional<AccessorBoundsArray>& out) {
+		const auto count = getNumComponents(accessor.type);
+		if (count == 0 || bounds.size != count) [[unlikely]]
+			return Error::InvalidGltf;
+
+		if (isFloatingPoint(accessor.componentType)) {
+			out = AccessorBoundsArray(count, AccessorBoundsArray::BoundsType::float64);
+			auto* data = out->data<double>();
+			for (std::size_t i = 0; i < count; ++i)
+				data[i] = bounds.numbers[i].as_double();
+			return Error::None;
+		}
+
+		out = AccessorBoundsArray(count, AccessorBoundsArray::BoundsType::int64);
+		auto* data = out->data<std::int64_t>();
+		for (std::size_t i = 0; i < count; ++i) {
+			const auto& number = bounds.numbers[i];
+			if (number.is_int64()) {
+				data[i] = number.get_int64();
+				continue;
+			}
+
+			// Reject any values outside of the 2^63 range of std::int64_t.
+			// glTF doesn't care about integers larger than 32 bits anyway.
+			const auto value = number.as_double();
+			if (!(value >= -0x1p63 && value < 0x1p63)) [[unlikely]]
+				return Error::InvalidGltf;
+			data[i] = static_cast<std::int64_t>(value);
+		}
+		return Error::None;
+	}
+} // namespace fastgltf
+
+namespace simdjson {
 	template <typename T>
-	requires AccessorBoundsArray::is_valid_type_v<T>
-	static Error parseMinMaxArray(simdjson::dom::array elements, AccessorBoundsArray& array) {
-		using namespace simdjson;
+	static error_code tag_invoke(deserialize_tag, T& val,
+			fastgltf::AccessorBoundsNumbers& out) noexcept {
+		ondemand::array array;
+		if (const auto error = val.get_array().get(array); error != SUCCESS) [[unlikely]]
+			return error;
 
-		const auto size = elements.size();
-		if (size != array.size()) [[unlikely]]
-			return Error::InvalidGltf;
-
-		auto* data = array.data<T>();
-
-		std::size_t idx = 0;
-		for (auto element : elements) {
-			if constexpr (std::is_same_v<T, double>) {
-				double value;
-				if (element.get_double().get(value) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				data[idx++] = value;
-			} else if constexpr (std::is_same_v<T, std::int64_t>) {
-				if (element.is_double()) {
-					double value;
-					if (element.get_double().get(value) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					// Reject any values outside of the 2^63 range of std::int64_t
-					if (!(value >= -0x1p63 && value < 0x1p63)) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					data[idx++] = static_cast<std::int64_t>(value);
-				} else {
-					// Note that the glTF spec doesn't care about any integer larger than 32-bits, so
-					// truncating uint64 to int64 wouldn't make any difference, as those large values
-					// aren't allowed anyway.
-					std::int64_t value;
-					if (element.get_int64().get(value) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					data[idx++] = value;
-				}
-			}
+		for (auto element : array) {
+			// No accessor type has more than 16 components.
+			if (out.size == out.numbers.size()) [[unlikely]]
+				return INCORRECT_TYPE;
+			if (const auto error = element.get_number().get(out.numbers[out.size++]);
+				error != SUCCESS) [[unlikely]]
+				return error;
 		}
-
-		return Error::None;
+		return SUCCESS;
 	}
 
-	static Error parseMinMax(Accessor& accessor, simdjson::dom::object& accessorObject, const std::string_view key, optional<AccessorBoundsArray>& ref) {
-		using namespace simdjson;
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::SparseAccessor& out) {
+		using namespace fastgltf;
 
-		dom::array elements;
-		if (const auto error = accessorObject[key].get_array().get(elements);
-			error == SUCCESS) [[likely]] {
-			const auto num = getNumComponents(accessor.type);
-			if (num == 0) [[unlikely]]
-				return Error::InvalidGltf;
+		fastgltf::optional<std::size_t> count, indicesBufferView, valuesBufferView;
+		std::optional<ComponentType> indexComponentType;
 
-			if (isFloatingPoint(accessor.componentType)) {
-				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::float64);
-				return parseMinMaxArray<double>(elements, ref.value());
-			} else {
-				ref = AccessorBoundsArray(num, AccessorBoundsArray::BoundsType::int64);
-				return parseMinMaxArray<std::int64_t>(elements, ref.value());
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		return Error::None;
+		const auto readIndices = [&](ondemand::value indices) -> error_code {
+			return indices.get_object().for_each<"bufferView", "byteOffset", "componentType">(
+				indicesBufferView, out.indicesByteOffset, indexComponentType);
+		};
+		const auto readValues = [&](ondemand::value values) -> error_code {
+			return values.get_object().for_each<"bufferView", "byteOffset">(
+				valuesBufferView, out.valuesByteOffset);
+		};
+
+		const auto error = val.get_object().template for_each<"count", "indices", "values">(
+			count, readIndices, readValues);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!count || !indicesBufferView || !valuesBufferView || !indexComponentType) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.count = *count;
+		out.indicesBufferView = *indicesBufferView;
+		out.valuesBufferView = *valuesBufferView;
+		out.indexComponentType = *indexComponentType;
+		return SUCCESS;
 	}
-}
+} // namespace simdjson
 
-fg::Error fg::Parser::parseAccessors(const simdjson::dom::array& accessors, Asset& asset) {
+fg::Error fg::Parser::parseAccessors(internal::JsonArray& accessorsJson, Asset& asset) {
 	using namespace simdjson;
+	auto& accessors = accessorsJson.value;
 
-	asset.accessors.reserve(accessors.size());
+	if (const auto error = reserveElements(accessors, asset.accessors);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto accessorValue : accessors) {
-		// Required fields: "componentType", "count"
-		Accessor accessor {};
-		dom::object accessorObject;
-		if (accessorValue.get_object().get(accessorObject) != SUCCESS) [[unlikely]] {
+		const auto extras = readExtras(config, asset.accessors.size(), Category::Accessors);
+
+		auto& accessor = asset.accessors.emplace_back();
+
+		std::optional<ComponentType> componentType;
+		std::optional<AccessorType> type;
+		optional<std::size_t> count;
+		std::optional<AccessorBoundsNumbers> max, min;
+
+		const auto error = accessorValue.get_object().for_each<
+			"bufferView", "byteOffset", "componentType", "normalized",
+			"count", "type", "max", "min",
+			"sparse", "name", "extras">(
+			accessor.bufferViewIndex, accessor.byteOffset, componentType, accessor.normalized,
+			count, type, max, min,
+			accessor.sparse, accessor.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (!componentType || !count || !type) [[unlikely]]
 			return Error::InvalidGltf;
-		}
 
-		std::uint64_t componentType;
-		if (accessorObject["componentType"].get_uint64().get(componentType) != SUCCESS) [[unlikely]] {
+		accessor.componentType = *componentType;
+		accessor.count = *count;
+		accessor.type = *type;
+
+		const auto allowDouble = hasBit(options, Options::AllowDouble) ||
+			hasBit(config.extensions, Extensions::KHR_accessor_float64);
+		if (accessor.componentType == ComponentType::Double && !allowDouble) [[unlikely]]
 			return Error::InvalidGltf;
-		}
-		accessor.componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(componentType));
-		if (accessor.componentType == ComponentType::Double && !(hasBit(options, Options::AllowDouble) || hasBit(config.extensions, Extensions::KHR_accessor_float64))) {
+
+		// This property MUST NOT be true for accessors with FLOAT or UNSIGNED_INT component type.
+		if (accessor.normalized &&
+			(accessor.componentType == ComponentType::UnsignedInt ||
+				isFloatingPoint(accessor.componentType))) [[unlikely]]
 			return Error::InvalidGltf;
+
+		if (max) {
+			if (const auto boundsError = convertBounds(*max, accessor, accessor.max);
+				boundsError != Error::None) [[unlikely]]
+				return boundsError;
 		}
-
-		std::string_view accessorType;
-		if (accessorObject["type"].get_string().get(accessorType) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
+		if (min) {
+			if (const auto boundsError = convertBounds(*min, accessor, accessor.min);
+				boundsError != Error::None) [[unlikely]]
+				return boundsError;
 		}
-		if (const auto type = internal::getAccessorType(accessorType);
-			type != AccessorType::Invalid) [[likely]] {
-			accessor.type = type;
-		} else {
-			return Error::InvalidGltf;
-		}
-
-		std::uint64_t accessorCount;
-		if (accessorObject["count"].get_uint64().get(accessorCount) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		accessor.count = static_cast<std::size_t>(accessorCount);
-
-
-		std::uint64_t bufferView;
-		if (accessorObject["bufferView"].get_uint64().get(bufferView) == SUCCESS) [[likely]] {
-			if (!isValidIndex(bufferView)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			accessor.bufferViewIndex = static_cast<std::size_t>(bufferView);
-		}
-
-		// byteOffset is optional, but defaults to 0
-		std::uint64_t byteOffset;
-		if (auto error = accessorObject["byteOffset"].get_uint64().get(byteOffset); error == SUCCESS) [[likely]] {
-			accessor.byteOffset = static_cast<std::size_t>(byteOffset);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (auto error = parseMinMax(accessor, accessorObject, "max", accessor.max); error != Error::None) {
-			return error;
-		}
-		if (auto error = parseMinMax(accessor, accessorObject, "min", accessor.min); error != Error::None) {
-			return error;
-		}
-
-		if (auto error = accessorObject["normalized"].get_bool().get(accessor.normalized); error != SUCCESS && error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		// This property MUST NOT be set to true for accessors with FLOAT or UNSIGNED_INT component type.
-		if (accessor.normalized && (accessor.componentType == ComponentType::UnsignedInt || isFloatingPoint(accessor.componentType))) {
-			return Error::InvalidGltf;
-		}
-
-		dom::object sparseAccessorObject;
-		if (accessorObject["sparse"].get_object().get(sparseAccessorObject) == SUCCESS) [[likely]] {
-			SparseAccessor sparse {};
-			std::uint64_t value;
-			dom::object child;
-			if (sparseAccessorObject["count"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			sparse.count = static_cast<std::size_t>(value);
-
-			// Accessor Sparce Indices
-			if (sparseAccessorObject["indices"].get_object().get(child) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (!isValidIndex(value)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			sparse.indicesBufferView = static_cast<std::size_t>(value);
-
-			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
-				sparse.indicesByteOffset = static_cast<std::size_t>(value);
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			if (child["componentType"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (const auto componentType = internal::getComponentType(static_cast<std::underlying_type_t<ComponentType>>(value));
-				componentType != ComponentType::Invalid) {
-				sparse.indexComponentType = componentType;
-			} else [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			// Accessor Sparse Values
-			if (sparseAccessorObject["values"].get_object().get(child) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			if (child["bufferView"].get_uint64().get(value) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (!isValidIndex(value)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			sparse.valuesBufferView = static_cast<std::size_t>(value);
-
-			if (auto error = child["byteOffset"].get_uint64().get(value); error == SUCCESS) [[likely]] {
-				sparse.valuesByteOffset = static_cast<std::size_t>(value);
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			accessor.sparse = sparse;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = accessorObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.accessors.size(), Category::Accessors, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (accessorObject["name"].get_string().get(name) == SUCCESS) {
-			accessor.name.assign(name);
-		}
-
-		asset.accessors.emplace_back(std::move(accessor));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseAnimations(simdjson::dom::array& animations, Asset& asset) {
-	using namespace simdjson;
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AnimationChannel& out) {
+		using namespace fastgltf;
 
-	asset.animations.reserve(animations.size());
+		fastgltf::optional<std::size_t> sampler;
+		std::optional<AnimationPath> path;
+
+		// When node isn't defined, the channel SHOULD be ignored. That's left to the user.
+		const auto readTarget = [&](ondemand::value target) -> error_code {
+			return target.get_object().for_each<"node", "path">(out.nodeIndex, path);
+		};
+
+		const auto error = val.get_object().template for_each<"sampler", "target">(
+			sampler, readTarget);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!sampler || !path) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.samplerIndex = *sampler;
+		out.path = *path;
+		return SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::AnimationSampler& out) {
+		fastgltf::optional<std::size_t> input, output;
+
+		const auto error = val.get_object().template for_each<
+			"input", "interpolation", "output">(
+			input, out.interpolation, output);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!input || !output) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.inputAccessor = *input;
+		out.outputAccessor = *output;
+		return SUCCESS;
+	}
+} // namespace simdjson
+
+fg::Error fg::Parser::parseAnimations(internal::JsonArray& animationsJson, Asset& asset) {
+	using namespace simdjson;
+	auto& animations = animationsJson.value;
+
+	if (const auto error = reserveElements(animations, asset.animations);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto animationValue : animations) {
-		dom::object animationObject;
-		Animation animation {};
-		if (animationValue.get_object().get(animationObject) != SUCCESS) [[unlikely]] {
+		const auto extras = readExtras(config, asset.animations.size(), Category::Animations);
+
+		auto& animation = asset.animations.emplace_back();
+
+		const auto error = animationValue.get_object().for_each<
+			"channels", "samplers", "name", "extras">(
+			animation.channels, animation.samplers, animation.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		// Both are required and need at least one element.
+		if (animation.channels.empty() || animation.samplers.empty()) [[unlikely]]
 			return Error::InvalidGltf;
-		}
-
-		dom::array channels;
-		auto channelError = getJsonArray(animationObject, "channels", &channels);
-		if (channelError != Error::None) {
-			return Error::InvalidGltf;
-		}
-
-		animation.channels.reserve(channels.size());
-		for (auto channelValue : channels) {
-			dom::object channelObject;
-			AnimationChannel channel {};
-			if (channelValue.get_object().get(channelObject) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			std::uint64_t sampler;
-			if (channelObject["sampler"].get_uint64().get(sampler) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (!isValidIndex(sampler)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			channel.samplerIndex = static_cast<std::size_t>(sampler);
-
-			dom::object targetObject;
-			if (channelObject["target"].get_object().get(targetObject) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			} else {
-				std::uint64_t node;
-				if (auto error = targetObject["node"].get_uint64().get(node); error == SUCCESS) [[likely]] {
-					if (!isValidIndex(node)) [[unlikely]]
-						return Error::ValueOutOfRange;
-					channel.nodeIndex = static_cast<std::size_t>(node);
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					// the glTF spec allows the node index of an animation channel to be absent, and requires
-					// implementations to just ignore the animation if no extension exists to override it.
-					// > When node isn't defined, channel SHOULD be ignored.
-					return Error::InvalidGltf;
-				}
-
-				std::string_view path;
-				if (targetObject["path"].get_string().get(path) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				if (path == "translation") {
-					channel.path = AnimationPath::Translation;
-				} else if (path == "rotation") {
-					channel.path = AnimationPath::Rotation;
-				} else if (path == "scale") {
-					channel.path = AnimationPath::Scale;
-				} else if (path == "weights") {
-					channel.path = AnimationPath::Weights;
-				}
-			}
-
-			animation.channels.emplace_back(channel);
-		}
-
-		dom::array samplers;
-		auto samplerError = getJsonArray(animationObject, "samplers", &samplers);
-		if (samplerError != Error::None) {
-			return Error::InvalidGltf;
-		}
-
-		animation.samplers.reserve(samplers.size());
-		for (auto samplerValue : samplers) {
-			dom::object samplerObject;
-			AnimationSampler sampler {};
-			if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			std::uint64_t input;
-			if (samplerObject["input"].get_uint64().get(input) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (!isValidIndex(input)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			sampler.inputAccessor = static_cast<std::size_t>(input);
-
-			std::uint64_t output;
-			if (samplerObject["output"].get_uint64().get(output) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (!isValidIndex(output)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			sampler.outputAccessor = static_cast<std::size_t>(output);
-
-			std::string_view interpolation;
-			if (samplerObject["interpolation"].get_string().get(interpolation) != SUCCESS) [[unlikely]] {
-				sampler.interpolation = AnimationInterpolation::Linear;
-			} else {
-				if (interpolation == "LINEAR") {
-					sampler.interpolation = AnimationInterpolation::Linear;
-				} else if (interpolation == "STEP") {
-					sampler.interpolation = AnimationInterpolation::Step;
-				} else if (interpolation == "CUBICSPLINE") {
-					sampler.interpolation = AnimationInterpolation::CubicSpline;
-				} else {
-					return Error::InvalidGltf;
-				}
-			}
-
-			animation.samplers.emplace_back(sampler);
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = animationObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.animations.size(), Category::Animations, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-
-		std::string_view name;
-		if (animationObject["name"].get_string().get(name) == SUCCESS) {
-			animation.name.assign(name);
-		}
-
-		asset.animations.emplace_back(std::move(animation));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) {
+fg::Error fg::Parser::parseBuffers(internal::JsonArray& buffersJson, Asset& asset) {
 	using namespace simdjson;
+	auto& buffers = buffersJson.value;
 
-	asset.buffers.reserve(buffers.size());
-	std::size_t bufferIndex = 0;
+	// The spec for EXT_meshopt_compression allows so-called 'fallback buffers' which only exist to
+	// act as a valid fallback for compressed buffer views, but actually do not contain any data.
+	// In these cases, there is either simply no URI, or a fallback boolean is added to the
+	// extensions' extension field.
+	// In these cases, fastgltf could just leave the std::monostate in the DataSource.
+	// However, to make the actual use of these buffers clear, we'll use an empty fallback type.
+	bool meshoptCompressionRequired = false;
+	for (const auto& extension : asset.extensionsRequired) {
+		if (extension == extensions::EXT_meshopt_compression ||
+			extension == extensions::KHR_meshopt_compression) {
+			meshoptCompressionRequired = true;
+		}
+	}
+
+	if (const auto error = reserveElements(buffers, asset.buffers);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto bufferValue : buffers) {
-		// Required fields: "byteLength"
-		Buffer buffer {};
-		dom::object bufferObject;
-		if (bufferValue.get_object().get(bufferObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		const auto extras = readExtras(config, asset.buffers.size(), Category::Buffers);
 
-		std::uint64_t byteLength;
-		if (bufferObject["byteLength"].get_uint64().get(byteLength) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		buffer.byteLength = static_cast<std::size_t>(byteLength);
+		auto& buffer = asset.buffers.emplace_back();
 
-		// The spec for EXT_meshopt_compression allows so-called 'fallback buffers' which only exist to
-		// act as a valid fallback for compressed buffer views, but actually do not contain any data.
-		// In these cases, there is either simply no URI, or a fallback boolean is added to the extensions'
-		// extension field.
-		// In these cases, fastgltf could just leave the std::monostate in the DataSource.
-		// However, to make the actual use of these buffers clear, we'll use an empty fallback type.
-		bool meshoptCompressionRequired = false;
-		for (const auto& extension : asset.extensionsRequired) {
-			if (extension == extensions::EXT_meshopt_compression || extension == extensions::KHR_meshopt_compression) {
-				meshoptCompressionRequired = true;
-			}
-		}
+		optional<std::size_t> byteLength;
+		std::optional<std::string_view> uriString;
+
+		const auto error = bufferValue.get_object().for_each<
+			"uri", "byteLength", "name", "extras">(
+			uriString, byteLength, buffer.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (!byteLength) [[unlikely]]
+			return Error::InvalidGltf;
+		buffer.byteLength = *byteLength;
 
 		// When parsing GLB, there's a buffer object that will point to the BUF chunk in the
 		// file. Otherwise, data must be specified in the "uri" field.
-		std::string_view uriString;
-		if (bufferObject["uri"].get_string().get(uriString) == SUCCESS) [[likely]] {
-			URIView uriView(uriString);
+		if (uriString) {
+			URIView uriView(*uriString);
 
-			if (!uriView.valid()) {
+			if (!uriView.valid()) [[unlikely]] {
 				return Error::InvalidURI;
 			}
 
 			if (uriView.isDataUri()) {
 				auto decoded = decodeDataUri(uriView);
-				if (decoded.has_error()) {
+				if (decoded.has_error()) [[unlikely]] {
 					return decoded.error();
 				}
 
 				buffer.data = std::move(decoded.get());
 			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalBuffers)) {
 				auto file = loadFileFromUri(uriView);
-				if (file.has_error()) {
+				if (file.has_error()) [[unlikely]] {
 					return file.error();
 				}
 
@@ -1154,471 +1278,306 @@ fg::Error fg::Parser::parseBuffers(simdjson::dom::array& buffers, Asset& asset) 
 				filePath.uri = uriView;
 				buffer.data = std::move(filePath);
 			}
-		} else if (bufferIndex == 0 && !std::holds_alternative<std::monostate>(glbBuffer)) {
+		} else if (asset.buffers.size() == 1 &&
+			!std::holds_alternative<std::monostate>(glbBuffer)) {
+			// The first buffer of a GLB refers to its BIN chunk.
 			buffer.data = std::move(glbBuffer);
 		} else if (meshoptCompressionRequired) {
 			// This buffer is not a GLB buffer and has no URI source and is therefore a fallback.
 			buffer.data = sources::Fallback();
-		} else {
+		} else [[unlikely]] {
 			// All other buffers have to contain an uri field.
 			return Error::InvalidGltf;
 		}
 
-		if (std::holds_alternative<std::monostate>(buffer.data)) {
+		if (std::holds_alternative<std::monostate>(buffer.data)) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = bufferObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.buffers.size(), Category::Buffers, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (bufferObject["name"].get_string().get(name) == SUCCESS) {
-			buffer.name.assign(name);
-		}
-
-		++bufferIndex;
-		asset.buffers.emplace_back(std::move(buffer));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseBufferViews(const simdjson::dom::array& bufferViews, Asset& asset) {
-	using namespace simdjson;
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::CompressedBufferView& out) {
+		using namespace fastgltf;
 
-	asset.bufferViews.reserve(bufferViews.size());
+		fastgltf::optional<std::size_t> buffer, byteLength, byteStride, count;
+		std::optional<MeshoptCompressionMode> mode;
+
+		out.byteOffset = 0;
+		out.filter = MeshoptCompressionFilter::None;
+
+		const auto error = val.get_object().template for_each<
+			"buffer", "byteOffset", "byteLength", "byteStride",
+			"count", "mode", "filter">(
+			buffer, out.byteOffset, byteLength, byteStride,
+			count, mode, out.filter);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+		if (!buffer || !byteLength || !byteStride || !count || !mode) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.bufferIndex = *buffer;
+		out.byteLength = *byteLength;
+		out.byteStride = *byteStride;
+		out.count = *count;
+		out.mode = *mode;
+		return SUCCESS;
+	}
+} // namespace simdjson
+
+fg::Error fg::Parser::parseBufferViews(internal::JsonArray& bufferViewsJson, Asset& asset) {
+	using namespace simdjson;
+	auto& bufferViews = bufferViewsJson.value;
+
+	const auto readMeshoptCompression = [this](const Extensions extension,
+			std::optional<CompressedBufferView>& out) {
+		return [enabled = hasBit(config.extensions, extension), &out](ondemand::value value) {
+			return enabled ? value.get(out.emplace()) : SUCCESS;
+		};
+	};
+
+	if (const auto error = reserveElements(bufferViews, asset.bufferViews);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto bufferViewValue : bufferViews) {
-		dom::object bufferViewObject;
-		if (bufferViewValue.get_object().get(bufferViewObject) != SUCCESS) [[unlikely]] {
+		const auto extras = readExtras(config, asset.bufferViews.size(), Category::BufferViews);
+
+		auto& view = asset.bufferViews.emplace_back();
+
+		optional<std::size_t> buffer, byteLength;
+		std::optional<CompressedBufferView> khrCompression, extCompression;
+
+		const auto readExtensions = [&](ondemand::value extensions) -> error_code {
+			return extensions.get_object().for_each<
+				"KHR_meshopt_compression", "EXT_meshopt_compression">(
+				readMeshoptCompression(Extensions::KHR_meshopt_compression, khrCompression),
+				readMeshoptCompression(Extensions::EXT_meshopt_compression, extCompression));
+		};
+
+		const auto error = bufferViewValue.get_object().for_each<
+			"buffer", "byteOffset", "byteLength", "byteStride",
+			"target", "name", "extensions", "extras">(
+			buffer, view.byteOffset, byteLength, view.byteStride,
+			view.target, view.name, readExtensions, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (!buffer || !byteLength) [[unlikely]]
 			return Error::InvalidGltf;
+
+		view.bufferIndex = *buffer;
+		view.byteLength = *byteLength;
+
+		// KHR_meshopt_compression takes precedence when both extensions are used.
+		if (khrCompression) {
+			view.meshoptCompression = std::move(*khrCompression);
+		} else if (extCompression) {
+			view.meshoptCompression = std::move(*extCompression);
 		}
-
-		std::uint64_t number;
-		BufferView view {};
-		if (auto error = bufferViewObject["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-		}
-		if (!isValidIndex(number)) [[unlikely]]
-			return Error::ValueOutOfRange;
-		view.bufferIndex = static_cast<std::size_t>(number);
-
-		if (auto error = bufferViewObject["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			view.byteOffset = static_cast<std::size_t>(number);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		if (auto error = bufferViewObject["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-			return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-		}
-		view.byteLength = static_cast<std::size_t>(number);
-
-		if (auto error = bufferViewObject["byteStride"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!isValidOptionalValue<std::size_t>(number)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			view.byteStride = static_cast<std::size_t>(number);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		if (auto error = bufferViewObject["target"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!toEnum<BufferTarget>(number, view.target)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		std::string_view string;
-		if (auto error = bufferViewObject["name"].get_string().get(string); error == SUCCESS) {
-			view.name.assign(string);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		dom::object extensionObject;
-		if (bufferViewObject["extensions"].get_object().get(extensionObject) == SUCCESS) [[likely]] {
-			constexpr auto parseMeshoptCompression = [](CompressedBufferView& compression, const dom::object& meshoptCompression) {
-				std::uint64_t number;
-				if (auto error = meshoptCompression["buffer"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				if (!isValidIndex(number)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				compression.bufferIndex = static_cast<std::size_t>(number);
-
-				if (auto error = meshoptCompression["byteOffset"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-					compression.byteOffset = static_cast<std::size_t>(number);
-				} else if (error == NO_SUCH_FIELD) {
-					compression.byteOffset = 0;
-				} else {
-					return Error::InvalidJson;
-				}
-
-				if (auto error = meshoptCompression["byteLength"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				compression.byteLength = static_cast<std::size_t>(number);
-
-				if (auto error = meshoptCompression["byteStride"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				compression.byteStride = static_cast<std::size_t>(number);
-
-				if (auto error = meshoptCompression["count"].get_uint64().get(number); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				compression.count = number;
-
-				std::string_view string;
-				if (auto error = meshoptCompression["mode"].get_string().get(string); error != SUCCESS) [[unlikely]] {
-					return error == NO_SUCH_FIELD ? Error::InvalidGltf : Error::InvalidJson;
-				}
-				switch (crc32c(string)) {
-					case force_consteval<crc32c("ATTRIBUTES")>: {
-						compression.mode = MeshoptCompressionMode::Attributes;
-						break;
-					}
-					case force_consteval<crc32c("TRIANGLES")>: {
-						compression.mode = MeshoptCompressionMode::Triangles;
-						break;
-					}
-					case force_consteval<crc32c("INDICES")>: {
-						compression.mode = MeshoptCompressionMode::Indices;
-						break;
-					}
-					default: {
-						return Error::InvalidGltf;
-					}
-				}
-
-				if (auto error = meshoptCompression["filter"].get_string().get(string); error == SUCCESS) [[likely]] {
-					switch (crc32c(string)) {
-						case force_consteval<crc32c("NONE")>: {
-							compression.filter = MeshoptCompressionFilter::None;
-							break;
-						}
-						case force_consteval<crc32c("OCTAHEDRAL")>: {
-							compression.filter = MeshoptCompressionFilter::Octahedral;
-							break;
-						}
-						case force_consteval<crc32c("QUATERNION")>: {
-							compression.filter = MeshoptCompressionFilter::Quaternion;
-							break;
-						}
-						case force_consteval<crc32c("EXPONENTIAL")>: {
-							compression.filter = MeshoptCompressionFilter::Exponential;
-							break;
-						}
-						case force_consteval<crc32c("COLOR")>: {
-							compression.filter = MeshoptCompressionFilter::Color;
-							break;
-						}
-						default: {
-							return Error::InvalidGltf;
-						}
-					}
-				} else if (error == NO_SUCH_FIELD) {
-					compression.filter = MeshoptCompressionFilter::None;
-				} else {
-					return Error::InvalidJson;
-				}
-
-				return Error::None;
-			};
-
-			dom::object meshoptCompression;
-			if (hasBit(config.extensions, Extensions::KHR_meshopt_compression) &&
-				extensionObject[extensions::KHR_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
-
-				auto& compression = view.meshoptCompression.emplace();
-				if (const auto error = parseMeshoptCompression(compression, meshoptCompression); error != Error::None) [[unlikely]] {
-					return error;
-				}
-			} else if (hasBit(config.extensions, Extensions::EXT_meshopt_compression) &&
-				extensionObject[extensions::EXT_meshopt_compression].get_object().get(meshoptCompression) == SUCCESS) {
-
-				auto& compression = view.meshoptCompression.emplace();
-				if (const auto error = parseMeshoptCompression(compression, meshoptCompression); error != Error::None) [[unlikely]] {
-					return error;
-				}
-			}
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = bufferViewObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.bufferViews.size(), Category::BufferViews, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		asset.bufferViews.emplace_back(std::move(view));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseCameras(simdjson::dom::array& cameras, Asset& asset) {
-	using namespace simdjson;
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Camera::Perspective& out) {
+		fastgltf::optional<fastgltf::num> yfov, znear;
 
-	asset.cameras.reserve(cameras.size());
+		const auto error = val.get_object().template for_each<
+			"aspectRatio", "yfov", "zfar", "znear">(
+			out.aspectRatio, yfov, out.zfar, znear);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!yfov || !znear) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.yfov = *yfov;
+		out.znear = *znear;
+		return SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Camera::Orthographic& out) {
+		fastgltf::optional<fastgltf::num> xmag, ymag, zfar, znear;
+
+		const auto error = val.get_object().template for_each<
+			"xmag", "ymag", "zfar", "znear">(
+			xmag, ymag, zfar, znear);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!xmag || !ymag || !zfar || !znear) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.xmag = *xmag;
+		out.ymag = *ymag;
+		out.zfar = *zfar;
+		out.znear = *znear;
+		return SUCCESS;
+	}
+} // namespace simdjson
+
+fg::Error fg::Parser::parseCameras(internal::JsonArray& camerasJson, Asset& asset) {
+	using namespace simdjson;
+	auto& cameras = camerasJson.value;
+
+	if (const auto error = reserveElements(cameras, asset.cameras);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto cameraValue : cameras) {
-		Camera camera {};
-		dom::object cameraObject;
-		if (cameraValue.get_object().get(cameraObject) != SUCCESS) [[unlikely]] {
+		const auto extras = readExtras(config, asset.cameras.size(), Category::Cameras);
+
+		auto& camera = asset.cameras.emplace_back();
+
+		std::optional<std::string_view> type;
+		std::optional<Camera::Perspective> perspective;
+		std::optional<Camera::Orthographic> orthographic;
+
+		const auto error = cameraValue.get_object().for_each<
+			"type", "perspective", "orthographic", "name", "extras">(
+			type, perspective, orthographic, camera.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		// The object with the camera's properties has to match the type.
+		if (type == "perspective" && perspective) {
+			camera.camera = *perspective;
+		} else if (type == "orthographic" && orthographic) {
+			camera.camera = *orthographic;
+		} else [[unlikely]] {
 			return Error::InvalidGltf;
-		}
-
-		std::string_view name;
-		if (cameraObject["name"].get_string().get(name) == SUCCESS) {
-			camera.name.assign(name);
-		}
-
-		std::string_view type;
-		if (cameraObject["type"].get_string().get(type) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (type == "perspective") {
-			dom::object perspectiveCamera;
-			if (cameraObject["perspective"].get_object().get(perspectiveCamera) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			Camera::Perspective perspective {};
-			double value;
-			if (auto error = perspectiveCamera["aspectRatio"].get_double().get(value); error == SUCCESS) [[likely]] {
-				if (!toNum(value, perspective.aspectRatio)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-
-			if (auto error = perspectiveCamera["zfar"].get_double().get(value); error == SUCCESS) [[likely]] {
-				if (!toNum(value, perspective.zfar)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-
-			if (perspectiveCamera["yfov"].get_double().get(value) == SUCCESS) [[likely]] {
-				if (!toNum(value, perspective.yfov)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else {
-				return Error::InvalidGltf;
-			}
-
-			if (perspectiveCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
-				if (!toNum(value, perspective.znear)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else {
-				return Error::InvalidGltf;
-			}
-
-			camera.camera = perspective;
-		} else if (type == "orthographic") {
-			dom::object orthographicCamera;
-			if (cameraObject["orthographic"].get_object().get(orthographicCamera) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			Camera::Orthographic orthographic {};
-			double value;
-			if (orthographicCamera["xmag"].get_double().get(value) == SUCCESS) [[likely]] {
-				if (!toNum(value, orthographic.xmag)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else {
-				return Error::InvalidGltf;
-			}
-
-			if (orthographicCamera["ymag"].get_double().get(value) == SUCCESS) [[likely]] {
-				if (!toNum(value, orthographic.ymag)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else {
-				return Error::InvalidGltf;
-			}
-
-			if (orthographicCamera["zfar"].get_double().get(value) == SUCCESS) [[likely]] {
-				if (!toNum(value, orthographic.zfar)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else {
-				return Error::InvalidGltf;
-			}
-
-			if (orthographicCamera["znear"].get_double().get(value) == SUCCESS) [[likely]] {
-				if (!toNum(value, orthographic.znear)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else {
-				return Error::InvalidGltf;
-			}
-
-			camera.camera = orthographic;
-		} else {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = cameraObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.cameras.size(), Category::Cameras, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		asset.cameras.emplace_back(std::move(camera));
-	}
-
-	return Error::None;
-}
-
-fg::Error fg::Parser::parseExtensions(const simdjson::dom::object& extensionsObject, Asset& asset) {
-	using namespace simdjson;
-
-	for (auto extensionValue : extensionsObject) {
-		dom::object extensionObject;
-		if (auto error = extensionValue.value.get_object().get(extensionObject); error != SUCCESS) [[unlikely]] {
-			if (error == INCORRECT_TYPE) {
-				continue; // We want to ignore
-			}
-			return Error::InvalidGltf;
-		}
-
-		switch (crc32c(extensionValue.key)) {
-			case force_consteval<crc32c(extensions::KHR_lights_punctual)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
-					break;
-
-				dom::array lightsArray;
-				if (auto error = extensionObject["lights"].get_array().get(lightsArray); error == SUCCESS) [[likely]] {
-					if (auto lightsError = parseLights(lightsArray, asset); lightsError != Error::None)
-						return lightsError;
-				} else if (error != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_variants)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
-					break;
-
-				dom::array variantsArray;
-				if (auto arrayError = extensionObject["variants"].get_array().get(variantsArray); arrayError == SUCCESS) [[likely]] {
-					asset.materialVariants.reserve(variantsArray.size());
-					for (auto variant : variantsArray) {
-						dom::object variantObject;
-						if (auto error = variant.get_object().get(variantObject); error == SUCCESS) {
-							std::string_view name;
-							if (variantObject["name"].get_string().get(name) != SUCCESS) {
-								return Error::InvalidGltf;
-							}
-							asset.materialVariants.emplace_back(name);
-						} else {
-							return Error::InvalidGltf;
-						}
-					}
-				} else {
-					return Error::InvalidGltf;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_implicit_shapes)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_implicit_shapes)) {
-					break;
-				}
-
-				dom::array shapesArray;
-				if (auto arrayError = extensionObject["shapes"].get_array().get(shapesArray); arrayError == SUCCESS) [[likely]] {
-					if (auto shapesError = parseShapes(shapesArray, asset); shapesError != Error::None) [[unlikely]] {
-						return shapesError;
-					}
-				} else {
-					return Error::InvalidGltf;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_physics_rigid_bodies)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
-					break;
-				}
-
-				dom::array materialsArray;
-				if (auto arrayError = extensionObject["physicsMaterials"].get_array().get(materialsArray); arrayError == SUCCESS) {
-					if (auto materialsError = parsePhysicsMaterials(materialsArray, asset); materialsError != Error::None) [[unlikely]] {
-						return materialsError;
-					}
-				} else if (arrayError != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				dom::array filtersArray;
-				if (auto arrayError = extensionObject["collisionFilters"].get_array().get(filtersArray); arrayError == SUCCESS) {
-					if (auto filtersError = parseCollisionFilters(filtersArray, asset); filtersError != Error::None) [[unlikely]] {
-						return filtersError;
-					}
-				} else if (arrayError != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				dom::array jointsArray;
-				if (auto arrayError = extensionObject["physicsJoints"].get_array().get(jointsArray); arrayError == SUCCESS) {
-					if (auto jointsError = parsePhysicsJoints(jointsArray, asset); jointsError != Error::None) [[unlikely]] {
-						return jointsError;
-					}
-				} else if (arrayError != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				break;
-			}
-			default:
-				continue;
 		}
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
+fg::Error fg::Parser::parseExtensions(internal::JsonObject& extensionsObjectJson, Asset& asset) {
 	using namespace simdjson;
 
-	asset.images.reserve(images.size());
+	// Reads an array with one of the parseXYZ functions.
+	const auto readArray = [&](Error (Parser::*parseFunction)(internal::JsonArray&, Asset&)) {
+		return [this, &asset, parseFunction](ondemand::value value) {
+			internal::JsonArray array;
+			if (const auto error = value.get(array.value); error != SUCCESS) [[unlikely]]
+				return error;
+			return toErrorCode((this->*parseFunction)(array, asset));
+		};
+	};
+
+	const auto readLights = [&](ondemand::value value) -> error_code {
+		if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
+			return SUCCESS;
+		return value.get_object().for_each<"lights">(readArray(&Parser::parseLights));
+	};
+
+	const auto readVariants = [&](ondemand::value value) -> error_code {
+		if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
+			return SUCCESS;
+
+		const auto readVariant = [&](ondemand::value variant) -> error_code {
+			std::optional<std::string> name;
+			if (const auto error = variant.get_object().for_each<"name">(name);
+				error != SUCCESS) [[unlikely]]
+				return error;
+			if (!name) [[unlikely]]
+				return NO_SUCH_FIELD;
+			asset.materialVariants.emplace_back(std::move(*name));
+			return SUCCESS;
+		};
+		const auto readVariantArray = [&](ondemand::value variants) {
+			return parseArray(variants, asset.materialVariants, readVariant);
+		};
+
+		if (const auto error = value.get_object().for_each<"variants">(readVariantArray);
+			error != SUCCESS) [[unlikely]]
+			return error;
+		if (asset.materialVariants.empty()) [[unlikely]]
+			return NO_SUCH_FIELD;
+		return SUCCESS;
+	};
+
+	const auto readShapes = [&](ondemand::value value) -> error_code {
+		if (!hasBit(config.extensions, Extensions::KHR_implicit_shapes))
+			return SUCCESS;
+
+		const auto error = value.get_object().for_each<"shapes">(
+			readArray(&Parser::parseShapes));
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+		if (asset.shapes.empty()) [[unlikely]]
+			return NO_SUCH_FIELD;
+		return SUCCESS;
+	};
+
+	const auto readPhysics = [&](ondemand::value value) -> error_code {
+		if (!hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies))
+			return SUCCESS;
+		return value.get_object().for_each<
+			"physicsMaterials",
+			"collisionFilters",
+			"physicsJoints">(
+			readArray(&Parser::parsePhysicsMaterials),
+			readArray(&Parser::parseCollisionFilters),
+			readArray(&Parser::parsePhysicsJoints));
+	};
+
+	return toError(extensionsObjectJson.value.for_each<
+		"KHR_lights_punctual", "KHR_materials_variants",
+		"KHR_implicit_shapes", "KHR_physics_rigid_bodies">(
+		readLights, readVariants,
+		readShapes, readPhysics));
+}
+
+fg::Error fg::Parser::parseImages(internal::JsonArray& imagesJson, Asset& asset) {
+	using namespace simdjson;
+	auto& images = imagesJson.value;
+
+	if (const auto error = reserveElements(images, asset.images); error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto imageValue : images) {
-		Image image {};
-		dom::object imageObject;
-		if (imageValue.get_object().get(imageObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		const auto extras = readExtras(config, asset.images.size(), Category::Images);
 
-		std::string_view uriString;
-		if (imageObject["uri"].get_string().get(uriString) == SUCCESS) [[likely]] {
-			if (imageObject["bufferView"].error() == SUCCESS) [[likely]] {
+		auto& image = asset.images.emplace_back();
+
+		std::optional<std::string_view> uriString, mimeType;
+		optional<std::size_t> bufferViewIndex;
+
+		const auto error = imageValue.get_object().for_each<
+			"uri", "mimeType", "bufferView", "name", "extras">(
+			uriString, mimeType, bufferViewIndex, image.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (uriString) [[likely]] {
+			if (bufferViewIndex) [[unlikely]] {
 				// If uri is declared, bufferView cannot be declared.
 				return Error::InvalidGltf;
 			}
 
-			URIView uriView(uriString);
-			if (!uriView.valid()) {
+			URIView uriView(*uriString);
+			if (!uriView.valid()) [[unlikely]] {
 				return Error::InvalidURI;
 			}
 
 			if (uriView.isDataUri()) {
 				auto decoded = decodeDataUri(uriView);
-				if (decoded.has_error()) {
+				if (decoded.has_error()) [[unlikely]] {
 					return decoded.error();
 				}
 
 				image.data = std::move(decoded.get());
 			} else if (uriView.isLocalPath() && hasBit(options, Options::LoadExternalImages)) {
 				auto file = loadFileFromUri(uriView);
-				if (file.has_error()) {
+				if (file.has_error()) [[unlikely]] {
 					return file.error();
 				}
 
@@ -1630,2487 +1589,990 @@ fg::Error fg::Parser::parseImages(simdjson::dom::array& images, Asset& asset) {
 				image.data = std::move(filePath);
 			}
 
-			std::string_view mimeType;
-			if (imageObject["mimeType"].get_string().get(mimeType) == SUCCESS) [[likely]] {
+			if (mimeType) [[likely]] {
 				std::visit([&]<typename T>(T& arg) {
 					// This is kinda cursed
-					if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView, sources::URI, sources::Array, sources::Vector>) {
-						arg.mimeType = internal::getMimeTypeFromString(mimeType);
+					if constexpr (is_any_of_v<T, sources::CustomBuffer, sources::BufferView,
+							sources::URI, sources::Array, sources::Vector>) {
+						arg.mimeType = internal::getMimeTypeFromString(*mimeType);
 					}
 				}, image.data);
 			}
-		}
-
-		std::uint64_t bufferViewIndex;
-		if (imageObject["bufferView"].get_uint64().get(bufferViewIndex) == SUCCESS) [[likely]] {
-			std::string_view mimeType;
-			if (imageObject["mimeType"].get_string().get(mimeType) != SUCCESS) [[unlikely]] {
+		} else if (bufferViewIndex) {
+			if (!mimeType) [[unlikely]] {
 				// If bufferView is defined, mimeType needs to also be defined.
 				return Error::InvalidGltf;
 			}
 
-			if (!isValidIndex(bufferViewIndex)) [[unlikely]]
-				return Error::ValueOutOfRange;
 			image.data = sources::BufferView {
-				.bufferViewIndex = static_cast<std::size_t>(bufferViewIndex),
-				.mimeType = internal::getMimeTypeFromString(mimeType),
+				.bufferViewIndex = *bufferViewIndex,
+				.mimeType = internal::getMimeTypeFromString(*mimeType),
 			};
 		}
 
-		if (std::holds_alternative<std::monostate>(image.data)) {
+		if (std::holds_alternative<std::monostate>(image.data)) [[unlikely]] {
 			return Error::InvalidGltf;
 		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = imageObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.images.size(), Category::Images, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		// name is optional.
-		std::string_view name;
-		if (imageObject["name"].get_string().get(name) == SUCCESS) {
-			image.name.assign(name);
-		}
-
-		asset.images.emplace_back(std::move(image));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseLights(const simdjson::dom::array& lights, Asset& asset) {
+fg::Error fg::Parser::parseLights(internal::JsonArray& lightsJson, Asset& asset) {
 	using namespace simdjson;
+	auto& lights = lightsJson.value;
 
-	asset.lights.reserve(lights.size());
+	if (const auto error = reserveElements(lights, asset.lights); error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto lightValue : lights) {
-		dom::object lightObject;
-		if (lightValue.get_object().get(lightObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		Light light {};
+		auto& light = asset.lights.emplace_back();
+		light.color = math::nvec3(1);
+		light.intensity = 1.0f;
 
-		std::string_view type;
-		if (lightObject["type"].get_string().get(type) == SUCCESS) [[likely]] {
-			switch (crc32c(type.data())) {
-				case force_consteval<crc32c("directional")>: {
-					light.type = LightType::Directional;
-					break;
-				}
-				case force_consteval<crc32c("spot")>: {
-					light.type = LightType::Spot;
-					break;
-				}
-				case force_consteval<crc32c("point")>: {
-					light.type = LightType::Point;
-					break;
-				}
-				default: {
-					return Error::InvalidGltf;
-				}
-			}
-		} else {
-			return Error::InvalidGltf;
-		}
+		std::optional<LightType> type;
+		bool hasSpot = false;
 
+		const auto readSpot = [&](ondemand::value spot) -> error_code {
+			hasSpot = true;
+			return spot.get_object().for_each<"innerConeAngle", "outerConeAngle">(
+				light.innerConeAngle, light.outerConeAngle);
+		};
+
+		const auto error = lightValue.get_object().for_each<
+			"type", "color", "intensity", "range", "spot", "name">(
+			type, light.color, light.intensity, light.range, readSpot, light.name);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (!type) [[unlikely]]
+			return Error::InvalidGltf;
+		light.type = *type;
+
+		// The cone angles only apply to spot lights, which are required to have the spot object.
 		if (light.type == LightType::Spot) {
-			dom::object spotObject;
-			if (lightObject["spot"].get_object().get(spotObject) != SUCCESS) [[unlikely]] {
+			if (!hasSpot) [[unlikely]]
 				return Error::InvalidGltf;
-			}
-
-			double innerConeAngle;
-			if (auto error = spotObject["innerConeAngle"].get_double().get(innerConeAngle); error == SUCCESS) [[likely]] {
-				if (!toNum(innerConeAngle, light.innerConeAngle)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error == NO_SUCH_FIELD) {
+			if (!light.innerConeAngle)
 				light.innerConeAngle = 0.0f;
-			} else {
-				return Error::InvalidGltf;
-			}
-
-			double outerConeAngle;
-			if (auto error = spotObject["outerConeAngle"].get_double().get(outerConeAngle); error == SUCCESS) [[likely]] {
-				if (!toNum(outerConeAngle, light.outerConeAngle)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error == NO_SUCH_FIELD) {
+			if (!light.outerConeAngle)
 				light.outerConeAngle = static_cast<num>(std::numbers::pi / 4.0);
-			} else {
-				return Error::InvalidGltf;
-			}
-		}
-
-		dom::array colorArray;
-		if (auto error = lightObject["color"].get_array().get(colorArray); error == SUCCESS) [[likely]] {
-			if (colorArray.size() != 3U) {
-				return Error::InvalidGltf;
-			}
-			for (std::size_t i = 0U; i < colorArray.size(); ++i) {
-				double color;
-				if (colorArray.at(i).get_double().get(color) == SUCCESS) [[likely]] {
-					if (!toNum(color, light.color[i])) [[unlikely]]
-						return Error::InvalidGltf;
-				} else {
-					return Error::InvalidGltf;
-				}
-			}
-		} else if (error == NO_SUCH_FIELD) {
-			light.color = math::nvec3(1);
 		} else {
-			return Error::InvalidGltf;
-		}
-
-		double intensity;
-		if (lightObject["intensity"].get_double().get(intensity) == SUCCESS) [[likely]] {
-			if (!toNum(intensity, light.intensity)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else {
-			light.intensity = 1.0f;
-		}
-
-		double range;
-		if (lightObject["range"].get_double().get(range) == SUCCESS) [[likely]] {
-			if (!toNum(range, light.range)) [[unlikely]]
-				return Error::InvalidGltf;
-		}
-
-		std::string_view name;
-		if (lightObject["name"].get_string().get(name) == SUCCESS) {
-			light.name.assign(name);
-		}
-
-		asset.lights.emplace_back(std::move(light));
-	}
-
-	return Error::None;
-}
-
-fg::Error fg::Parser::parseMaterialExtensions(simdjson::dom::object &object, Material &material) {
-	using namespace simdjson;
-
-	for (auto extensionField : object) {
-		switch (crc32c(extensionField.key)) {
-			case force_consteval<crc32c(extensions::KHR_materials_anisotropy)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_anisotropy))
-					break;
-
-				dom::object anisotropyObject;
-				auto anisotropyError = extensionField.value.get_object().get(anisotropyObject);
-				if (anisotropyError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& anisotropy = material.anisotropy.emplace();
-
-				double anisotropyStrength;
-				if (auto error = anisotropyObject["anisotropyStrength"].get_double().get(anisotropyStrength);
-					error == SUCCESS) [[likely]] {
-					if (!toNum(anisotropyStrength, anisotropy.anisotropyStrength)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidJson;
-				}
-
-				double anisotropyRotation;
-				if (auto error = anisotropyObject["anisotropyRotation"].get_double().get(anisotropyRotation);
-					error == SUCCESS) [[likely]] {
-					if (!toNum(anisotropyRotation, anisotropy.anisotropyRotation)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidJson;
-				}
-
-				TextureInfo anisotropyTexture;
-				if (auto error = parseTextureInfo(anisotropyObject, "anisotropyTexture", &anisotropyTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					anisotropy.anisotropyTexture = std::move(anisotropyTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_clearcoat)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_clearcoat))
-					break;
-
-				dom::object clearcoatObject;
-				auto clearcoatError = extensionField.value.get_object().get(clearcoatObject);
-				if (clearcoatError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& clearcoat = material.clearcoat.emplace();
-
-				double clearcoatFactor;
-				if (auto error = clearcoatObject["clearcoatFactor"].get_double().get(clearcoatFactor);
-					error == SUCCESS) {
-					if (!toNum(clearcoatFactor, clearcoat.clearcoatFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidJson;
-				}
-
-				TextureInfo clearcoatTexture;
-				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatTexture", &clearcoatTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					clearcoat.clearcoatTexture = std::move(clearcoatTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				double clearcoatRoughnessFactor;
-				if (auto error = clearcoatObject["clearcoatRoughnessFactor"].get_double().get(
-							clearcoatRoughnessFactor); error == SUCCESS) [[likely]] {
-					if (!toNum(clearcoatRoughnessFactor, clearcoat.clearcoatRoughnessFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidJson;
-				}
-
-				TextureInfo clearcoatRoughnessTexture;
-				if (auto error = parseTextureInfo(clearcoatObject, "clearcoatRoughnessTexture",
-												  &clearcoatRoughnessTexture, config.extensions); error ==
-																								  Error::None) {
-					clearcoat.clearcoatRoughnessTexture = std::move(clearcoatRoughnessTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				NormalTextureInfo clearcoatNormalTexture;
-				if (auto error = parseTextureInfo<internal::TextureInfoType::NormalTexture>(clearcoatObject, "clearcoatNormalTexture",
-												  &clearcoatNormalTexture, config.extensions); error ==
-																							   Error::None) {
-					clearcoat.clearcoatNormalTexture = std::move(clearcoatNormalTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_dispersion)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_dispersion))
-					break;
-
-				dom::object dispersionObject;
-				auto dispersionError = extensionField.value.get_object().get(dispersionObject);
-				if (dispersionError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double dispersionFactor;
-				auto error = dispersionObject["dispersion"].get_double().get(dispersionFactor);
-				if (error == SUCCESS) [[likely]] {
-					if (!toNum(dispersionFactor, material.dispersion)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_emissive_strength)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_emissive_strength))
-					break;
-
-				dom::object emissiveObject;
-				auto emissiveError = extensionField.value.get_object().get(emissiveObject);
-				if (emissiveError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double emissiveStrength;
-				auto error = emissiveObject["emissiveStrength"].get_double().get(emissiveStrength);
-				if (error == SUCCESS) [[likely]] {
-					if (!toNum(emissiveStrength, material.emissiveStrength)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_ior)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_ior))
-					break;
-
-				dom::object iorObject;
-				auto iorError = extensionField.value.get_object().get(iorObject);
-				if (iorError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double ior;
-				auto error = iorObject["ior"].get_double().get(ior);
-				if (error == SUCCESS) [[likely]] {
-					if (!toNum(ior, material.ior)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidJson;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_iridescence)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_iridescence))
-					break;
-
-				dom::object iridescenceObject;
-				auto iridescenceError = extensionField.value.get_object().get(iridescenceObject);
-				if (iridescenceError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& iridescence = material.iridescence.emplace();
-
-				double iridescenceFactor;
-				if (auto error = iridescenceObject["iridescenceFactor"].get_double().get(iridescenceFactor);
-						error == SUCCESS) [[likely]] {
-					if (!toNum(iridescenceFactor, iridescence.iridescenceFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo iridescenceTexture;
-				if (auto error = parseTextureInfo(iridescenceObject, "iridescenceTexture", &iridescenceTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					iridescence.iridescenceTexture = std::move(iridescenceTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				double iridescenceIor;
-				if (auto error = iridescenceObject["iridescenceIor"].get_double().get(iridescenceIor);
-					error == SUCCESS) {
-					if (!toNum(iridescenceIor, iridescence.iridescenceIor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double iridescenceThicknessMinimum;
-				if (auto error = iridescenceObject["iridescenceThicknessMinimum"].get_double().get(
-							iridescenceThicknessMinimum); error == SUCCESS) [[likely]] {
-					if (!toNum(iridescenceThicknessMinimum, iridescence.iridescenceThicknessMinimum)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double iridescenceThicknessMaximum;
-				if (auto error = iridescenceObject["iridescenceThicknessMaximum"].get_double().get(
-							iridescenceThicknessMaximum); error == SUCCESS) [[likely]] {
-					if (!toNum(iridescenceThicknessMaximum, iridescence.iridescenceThicknessMaximum)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo iridescenceThicknessTexture;
-				if (auto error = parseTextureInfo(iridescenceObject, "iridescenceThicknessTexture",
-												  &iridescenceThicknessTexture, config.extensions); error ==
-																									Error::None) {
-					iridescence.iridescenceThicknessTexture = std::move(iridescenceThicknessTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_diffuse_transmission)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_diffuse_transmission))
-					break;
-
-				dom::object diffuseTransmissionObject;
-				auto diffuseTransmissionError = extensionField.value.get_object().get(diffuseTransmissionObject);
-				if (diffuseTransmissionError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& diffuseTransmission = material.diffuseTransmission.emplace();
-
-				double diffuseTransmissionFactor;
-				if (auto error = diffuseTransmissionObject["diffuseTransmissionFactor"].get_double().get(diffuseTransmissionFactor);
-					error == SUCCESS) [[likely]] {
-					if (!toNum(diffuseTransmissionFactor, diffuseTransmission.diffuseTransmissionFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo diffuseTransmissionTexture;
-				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionTexture", &diffuseTransmissionTexture, config.extensions); error == Error::None) [[likely]] {
-					diffuseTransmission.diffuseTransmissionTexture = std::move(diffuseTransmissionTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				dom::array diffuseTransmissionColorFactor;
-				if (auto error = diffuseTransmissionObject["diffuseTransmissionColorFactor"].get_array().get(diffuseTransmissionColorFactor); error == SUCCESS) [[likely]] {
-					std::size_t i = 0;
-					for (auto factor: diffuseTransmissionColorFactor) {
-						if (i >= diffuseTransmission.diffuseTransmissionColorFactor.size()) {
-							return Error::InvalidGltf;
-						}
-						double value;
-						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(value, diffuseTransmission.diffuseTransmissionColorFactor[i++])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				}
-
-				TextureInfo diffuseTransmissionColorTexture;
-				if (auto error = parseTextureInfo(diffuseTransmissionObject, "diffuseTransmissionColorTexture", &diffuseTransmissionColorTexture, config.extensions); error == Error::None) [[likely]] {
-					diffuseTransmission.diffuseTransmissionColorTexture = std::move(diffuseTransmissionColorTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-
-			case force_consteval<crc32c(extensions::KHR_materials_sheen)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_sheen))
-					break;
-
-				dom::object sheenObject;
-				auto sheenError = extensionField.value.get_object().get(sheenObject);
-				if (sheenError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& sheen = material.sheen.emplace();
-
-				dom::array sheenColorFactor;
-				if (auto error = sheenObject["sheenColorFactor"].get_array().get(sheenColorFactor); error ==
-																									SUCCESS) {
-					std::size_t i = 0;
-					for (auto factor: sheenColorFactor) {
-						if (i >= sheen.sheenColorFactor.size()) {
-							return Error::InvalidGltf;
-						}
-						double value;
-						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(value, sheen.sheenColorFactor[i++])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo sheenColorTexture;
-				if (auto error = parseTextureInfo(sheenObject, "sheenColorTexture", &sheenColorTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					sheen.sheenColorTexture = std::move(sheenColorTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				double sheenRoughnessFactor;
-				if (auto error = sheenObject["sheenRoughnessFactor"].get_double().get(sheenRoughnessFactor);
-						error == SUCCESS) [[likely]] {
-					if (!toNum(sheenRoughnessFactor, sheen.sheenRoughnessFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo sheenRoughnessTexture;
-				if (auto error = parseTextureInfo(sheenObject, "sheenRoughnessTexture", &sheenRoughnessTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					sheen.sheenRoughnessTexture = std::move(sheenRoughnessTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_specular)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_specular))
-					break;
-
-				dom::object specularObject;
-				auto specularError = extensionField.value.get_object().get(specularObject);
-				if (specularError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& specular = material.specular.emplace();
-
-				double specularFactor;
-				if (auto error = specularObject["specularFactor"].get_double().get(specularFactor); error ==
-																									SUCCESS) {
-					if (!toNum(specularFactor, specular.specularFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo specularTexture;
-				if (auto error = parseTextureInfo(specularObject, "specularTexture", &specularTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					specular.specularTexture = std::move(specularTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				dom::array specularColorFactor;
-				if (auto error = specularObject["specularColorFactor"].get_array().get(specularColorFactor);
-						error == SUCCESS) [[likely]] {
-					std::size_t i = 0;
-					for (auto factor: specularColorFactor) {
-						if (i >= specular.specularColorFactor.size()) {
-							return Error::InvalidGltf;
-						}
-						double value;
-						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(value, specular.specularColorFactor[i++])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo specularColorTexture;
-				if (auto error = parseTextureInfo(specularObject, "specularColorTexture", &specularColorTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					specular.specularColorTexture = std::move(specularColorTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_transmission)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_transmission))
-					break;
-
-				dom::object transmissionObject;
-				auto transmissionError = extensionField.value.get_object().get(transmissionObject);
-				if (transmissionError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& transmission = material.transmission.emplace();
-
-				double transmissionFactor;
-				if (auto error = transmissionObject["transmissionFactor"].get_double().get(transmissionFactor);
-						error == SUCCESS) [[likely]] {
-					if (!toNum(transmissionFactor, transmission.transmissionFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo transmissionTexture;
-				if (auto error = parseTextureInfo(transmissionObject, "transmissionTexture", &transmissionTexture,
-												  config.extensions); error == Error::None) [[likely]] {
-					transmission.transmissionTexture = std::move(transmissionTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_unlit)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_unlit))
-					break;
-
-				dom::object unlitObject;
-				auto unlitError = extensionField.value.get_object().get(unlitObject);
-				if (unlitError == SUCCESS) [[likely]] {
-					material.unlit = true;
-				} else {
-					return Error::InvalidGltf;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_volume)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_volume))
-					break;
-
-				dom::object volumeObject;
-				auto volumeError = extensionField.value.get_object().get(volumeObject);
-				if (volumeError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				auto& volume = material.volume.emplace();
-
-				double thicknessFactor;
-				if (auto error = volumeObject["thicknessFactor"].get_double().get(thicknessFactor); error == SUCCESS) [[likely]] {
-					if (!toNum(thicknessFactor, volume.thicknessFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo thicknessTexture;
-				if (auto error = parseTextureInfo(volumeObject, "thicknessTexture", &thicknessTexture, config.extensions); error == Error::None) [[likely]] {
-					volume.thicknessTexture = std::move(thicknessTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				double attenuationDistance;
-				if (auto error = volumeObject["attenuationDistance"].get_double().get(attenuationDistance); error == SUCCESS) [[likely]] {
-					if (!toNum(attenuationDistance, volume.attenuationDistance)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				dom::array attenuationColor;
-				if (auto error = volumeObject["attenuationColor"].get_array().get(attenuationColor); error == SUCCESS) [[likely]] {
-					std::size_t i = 0;
-					for (auto factor : attenuationColor) {
-						if (i >= volume.attenuationColor.size()) {
-							return Error::InvalidGltf;
-						}
-						double value;
-						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(value, (volume.attenuationColor)[i++])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::MSFT_packing_normalRoughnessMetallic)>: {
-				if (!hasBit(config.extensions, Extensions::MSFT_packing_normalRoughnessMetallic))
-					break;
-
-				dom::object normalRoughnessMetallic;
-				if (extensionField.value.get_object().get(normalRoughnessMetallic) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				TextureInfo textureInfo {};
-				if (auto error = parseTextureInfo(normalRoughnessMetallic, "normalRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-					material.packedNormalMetallicRoughnessTexture = std::move(textureInfo);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::MSFT_packing_occlusionRoughnessMetallic)>: {
-				if (!hasBit(config.extensions, Extensions::MSFT_packing_occlusionRoughnessMetallic))
-					break;
-
-				dom::object occlusionRoughnessMetallic;
-				if (extensionField.value.get_object().get(occlusionRoughnessMetallic) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				auto& packedTextures = material.packedOcclusionRoughnessMetallicTextures.emplace();
-				TextureInfo textureInfo {};
-				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "occlusionRoughnessMetallicTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-					packedTextures.occlusionRoughnessMetallicTexture = std::move(textureInfo);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "roughnessMetallicOcclusionTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-					packedTextures.roughnessMetallicOcclusionTexture = std::move(textureInfo);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				if (auto error = parseTextureInfo(occlusionRoughnessMetallic, "normalTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-					packedTextures.normalTexture = std::move(textureInfo);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			case force_consteval<crc32c(extensions::KHR_materials_pbrSpecularGlossiness)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_pbrSpecularGlossiness))
-					break;
-
-				dom::object specularGlossinessObject;
-				auto specularGlossinessError = extensionField.value.get_object().get(specularGlossinessObject);
-				if (specularGlossinessError != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				auto& specularGlossiness = material.specularGlossiness.emplace();
-
-				dom::array diffuseFactor;
-				if (auto error = specularGlossinessObject["diffuseFactor"].get_array().get(diffuseFactor); error == SUCCESS) [[likely]] {
-					std::size_t i = 0;
-					for (auto factor : diffuseFactor) {
-						if (i >= specularGlossiness.diffuseFactor.size()) {
-							return Error::InvalidGltf;
-						}
-						double value;
-						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(value, specularGlossiness.diffuseFactor[i++])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo diffuseTexture;
-				if (auto error = parseTextureInfo(specularGlossinessObject, "diffuseTexture", &diffuseTexture, config.extensions); error == Error::None) [[likely]] {
-					specularGlossiness.diffuseTexture = std::move(diffuseTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-
-				dom::array specularFactor;
-				if (auto error = specularGlossinessObject["specularFactor"].get_array().get(specularFactor); error == SUCCESS) [[likely]] {
-					std::size_t i = 0;
-					for (auto factor : specularFactor) {
-						if (i >= specularGlossiness.specularFactor.size()) {
-							return Error::InvalidGltf;
-						}
-						double value;
-						if (factor.get_double().get(value) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-						if (!toNum(value, specularGlossiness.specularFactor[i++])) [[unlikely]]
-							return Error::InvalidGltf;
-					}
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double glossinessFactor;
-				if (auto error = specularGlossinessObject["glossinessFactor"].get_double().get(glossinessFactor); error == SUCCESS) [[likely]] {
-					if (!toNum(glossinessFactor, specularGlossiness.glossinessFactor)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				TextureInfo specularGlossinessTexture;
-				if (auto error = parseTextureInfo(specularGlossinessObject, "specularGlossinessTexture", &specularGlossinessTexture, config.extensions); error == Error::None) [[likely]] {
-					specularGlossiness.specularGlossinessTexture = std::move(specularGlossinessTexture);
-				} else if (error != Error::MissingField) {
-					return error;
-				}
-				break;
-			}
-			default:
-				// Should we error on unknown extensions?
-				break;
+			light.innerConeAngle.reset();
+			light.outerConeAngle.reset();
 		}
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseMaterials(simdjson::dom::array& materials, Asset& asset) {
+fg::Error fg::Parser::parseMaterialExtensions(internal::JsonObject& objectJson,
+		Material& material) {
 	using namespace simdjson;
+	const auto extensions = config.extensions;
+	const auto readTexture = [extensions](auto& out) {
+		return readTextureInfo(out, extensions);
+	};
 
-	asset.materials.reserve(materials.size());
+	const auto readAnisotropy = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_anisotropy))
+			return SUCCESS;
+
+		auto& anisotropy = material.anisotropy.emplace();
+		return value.get_object().for_each<
+			"anisotropyStrength", "anisotropyRotation",
+			"anisotropyTexture">(
+			anisotropy.anisotropyStrength, anisotropy.anisotropyRotation,
+			readTexture(anisotropy.anisotropyTexture));
+	};
+
+	const auto readClearcoat = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_clearcoat))
+			return SUCCESS;
+
+		auto& clearcoat = material.clearcoat.emplace();
+		return value.get_object().for_each<
+			"clearcoatFactor", "clearcoatTexture",
+			"clearcoatRoughnessFactor", "clearcoatRoughnessTexture",
+			"clearcoatNormalTexture">(
+			clearcoat.clearcoatFactor, readTexture(clearcoat.clearcoatTexture),
+			clearcoat.clearcoatRoughnessFactor, readTexture(clearcoat.clearcoatRoughnessTexture),
+			readTexture(clearcoat.clearcoatNormalTexture));
+	};
+
+	const auto readDispersion = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_dispersion))
+			return SUCCESS;
+
+		return value.get_object().for_each<"dispersion">(material.dispersion);
+	};
+
+	const auto readEmissiveStrength = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_emissive_strength))
+			return SUCCESS;
+
+		return value.get_object().for_each<"emissiveStrength">(material.emissiveStrength);
+	};
+
+	const auto readIor = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_ior))
+			return SUCCESS;
+
+		return value.get_object().for_each<"ior">(material.ior);
+	};
+
+	const auto readIridescence = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_iridescence))
+			return SUCCESS;
+
+		auto& iridescence = material.iridescence.emplace();
+		return value.get_object().for_each<
+			"iridescenceFactor", "iridescenceTexture",
+			"iridescenceIor",
+			"iridescenceThicknessMinimum", "iridescenceThicknessMaximum",
+			"iridescenceThicknessTexture">(
+			iridescence.iridescenceFactor, readTexture(iridescence.iridescenceTexture),
+			iridescence.iridescenceIor,
+			iridescence.iridescenceThicknessMinimum, iridescence.iridescenceThicknessMaximum,
+			readTexture(iridescence.iridescenceThicknessTexture));
+	};
+
+	const auto readDiffuseTransmission = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_diffuse_transmission))
+			return SUCCESS;
+
+		auto& transmission = material.diffuseTransmission.emplace();
+		return value.get_object().for_each<
+			"diffuseTransmissionFactor",
+			"diffuseTransmissionTexture",
+			"diffuseTransmissionColorFactor",
+			"diffuseTransmissionColorTexture">(
+			transmission.diffuseTransmissionFactor,
+			readTexture(transmission.diffuseTransmissionTexture),
+			transmission.diffuseTransmissionColorFactor,
+			readTexture(transmission.diffuseTransmissionColorTexture));
+	};
+
+	const auto readSheen = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_sheen))
+			return SUCCESS;
+
+		auto& sheen = material.sheen.emplace();
+		return value.get_object().for_each<
+			"sheenColorFactor", "sheenColorTexture",
+			"sheenRoughnessFactor", "sheenRoughnessTexture">(
+			sheen.sheenColorFactor, readTexture(sheen.sheenColorTexture),
+			sheen.sheenRoughnessFactor, readTexture(sheen.sheenRoughnessTexture));
+	};
+
+	const auto readSpecular = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_specular))
+			return SUCCESS;
+
+		auto& specular = material.specular.emplace();
+		return value.get_object().for_each<
+			"specularFactor", "specularTexture",
+			"specularColorFactor", "specularColorTexture">(
+			specular.specularFactor, readTexture(specular.specularTexture),
+			specular.specularColorFactor, readTexture(specular.specularColorTexture));
+	};
+
+	const auto readTransmission = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_transmission))
+			return SUCCESS;
+
+		auto& transmission = material.transmission.emplace();
+		return value.get_object().for_each<"transmissionFactor", "transmissionTexture">(
+			transmission.transmissionFactor, readTexture(transmission.transmissionTexture));
+	};
+
+	const auto readUnlit = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_unlit))
+			return SUCCESS;
+
+		material.unlit = true;
+		ondemand::object unlit;
+		return value.get(unlit);
+	};
+
+	const auto readVolume = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_volume))
+			return SUCCESS;
+
+		auto& volume = material.volume.emplace();
+		return value.get_object().for_each<
+			"thicknessFactor", "thicknessTexture",
+			"attenuationDistance", "attenuationColor">(
+			volume.thicknessFactor, readTexture(volume.thicknessTexture),
+			volume.attenuationDistance, volume.attenuationColor);
+	};
+
+	const auto readPackedNormal = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::MSFT_packing_normalRoughnessMetallic))
+			return SUCCESS;
+
+		return value.get_object().for_each<"normalRoughnessMetallicTexture">(
+			readTexture(material.packedNormalMetallicRoughnessTexture));
+	};
+
+	const auto readPackedOcclusion = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::MSFT_packing_occlusionRoughnessMetallic))
+			return SUCCESS;
+
+		auto& packed = material.packedOcclusionRoughnessMetallicTextures.emplace();
+		return value.get_object().for_each<
+			"occlusionRoughnessMetallicTexture",
+			"roughnessMetallicOcclusionTexture",
+			"normalTexture">(
+			readTexture(packed.occlusionRoughnessMetallicTexture),
+			readTexture(packed.roughnessMetallicOcclusionTexture),
+			readTexture(packed.normalTexture));
+	};
+
+	const auto readSpecularGlossiness = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_pbrSpecularGlossiness))
+			return SUCCESS;
+
+		auto& specularGlossiness = material.specularGlossiness.emplace();
+		return value.get_object().for_each<
+			"diffuseFactor", "diffuseTexture",
+			"specularFactor", "glossinessFactor",
+			"specularGlossinessTexture">(
+			specularGlossiness.diffuseFactor, readTexture(specularGlossiness.diffuseTexture),
+			specularGlossiness.specularFactor, specularGlossiness.glossinessFactor,
+			readTexture(specularGlossiness.specularGlossinessTexture));
+	};
+
+	return toError(objectJson.value.for_each<
+		"KHR_materials_anisotropy", "KHR_materials_clearcoat", "KHR_materials_dispersion",
+		"KHR_materials_emissive_strength", "KHR_materials_ior", "KHR_materials_iridescence",
+		"KHR_materials_diffuse_transmission", "KHR_materials_sheen", "KHR_materials_specular",
+		"KHR_materials_transmission", "KHR_materials_unlit", "KHR_materials_volume",
+		"MSFT_packing_normalRoughnessMetallic", "MSFT_packing_occlusionRoughnessMetallic",
+		"KHR_materials_pbrSpecularGlossiness">(
+		readAnisotropy, readClearcoat, readDispersion,
+		readEmissiveStrength, readIor, readIridescence,
+		readDiffuseTransmission, readSheen, readSpecular,
+		readTransmission, readUnlit, readVolume,
+		readPackedNormal, readPackedOcclusion,
+		readSpecularGlossiness));
+}
+
+fg::Error fg::Parser::parseMaterials(internal::JsonArray& materialsJson, Asset& asset) {
+	using namespace simdjson;
+	auto& materials = materialsJson.value;
+
+	const auto readTexture = [this](auto& out) {
+		return readTextureInfo(out, config.extensions);
+	};
+
+	if (const auto error = reserveElements(materials, asset.materials);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto materialValue : materials) {
-		dom::object materialObject;
-		if (materialValue.get_object().get(materialObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		Material material {};
+		const auto extras = readExtras(config, asset.materials.size(), Category::Materials);
 
-		dom::array emissiveFactor;
-		if (auto error = materialObject["emissiveFactor"].get_array().get(emissiveFactor); error == SUCCESS) [[likely]] {
-			if (emissiveFactor.size() != 3) {
-				return Error::InvalidGltf;
-			}
-			for (auto i = 0U; i < 3; ++i) {
-				double val;
-				if (emissiveFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, material.emissiveFactor[i])) [[unlikely]]
-					return Error::InvalidGltf;
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		auto& material = asset.materials.emplace_back();
+		auto& pbr = material.pbrData;
 
-		{
-			NormalTextureInfo normalTextureInfo {};
-			if (auto error = parseTextureInfo<internal::TextureInfoType::NormalTexture>(
-					materialObject, "normalTexture", &normalTextureInfo, config.extensions);
-				error == Error::None) [[likely]] {
-				material.normalTexture = std::move(normalTextureInfo);
-			} else if (error != Error::MissingField) {
+		const auto readPbr = [&](ondemand::value value) -> error_code {
+			return value.get_object().for_each<
+				"baseColorFactor", "baseColorTexture", "metallicFactor",
+				"roughnessFactor", "metallicRoughnessTexture">(
+				pbr.baseColorFactor, readTexture(pbr.baseColorTexture), pbr.metallicFactor,
+				pbr.roughnessFactor, readTexture(pbr.metallicRoughnessTexture));
+		};
+
+		const auto readExtensions = [&](ondemand::value value) -> error_code {
+			internal::JsonObject extensions;
+			if (const auto error = value.get(extensions.value); error != SUCCESS) [[unlikely]]
 				return error;
-			}
-		}
+			return toErrorCode(parseMaterialExtensions(extensions, material));
+		};
 
-		{
-			OcclusionTextureInfo occlusionTextureInfo {};
-			if (auto error = parseTextureInfo<internal::TextureInfoType::OcclusionTexture>(
-					materialObject, "occlusionTexture", &occlusionTextureInfo, config.extensions);
-				error == Error::None) [[likely]] {
-				material.occlusionTexture = std::move(occlusionTextureInfo);
-			} else if (error != Error::MissingField) {
-				return error;
-			}
-		}
-
-		{
-			TextureInfo textureInfo {};
-			if (auto error = parseTextureInfo(materialObject, "emissiveTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-				material.emissiveTexture = std::move(textureInfo);
-			} else if (error != Error::MissingField) {
-				return error;
-			}
-		}
-
-		dom::object pbrMetallicRoughness;
-		if (materialObject["pbrMetallicRoughness"].get_object().get(pbrMetallicRoughness) == SUCCESS) [[likely]] {
-			PBRData pbr {};
-
-			dom::array baseColorFactor;
-			if (pbrMetallicRoughness["baseColorFactor"].get_array().get(baseColorFactor) == SUCCESS) [[likely]] {
-				for (auto i = 0U; i < 4; ++i) {
-					double val;
-					if (baseColorFactor.at(i).get_double().get(val) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					if (!toNum(val, pbr.baseColorFactor[i])) [[unlikely]]
-						return Error::InvalidGltf;
-				}
-			}
-
-			double factor;
-			if (auto error = pbrMetallicRoughness["metallicFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
-				if (!toNum(factor, pbr.metallicFactor)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-			if (auto error = pbrMetallicRoughness["roughnessFactor"].get_double().get(factor); error == SUCCESS) [[likely]] {
-				if (!toNum(factor, pbr.roughnessFactor)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-
-			TextureInfo textureInfo;
-			if (auto error = parseTextureInfo(pbrMetallicRoughness, "baseColorTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-				pbr.baseColorTexture = std::move(textureInfo);
-			} else if (error != Error::MissingField) {
-				return error;
-			}
-
-			if (auto error = parseTextureInfo(pbrMetallicRoughness, "metallicRoughnessTexture", &textureInfo, config.extensions); error == Error::None) [[likely]] {
-				pbr.metallicRoughnessTexture = std::move(textureInfo);
-			} else if (error != Error::MissingField) {
-				return error;
-			}
-
-			material.pbrData = std::move(pbr);
-		}
-
-		std::string_view alphaMode;
-		if (auto error = materialObject["alphaMode"].get_string().get(alphaMode); error == SUCCESS) [[likely]] {
-			if (alphaMode == "OPAQUE") {
-				material.alphaMode = AlphaMode::Opaque;
-			} else if (alphaMode == "MASK") {
-				material.alphaMode = AlphaMode::Mask;
-			} else if (alphaMode == "BLEND") {
-				material.alphaMode = AlphaMode::Blend;
-			} else {
-				return Error::InvalidGltf;
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		double alphaCutoff;
-		if (auto error = materialObject["alphaCutoff"].get_double().get(alphaCutoff); error == SUCCESS) [[likely]] {
-			if (!toNum(alphaCutoff, material.alphaCutoff)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		bool doubleSided;
-		if (auto error = materialObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) [[likely]] {
-			material.doubleSided = doubleSided;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		std::string_view name;
-		if (materialObject["name"].get_string().get(name) == SUCCESS) {
-			material.name.assign(name);
-		}
-
-		dom::object extensionsObject;
-		if (auto extensionError = materialObject["extensions"].get_object().get(extensionsObject); extensionError == SUCCESS) {
-			if (const auto err = parseMaterialExtensions(extensionsObject, material); err != Error::None)
-				return err;
-		} else if (extensionError != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidJson;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = materialObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.materials.size(), Category::Materials, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		asset.materials.emplace_back(std::move(material));
+		const auto error = materialValue.get_object().for_each<
+			"name", "pbrMetallicRoughness",
+			"normalTexture", "occlusionTexture",
+			"emissiveTexture", "emissiveFactor",
+			"alphaMode", "alphaCutoff", "doubleSided",
+			"extensions", "extras">(
+			material.name, readPbr,
+			readTexture(material.normalTexture), readTexture(material.occlusionTexture),
+			readTexture(material.emissiveTexture), material.emissiveFactor,
+			material.alphaMode, material.alphaCutoff, material.doubleSided,
+			readExtensions, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
 	}
 
 	return Error::None;
 }
 
-fastgltf::Error fg::Parser::parsePrimitiveExtensions(const simdjson::dom::object& object, Primitive& primitive) {
+fg::Error fg::Parser::parsePrimitiveExtensions(internal::JsonObject& objectJson,
+		Primitive& primitive) {
 	using namespace simdjson;
 
-	for (auto extension : object) {
-		switch (crc32c(extension.key)) {
-			case force_consteval<crc32c(extensions::KHR_materials_variants)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
-					break;
+	const auto readVariants = [&](ondemand::value value) -> error_code {
+		if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
+			return SUCCESS;
 
-				dom::object variantObject;
-				if (auto variantsError = extension.value.get_object().get(variantObject); variantsError != SUCCESS) {
-					return Error::InvalidGltf;
+		const auto readMappings = [&](ondemand::value mappingsValue) -> error_code {
+			ondemand::array mappings;
+			if (const auto error = mappingsValue.get(mappings); error != SUCCESS) [[unlikely]]
+				return error;
+
+			// The material may come after the variants, so the variants are collected first.
+			optional<std::size_t> material;
+			std::vector<std::size_t> variants;
+			for (auto mapping : mappings) {
+				material.reset();
+				variants.clear();
+				const auto error = mapping.get_object().for_each<"material", "variants">(
+					material, variants);
+				if (error != SUCCESS) [[unlikely]]
+					return error;
+				if (!material || variants.empty()) [[unlikely]]
+					return NO_SUCH_FIELD;
+
+				for (const auto variant : variants) {
+					if (variant >= variantCount) [[unlikely]]
+						return INCORRECT_TYPE;
+					primitive.mappings.resize(max(primitive.mappings.size(), variant + 1));
+					primitive.mappings[variant] = *material;
 				}
-
-				dom::array mappingsArray;
-				if (variantObject["mappings"].get_array().get(mappingsArray) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				for (auto mapping : mappingsArray) {
-					dom::object mappingObject;
-					if (mapping.get_object().get(mappingObject) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-
-					std::uint64_t materialIndex;
-					if (mappingObject["material"].get_uint64().get(materialIndex) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-
-					if (!isValidIndex(materialIndex)) [[unlikely]]
-						return Error::ValueOutOfRange;
-
-					dom::array variantsArray;
-					if (mappingObject["variants"].get_array().get(variantsArray) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					for (auto variant : variantsArray) {
-						std::uint64_t variantIndex;
-						if (variant.get_uint64().get(variantIndex) != SUCCESS) [[unlikely]] {
-							return Error::InvalidGltf;
-						}
-
-						if (variantIndex >= variantCount) [[unlikely]]
-							return Error::InvalidGltf;
-
-						primitive.mappings.resize(max(primitive.mappings.size(),
-													  static_cast<std::size_t>(variantIndex + 1)));
-						primitive.mappings[static_cast<std::size_t>(variantIndex)] = materialIndex;
-					}
-				}
-				break;
 			}
-			case force_consteval<crc32c(extensions::KHR_draco_mesh_compression)>: {
-				if (!hasBit(config.extensions, Extensions::KHR_draco_mesh_compression))
-					break;
+			return SUCCESS;
+		};
 
-				dom::object dracoObject;
-				if (auto dracoError = extension.value.get_object().get(dracoObject); dracoError != SUCCESS) {
-					return Error::InvalidGltf;
-				}
+		if (const auto error = value.get_object().for_each<"mappings">(readMappings);
+			error != SUCCESS) [[unlikely]]
+			return error;
+		if (primitive.mappings.empty()) [[unlikely]]
+			return NO_SUCH_FIELD;
+		return SUCCESS;
+	};
 
-				auto& dracoCompression = primitive.dracoCompression.emplace();
+	const auto readDraco = [&](ondemand::value value) -> error_code {
+		if (!hasBit(config.extensions, Extensions::KHR_draco_mesh_compression))
+			return SUCCESS;
 
-				std::uint64_t value;
-				if (auto error = dracoObject["bufferView"].get_uint64().get(value); error != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!isValidIndex(value)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				dracoCompression.bufferView = static_cast<std::size_t>(value);
+		auto& draco = primitive.dracoCompression.emplace();
+		optional<std::size_t> bufferView;
+		const auto error = value.get_object().for_each<"bufferView", "attributes">(
+			bufferView, draco.attributes);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+		if (!bufferView || draco.attributes.empty()) [[unlikely]]
+			return NO_SUCH_FIELD;
 
-				dom::object attributesObject;
-				if (dracoObject["attributes"].get_object().get(attributesObject) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (auto attributesError = parseAttributes(attributesObject, dracoCompression.attributes); attributesError != Error::None) {
-					return attributesError;
-				}
-				break;
-			}
-		}
+		draco.bufferView = *bufferView;
+		return SUCCESS;
+	};
+
+	return toError(objectJson.value.for_each<
+		"KHR_materials_variants", "KHR_draco_mesh_compression">(
+		readVariants, readDraco));
+}
+
+fg::Error fg::Parser::parsePrimitives(internal::JsonArray& meshesJson, Mesh& mesh) {
+	using namespace simdjson;
+	auto& primitives = meshesJson.value;
+
+	if (const auto error = reserveElements(primitives, mesh.primitives); error != Error::None) [[unlikely]]
+		return error;
+
+	for (auto value : primitives) {
+		auto& primitive = mesh.primitives.emplace_back();
+
+		const auto readExtensions = [&](ondemand::value extensionsValue) -> error_code {
+			internal::JsonObject extensions;
+			if (const auto error = extensionsValue.get(extensions.value); error != SUCCESS) [[unlikely]]
+				return error;
+			return toErrorCode(parsePrimitiveExtensions(extensions, primitive));
+		};
+
+		// The attributes are required, but may be empty.
+		bool hasAttributes = false;
+		const auto readAttributes = [&](ondemand::value attributes) {
+			hasAttributes = true;
+			return attributes.get(primitive.attributes);
+		};
+
+		const auto error = value.get_object().for_each<
+			"attributes", "indices", "material",
+			"mode", "targets", "extensions">(
+			readAttributes, primitive.indicesAccessor, primitive.materialIndex,
+			primitive.type, primitive.targets, readExtensions);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (!hasAttributes) [[unlikely]]
+			return Error::InvalidGltf;
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseMeshes(simdjson::dom::array& meshes, Asset& asset) {
+fg::Error fg::Parser::parseMeshes(internal::JsonArray& meshesJson, Asset& asset) {
 	using namespace simdjson;
+	auto& meshes = meshesJson.value;
 
-	asset.meshes.reserve(meshes.size());
+	if (const auto error = reserveElements(meshes, asset.meshes); error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto meshValue : meshes) {
-		// Required fields: "primitives"
-		dom::object meshObject;
-		if (meshValue.get_object().get(meshObject) != SUCCESS) [[unlikely]] {
+		const auto extras = readExtras(config, asset.meshes.size(), Category::Meshes);
+
+		auto& mesh = asset.meshes.emplace_back();
+
+		const auto readPrimitives = [&](ondemand::value primitivesValue) {
+			internal::JsonArray primitives;
+			if (const auto error = primitivesValue.get(primitives.value); error != SUCCESS) [[unlikely]]
+				return error;
+			return toErrorCode(parsePrimitives(primitives, mesh));
+		};
+
+		const auto error = meshValue.get_object().for_each<
+			"primitives", "weights", "name", "extras">(
+			readPrimitives, mesh.weights, mesh.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		// The primitives are required and need at least one element.
+		if (mesh.primitives.empty()) [[unlikely]]
 			return Error::InvalidGltf;
-		}
-		Mesh mesh {};
-
-		dom::array array;
-		auto meshError = getJsonArray(meshObject, "primitives", &array);
-		if (meshError != Error::None || array.size() == 0) {
-			return Error::InvalidGltf;
-		}
-
-		mesh.primitives.reserve(array.size());
-		for (auto primitiveValue : array) {
-			// Required fields: "attributes"
-			Primitive primitive {};
-			dom::object primitiveObject;
-			if (primitiveValue.get_object().get(primitiveObject) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			dom::object attributesObject;
-			if (primitiveObject["attributes"].get_object().get(attributesObject) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (auto attributesError = parseAttributes(attributesObject, primitive.attributes); attributesError != Error::None) {
-				return attributesError;
-			}
-
-			dom::array targets;
-			if (primitiveObject["targets"].get_array().get(targets) == SUCCESS) [[likely]] {
-				primitive.targets.reserve(targets.size());
-				for (auto targetValue : targets) {
-					if (targetValue.get_object().get(attributesObject) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					auto& map = primitive.targets.emplace_back();
-					if (auto attributesError = parseAttributes(attributesObject, map); attributesError != Error::None) {
-						return attributesError;
-					}
-				}
-			}
-
-			std::uint64_t value;
-			if (auto error = primitiveObject["mode"].get_uint64().get(value); error == SUCCESS) [[likely]] {
-				if (!toEnum(value, primitive.type)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			if (auto error = primitiveObject["indices"].get_uint64().get(value); error == SUCCESS) [[likely]] {
-				if (!isValidIndex(value)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				primitive.indicesAccessor = static_cast<std::size_t>(value);
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-
-			if (auto error = primitiveObject["material"].get_uint64().get(value); error == SUCCESS) [[likely]] {
-				if (!isValidIndex(value)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				primitive.materialIndex = static_cast<std::size_t>(value);
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-
-			if (hasBit(config.extensions, Extensions::KHR_materials_variants) || hasBit(config.extensions, Extensions::KHR_draco_mesh_compression)) {
-				dom::object extensionsObject;
-				if (auto error = primitiveObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) {
-					if (auto extensionError = parsePrimitiveExtensions(extensionsObject, primitive); extensionError != Error::None)
-						return extensionError;
-				} else if (error != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-			}
-
-			mesh.primitives.emplace_back(std::move(primitive));
-		}
-
-		if (meshError = getJsonArray(meshObject, "weights", &array); meshError == Error::None) [[likely]] {
-			mesh.weights.reserve(array.size());
-			for (auto weightValue : array) {
-				double val;
-				if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, mesh.weights.emplace_back())) [[unlikely]]
-					return Error::InvalidGltf;
-			}
-		} else if (meshError != Error::MissingField && meshError != Error::None) {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = meshObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.meshes.size(), Category::Meshes, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (meshObject["name"].get_string().get(name) == SUCCESS) {
-			mesh.name.assign(name);
-		}
-
-		asset.meshes.emplace_back(std::move(mesh));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseNodes(simdjson::dom::array& nodes, Asset& asset) {
+fg::Error fg::Parser::parseNodes(internal::JsonArray& nodesJson, Asset& asset) {
 	using namespace simdjson;
+	auto& nodes = nodesJson.value;
 
-	asset.nodes.reserve(nodes.size());
+	const auto parseNodeExtensions = [&](ondemand::value value, Node& node) -> error_code {
+		const auto readLight = [&](ondemand::value lights) -> error_code {
+			if (!hasBit(config.extensions, Extensions::KHR_lights_punctual))
+				return SUCCESS;
+			if (const auto error = lights.get_object().for_each<"light">(node.lightIndex);
+				error != SUCCESS) [[unlikely]]
+				return error;
+			if (!node.lightIndex) [[unlikely]]
+				return NO_SUCH_FIELD;
+			return SUCCESS;
+		};
+		const auto readInstancing = [&](ondemand::value instancing) -> error_code {
+			if (!hasBit(config.extensions, Extensions::EXT_mesh_gpu_instancing))
+				return SUCCESS;
+			const auto error = instancing.get_object().for_each<"attributes">(
+				node.instancingAttributes);
+			if (error != SUCCESS) [[unlikely]]
+				return error;
+			if (node.instancingAttributes.empty()) [[unlikely]]
+				return NO_SUCH_FIELD;
+			return SUCCESS;
+		};
+		const auto readRigidBodies = [&](ondemand::value rigidBodies) -> error_code {
+			if (!hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies))
+				return SUCCESS;
+			internal::JsonObject object;
+			if (const auto error = rigidBodies.get(object.value); error != SUCCESS) [[unlikely]]
+				return error;
+			return toErrorCode(parsePhysicsRigidBody(object, node));
+		};
+		const auto readVisibility = [&](ondemand::value visibility) -> error_code {
+			if (!hasBit(config.extensions, Extensions::KHR_node_visibility))
+				return SUCCESS;
+			return visibility.get_object().for_each<"visible">(node.visible);
+		};
+		const auto readSelectability = [&](ondemand::value selectability) -> error_code {
+			if (!hasBit(config.extensions, Extensions::KHR_node_selectability))
+				return SUCCESS;
+			return selectability.get_object().for_each<"selectable">(node.selectable);
+		};
+		const auto readHoverability = [&](ondemand::value hoverability) -> error_code {
+			if (!hasBit(config.extensions, Extensions::KHR_node_hoverability))
+				return SUCCESS;
+			return hoverability.get_object().for_each<"hoverable">(node.hoverable);
+		};
+
+		return value.get_object().for_each<
+			"KHR_lights_punctual", "EXT_mesh_gpu_instancing", "KHR_physics_rigid_bodies",
+			"KHR_node_visibility", "KHR_node_selectability", "KHR_node_hoverability">(
+			readLight, readInstancing, readRigidBodies,
+			readVisibility, readSelectability, readHoverability);
+	};
+
+	if (const auto error = reserveElements(nodes, asset.nodes); error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto nodeValue : nodes) {
-		Node node {};
-		dom::object nodeObject;
-		if (nodeValue.get_object().get(nodeObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		const auto extras = readExtras(config, asset.nodes.size(), Category::Nodes);
 
-		std::uint64_t index;
-		if (auto error = nodeObject["mesh"].get_uint64().get(index); error == SUCCESS) {
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			node.meshIndex = static_cast<std::size_t>(index);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		if (auto error = nodeObject["skin"].get_uint64().get(index); error == SUCCESS) {
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			node.skinIndex = static_cast<std::size_t>(index);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		if (auto error = nodeObject["camera"].get_uint64().get(index); error == SUCCESS) {
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			node.cameraIndex = static_cast<std::size_t>(index);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		auto& node = asset.nodes.emplace_back();
 
-		dom::array array;
-		auto childError = getJsonArray(nodeObject, "children", &array);
-		if (childError == Error::None) [[likely]] {
-			node.children.reserve(array.size());
-			for (auto childValue : array) {
-				if (childValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
+		std::optional<math::nmat4x4> matrix;
+		TRS trs {};
 
-				if (!isValidIndex(index)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				node.children.emplace_back(static_cast<std::size_t>(index));
-			}
-		} else if (childError != Error::MissingField) {
-			return childError;
-		}
+		const auto readExtensions = [&](ondemand::value extensions) {
+			return parseNodeExtensions(extensions, node);
+		};
 
-		auto weightsError = getJsonArray(nodeObject, "weights", &array);
-		if (weightsError != Error::MissingField) {
-			if (weightsError == Error::None) {
-				node.weights.reserve(array.size());
-				for (auto weightValue : array) {
-					double val;
-					if (weightValue.get_double().get(val) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					if (!toNum(val, node.weights.emplace_back())) [[unlikely]]
-						return Error::InvalidGltf;
-				}
-			} else {
-				return Error::InvalidGltf;
-			}
-		}
+		const auto error = nodeValue.get_object().for_each<
+			"camera", "children", "skin", "matrix",
+			"mesh", "rotation", "scale", "translation",
+			"weights", "name", "extensions", "extras">(
+			node.cameraIndex, node.children, node.skinIndex, matrix,
+			node.meshIndex, trs.rotation, trs.scale, trs.translation,
+			node.weights, node.name, readExtensions, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
 
-		auto error = nodeObject["matrix"].get_array().get(array);
-		if (error == SUCCESS) [[likely]] {
-			if (array.size() != 16) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			math::nmat4x4 transformMatrix;
-			std::size_t i = 0, j = 0;
-			for (auto num : array) {
-				double val;
-				if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, transformMatrix.col(i)[j++])) [[unlikely]]
-					return Error::InvalidGltf;
-				if (j == 4) {
-					j = 0;
-					++i;
-				}
-			}
-
-			if (hasBit(options, Options::DecomposeNodeMatrices)) {
-				TRS trs {};
-				math::decomposeTransformMatrix(transformMatrix, trs.scale, trs.rotation, trs.translation);
-				node.transform = trs;
-			} else {
-				node.transform = transformMatrix;
-			}
-		} else if (error == NO_SUCH_FIELD) {
-			TRS trs {};
-
-			// There's no matrix, let's see if there's scale, rotation, or rotation fields.
-			if (auto scaleError = nodeObject["scale"].get_array().get(array); scaleError == SUCCESS) [[likely]] {
-				if (array.size() != 3) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				auto i = 0U;
-				for (auto num : array) {
-					double val;
-					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					if (!toNum(val, trs.scale[i])) [[unlikely]]
-						return Error::InvalidGltf;
-					++i;
-				}
-			} else if (scaleError != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidJson;
-			}
-
-			if (auto translationError = nodeObject["translation"].get_array().get(array); translationError == SUCCESS) [[likely]] {
-				if (array.size() != 3) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				auto i = 0U;
-				for (auto num : array) {
-					double val;
-					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					if (!toNum(val, trs.translation[i])) [[unlikely]]
-						return Error::InvalidGltf;
-					++i;
-				}
-			} else if (translationError != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			if (auto rotationError = nodeObject["rotation"].get_array().get(array); rotationError == SUCCESS) [[likely]] {
-				if (array.size() != 4) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				auto i = 0U;
-				for (auto num : array) {
-					double val;
-					if (num.get_double().get(val) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-					if (!toNum(val, trs.rotation[i])) [[unlikely]]
-						return Error::InvalidGltf;
-					++i;
-				}
-			} else if (rotationError != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
+		// The TRS properties are ignored when there's a matrix.
+		if (!matrix) {
 			node.transform = trs;
+		} else if (hasBit(options, Options::DecomposeNodeMatrices)) {
+			TRS decomposed {};
+			math::decomposeTransformMatrix(*matrix, decomposed.scale, decomposed.rotation,
+				decomposed.translation);
+			node.transform = decomposed;
+		} else {
+			node.transform = *matrix;
 		}
-
-		dom::object extensionsObject;
-		if (nodeObject["extensions"].get_object().get(extensionsObject) == SUCCESS) [[likely]] {
-			if (hasBit(config.extensions, Extensions::KHR_lights_punctual)) {
-				dom::object lightsObject;
-				if (const auto lightsError = extensionsObject[extensions::KHR_lights_punctual].get_object().get(lightsObject); lightsError == SUCCESS) [[likely]] {
-					std::uint64_t light;
-					if (auto lightError = lightsObject["light"].get_uint64().get(light); lightError == SUCCESS) [[likely]] {
-						if (!isValidIndex(light)) [[unlikely]]
-							return Error::ValueOutOfRange;
-						node.lightIndex = static_cast<std::size_t>(light);
-					} else {
-						return lightError == NO_SUCH_FIELD || lightError == INCORRECT_TYPE ? Error::InvalidGltf : Error::InvalidJson;
-					}
-				} else if (lightsError != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-			}
-
-			if (hasBit(config.extensions, Extensions::EXT_mesh_gpu_instancing)) {
-				dom::object gpuInstancingObject;
-				if (auto instancingError = extensionsObject[extensions::EXT_mesh_gpu_instancing].get_object().get(gpuInstancingObject); instancingError == SUCCESS) [[likely]] {
-					dom::object attributesObject;
-
-					if (gpuInstancingObject["attributes"].get_object().get(attributesObject) != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-
-					if (auto attributesError = parseAttributes(attributesObject, node.instancingAttributes); attributesError != Error::None) {
-						return attributesError;
-					}
-				} else if (instancingError != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-			}
-
-			if (hasBit(config.extensions, Extensions::KHR_physics_rigid_bodies)) {
-				dom::object physicsRigidBodiesObject;
-				if (auto rigidBodiesError = extensionsObject[extensions::KHR_physics_rigid_bodies].get_object().get(physicsRigidBodiesObject); rigidBodiesError == SUCCESS) [[likely]] {
-					const auto rigidBodyError = parsePhysicsRigidBody(physicsRigidBodiesObject, node);
-					if (rigidBodyError != Error::None) {
-						return rigidBodyError;
-					}
-				} else if (rigidBodiesError != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-			}
-
-			if (hasBit(config.extensions, Extensions::KHR_node_visibility)) {
-				dom::object nodeVisibilityObject;
-				if (auto nodeVisibilityError = extensionsObject[extensions::KHR_node_visibility].get_object().get(nodeVisibilityObject); nodeVisibilityError == SUCCESS) {
-					if (const auto visibleError = nodeVisibilityObject["visible"].get_bool().get(node.visible);
-						visibleError != NO_SUCH_FIELD && visibleError != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else if (nodeVisibilityError != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-			}
-
-			if (hasBit(config.extensions, Extensions::KHR_node_selectability)) {
-				dom::object nodeSelectabilityObject;
-				if (auto nodeSelectabilityError = extensionsObject[extensions::KHR_node_selectability].get_object().get(nodeSelectabilityObject); nodeSelectabilityError == SUCCESS) {
-					if (const auto selectableError = nodeSelectabilityObject["selectable"].get_bool().get(node.selectable);
-						selectableError != NO_SUCH_FIELD && selectableError != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else if (nodeSelectabilityError != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-			}
-
-			if (hasBit(config.extensions, Extensions::KHR_node_hoverability)) {
-				dom::object nodeHoverabilityObject;
-				if (auto nodeHoverabilityError = extensionsObject[extensions::KHR_node_hoverability].get_object().get(nodeHoverabilityObject); nodeHoverabilityError == SUCCESS) {
-					if (const auto hoverableError = nodeHoverabilityObject["hoverable"].get_bool().get(node.hoverable);
-						hoverableError != NO_SUCH_FIELD && hoverableError != SUCCESS) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else if (nodeHoverabilityError != NO_SUCH_FIELD) {
-					return Error::InvalidGltf;
-				}
-			}
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = nodeObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.nodes.size(), Category::Nodes, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (nodeObject["name"].get_string().get(name) == SUCCESS) {
-			node.name.assign(name);
-		}
-
-		asset.nodes.emplace_back(std::move(node));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseSamplers(const simdjson::dom::array& samplers, Asset& asset) {
+fg::Error fg::Parser::parseSamplers(internal::JsonArray& samplersJson, Asset& asset) {
 	using namespace simdjson;
+	auto& samplers = samplersJson.value;
 
-	std::uint64_t number;
-	asset.samplers.reserve(samplers.size());
+	if (const auto error = reserveElements(samplers, asset.samplers);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto samplerValue : samplers) {
-		Sampler sampler {};
-		dom::object samplerObject;
-		if (samplerValue.get_object().get(samplerObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		const auto extras = readExtras(config, asset.samplers.size(), Category::Samplers);
 
-		if (auto error = samplerObject["magFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!toEnum<Filter>(number, sampler.magFilter)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		if (auto error = samplerObject["minFilter"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!toEnum<Filter>(number, sampler.minFilter)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		auto& sampler = asset.samplers.emplace_back();
 
-		if (auto error = samplerObject["wrapS"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!toEnum<Wrap>(number, sampler.wrapS)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-		if (auto error = samplerObject["wrapT"].get_uint64().get(number); error == SUCCESS) [[likely]] {
-			if (!toEnum<Wrap>(number, sampler.wrapT)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = samplerObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.samplers.size(), Category::Samplers, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (samplerObject["name"].get_string().get(name) == SUCCESS) {
-			sampler.name.assign(name);
-		}
-
-		asset.samplers.emplace_back(std::move(sampler));
+		const auto error = samplerValue.get_object().for_each<
+			"magFilter", "minFilter", "wrapS", "wrapT",
+			"name", "extras">(
+			sampler.magFilter, sampler.minFilter, sampler.wrapS, sampler.wrapT,
+			sampler.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseScenes(const simdjson::dom::array& scenes, Asset& asset) {
+fg::Error fg::Parser::parseScenes(internal::JsonArray& scenesJson, Asset& asset) {
 	using namespace simdjson;
+	auto& scenes = scenesJson.value;
 
-	asset.scenes.reserve(scenes.size());
+	if (const auto error = reserveElements(scenes, asset.scenes); error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto sceneValue : scenes) {
+		const auto extras = readExtras(config, asset.scenes.size(), Category::Scenes);
+
 		// The scene object can be completely empty
-		Scene scene {};
-		dom::object sceneObject;
-		if (sceneValue.get_object().get(sceneObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		auto& scene = asset.scenes.emplace_back();
 
-		std::string_view name;
-		if (sceneObject["name"].get_string().get(name) == SUCCESS) {
-			scene.name.assign(name);
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = sceneObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.scenes.size(), Category::Scenes, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		// Parse the array of nodes.
-		dom::array nodes;
-		auto nodeError = getJsonArray(sceneObject, "nodes", &nodes);
-		if (nodeError == Error::None) [[likely]] {
-			scene.nodeIndices.reserve(nodes.size());
-			for (auto nodeValue : nodes) {
-				std::uint64_t index;
-				if (nodeValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				if (!isValidIndex(index)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				scene.nodeIndices.emplace_back(static_cast<std::size_t>(index));
-			}
-		} else if (nodeError != Error::MissingField) {
-			return nodeError;
-		}
-
-		asset.scenes.emplace_back(std::move(scene));
+		const auto error = sceneValue.get_object().for_each<"nodes", "name", "extras">(
+			scene.nodeIndices, scene.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseSkins(const simdjson::dom::array& skins, Asset& asset) {
+fg::Error fg::Parser::parseSkins(internal::JsonArray& skinsJson, Asset& asset) {
 	using namespace simdjson;
+	auto& skins = skinsJson.value;
 
-	asset.skins.reserve(skins.size());
+	if (const auto error = reserveElements(skins, asset.skins); error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto skinValue : skins) {
-		Skin skin {};
-		dom::object skinObject;
-		if (skinValue.get_object().get(skinObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		const auto extras = readExtras(config, asset.skins.size(), Category::Skins);
 
-		std::uint64_t index;
-		if (auto error = skinObject["inverseBindMatrices"].get_uint64().get(index); error == SUCCESS) [[likely]] {
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			skin.inverseBindMatrices = static_cast<std::size_t>(index);
-		} else if (error != NO_SUCH_FIELD) {
-			return Error::InvalidGltf;
-		}
-		if (auto error = skinObject["skeleton"].get_uint64().get(index); error == SUCCESS) [[likely]] {
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			skin.skeleton = static_cast<std::size_t>(index);
-		} else if (error != NO_SUCH_FIELD) {
-			return Error::InvalidGltf;
-		}
+		auto& skin = asset.skins.emplace_back();
 
-		dom::array jointsArray;
-		if (skinObject["joints"].get_array().get(jointsArray) != SUCCESS) [[unlikely]] {
+		const auto error = skinValue.get_object().for_each<
+			"inverseBindMatrices", "skeleton", "joints", "name", "extras">(
+			skin.inverseBindMatrices, skin.skeleton, skin.joints, skin.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		// The joints are required and need at least one element.
+		if (skin.joints.empty()) [[unlikely]]
 			return Error::InvalidGltf;
-		}
-		skin.joints.reserve(jointsArray.size());
-		for (auto jointValue : jointsArray) {
-			if (jointValue.get_uint64().get(index) != SUCCESS) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			if (!isValidIndex(index)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			skin.joints.emplace_back(index);
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = skinObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.skins.size(), Category::Skins, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (skinObject["name"].get_string().get(name) == SUCCESS) {
-			skin.name.assign(name);
-		}
-		asset.skins.emplace_back(std::move(skin));
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseTextures(const simdjson::dom::array& textures, Asset& asset) {
+fg::Error fg::Parser::parseTextures(internal::JsonArray& texturesJson, Asset& asset) {
 	using namespace simdjson;
+	auto& textures = texturesJson.value;
 
-	asset.textures.reserve(textures.size());
+	if (const auto error = reserveElements(textures, asset.textures);
+		error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto textureValue : textures) {
-		Texture texture {};
-		dom::object textureObject;
-		if (textureValue.get_object().get(textureObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		const auto extras = readExtras(config, asset.textures.size(), Category::Textures);
 
-		std::uint64_t sourceIndex;
-		if (auto error = textureObject["source"].get_uint64().get(sourceIndex); error == SUCCESS) [[likely]] {
-			if (!isValidIndex(sourceIndex)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			texture.imageIndex = static_cast<std::size_t>(sourceIndex);
-		} else if (error != NO_SUCH_FIELD) {
-			return Error::InvalidGltf;
-		}
+		auto& texture = asset.textures.emplace_back();
 
-		dom::object extensionsObject;
-		if (auto error = textureObject["extensions"].get_object().get(extensionsObject); error == SUCCESS) [[likely]] {
-			if (auto extensionError = parseTextureExtensions(texture, extensionsObject, config.extensions); extensionError != Error::None) {
-				return extensionError;
-			}
-		} else if (error != NO_SUCH_FIELD) {
-			return Error::InvalidGltf;
-		}
+		const auto readExtensions = [&](ondemand::value extensions) {
+			return parseTextureExtensions(extensions, texture, config.extensions);
+		};
 
 		// The index of the sampler used by this texture. When undefined, a sampler with
 		// repeat wrapping and auto filtering SHOULD be used.
-		std::uint64_t samplerIndex;
-		if (auto error = textureObject["sampler"].get_uint64().get(samplerIndex); error == SUCCESS) [[likely]] {
-			if (!isValidIndex(samplerIndex)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			texture.samplerIndex = static_cast<std::size_t>(samplerIndex);
-		} else if (error != NO_SUCH_FIELD) {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = textureObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.textures.size(), Category::Textures, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (textureObject["name"].get_string().get(name) == SUCCESS) {
-			texture.name.assign(name);
-		}
-
-		asset.textures.emplace_back(std::move(texture));
+		const auto error = textureValue.get_object().for_each<
+			"sampler", "source", "name", "extensions", "extras">(
+			texture.samplerIndex, texture.imageIndex, texture.name, readExtensions, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseShapes(const simdjson::dom::array& shapes, Asset& asset) {
-	using namespace simdjson;
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::SphereShape& out) {
+		return val.get_object().template for_each<"radius">(out.radius);
+	}
 
-	asset.shapes.reserve(shapes.size());
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::BoxShape& out) {
+		return val.get_object().template for_each<"size">(out.size);
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::CapsuleShape& out) {
+		return val.get_object().template for_each<"height", "radiusBottom", "radiusTop">(
+			out.height, out.radiusBottom, out.radiusTop);
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::CylinderShape& out) {
+		return val.get_object().template for_each<"height", "radiusBottom", "radiusTop">(
+			out.height, out.radiusBottom, out.radiusTop);
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::PlaneShape& out) {
+		return val.get_object().template for_each<"sizeX", "sizeZ", "doubleSided">(
+			out.sizeX, out.sizeZ, out.doubleSided);
+	}
+} // namespace simdjson
+
+fg::Error fg::Parser::parseShapes(internal::JsonArray& shapesJson, Asset& asset) {
+	using namespace simdjson;
+	auto& shapes = shapesJson.value;
+
+	if (const auto error = reserveElements(shapes, asset.shapes); error != Error::None) [[unlikely]]
+		return error;
+
 	for (auto shapeValue : shapes) {
+		const auto extras = readExtras(config, asset.shapes.size(), Category::Shapes);
+
 		auto& shape = asset.shapes.emplace_back();
 
-		dom::object shapeObject;
-		if (shapeValue.get_object().get(shapeObject) != SUCCESS) [[unlikely]] {
+		std::optional<std::string_view> type;
+		std::optional<SphereShape> sphere;
+		std::optional<BoxShape> box;
+		std::optional<CapsuleShape> capsule;
+		std::optional<CylinderShape> cylinder;
+		std::optional<PlaneShape> plane;
+
+		const auto error = shapeValue.get_object().for_each<
+			"type", "sphere", "box", "capsule",
+			"cylinder", "plane", "name", "extras">(
+			type, sphere, box, capsule,
+			cylinder, plane, shape.name, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		if (!type) [[unlikely]]
 			return Error::InvalidGltf;
-		}
 
-		std::string_view shapeTypeName;
-		if (shapeObject["type"].get_string().get(shapeTypeName) != SUCCESS) [[unlikely]] {
+		// The object with the shape's properties has to match the type.
+		const auto setShape = [&](const auto& properties, const std::string_view name) {
+			if (properties)
+				shape.data = *properties;
+			return !properties || *type == name;
+		};
+		if (!setShape(sphere, "sphere") || !setShape(box, "box") || !setShape(capsule, "capsule") ||
+			!setShape(cylinder, "cylinder") || !setShape(plane, "plane")) [[unlikely]]
 			return Error::InvalidGltf;
-		}
-
-		dom::object sphereObject;
-		if (auto error = shapeObject["sphere"].get_object().get(sphereObject); error == SUCCESS) {
-			if (shapeTypeName != "sphere") [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto& sphere = shape.data.emplace<SphereShape>();
-
-			double radius;
-			if (error = sphereObject["radius"].get_double().get(radius); error == SUCCESS) {
-				if (!toNum(radius, sphere.radius)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if(error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		} else if(error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::object boxObject;
-		if (auto error = shapeObject["box"].get_object().get(boxObject); error == SUCCESS) {
-			if (shapeTypeName != "box") [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto& box = shape.data.emplace<BoxShape>();
-
-			dom::array sizeArray;
-			if (error = boxObject["size"].get_array().get(sizeArray); error == SUCCESS) {
-				if (sizeArray.size() != 3) {
-					return Error::InvalidGltf;
-				}
-
-				auto curIndex = 0;
-				for (auto sizeNum : sizeArray) {
-					double value;
-					if (sizeNum.get_double().get(value) == SUCCESS) [[likely]] {
-						if (!toNum(value, box.size[curIndex])) [[unlikely]]
-							return Error::InvalidGltf;
-					} else {
-						return Error::InvalidGltf;
-					}
-
-					curIndex++;
-				}
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::object capsuleObject;
-		if (auto error = shapeObject["capsule"].get_object().get(capsuleObject); error == SUCCESS) {
-			if (shapeTypeName != "capsule") [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto& capsule = shape.data.emplace<CapsuleShape>();
-
-			double height;
-			if (error = capsuleObject["height"].get_double().get(height); error == SUCCESS) {
-				if (!toNum(height, capsule.height)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			double radiusBottom;
-			if (error = capsuleObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
-				if (!toNum(radiusBottom, capsule.radiusBottom)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			double radiusTop;
-			if (error = capsuleObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
-				if (!toNum(radiusTop, capsule.radiusTop)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::object cylinderObject;
-		if (auto error = shapeObject["cylinder"].get_object().get(cylinderObject); error == SUCCESS) {
-			if (shapeTypeName != "cylinder") [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto& cylinder = shape.data.emplace<CylinderShape>();
-
-			double height;
-			if (error = cylinderObject["height"].get_double().get(height); error == SUCCESS) {
-				if (!toNum(height, cylinder.height)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			double radiusBottom;
-			if (error = cylinderObject["radiusBottom"].get_double().get(radiusBottom); error == SUCCESS) {
-				if (!toNum(radiusBottom, cylinder.radiusBottom)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			double radiusTop;
-			if (error = cylinderObject["radiusTop"].get_double().get(radiusTop); error == SUCCESS) {
-				if (!toNum(radiusTop, cylinder.radiusTop)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::object planeObject;
-		if (auto error = shapeObject["plane"].get_object().get(planeObject); error == SUCCESS) {
-			if (shapeTypeName != "plane") [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto& plane = shape.data.emplace<PlaneShape>();
-
-			double sizeX;
-			if (error = planeObject["sizeX"].get_double().get(sizeX); error == SUCCESS) {
-				if (!toNum(sizeX, plane.sizeX)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			double sizeZ;
-			if (error = planeObject["sizeZ"].get_double().get(sizeZ); error == SUCCESS) {
-				if (!toNum(sizeZ, plane.sizeZ)) [[unlikely]]
-					return Error::InvalidGltf;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			bool doubleSided;
-			if (error = planeObject["doubleSided"].get_bool().get(doubleSided); error == SUCCESS) {
-				plane.doubleSided = doubleSided;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = shapeObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.shapes.size() - 1, Category::Shapes, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		}
-
-		std::string_view name;
-		if (shapeObject["name"].get_string().get(name) == SUCCESS) {
-			shape.name.assign(name);
-		}
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parsePhysicsMaterials(const simdjson::dom::array& physicsMaterials, Asset& asset) {
+fg::Error fg::Parser::parsePhysicsMaterials(internal::JsonArray& physicsMaterialsJson,
+		Asset& asset) {
 	using namespace simdjson;
+	auto& materials = physicsMaterialsJson.value;
 
-	asset.physicsMaterials.reserve(physicsMaterials.size());
-	for (auto materialValue : physicsMaterials) {
-		PhysicsMaterial& material = asset.physicsMaterials.emplace_back();
-		dom::object materialObject;
-		if (materialValue.get_object().get(materialObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+	if (const auto error = reserveElements(materials, asset.physicsMaterials);
+		error != Error::None) [[unlikely]]
+		return error;
 
-		double staticFriction;
-		if (auto error = materialObject["staticFriction"].get_double().get(staticFriction); error == SUCCESS) {
-			if (!toNum(staticFriction, material.staticFriction)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+	for (auto materialValue : materials) {
+		const auto extras = readExtras(config, asset.physicsMaterials.size(),
+			Category::PhysicsMaterials);
 
-		double dynamicFriction;
-		if (auto error = materialObject["dynamicFriction"].get_double().get(dynamicFriction); error == SUCCESS) {
-			if (!toNum(dynamicFriction, material.dynamicFriction)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+		auto& material = asset.physicsMaterials.emplace_back();
 
-		double restitution;
-		if (auto error = materialObject["restitution"].get_double().get(restitution); error == SUCCESS) {
-			if (!toNum(restitution, material.restitution)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		std::string_view frictionCombine;
-		if (auto error = materialObject["frictionCombine"].get_string().get(frictionCombine); error == SUCCESS) {
-			material.frictionCombine = internal::getCombineMode(frictionCombine);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		std::string_view restitutionCombine;
-		if (auto error = materialObject["restitutionCombine"].get_string().get(restitutionCombine); error == SUCCESS) {
-		   material.restitutionCombine = internal::getCombineMode(restitutionCombine);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = materialObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.physicsMaterials.size() - 1, Category::PhysicsMaterials, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		}
+		const auto error = materialValue.get_object().for_each<
+			"staticFriction", "dynamicFriction", "restitution",
+			"frictionCombine", "restitutionCombine", "extras">(
+			material.staticFriction, material.dynamicFriction, material.restitution,
+			material.frictionCombine, material.restitutionCombine, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parseCollisionFilters(const simdjson::dom::array& collisionFilters, Asset& asset) {
+fg::Error fg::Parser::parseCollisionFilters(internal::JsonArray& collisionFiltersJson,
+		Asset& asset) {
 	using namespace simdjson;
+	auto& filters = collisionFiltersJson.value;
 
-	asset.collisionFilters.reserve(collisionFilters.size());
-	for (auto collisionFilterValue : collisionFilters) {
-		auto& collisionFilter = asset.collisionFilters.emplace_back();
+	if (const auto error = reserveElements(filters, asset.collisionFilters);
+		error != Error::None) [[unlikely]]
+		return error;
 
-		dom::object collisionFilterObject;
-		if (collisionFilterValue.get_object().get(collisionFilterObject) != SUCCESS) [[unlikely]] {
+	for (auto filterValue : filters) {
+		const auto extras = readExtras(config, asset.collisionFilters.size(),
+			Category::CollisionFilters);
+
+		auto& filter = asset.collisionFilters.emplace_back();
+
+		std::optional<std::vector<std::string>> collideWithSystems, notCollideWithSystems;
+
+		const auto error = filterValue.get_object().for_each<
+			"collisionSystems", "collideWithSystems", "notCollideWithSystems", "extras">(
+			filter.collisionSystems, collideWithSystems, notCollideWithSystems, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
+
+		// A collision filter can't have both.
+		if (collideWithSystems && notCollideWithSystems) [[unlikely]]
 			return Error::InvalidGltf;
-		}
-
-		dom::array collisionSystems;
-		if (auto error = collisionFilterObject["collisionSystems"].get_array().get(collisionSystems); error == SUCCESS) {
-			collisionFilter.collisionSystems.reserve(collisionSystems.size());
-			for (auto systemNameValue : collisionSystems) {
-				std::string_view systemName;
-				if (systemNameValue.get_string().get(systemName) == SUCCESS) [[likely]] {
-					collisionFilter.collisionSystems.emplace_back(systemName);
-				} else {
-					return Error::InvalidGltf;
-				}
-			}
-		} else if (error != NO_SUCH_FIELD) {
-			return Error::InvalidGltf;
-		}
-
-		// A glTF isn't allowed to have both
-		if (collisionFilterObject["collideWithSystems"].error() == SUCCESS && collisionFilterObject["notCollideWithSystems"].error() == SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array collideWithSystems;
-		if (auto error = collisionFilterObject["collideWithSystems"].get_array().get(collideWithSystems); error == SUCCESS) {
-			collisionFilter.collideWithSystems.reserve(collideWithSystems.size());
-			for (auto systemNameValue : collideWithSystems) {
-				std::string_view systemName;
-				if (systemNameValue.get_string().get(systemName) == SUCCESS) [[likely]] {
-					collisionFilter.collideWithSystems.emplace_back(systemName);
-				} else {
-					return Error::InvalidGltf;
-				}
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array notCollideWithSystems;
-		if (auto error = collisionFilterObject["notCollideWithSystems"].get_array().get(notCollideWithSystems); error == SUCCESS) {
-			collisionFilter.notCollideWithSystems.reserve(notCollideWithSystems.size());
-			for (auto systemNameValue : notCollideWithSystems) {
-				std::string_view systemName;
-				if (systemNameValue.get_string().get(systemName) == SUCCESS) [[likely]] {
-					collisionFilter.notCollideWithSystems.emplace_back(systemName);
-				} else {
-					return Error::InvalidGltf;
-				}
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = collisionFilterObject["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.collisionFilters.size() - 1, Category::CollisionFilters, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		}
+		if (collideWithSystems)
+			filter.collideWithSystems = std::move(*collideWithSystems);
+		if (notCollideWithSystems)
+			filter.notCollideWithSystems = std::move(*notCollideWithSystems);
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parsePhysicsJoints(const simdjson::dom::array& physicsJoints, Asset& asset) {
+namespace fastgltf {
+	[[nodiscard]] inline simdjson::error_code parseAxes(simdjson::ondemand::value value,
+			inplace_vector<std::uint8_t, 3>& axes) noexcept {
+		simdjson::ondemand::array array;
+		if (const auto error = value.get_array().get(array); error != simdjson::SUCCESS) [[unlikely]]
+			return error;
+
+		for (auto element : array) {
+			std::uint8_t axis;
+			if (const auto error = element.get_uint8().get(axis);
+				error != simdjson::SUCCESS) [[unlikely]]
+				return error;
+			if (axes.size() == axes.max_size() || axis > 2) [[unlikely]]
+				return simdjson::INCORRECT_TYPE;
+			axes.emplace_back(axis);
+		}
+		return axes.empty() ? simdjson::INCORRECT_TYPE : simdjson::SUCCESS;
+	}
+} // namespace fastgltf
+
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::JointLimit& out) {
+		const auto readLinearAxes = [&](ondemand::value axes) {
+			return fastgltf::parseAxes(axes, out.linearAxes);
+		};
+		const auto readAngularAxes = [&](ondemand::value axes) {
+			return fastgltf::parseAxes(axes, out.angularAxes);
+		};
+
+		const auto error = val.get_object().template for_each<
+			"min", "max", "stiffness", "damping",
+			"linearAxes", "angularAxes">(
+			out.min, out.max, out.stiffness, out.damping,
+			readLinearAxes, readAngularAxes);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		// A limit has to have exactly one of these. parseAxes doesn't allow empty arrays.
+		if (out.linearAxes.empty() == out.angularAxes.empty()) [[unlikely]]
+			return INCORRECT_TYPE;
+		return SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::JointDrive& out) {
+		using namespace fastgltf;
+
+		std::optional<DriveType> type;
+		std::optional<DriveMode> mode;
+		std::optional<std::uint8_t> axis;
+		fastgltf::optional<fastgltf::num> positionTarget, stiffness, velocityTarget, damping;
+
+		const auto error = val.get_object().template for_each<
+			"type", "mode", "axis", "maxForce",
+			"positionTarget", "stiffness", "velocityTarget", "damping">(
+			type, mode, axis, out.maxForce,
+			positionTarget, stiffness, velocityTarget, damping);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!type || !mode || !axis) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		// positionTarget requires stiffness, and velocityTarget requires damping.
+		if (*axis > 2 || positionTarget.has_value() != stiffness.has_value() ||
+			velocityTarget.has_value() != damping.has_value()) [[unlikely]]
+			return INCORRECT_TYPE;
+
+		out.type = *type;
+		out.mode = *mode;
+		out.axis = *axis;
+		if (positionTarget) {
+			out.positionTarget = *positionTarget;
+			out.stiffness = *stiffness;
+		}
+		if (velocityTarget) {
+			out.velocityTarget = *velocityTarget;
+			out.damping = *damping;
+		}
+		return SUCCESS;
+	}
+} // namespace simdjson
+
+fg::Error fg::Parser::parsePhysicsJoints(internal::JsonArray& physicsJointsJson, Asset& asset) {
 	using namespace simdjson;
+	auto& joints = physicsJointsJson.value;
 
-	asset.physicsJoints.reserve(physicsJoints.size());
-	for (auto physicsJointValue : physicsJoints) {
-		auto& physicsJoint = asset.physicsJoints.emplace_back();
+	if (const auto error = reserveElements(joints, asset.physicsJoints);
+		error != Error::None) [[unlikely]]
+		return error;
 
-		dom::object physicsJointObject;
-		if (physicsJointValue.get_object().get(physicsJointObject) != SUCCESS) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
+	for (auto jointValue : joints) {
+		const auto extras = readExtras(config, asset.physicsJoints.size(),
+			Category::PhysicsJoints);
 
-		dom::array limitsArray;
-		if (physicsJointValue["limits"].get_array().get(limitsArray) == SUCCESS) {
-			physicsJoint.limits.reserve(limitsArray.size());
-			for (auto limitValue : limitsArray) {
-				auto& limit = physicsJoint.limits.emplace_back();
-				dom::object limitObject;
-				if (limitValue.get_object().get(limitObject) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
+		auto& joint = asset.physicsJoints.emplace_back();
 
-				if (limitObject["linearAxes"].error() == SUCCESS && limitObject["angularAxes"].error() == SUCCESS) [[unlikely]] {
-					// A limit may only have one of these
-					return Error::InvalidGltf;
-				}
-
-				if (limitObject["linearAxes"].error() != SUCCESS && limitObject["angularAxes"].error() != SUCCESS) [[unlikely]] {
-					// A limit MUST have one of these
-					return Error::InvalidGltf;
-				}
-
-				double limitMin;
-				if (auto error = limitObject["min"].get_double().get(limitMin); error == SUCCESS) {
-					if (!toNum(limitMin, limit.min)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double limitMax;
-				if (auto error = limitObject["max"].get_double().get(limitMax); error == SUCCESS) {
-					if (!toNum(limitMax, limit.max)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double stiffness;
-				if (auto error = limitObject["stiffness"].get_double().get(stiffness); error == SUCCESS) {
-					if (!toNum(stiffness, limit.stiffness)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double damping;
-				if (auto error = limitObject["damping"].get_double().get(damping); error == SUCCESS) {
-					if (!toNum(damping, limit.damping)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				dom::array linearAxesArray;
-				if (auto error = limitObject["linearAxes"].get_array().get(linearAxesArray); error == SUCCESS) {
-					if (linearAxesArray.size() == 0 || linearAxesArray.size() > 3)
-						return Error::InvalidGltf;
-
-					for (auto axisValue : linearAxesArray) {
-						if (limit.linearAxes.size() == limit.linearAxes.max_size()) [[unlikely]]
-							return Error::InvalidGltf;
-
-						std::uint64_t axis;
-						if (axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
-							limit.linearAxes.emplace_back(static_cast<uint8_t>(axis));
-						} else {
-							return Error::InvalidGltf;
-						}
-					}
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				dom::array angularAxesArray;
-				if (auto error = limitObject["angularAxes"].get_array().get(angularAxesArray); error == SUCCESS) {
-					if (angularAxesArray.size() == 0 || angularAxesArray.size() > 3)
-						return Error::InvalidGltf;
-
-					for (auto axisValue : angularAxesArray) {
-						if (limit.angularAxes.size() == limit.angularAxes.max_size()) [[unlikely]]
-							return Error::InvalidGltf;
-
-						std::uint64_t axis;
-						if (axisValue.get_uint64().get(axis) == SUCCESS && axis <= 2) [[likely]] {
-							limit.angularAxes.emplace_back(static_cast<uint8_t>(axis));
-						} else {
-							return Error::InvalidGltf;
-						}
-					}
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-			}
-		}
-
-		dom::array driveArray;
-		if (auto error = physicsJointValue["drives"].get_array().get(driveArray); error == SUCCESS) {
-			physicsJoint.drives.reserve(driveArray.size());
-			for (auto driveValue : driveArray) {
-				auto& drive = physicsJoint.drives.emplace_back();
-				dom::object driveObject;
-				if (driveValue.get_object().get(driveObject) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				// Type, mode, and axis are required
-
-				std::string_view type;
-				if (driveValue["type"].get_string().get(type) == SUCCESS) [[likely]] {
-					drive.type = internal::getDriveType(type);
-					if (drive.type == DriveType::Invalid) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else {
-					return Error::InvalidGltf;
-				}
-
-				std::string_view mode;
-				if (driveValue["mode"].get_string().get(mode) == SUCCESS) [[likely]] {
-					drive.mode = internal::getDriveMode(mode);
-					if (drive.mode == DriveMode::Invalid) [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else {
-					return Error::InvalidGltf;
-				}
-
-				uint64_t axis;
-				if (driveValue["axis"].get_uint64().get(axis) == SUCCESS) [[likely]] {
-					if (axis < 3) {
-						drive.axis = static_cast<uint8_t>(axis);
-					} else [[unlikely]] {
-						return Error::InvalidGltf;
-					}
-				} else {
-					return Error::InvalidGltf;
-				}
-
-				// Other fields are not required
-
-				double maxForce;
-				if (error = driveValue["maxForce"].get_double().get(maxForce); error == SUCCESS) {
-					if (!toNum(maxForce, drive.maxForce)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				// If the drive has positionTarget, it must also have stiffness
-				const auto hasPositionTarget = driveValue["positionTarget"].error() == SUCCESS;
-				const auto hasStiffness = driveValue["stiffness"].error() == SUCCESS;
-				if (hasPositionTarget != hasStiffness) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double positionTarget;
-				if (error = driveValue["positionTarget"].get_double().get(positionTarget); error == SUCCESS) {
-					if (!toNum(positionTarget, drive.positionTarget)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double stiffness;
-				if (error = driveValue["stiffness"].get_double().get(stiffness); error == SUCCESS) {
-					if (!toNum(stiffness, drive.stiffness)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				// If the drive has velocityTarget, it must also have damping
-				const auto hasVelocityTarget = driveValue["velocityTarget"].error() == SUCCESS;
-				const auto hasDamping = driveValue["damping"].error() == SUCCESS;
-				if (hasVelocityTarget != hasDamping) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double velocityTarget;
-				if (error = driveValue["velocityTarget"].get_double().get(velocityTarget); error == SUCCESS) {
-					if (!toNum(velocityTarget, drive.velocityTarget)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-
-				double damping;
-				if (error = driveValue["damping"].get_double().get(damping); error == SUCCESS) {
-					if (!toNum(damping, drive.damping)) [[unlikely]]
-						return Error::InvalidGltf;
-				} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		if (config.extrasCallback != nullptr) {
-			dom::object extrasObject;
-			if (auto extrasError = physicsJointValue["extras"].get_object().get(extrasObject); extrasError == SUCCESS) {
-				config.extrasCallback(&extrasObject, asset.physicsJoints.size() - 1, Category::PhysicsJoints, config.userPointer);
-			} else if (extrasError != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		}
+		const auto error = jointValue.get_object().for_each<"limits", "drives", "extras">(
+			joint.limits, joint.drives, extras);
+		if (error != SUCCESS) [[unlikely]]
+			return toError(error);
 	}
 
 	return Error::None;
 }
 
-fg::Error fg::Parser::parsePhysicsRigidBody(simdjson::dom::object& khr_physics_rigid_bodies, Node& node) {
-	using namespace simdjson;
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Geometry& out) {
+		return val.get_object().template for_each<"shape", "mesh", "convexHull">(
+			out.shape, out.mesh, out.convexHull);
+	}
 
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Motion& out) {
+		return val.get_object().template for_each<
+			"isKinematic", "mass", "centerOfMass", "inertiaDiagonal",
+			"inertiaOrientation", "linearVelocity", "angularVelocity", "gravityFactor">(
+			out.isKinematic, out.mass, out.centerOfMass, out.inertialDiagonal,
+			out.inertialOrientation, out.linearVelocity, out.angularVelocity, out.gravityFactor);
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Collider& out) {
+		std::optional<fastgltf::Geometry> geometry;
+
+		const auto error = val.get_object().template for_each<
+			"geometry", "physicsMaterial", "collisionFilter">(
+			geometry, out.physicsMaterial, out.collisionFilter);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!geometry) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.geometry = *geometry;
+		return SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Joint& out) {
+		fastgltf::optional<std::size_t> connectedNode, joint;
+
+		const auto error = val.get_object().template for_each<
+			"connectedNode", "joint", "enableCollision">(
+			connectedNode, joint, out.enableCollision);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (!connectedNode || !joint) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		out.connectedNode = *connectedNode;
+		out.joint = *joint;
+		return SUCCESS;
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Trigger& out) {
+		std::optional<fastgltf::Geometry> geometry;
+		std::optional<std::vector<std::size_t>> nodes;
+		fastgltf::optional<std::size_t> collisionFilter;
+
+		const auto error = val.get_object().template for_each<
+			"geometry", "nodes", "collisionFilter">(
+			geometry, nodes, collisionFilter);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+
+		if (nodes) {
+			out.emplace<fastgltf::NodeTrigger>().nodes = std::move(*nodes);
+		} else if (geometry) {
+			// Only triggers with geometry have a collision filter, otherwise the nodes' are used.
+			auto& trigger = out.emplace<fastgltf::GeometryTrigger>();
+			trigger.geometry = *geometry;
+			trigger.collisionFilter = collisionFilter;
+		} else [[unlikely]] {
+			return NO_SUCH_FIELD;
+		}
+		return SUCCESS;
+	}
+} // namespace simdjson
+
+fg::Error fg::Parser::parsePhysicsRigidBody(internal::JsonObject& rigidBodyJson, Node& node) {
+	using namespace simdjson;
 	auto& rigidBody = node.physicsRigidBody.emplace();
 
-	dom::object motionObject;
-	if (auto error = khr_physics_rigid_bodies["motion"].get_object().get(motionObject); error == SUCCESS) {
-		auto& motion = rigidBody.motion.emplace();
-
-		bool isKinematic;
-		if (error = motionObject["isKinematic"].get_bool().get(isKinematic); error == SUCCESS) {
-			motion.isKinematic = isKinematic;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		double mass;
-		if (error = motionObject["mass"].get_double().get(mass); error == SUCCESS) {
-			if (!toNum(mass, motion.mass)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array centerOfMassArray;
-		if (error = motionObject["centerOfMass"].get_array().get(centerOfMassArray); error == SUCCESS) {
-			if (centerOfMassArray.size() != 3) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto i = 0U;
-			for (auto numValue : centerOfMassArray) {
-				double val;
-				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, motion.centerOfMass[i])) [[unlikely]]
-					return Error::InvalidGltf;
-				++i;
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array inertiaDiagonalArray;
-		if (error = motionObject["inertiaDiagonal"].get_array().get(inertiaDiagonalArray); error == SUCCESS) {
-			if (inertiaDiagonalArray.size() != 3) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			math::nvec3 inertialDiagonal;
-
-			auto i = 0U;
-			for (auto numValue : inertiaDiagonalArray) {
-				double val;
-				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, inertialDiagonal[i])) [[unlikely]]
-					return Error::InvalidGltf;
-				++i;
-			}
-
-			motion.inertialDiagonal = inertialDiagonal;
-
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array inertialOrientationArray;
-		if (error = motionObject["inertiaOrientation"].get_array().get(inertialOrientationArray); error == SUCCESS) {
-			if (inertialOrientationArray.size() != 4) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			math::nvec4 inertialOrientation;
-
-			auto i = 0U;
-			for (auto numValue : inertialOrientationArray) {
-				double val;
-				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, inertialOrientation[i])) [[unlikely]]
-					return Error::InvalidGltf;
-				++i;
-			}
-
-			motion.inertialOrientation = inertialOrientation;
-
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array linearVelocityArray;
-		if (error = motionObject["linearVelocity"].get_array().get(linearVelocityArray); error == SUCCESS) {
-			if (linearVelocityArray.size() != 3) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto i = 0U;
-			for (auto numValue : linearVelocityArray) {
-				double val;
-				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, motion.linearVelocity[i])) [[unlikely]]
-					return Error::InvalidGltf;
-				++i;
-			}
-
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array angularVelocityArray;
-		if (error = motionObject["angularVelocity"].get_array().get(angularVelocityArray); error == SUCCESS) {
-			if (angularVelocityArray.size() != 3) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			auto i = 0U;
-			for (auto numValue : angularVelocityArray) {
-				double val;
-				if (numValue.get_double().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!toNum(val, motion.angularVelocity[i])) [[unlikely]]
-					return Error::InvalidGltf;
-				++i;
-			}
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		double gravityFactor;
-		if (error = motionObject["gravityFactor"].get_double().get(gravityFactor); error == SUCCESS) {
-			if (!toNum(gravityFactor, motion.gravityFactor)) [[unlikely]]
-				return Error::InvalidGltf;
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-	} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-		return Error::InvalidGltf;
-	}
-
-	dom::object colliderObject;
-	if (auto error = khr_physics_rigid_bodies["collider"].get_object().get(colliderObject); error == SUCCESS) {
-		auto& collider = rigidBody.collider.emplace();
-
-		dom::object geometryObject;
-		if (colliderObject["geometry"].get_object().get(geometryObject) == SUCCESS) [[likely]] {
-			std::uint64_t shape;
-			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) [[likely]] {
-				if (!isValidIndex(shape)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				collider.geometry.shape = static_cast<std::size_t>(shape);
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-			std::uint64_t geometryMesh;
-			if (error = geometryObject["mesh"].get_uint64().get(geometryMesh); error == SUCCESS) {
-				if (!isValidIndex(geometryMesh)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				collider.geometry.mesh = static_cast<std::size_t>(geometryMesh);
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			bool convexHull;
-			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
-				collider.geometry.convexHull = convexHull;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-		} else {
-			return Error::InvalidGltf;
-		}
-
-		std::uint64_t physicsMaterial;
-		if (error = colliderObject["physicsMaterial"].get_uint64().get(physicsMaterial); error == SUCCESS) {
-			if (!isValidIndex(physicsMaterial)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			collider.physicsMaterial = static_cast<std::size_t>(physicsMaterial);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		std::uint64_t collisionFilter;
-		if (error = colliderObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
-			if (!isValidIndex(collisionFilter)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			collider.collisionFilter = static_cast<std::size_t>(collisionFilter);
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-	} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-		return Error::InvalidGltf;
-	}
-
-	dom::object triggerObject;
-	if (auto error = khr_physics_rigid_bodies["trigger"].get_object().get(triggerObject); error == SUCCESS) {
-		dom::object geometryObject;
-		if (error = triggerObject["geometry"].get_object().get(geometryObject); error == SUCCESS) {
-			auto& geometryTrigger = rigidBody.trigger.emplace().emplace<GeometryTrigger>();
-
-			std::uint64_t shape;
-			if (error = geometryObject["shape"].get_uint64().get(shape); error == SUCCESS) [[likely]] {
-				if (!isValidIndex(shape)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				geometryTrigger.geometry.shape = static_cast<std::size_t>(shape);
-			} else if (error != NO_SUCH_FIELD) {
-				return Error::InvalidGltf;
-			}
-			std::uint64_t meshIndex;
-			if (error = geometryObject["mesh"].get_uint64().get(meshIndex); error == SUCCESS) {
-				if (!isValidIndex(meshIndex)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				geometryTrigger.geometry.mesh = static_cast<std::size_t>(meshIndex);
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-			bool convexHull;
-			if (error = geometryObject["convexHull"].get_bool().get(convexHull); error == SUCCESS) {
-				geometryTrigger.geometry.convexHull = convexHull;
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-			// The trigger can only have a collision filter if it has geometry, otherwise it defers to the nodes
-			std::uint64_t collisionFilter;
-			if (error = triggerObject["collisionFilter"].get_uint64().get(collisionFilter); error == SUCCESS) {
-				if (!isValidIndex(collisionFilter)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				geometryTrigger.collisionFilter = static_cast<std::size_t>(collisionFilter);
-			} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-				return Error::InvalidGltf;
-			}
-
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-
-		dom::array nodes;
-		if (error = triggerObject["nodes"].get_array().get(nodes); error == SUCCESS) {
-			auto& nodeTrigger = rigidBody.trigger.emplace().emplace<NodeTrigger>();
-
-			nodeTrigger.nodes.resize(nodes.size());
-			auto i = 0U;
-			for (auto num : nodes) {
-				std::uint64_t val;
-				if (num.get_uint64().get(val) != SUCCESS) [[unlikely]] {
-					return Error::InvalidGltf;
-				}
-				if (!isValidIndex(val)) [[unlikely]]
-					return Error::ValueOutOfRange;
-				nodeTrigger.nodes[i] = static_cast<std::size_t>(val);
-				++i;
-			}
-
-		} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-	} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-		return Error::InvalidGltf;
-	}
-
-	dom::object jointObject;
-	if (auto error = khr_physics_rigid_bodies["joint"].get_object().get(jointObject); error == SUCCESS) {
-		auto& joint = rigidBody.joint.emplace();
-		std::uint64_t connectedNodeId;
-		if (jointObject["connectedNode"].get_uint64().get(connectedNodeId) == SUCCESS) [[likely]] {
-			if (!isValidIndex(connectedNodeId)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			joint.connectedNode = connectedNodeId;
-		} else {
-			return Error::InvalidGltf;
-		}
-
-		std::uint64_t jointId;
-		if (jointObject["joint"].get_uint64().get(jointId) == SUCCESS) [[likely]] {
-			if (!isValidIndex(jointId)) [[unlikely]]
-				return Error::ValueOutOfRange;
-			joint.joint = static_cast<std::size_t>(jointId);
-		} else {
-			return Error::InvalidGltf;
-		}
-
-		if (error = jointObject["enableCollision"].get_bool().get(joint.enableCollision); error != SUCCESS && error != NO_SUCH_FIELD) [[unlikely]] {
-			return Error::InvalidGltf;
-		}
-	} else if (error != NO_SUCH_FIELD) [[unlikely]] {
-		return Error::InvalidGltf;
-	}
-
-	return Error::None;
+	return toError(rigidBodyJson.value.for_each<"motion", "collider", "trigger", "joint">(
+		rigidBody.motion, rigidBody.collider, rigidBody.trigger, rigidBody.joint));
 }
 
 #pragma endregion
@@ -4139,7 +2601,7 @@ fg::GltfType fg::determineGltfFileType(GltfDataGetter& data) {
 }
 
 fg::Parser::Parser(Extensions extensionsToLoad) noexcept {
-	jsonParser = std::make_unique<simdjson::dom::parser>();
+	jsonParser = std::make_unique<internal::JsonParser>();
 	config.extensions = extensionsToLoad;
 }
 
@@ -4187,12 +2649,19 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path 
 	padded_string_view view(reinterpret_cast<const std::uint8_t*>(jsonSpan.data()),
 									  data.totalSize(),
 									  data.totalSize() + SIMDJSON_PADDING);
-	dom::object root;
-	if (auto error = jsonParser->parse(view).get(root); error != SUCCESS) [[unlikely]] {
+	ondemand::document document;
+	internal::JsonObject root;
+	if (jsonParser->parser.iterate(view).get(document) != SUCCESS ||
+		document.get_object().get(root.value) != SUCCESS) [[unlikely]] {
 		return Error::InvalidJson;
 	}
 
-	return parse(root, categories);
+	auto asset = parse(root, categories);
+	if (!asset.has_error() && !document.at_end()) [[unlikely]] {
+		// ondemand does not reject trailing content by itself.
+		return Error::InvalidJson;
+	}
+	return asset;
 }
 
 fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::path _directory, Options _options, Category categories) {
@@ -4239,8 +2708,12 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 											   jsonChunk.chunkLength,
 											   jsonChunk.chunkLength + SIMDJSON_PADDING);
 
-	simdjson::dom::object root;
-	if (jsonParser->parse(jsonChunkView).get(root) != SUCCESS) [[unlikely]] {
+	// ondemand parses lazily, so the JSON chunk has to stay alive until parse() returns. GltfDataGetter
+	// guarantees this, as the binary chunk below is read through the non-padded read overload.
+	ondemand::document document;
+	internal::JsonObject root;
+	if (jsonParser->parser.iterate(jsonChunkView).get(document) != SUCCESS ||
+		document.get_object().get(root.value) != SUCCESS) [[unlikely]] {
 		return Error::InvalidJson;
 	}
 
@@ -4280,7 +2753,11 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 		}
 	}
 
-	return parse(root, categories);
+	auto asset = parse(root, categories);
+	if (!asset.has_error() && !document.at_end()) [[unlikely]] {
+		return Error::InvalidJson;
+	}
+	return asset;
 }
 
 void fg::Parser::setBufferAllocationCallback(BufferMapCallback* mapCallback, BufferUnmapCallback* unmapCallback) noexcept {

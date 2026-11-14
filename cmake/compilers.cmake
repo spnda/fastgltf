@@ -8,6 +8,11 @@ macro(fastgltf_compiler_flags TARGET)
             if (MSVC_VERSION GREATER 1929)
                 target_compile_options(${TARGET} PRIVATE /external:W0 /external:anglebrackets)
             endif()
+
+            # MSVC runs out of heap space since it doesn't limit how deep
+            # [[msvc::flatten]] with __forceinline can go, and simdjson's
+            # for_each function makes it blow up massively on MSVC
+            target_compile_definitions(${TARGET} PRIVATE "simdjson_flatten=")
         elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
             CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR
             CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
