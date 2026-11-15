@@ -1143,7 +1143,9 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		fastgltf::optional<std::size_t> sampler;
-		std::optional<AnimationPath> path;
+		// path may be any string: extensions such as KHR_animation_pointer define their own
+		// values ("pointer"). Unknown values must not make the whole asset invalid.
+		std::optional<std::string_view> path;
 
 		// When node isn't defined, the channel SHOULD be ignored. That's left to the user.
 		const auto readTarget = [&](ondemand::value target) -> error_code {
@@ -1159,7 +1161,15 @@ namespace simdjson {
 			return NO_SUCH_FIELD;
 
 		out.samplerIndex = *sampler;
-		out.path = *path;
+		if (*path == "translation") {
+			out.path = AnimationPath::Translation;
+		} else if (*path == "rotation") {
+			out.path = AnimationPath::Rotation;
+		} else if (*path == "scale") {
+			out.path = AnimationPath::Scale;
+		} else if (*path == "weights") {
+			out.path = AnimationPath::Weights;
+		}
 		return SUCCESS;
 	}
 
