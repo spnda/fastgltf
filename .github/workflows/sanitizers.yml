@@ -9,7 +9,6 @@ on:
       - '**.hpp'
       - '**.txt'
   pull_request:
-    branches: [ "main", "v*.*.x" ]
 
 env:
   BUILD_TYPE: Debug
