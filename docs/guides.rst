@@ -102,19 +102,26 @@ The following code snippet illustrates how to load glTF extras using **fastgltf*
 **fastgltf** doesn't load extras itself and also doesn't store them in the ``Asset`` data structure.
 Instead, you are expected to store any data from extras yourself in a matching data structure.
 The callback provides you with the category of the object where the ``Parser`` found extras for, and its index.
-Lastly, you have to deserialize the JSON data yourself using the ``simdjson`` API.
-You can find more information about how ``simdjson`` works and how to use it `here <https://github.com/simdjson/simdjson>`_.
+The extras are passed as the raw JSON text of the extras object, which is only valid during the callback.
+You can deserialize it with any JSON library, for example ``simdjson``, which you can find `here <https://github.com/simdjson/simdjson>`_.
 
 .. code:: c++
 
-   auto extrasCallback = [](simdjson::dom::object* extras, std::size_t objectIndex, fastgltf::Category category, void* userPointer) {
+   auto extrasCallback = [](std::string_view extras, std::size_t objectIndex, fastgltf::Category category, void* userPointer) {
        if (category != fastgltf::Category::Nodes)
            return;
        auto* nodeNames = static_cast<std::vector<std::string>*>(userPointer);
        nodeNames->resize(fastgltf::max(nodeNames->size(), objectIndex + 1));
 
+       // simdjson needs padded input, so the extras are copied into a padded_string first.
+       simdjson::ondemand::parser parser;
+       simdjson::padded_string json(extras);
+
+       // The document has to outlive every value read from it.
+       simdjson::ondemand::document document;
        std::string_view nodeName;
-       if ((*extras)["name"].get_string().get(nodeName) == simdjson::SUCCESS) {
+       if (parser.iterate(json).get(document) == simdjson::SUCCESS &&
+           document["name"].get_string().get(nodeName) == simdjson::SUCCESS) {
            (*nodeNames)[objectIndex] = std::string(nodeName);
        }
    };

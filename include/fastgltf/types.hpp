@@ -303,14 +303,12 @@ namespace fastgltf {
 
 	FASTGLTF_EXPORT enum class DriveType : std::uint8_t {
 		Linear,
-		Angular,
-		Invalid
+		Angular
 	};
 
 	FASTGLTF_EXPORT enum class DriveMode : std::uint8_t {
 		Force,
-		Acceleration,
-		Invalid
+		Acceleration
 	};
 #pragma endregion
 
@@ -430,30 +428,6 @@ namespace fastgltf {
 			AccessorType::Mat4,
 		};
 
-		/**
-		 * Gets the AccessorType by its string representation found in glTF files.
-		 */
-		[[nodiscard]] constexpr auto getAccessorType(const std::string_view accessorTypeName) noexcept {
-			switch (crc32c(accessorTypeName)) {
-				case force_consteval<crc32c("SCALAR")>:
-					return AccessorType::Scalar;
-				case force_consteval<crc32c("VEC2")>:
-					return AccessorType::Vec2;
-				case force_consteval<crc32c("VEC3")>:
-					return AccessorType::Vec3;
-				case force_consteval<crc32c("VEC4")>:
-					return AccessorType::Vec4;
-				case force_consteval<crc32c("MAT2")>:
-					return AccessorType::Mat2;
-				case force_consteval<crc32c("MAT3")>:
-					return AccessorType::Mat3;
-				case force_consteval<crc32c("MAT4")>:
-					return AccessorType::Mat4;
-				default:
-					return AccessorType::Invalid;
-			}
-		}
-
 		inline constexpr std::array<std::string_view, 7> accessorTypeNames = {
 			"SCALAR",
 			"VEC2",
@@ -556,21 +530,6 @@ namespace fastgltf {
 			}
 		}
 
-		[[nodiscard]] constexpr auto getCombineMode(const std::string_view name) noexcept {
-			switch (crc32c(name)) {
-				case force_consteval<crc32c("average")>:
-					return CombineMode::Average;
-				case force_consteval<crc32c("minimum")>:
-					return CombineMode::Minimum;
-				case force_consteval<crc32c("maximum")>:
-					return CombineMode::Maximum;
-				case force_consteval<crc32c("multiply")>:
-					return CombineMode::Multiply;
-				default:
-					return CombineMode::Invalid;
-			}
-		}
-
 		inline constexpr std::array<std::string_view, 4> frictionCombineNames {
 			"average",
 			"minimum",
@@ -582,28 +541,6 @@ namespace fastgltf {
 			static_assert(std::is_same_v<std::underlying_type_t<CombineMode>, std::uint8_t>);
 			const auto idx = to_underlying(frictionCombine) & 0x3;
 			return frictionCombineNames[idx];
-		}
-
-		[[nodiscard]] constexpr auto getDriveType(const std::string_view name) noexcept {
-			switch (crc32c(name)) {
-				case force_consteval<crc32c("linear")>:
-					return DriveType::Linear;
-				case force_consteval<crc32c("angular")>:
-					return DriveType::Angular;
-				default:
-					return DriveType::Invalid;
-			}
-		}
-
-		[[nodiscard]] constexpr auto getDriveMode(const std::string_view name) noexcept {
-			switch (crc32c(name)) {
-				case force_consteval<crc32c("force")>:
-					return DriveMode::Force;
-				case force_consteval<crc32c("acceleration")>:
-					return DriveMode::Acceleration;
-				default:
-					return DriveMode::Invalid;
-			}
 		}
 	} // namespace internal
 #pragma endregion
@@ -1158,6 +1095,8 @@ namespace fastgltf {
 		std::vector<std::size_t> nodes;
 	};
 
+	FASTGLTF_EXPORT using Trigger = std::variant<GeometryTrigger, NodeTrigger>;
+
 	FASTGLTF_EXPORT struct JointLimit {
 		/**
 		 * The linear axes to constrain (0=X, 1=Y, 2=Z)
@@ -1254,7 +1193,7 @@ namespace fastgltf {
 
 		optional<Collider> collider;
 
-		optional<std::variant<GeometryTrigger, NodeTrigger>> trigger;
+		optional<Trigger> trigger;
 
 		optional<Joint> joint;
 	};
