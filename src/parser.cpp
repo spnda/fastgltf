@@ -987,8 +987,14 @@ namespace fastgltf {
 	 * been read, since componentType and type may come after them.
 	 */
 	struct AccessorBoundsNumbers {
-		std::array<simdjson::ondemand::number, 16> numbers;
-		std::size_t size = 0;
+		// The arrays are deliberately left uninitialized: this struct is created twice per
+		// accessor, and value-initializing 16 simdjson::ondemand::number objects (which have
+		// a default member initializer) costs two ~270 byte memsets per accessor.
+		std::array<double, 16> asDouble;
+		std::array<std::int64_t, 16> asInt;
+		std::uint32_t isIntMask = 0;
+		std::uint8_t size = 0;
+		bool present = false;
 	};
 
 	[[nodiscard]] inline Error convertBounds(const AccessorBoundsNumbers& bounds,
@@ -1001,22 +1007,21 @@ namespace fastgltf {
 			out = AccessorBoundsArray(count, AccessorBoundsArray::BoundsType::float64);
 			auto* data = out->data<double>();
 			for (std::size_t i = 0; i < count; ++i)
-				data[i] = bounds.numbers[i].as_double();
+				data[i] = bounds.asDouble[i];
 			return Error::None;
 		}
 
 		out = AccessorBoundsArray(count, AccessorBoundsArray::BoundsType::int64);
 		auto* data = out->data<std::int64_t>();
 		for (std::size_t i = 0; i < count; ++i) {
-			const auto& number = bounds.numbers[i];
-			if (number.is_int64()) {
-				data[i] = number.get_int64();
+			if (bounds.isIntMask & (1u << i)) {
+				data[i] = bounds.asInt[i];
 				continue;
 			}
 
 			// Reject any values outside of the 2^63 range of std::int64_t.
 			// glTF doesn't care about integers larger than 32 bits anyway.
-			const auto value = number.as_double();
+			const auto value = bounds.asDouble[i];
 			if (!(value >= -0x1p63 && value < 0x1p63)) [[unlikely]]
 				return Error::InvalidGltf;
 			data[i] = static_cast<std::int64_t>(value);
@@ -1033,13 +1038,21 @@ namespace simdjson {
 		if (const auto error = val.get_array().get(array); error != SUCCESS) [[unlikely]]
 			return error;
 
+		out.present = true;
 		for (auto element : array) {
 			// No accessor type has more than 16 components.
-			if (out.size == out.numbers.size()) [[unlikely]]
+			if (out.size == out.asDouble.size()) [[unlikely]]
 				return INCORRECT_TYPE;
-			if (const auto error = element.get_number().get(out.numbers[out.size++]);
+			ondemand::number number;
+			if (const auto error = element.get_number().get(number);
 				error != SUCCESS) [[unlikely]]
 				return error;
+			const auto i = out.size++;
+			out.asDouble[i] = number.as_double();
+			if (number.is_int64()) {
+				out.asInt[i] = number.get_int64();
+				out.isIntMask |= 1u << i;
+			}
 		}
 		return SUCCESS;
 	}
@@ -1092,7 +1105,7 @@ fg::Error fg::Parser::parseAccessors(internal::JsonArray& accessorsJson, Asset& 
 		std::optional<ComponentType> componentType;
 		std::optional<AccessorType> type;
 		optional<std::size_t> count;
-		std::optional<AccessorBoundsNumbers> max, min;
+		AccessorBoundsNumbers max, min;
 
 		const auto error = accessorValue.get_object().for_each<
 			"bufferView", "byteOffset", "componentType", "normalized",
@@ -1122,13 +1135,13 @@ fg::Error fg::Parser::parseAccessors(internal::JsonArray& accessorsJson, Asset& 
 				isFloatingPoint(accessor.componentType))) [[unlikely]]
 			return Error::InvalidGltf;
 
-		if (max) {
-			if (const auto boundsError = convertBounds(*max, accessor, accessor.max);
+		if (max.present) {
+			if (const auto boundsError = convertBounds(max, accessor, accessor.max);
 				boundsError != Error::None) [[unlikely]]
 				return boundsError;
 		}
-		if (min) {
-			if (const auto boundsError = convertBounds(*min, accessor, accessor.min);
+		if (min.present) {
+			if (const auto boundsError = convertBounds(min, accessor, accessor.min);
 				boundsError != Error::None) [[unlikely]]
 				return boundsError;
 		}
@@ -1143,7 +1156,9 @@ namespace simdjson {
 		using namespace fastgltf;
 
 		fastgltf::optional<std::size_t> sampler;
-		std::optional<AnimationPath> path;
+		// path may be any string: extensions such as KHR_animation_pointer define their own
+		// values ("pointer"). Unknown values must not make the whole asset invalid.
+		std::optional<std::string_view> path;
 
 		// When node isn't defined, the channel SHOULD be ignored. That's left to the user.
 		const auto readTarget = [&](ondemand::value target) -> error_code {
@@ -1159,7 +1174,15 @@ namespace simdjson {
 			return NO_SUCH_FIELD;
 
 		out.samplerIndex = *sampler;
-		out.path = *path;
+		if (*path == "translation") {
+			out.path = AnimationPath::Translation;
+		} else if (*path == "rotation") {
+			out.path = AnimationPath::Rotation;
+		} else if (*path == "scale") {
+			out.path = AnimationPath::Scale;
+		} else if (*path == "weights") {
+			out.path = AnimationPath::Weights;
+		}
 		return SUCCESS;
 	}
 
