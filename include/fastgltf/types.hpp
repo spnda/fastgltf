@@ -595,18 +595,20 @@ namespace fastgltf {
 		}
 
 		void steal(AccessorBoundsArray& other) noexcept {
+			// The memcpy call gets sizeof(array) instead of _size * sizeof(element) to allow the
+			// compiler to replace the call with fixed size loads & stores
 			switch (_type) {
 				case BoundsType::int64:
 					if (_size > internal_array_size)
 						_heap_ints = std::exchange(other._heap_ints, nullptr);
 					else
-						std::memcpy(_ints, other._ints, _size * sizeof(std::int64_t));
+						std::memcpy(_ints, other._ints, sizeof(_ints));
 					break;
 				case BoundsType::float64:
 					if (_size > internal_array_size)
 						_heap_doubles = std::exchange(other._heap_doubles, nullptr);
 					else
-						std::memcpy(_doubles, other._doubles, _size * sizeof(double));
+						std::memcpy(_doubles, other._doubles, sizeof(_doubles));
 					break;
 				default:
 					FASTGLTF_UNREACHABLE
