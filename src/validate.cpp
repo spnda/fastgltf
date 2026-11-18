@@ -342,12 +342,11 @@ fg::Error fg::validate(const Asset& asset) {
 			if (!primitive.mappings.empty()) {
 				if (!isExtensionUsed(fastgltf::extensions::KHR_materials_variants))
 					return Error::InvalidGltf;
-				if (primitive.mappings.size() != asset.materialVariants.size())
-					return Error::InvalidGltf;
-				for (const auto& mapping : primitive.mappings) {
-					if (!mapping.has_value())
-						continue;
-					if (mapping.value() >= asset.materials.size())
+
+				for (const auto& [variant, material] : primitive.mappings) {
+					if (variant >= asset.materialVariants.size())
+						return Error::InvalidGltf;
+					if (material >= asset.materials.size())
 						return Error::InvalidGltf;
 				}
 			}

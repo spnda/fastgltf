@@ -1255,6 +1255,11 @@ namespace fastgltf {
 		}
 	};
 
+	FASTGLTF_EXPORT struct MaterialMapping {
+		std::size_t variantIndex;
+		std::size_t materialIndex;
+	};
+
 	FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
@@ -1267,11 +1272,10 @@ namespace fastgltf {
 		optional<std::size_t> materialIndex;
 
 		/**
-		 * Represents the mappings data from KHR_material_variants.
-		 * Use the variant index to index into this array to get the corresponding material index to use.
+		 * The mappings data from KHR_material_variants.
 		 * If this vector is empty, the normal materialIndex should be used as a fallback.
 		 */
-		std::vector<optional<std::size_t>> mappings;
+		std::vector<MaterialMapping> mappings;
 
 		boxed_optional<DracoCompressedPrimitive> dracoCompression;
 

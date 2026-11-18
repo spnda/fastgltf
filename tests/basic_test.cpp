@@ -800,8 +800,10 @@ TEST_CASE("Reject out of bounds material variant indices", "[gltf-loader]") {
 	const auto json = std::string(json_base) + index + "]}]}}}]}]}";
 
 	auto data = fastgltf::GltfDataString(json);
-	CHECK(Parser(Extensions::KHR_materials_variants)
-		.loadGltfJson(data, {}).error() == Error::InvalidGltf);
+	const auto asset = Parser(Extensions::KHR_materials_variants)
+		.loadGltfJson(data, {});
+	REQUIRE(!asset.has_error());
+	CHECK(validate(asset.get()) == Error::InvalidGltf);
 }
 
 TEST_CASE("Reject missing primitives array", "[gltf-loader]") {

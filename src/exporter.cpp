@@ -1462,19 +1462,17 @@ void fg::Exporter::impl::writeMeshes(const Asset& asset, simdjson::builder::stri
 
 					comma_separator mappingComma {builder};
 					// TODO: We should optimise to avoid writing multiple objects for the same material index
-					for (std::size_t i = 0; i < asset.materialVariants.size(); ++i) {
-						if (!itp->mappings[i].has_value())
-							continue;
+					for (const auto& [variant, material] : itp->mappings) {
 						mappingComma();
 
 						auto variant_obj = scoped_object(builder);
-						builder.append_key_value<"material">(itp->mappings[i].value());
+						builder.append_key_value<"material">(material);
 						builder.append_comma();
 						builder.escape_and_append_with_quotes<"variants">();
 						builder.append_colon();
 
 						auto arr = scoped_array(builder);
-						builder.append(i);
+						builder.append(variant);
 					}
 				}
 				if (itp->dracoCompression) {

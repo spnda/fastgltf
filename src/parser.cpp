@@ -833,22 +833,8 @@ fg::Expected<fg::Asset> fg::Parser::parse(internal::JsonObject& rootJson, Catego
 				version, minVersion, asset.assetInfo.copyright, asset.assetInfo.generator);
 		};
 
-		// Only the variants are counted here, their names are read in parseExtensions.
-		variantCount = 0;
-		const auto countVariants = [&](ondemand::value variants) -> error_code {
-			return variants.count_elements().get(variantCount);
-		};
-		const auto readMaterialVariants = [&](ondemand::value materialVariants) -> error_code {
-			return materialVariants.get_object().for_each<"variants">(countVariants);
-		};
-		const auto readExtensions = [&](ondemand::value extensions) -> error_code {
-			if (!hasBit(config.extensions, Extensions::KHR_materials_variants))
-				return SUCCESS;
-			return extensions.get_object().for_each<"KHR_materials_variants">(readMaterialVariants);
-		};
-
-		if (const auto error = root.for_each<"asset", "extensionsRequired", "extensions">(
-			readAsset, asset.extensionsRequired, readExtensions); error != SUCCESS) [[unlikely]]
+		if (const auto error = root.for_each<"asset", "extensionsRequired">(
+			readAsset, asset.extensionsRequired); error != SUCCESS) [[unlikely]]
 			return toError(error);
 
 		if (const auto error = parseAssetVersions(version, minVersion, asset.assetInfo);
@@ -960,19 +946,6 @@ fg::Expected<fg::Asset> fg::Parser::parse(internal::JsonObject& rootJson, Catego
 	if (hasBit(options, Options::GenerateMeshIndices)) {
 		if (const auto error = generateMeshIndices(asset); error != Error::None) [[unlikely]] {
 			return error;
-		}
-	}
-
-	// Resize primitive mappings to match the global variant count
-	if (hasBit(config.extensions, Extensions::KHR_materials_variants) &&
-		!asset.materialVariants.empty()) {
-		const auto variantCount = asset.materialVariants.size();
-		for (auto& mesh : asset.meshes) {
-			for (auto& primitive : mesh.primitives) {
-				if (primitive.mappings.empty() || primitive.mappings.size() == variantCount)
-					continue;
-				primitive.mappings.resize(variantCount);
-			}
 		}
 	}
 
@@ -1951,6 +1924,7 @@ fg::Error fg::Parser::parsePrimitiveExtensions(internal::JsonObject& objectJson,
 			for (auto mapping : mappings) {
 				material.reset();
 				variants.clear();
+
 				const auto error = mapping.get_object().for_each<"material", "variants">(
 					material, variants);
 				if (error != SUCCESS) [[unlikely]]
@@ -1959,10 +1933,10 @@ fg::Error fg::Parser::parsePrimitiveExtensions(internal::JsonObject& objectJson,
 					return NO_SUCH_FIELD;
 
 				for (const auto variant : variants) {
-					if (variant >= variantCount) [[unlikely]]
-						return INCORRECT_TYPE;
-					primitive.mappings.resize(max(primitive.mappings.size(), variant + 1));
-					primitive.mappings[variant] = *material;
+					primitive.mappings.emplace_back(MaterialMapping {
+						.variantIndex = variant,
+						.materialIndex = *material
+					});
 				}
 			}
 			return SUCCESS;
@@ -2657,7 +2631,6 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfJson(GltfDataGetter& data, fs::path 
 
 	options = _options;
 	directory = std::move(_directory);
-	variantCount = 0;
 	glbBuffer = std::monostate();
 
 #if !defined(__ANDROID__)
@@ -2692,7 +2665,6 @@ fg::Expected<fg::Asset> fg::Parser::loadGltfBinary(GltfDataGetter& data, fs::pat
 
 	options = _options;
 	directory = std::move(_directory);
-	variantCount = 0;
 	glbBuffer = std::monostate();
 
 #if !defined(__ANDROID__)

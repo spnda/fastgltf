@@ -658,7 +658,6 @@ namespace fastgltf {
 		ParserInternalConfig config = {};
 
 		DataSource glbBuffer;
-		std::size_t variantCount = 0;
 		std::filesystem::path directory;
 		Options options = Options::None;
 

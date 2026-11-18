@@ -497,22 +497,30 @@ TEST_CASE("Extension KHR_materials_variant", "[gltf-loader]") {
 	REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 
 	REQUIRE(asset->materialVariants.size() == 5);
-	REQUIRE(asset->materialVariants[0] == "Champagne");
-	REQUIRE(asset->materialVariants[1] == "Navy");
-	REQUIRE(asset->materialVariants[2] == "Gray");
-	REQUIRE(asset->materialVariants[3] == "Black");
-	REQUIRE(asset->materialVariants[4] == "Pale Pink");
+	CHECK(asset->materialVariants[0] == "Champagne");
+	CHECK(asset->materialVariants[1] == "Navy");
+	CHECK(asset->materialVariants[2] == "Gray");
+	CHECK(asset->materialVariants[3] == "Black");
+	CHECK(asset->materialVariants[4] == "Pale Pink");
 
 	REQUIRE(asset->meshes.size() >= 2);
 	REQUIRE(asset->meshes[1].primitives.size() == 1);
 
 	auto& primitive = asset->meshes[1].primitives[0];
 	REQUIRE(primitive.mappings.size() == 5);
-	REQUIRE(primitive.mappings[0] == 2U);
-	REQUIRE(primitive.mappings[1] == 3U);
-	REQUIRE(primitive.mappings[2] == 4U);
-	REQUIRE(primitive.mappings[3] == 5U);
-	REQUIRE(primitive.mappings[4] == 6U);
+
+	const auto checkHasMapping = [&](const std::size_t variantIndex, const std::size_t materialIndex) {
+		for (const auto& [variant, material] : primitive.mappings) {
+			if (variant == variantIndex && material == materialIndex)
+				return true;
+		}
+		return false;
+	};
+	CHECK(checkHasMapping(0, 2));
+	CHECK(checkHasMapping(1, 3));
+	CHECK(checkHasMapping(2, 4));
+	CHECK(checkHasMapping(3, 5));
+	CHECK(checkHasMapping(4, 6));
 }
 
 TEST_CASE("Extension GODOT_single_root", "[gltf-loader]") {
