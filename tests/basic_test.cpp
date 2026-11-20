@@ -768,6 +768,35 @@ TEST_CASE("Test glTF file loading", "[gltf-loader]") {
 		REQUIRE(asset.error() == fastgltf::Error::None);
 		REQUIRE(fastgltf::validate(asset.get()) == fastgltf::Error::None);
 	}
+
+	SECTION("Mapped file ending just before a page boundary") {
+		// 65535 bytes end one byte before a 4 KiB, 16 KiB, or 64 KiB page boundary. The JSON
+		// parser reads past the last string, so the mapping must provide the padding.
+		std::string json = R"({"asset":{"version":"2.0","generator":")";
+		const std::string tail = R"("}})";
+		const std::size_t fileSize = 65535;
+		const std::size_t generatorSize = fileSize - json.size() - tail.size();
+		json.append(generatorSize, 'x');
+		json += tail;
+		REQUIRE(json.size() == fileSize);
+
+		const auto path = std::filesystem::temp_directory_path() / "fastgltf_page_boundary.gltf";
+		{
+			std::ofstream file(path, std::ios::binary);
+			file.write(json.data(), static_cast<std::streamsize>(json.size()));
+		}
+
+		{
+			auto mappedFile = fastgltf::MappedGltfFile::FromPath(path);
+			REQUIRE(mappedFile.error() == fastgltf::Error::None);
+
+			fastgltf::Parser parser;
+			auto asset = parser.loadGltfJson(mappedFile.get(), path.parent_path());
+			REQUIRE(asset.error() == fastgltf::Error::None);
+			REQUIRE(asset->assetInfo.generator.size() == generatorSize);
+		}
+		std::filesystem::remove(path);
+	}
 }
 #endif
 

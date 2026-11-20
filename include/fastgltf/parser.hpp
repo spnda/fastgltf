@@ -51,6 +51,7 @@ namespace fastgltf {
 		struct JsonParser;
 		struct JsonObject;
 		struct JsonArray;
+		struct PaddedMemoryMap;
 	} // namespace internal
 
 	// clang-format off
@@ -479,10 +480,16 @@ namespace fastgltf {
 	 */
 	FASTGLTF_EXPORT class MappedGltfFile : public GltfDataGetter {
 		void* mappedFile = nullptr;
+		// simdjson's mapping is followed by zeroed padding pages.
+		std::unique_ptr<internal::PaddedMemoryMap> memoryMap;
 #if defined(_WIN32)
+		// Used when simdjson's mapping is not available on Windows.
 		// Windows requires us to keep the file handle alive. Win32 HANDLE is a void*.
 		void* fileHandle = nullptr;
 		void* fileMapping = nullptr;
+		// The view ends with the last page of the file. A padded read past it is copied into buf.
+		std::size_t mappedSize = 0;
+		static_vector<std::byte> buf;
 #endif
 		std::uint64_t fileSize = 0;
 
