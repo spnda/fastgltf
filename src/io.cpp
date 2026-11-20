@@ -24,6 +24,19 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+// simdjson only provides padded_memory_map on Windows if <windows.h> comes first.
+#include <windows.h>
+#endif
+
+#include <algorithm>
+
 #include <simdjson.h>
 
 #include <fastgltf/core.hpp>
@@ -34,8 +47,6 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#elif defined(_WIN32)
-#include <windows.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -156,8 +167,38 @@ std::size_t fg::GltfFileStream::totalSize() {
 }
 
 #if defined(FASTGLTF_HAS_MEMORY_MAPPED_FILE)
+namespace fastgltf::internal {
+#if SIMDJSON_HAS_PADDED_MEMORY_MAP
+	struct PaddedMemoryMap {
+		simdjson::padded_memory_map map;
+
+		explicit PaddedMemoryMap(const char* path) noexcept : map(path) {}
+	};
+#else
+	struct PaddedMemoryMap {};
+#endif
+} // namespace fastgltf::internal
+
 #if defined(_WIN32)
 fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
+#if SIMDJSON_HAS_PADDED_MEMORY_MAP
+	// simdjson opens the file with CreateFileA, so it only gets ASCII paths.
+	const auto& widePath = path.native();
+	if (std::all_of(widePath.begin(), widePath.end(), [](wchar_t c) { return c < 0x80; })) {
+		std::string asciiPath(widePath.size(), '\0');
+		std::transform(widePath.begin(), widePath.end(), asciiPath.begin(),
+					   [](wchar_t c) { return static_cast<char>(c); });
+		memoryMap = std::make_unique<internal::PaddedMemoryMap>(asciiPath.c_str());
+		if (memoryMap->map.is_valid()) {
+			const auto view = memoryMap->map.view();
+			mappedFile = const_cast<char*>(view.data());
+			fileSize = static_cast<std::uint64_t>(view.size());
+			return;
+		}
+		memoryMap.reset();
+	}
+#endif
+
 	// Create file with FILE_FLAG_SEQUENTIAL_SCAN flag, to match the Parser behaviour.
 	auto* file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
 							 OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
@@ -191,53 +232,45 @@ fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
 		return;
 	}
 	mappedFile = map;
+
+	SYSTEM_INFO systemInfo;
+	GetSystemInfo(&systemInfo);
+	const auto pageSize = static_cast<std::size_t>(systemInfo.dwPageSize);
+	mappedSize = (static_cast<std::size_t>(fileSize) + pageSize - 1) / pageSize * pageSize;
+}
 #else
-fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept : mappedFile(MAP_FAILED) {
-	// Open the file
-	const auto fd = open(path.c_str(), O_RDONLY, 0);
-	if (fd == -1) {
+fg::MappedGltfFile::MappedGltfFile(const fs::path& path) noexcept {
+	if (access(path.c_str(), R_OK) != 0) {
 		// TODO: Cover actual error messages using std::strerror(errno)?
 		error = Error::InvalidPath;
 		return;
 	}
 
-	// Get the file size
-	struct stat statInfo {};
-	if (fstat(fd, &statInfo) != 0) {
-		error = Error::InvalidPath;
-		close(fd);
+	// Unlike a plain mmap of the file, simdjson's mapping is followed by zeroed padding,
+	// even when the file ends just before a page boundary.
+	memoryMap = std::make_unique<internal::PaddedMemoryMap>(path.c_str());
+	if (!memoryMap->map.is_valid()) {
+		memoryMap.reset();
+		error = Error::FileBufferAllocationFailed;
 		return;
 	}
+	const auto view = memoryMap->map.view();
+	mappedFile = const_cast<char*>(view.data());
+	fileSize = static_cast<std::uint64_t>(view.size());
 
-	// Map the file
-	mappedFile = mmap(nullptr,
-					  statInfo.st_size,
-					  PROT_READ,
-					  MAP_PRIVATE,
-					  fd,
-					  0);
-	if (mappedFile != MAP_FAILED) {
-		fileSize = static_cast<std::uint64_t>(statInfo.st_size);
-
-		// Hint about map access
-		madvise(mappedFile, fileSize, MADV_SEQUENTIAL);
-	} else {
-		error = Error::FileBufferAllocationFailed;
-	}
-
-	// The file descriptor is not used for the memory mapped and is not required anymore.
-	close(fd);
-#endif
+	// Hint about map access
+	madvise(mappedFile, fileSize, MADV_SEQUENTIAL);
 }
+#endif
 
 fg::MappedGltfFile::MappedGltfFile(fastgltf::MappedGltfFile &&other) noexcept {
-#if defined(_WIN32)
 	mappedFile = std::exchange(other.mappedFile, nullptr);
+	memoryMap = std::move(other.memoryMap);
+#if defined(_WIN32)
 	fileMapping = std::exchange(other.fileMapping, nullptr);
 	fileHandle = std::exchange(other.fileHandle, nullptr);
-#else
-	// Make sure that munmap is never called when other gets destructed.
-	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
+	mappedSize = other.mappedSize;
+	buf = std::move(other.buf);
 #endif
 	fileSize = other.fileSize;
 	idx = other.idx;
@@ -246,7 +279,7 @@ fg::MappedGltfFile::MappedGltfFile(fastgltf::MappedGltfFile &&other) noexcept {
 
 fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&other) noexcept {
 #if defined(_WIN32)
-	if (mappedFile != nullptr) {
+	if (memoryMap == nullptr && mappedFile != nullptr) {
 		UnmapViewOfFile(mappedFile);
 	}
 	mappedFile = std::exchange(other.mappedFile, nullptr);
@@ -260,12 +293,12 @@ fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&oth
 		CloseHandle(fileHandle);
 	}
 	fileHandle = std::exchange(other.fileHandle, nullptr);
+	mappedSize = other.mappedSize;
+	buf = std::move(other.buf);
 #else
-	if (mappedFile != MAP_FAILED) {
-		munmap(mappedFile, fileSize);
-	}
-	mappedFile = std::exchange(other.mappedFile, MAP_FAILED);
+	mappedFile = std::exchange(other.mappedFile, nullptr);
 #endif
+	memoryMap = std::move(other.memoryMap);
 	fileSize = other.fileSize;
 	idx = other.idx;
 	error = other.error;
@@ -274,7 +307,7 @@ fg::MappedGltfFile& fg::MappedGltfFile::operator=(fastgltf::MappedGltfFile &&oth
 
 fg::MappedGltfFile::~MappedGltfFile() noexcept {
 #if defined(_WIN32)
-	if (mappedFile != nullptr) {
+	if (memoryMap == nullptr && mappedFile != nullptr) {
 		UnmapViewOfFile(mappedFile);
 	}
 	if (fileMapping != nullptr) {
@@ -282,10 +315,6 @@ fg::MappedGltfFile::~MappedGltfFile() noexcept {
 	}
 	if (fileHandle != nullptr) {
 		CloseHandle(fileHandle);
-	}
-#else
-	if (mappedFile != MAP_FAILED) {
-		munmap(mappedFile, fileSize);
 	}
 #endif
 }
@@ -295,10 +324,20 @@ void fg::MappedGltfFile::read(void *ptr, std::size_t count) {
 	idx += count;
 }
 
-std::span<std::byte> fg::MappedGltfFile::read(const std::size_t count, [[maybe_unused]] std::size_t padding) {
-	const std::span sub(static_cast<std::byte*>(mappedFile) + idx, count);
+std::span<std::byte> fg::MappedGltfFile::read(const std::size_t count, [[maybe_unused]] const std::size_t padding) {
+	auto* start = static_cast<std::byte*>(mappedFile) + idx;
 	idx += count;
-	return sub;
+#if defined(_WIN32)
+	if (memoryMap == nullptr && idx + padding > mappedSize) {
+		if (const auto n = count + padding; buf.size() < n) {
+			buf = static_vector<std::byte>(for_overwrite, n);
+		}
+		std::memcpy(buf.data(), start, count);
+		std::memset(buf.data() + count, 0, padding);
+		return { buf.data(), count };
+	}
+#endif
+	return { start, count };
 }
 
 void fg::MappedGltfFile::reset() {
