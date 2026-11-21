@@ -14,6 +14,7 @@ option(FASTGLTF_USE_STD_MODULE "Use the std module when compiling using C++ modu
 
 option(FASTGLTF_DOWNLOAD_SIMDJSON "Download simdjson if not found" ON)
 option(FASTGLTF_DOWNLOAD_SIMDUTF "Download simdutf if not found" ON)
+option(FASTGLTF_WINDOWS_MEMORY_MAP "Use simdjson's zero-copy file mapping on Windows (requires Windows 10 version 1803 and links onecore)" ON)
 option(FASTGLTF_ENABLE_INSTALL "Enables installation of library using CMake's install()" ON)
 
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastgltf" OFF)
@@ -109,6 +110,14 @@ target_link_libraries(fastgltf PRIVATE ${FASTGLTF_SIMDJSON_TARGET} ${FASTGLTF_SI
 
 if (ANDROID)
     target_link_libraries(fastgltf PRIVATE android)
+endif ()
+
+if (WIN32 AND MSVC AND NOT WINDOWS_STORE AND FASTGLTF_WINDOWS_MEMORY_MAP)
+    # simdjson::padded_memory_map uses VirtualAlloc2 and MapViewOfFile3 on Windows.
+    # Without it, MappedGltfFile copies reads that end within the padding of the last page.
+    set_source_files_properties("src/io.cpp" PROPERTIES COMPILE_DEFINITIONS
+            "SIMDJSON_ENABLE_MEMORY_FILE_MAPPING_ON_WINDOWS=1;_WIN32_WINNT=0x0A00;WINVER=0x0A00;NTDDI_VERSION=0x0A000006")
+    target_link_libraries(fastgltf PRIVATE onecore)
 endif ()
 
 # Old versions of GCC and Clang require linking with the standard filesystem library
