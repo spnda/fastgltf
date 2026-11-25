@@ -30,6 +30,7 @@
 #if !defined(FASTGLTF_MODULE)
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <numbers>
 #include <tuple>
