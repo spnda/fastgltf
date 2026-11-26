@@ -671,7 +671,7 @@ namespace fastgltf {
 
 		AccessorBoundsArray(const AccessorBoundsArray& other) = delete;
 		AccessorBoundsArray(AccessorBoundsArray&& other) noexcept
-			: _size(std::exchange(other._size, 0)), _type(other._type) {
+			: _size(std::exchange(other._size, std::uint8_t{0})), _type(other._type) {
 			steal(other);
 		}
 
@@ -680,7 +680,7 @@ namespace fastgltf {
 			if (std::addressof(other) != this) {
 				clear();
 
-				_size = std::exchange(other._size, 0);
+				_size = std::exchange(other._size, std::uint8_t{0});
 				_type = other._type;
 
 				steal(other);
