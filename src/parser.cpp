@@ -527,13 +527,13 @@ namespace fastgltf {
 			const Extensions extensions) {
 		using namespace simdjson;
 
-		const auto readScale = [&](ondemand::value scale) -> error_code {
+		const auto readScale = [&]([[maybe_unused]] ondemand::value scale) -> error_code {
 			if constexpr (std::is_same_v<Info, NormalTextureInfo>)
 				return scale.get(info.scale);
 			else
 				return SUCCESS;
 		};
-		const auto readStrength = [&](ondemand::value strength) -> error_code {
+		const auto readStrength = [&]([[maybe_unused]] ondemand::value strength) -> error_code {
 			if constexpr (std::is_same_v<Info, OcclusionTextureInfo>)
 				return strength.get(info.strength);
 			else
