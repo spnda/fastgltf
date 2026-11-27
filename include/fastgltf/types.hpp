@@ -310,6 +310,23 @@ namespace fastgltf {
 		Force,
 		Acceleration
 	};
+
+	FASTGLTF_EXPORT enum class GaussianKernel : std::uint8_t {
+		Ellipse,
+	};
+
+	FASTGLTF_EXPORT enum class ColorSpace : std::uint8_t {
+		srgb_rec709_display,
+		lin_rec709_display,
+	};
+
+	FASTGLTF_EXPORT enum class Projection : std::uint8_t {
+		Perspective,
+	};
+
+	FASTGLTF_EXPORT enum class SortingMethod : std::uint8_t {
+		CameraDistance,
+	};
 #pragma endregion
 
 #pragma region ConversionFunctions
@@ -1260,6 +1277,13 @@ namespace fastgltf {
 		std::size_t materialIndex;
 	};
 
+	FASTGLTF_EXPORT struct GaussianSplatting {
+		GaussianKernel kernel;
+		ColorSpace colorSpace;
+		Projection projection = Projection::Perspective;
+		SortingMethod sortingMethod = SortingMethod::CameraDistance;
+	};
+
 	FASTGLTF_EXPORT struct Primitive {
 		// Instead of a map, we have a list of attributes here. Each pair contains
 		// the name of the attribute and the corresponding accessor index.
@@ -1278,6 +1302,8 @@ namespace fastgltf {
 		std::vector<MaterialMapping> mappings;
 
 		boxed_optional<DracoCompressedPrimitive> dracoCompression;
+
+		optional<GaussianSplatting> gaussianSplatting;
 
 		[[nodiscard]] auto findAttribute(const std::string_view name) noexcept FASTGLTF_LIFETIMEBOUND {
 			return internal::findByName(attributes, name);

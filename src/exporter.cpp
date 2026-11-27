@@ -1467,14 +1467,17 @@ void fg::Exporter::impl::writeMeshes(const Asset& asset, simdjson::builder::stri
 					builder.append_key_value<"mode">(to_underlying(itp->type));
 				}
 
-				const bool hasExtensions = !itp->mappings.empty() || itp->dracoCompression;
+				const bool hasExtensions = !itp->mappings.empty() || itp->dracoCompression || itp->gaussianSplatting;
 				if (hasExtensions) {
 					builder.append_comma();
 					builder.escape_and_append_with_quotes<"extensions">();
 					builder.append_colon();
 					builder.start_object();
 				}
+				comma_separator comma {builder};
 				if (!itp->mappings.empty()) {
+					comma();
+
 					auto variants_obj = scoped_object<"KHR_materials_variants">(builder);
 					auto mappings = scoped_array<"mappings">(builder);
 
@@ -1494,8 +1497,7 @@ void fg::Exporter::impl::writeMeshes(const Asset& asset, simdjson::builder::stri
 					}
 				}
 				if (itp->dracoCompression) {
-					if (!itp->mappings.empty())
-						builder.append_comma();
+					comma();
 
 					auto draco_obj = scoped_object<"KHR_draco_mesh_compression">(builder);
 
@@ -1509,6 +1511,22 @@ void fg::Exporter::impl::writeMeshes(const Asset& asset, simdjson::builder::stri
 
 						builder.append_key_value(ita->name, ita->accessorIndex);
 					}
+				}
+				if (itp->gaussianSplatting) {
+					comma();
+
+					auto gauss_obj = scoped_object<"KHR_gaussian_splatting">(builder);
+
+					auto& gaussianSplatting = *itp->gaussianSplatting;
+					builder.append_key_value<"kernel">("ellipse");
+					builder.append_key_value<"colorSpace">([&] {
+						switch (gaussianSplatting.colorSpace) {
+							using enum ColorSpace;
+							default:
+							case ColorSpace::srgb_rec709_display: return "srgb_rec709_display";
+							case ColorSpace::lin_rec709_display: return "lin_rec709_display";
+						}
+					}());
 				}
 				if (hasExtensions) {
 					builder.end_object();

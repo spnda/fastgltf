@@ -1934,6 +1934,32 @@ fg::Error fg::Parser::parseMaterials(internal::JsonArray& materialsJson, Asset& 
 
 	return Error::None;
 }
+namespace simdjson {
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::GaussianKernel& out) noexcept {
+		using enum fastgltf::GaussianKernel;
+		return fastgltf::readStringEnum<"ellipse">(val, out, { Ellipse });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::ColorSpace& out) noexcept {
+		using enum fastgltf::ColorSpace;
+		return fastgltf::readStringEnum<"srgb_rec709_display", "lin_rec709_display">(
+			val, out, { srgb_rec709_display, lin_rec709_display });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::Projection& out) noexcept {
+		using enum fastgltf::Projection;
+		return fastgltf::readStringEnum<"perspective">(val, out, { Perspective });
+	}
+
+	template <typename T>
+	static error_code tag_invoke(deserialize_tag, T& val, fastgltf::SortingMethod& out) noexcept {
+		using enum fastgltf::SortingMethod;
+		return fastgltf::readStringEnum<"cameraDistance">(val, out, { CameraDistance });
+	}
+}
 
 fg::Error fg::Parser::parsePrimitiveExtensions(internal::JsonObject& objectJson,
 		Primitive& primitive) {
@@ -1997,9 +2023,30 @@ fg::Error fg::Parser::parsePrimitiveExtensions(internal::JsonObject& objectJson,
 		return SUCCESS;
 	};
 
+	const auto readGaussianSplatting = [&](ondemand::value value) -> error_code {
+		if (!hasBit(config.extensions, Extensions::KHR_gaussian_splatting))
+			return SUCCESS;
+
+		auto& gaussianSplatting = primitive.gaussianSplatting.emplace();
+		std::optional<GaussianKernel> kernel;
+		std::optional<ColorSpace> colorSpace;
+		const auto error = value.get_object().for_each
+			<"kernel", "colorSpace", "projection", "sortingMethod">(
+				kernel, colorSpace, gaussianSplatting.projection, gaussianSplatting.sortingMethod
+			);
+		if (error != SUCCESS) [[unlikely]]
+			return error;
+		if (!kernel || !colorSpace) [[unlikely]]
+			return NO_SUCH_FIELD;
+
+		gaussianSplatting.kernel = *kernel;
+		gaussianSplatting.colorSpace = *colorSpace;
+		return SUCCESS;
+	};
+
 	return toError(objectJson.value.for_each<
-		"KHR_materials_variants", "KHR_draco_mesh_compression">(
-		readVariants, readDraco));
+		"KHR_materials_variants", "KHR_draco_mesh_compression", "KHR_gaussian_splatting">(
+		readVariants, readDraco, readGaussianSplatting));
 }
 
 fg::Error fg::Parser::parsePrimitives(internal::JsonArray& meshesJson, Mesh& mesh) {

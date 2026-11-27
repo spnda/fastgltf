@@ -351,6 +351,22 @@ fg::Error fg::validate(const Asset& asset) {
 				}
 			}
 
+			if (primitive.gaussianSplatting.has_value()) {
+				if (primitive.type != PrimitiveType::Points)
+					return Error::InvalidGltf;
+
+				if (primitive.findAttribute("POSITION") == primitive.attributes.end())
+					return Error::InvalidGltf;
+				if (primitive.findAttribute("KHR_gaussian_splatting:ROTATION") == primitive.attributes.end())
+					return Error::InvalidGltf;
+				if (primitive.findAttribute("KHR_gaussian_splatting:SCALE") == primitive.attributes.end())
+					return Error::InvalidGltf;
+				if (primitive.findAttribute("KHR_gaussian_splatting:OPACITY") == primitive.attributes.end())
+					return Error::InvalidGltf;
+				if (primitive.findAttribute("KHR_gaussian_splatting:ROTATION") == primitive.attributes.end())
+					return Error::InvalidGltf;
+			}
+
 			if (primitive.indicesAccessor.has_value()) {
 				if (*primitive.indicesAccessor >= asset.accessors.size())
 					return Error::InvalidGltf;
@@ -369,10 +385,13 @@ fg::Error fg::validate(const Asset& asset) {
 
 				// The spec provides a list of attributes that it accepts and mentions that all
 				// custom attributes have to start with an underscore. We'll enforce this.
+				// Since the gaussian splatting extension attribute names can be prefixed with
+				// the extension name and a colon.
 				if (!startsWith(name, "_")) {
 					if (name != "POSITION" && name != "NORMAL" && name != "TANGENT" &&
 						!startsWith(name, "TEXCOORD_") && !startsWith(name, "COLOR_") &&
-						!startsWith(name, "JOINTS_") && !startsWith(name, "WEIGHTS_")) {
+						!startsWith(name, "JOINTS_") && !startsWith(name, "WEIGHTS_") &&
+						!startsWith(name, "KHR_gaussian_splatting:")) {
 						return Error::InvalidGltf;
 					}
 				}
@@ -469,6 +488,41 @@ fg::Error fg::validate(const Asset& asset) {
 						accessor.componentType != ComponentType::HalfFloat &&
 						accessor.componentType != ComponentType::UnsignedByte &&
 						accessor.componentType != ComponentType::UnsignedShort) {
+						return Error::InvalidGltf;
+					}
+				} else if (startsWith(name, "KHR_gaussian_splatting:ROTATION")) {
+					if (accessor.type != AccessorType::Vec4)
+						return Error::InvalidGltf;
+					if (accessor.componentType != ComponentType::Float &&
+						accessor.componentType != ComponentType::HalfFloat &&
+						accessor.componentType != ComponentType::Byte &&
+						accessor.componentType != ComponentType::Short) {
+						return Error::InvalidGltf;
+					}
+				} else if (startsWith(name, "KHR_gaussian_splatting:SCALE")) {
+					if (accessor.type != AccessorType::Vec3)
+						return Error::InvalidGltf;
+					if (accessor.componentType != ComponentType::Float &&
+						accessor.componentType != ComponentType::HalfFloat &&
+						accessor.componentType != ComponentType::UnsignedByte &&
+						accessor.componentType != ComponentType::UnsignedShort) {
+						return Error::InvalidGltf;
+					}
+				} else if (startsWith(name, "KHR_gaussian_splatting:OPACITY")) {
+					if (accessor.type != AccessorType::Scalar)
+						return Error::InvalidGltf;
+					if (accessor.componentType != ComponentType::Float &&
+						accessor.componentType != ComponentType::HalfFloat &&
+						accessor.componentType != ComponentType::UnsignedByte &&
+						accessor.componentType != ComponentType::UnsignedShort) {
+						return Error::InvalidGltf;
+					}
+				} else if (startsWith(name, "KHR_gaussian_splatting:SH_DEGREE_")) {
+					// This covers all four degress of the spherical harmonics
+					if (accessor.type != AccessorType::Vec3)
+						return Error::InvalidGltf;
+					if (accessor.componentType != ComponentType::Float &&
+						accessor.componentType != ComponentType::HalfFloat) {
 						return Error::InvalidGltf;
 					}
 				} else if (startsWith(name, "_")) {

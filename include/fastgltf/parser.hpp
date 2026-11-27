@@ -165,6 +165,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_retroreflection/README.md
 		KHR_materials_retroreflection = 1ULL << 37,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_gaussian_splatting/README.md
+		KHR_gaussian_splatting = 1ULL << 38,
 	};
 	// clang-format on
 
@@ -255,6 +258,7 @@ namespace fastgltf {
 		inline constexpr std::string_view KHR_accessor_float16 = "KHR_accessor_float16";
 		inline constexpr std::string_view KHR_accessor_float64 = "KHR_accessor_float64";
 		inline constexpr std::string_view KHR_draco_mesh_compression = "KHR_draco_mesh_compression";
+		inline constexpr std::string_view KHR_gaussian_splatting = "KHR_gaussian_splatting";
 		inline constexpr std::string_view KHR_implicit_shapes = "KHR_implicit_shapes";
 		inline constexpr std::string_view KHR_lights_punctual = "KHR_lights_punctual";
 		inline constexpr std::string_view KHR_materials_anisotropy = "KHR_materials_anisotropy";
@@ -298,6 +302,7 @@ namespace fastgltf {
 		{ extensions::KHR_accessor_float16,                     Extensions::KHR_accessor_float16 },
 		{ extensions::KHR_accessor_float64,                     Extensions::KHR_accessor_float64 },
 		{ extensions::KHR_draco_mesh_compression,               Extensions::KHR_draco_mesh_compression },
+		{ extensions::KHR_gaussian_splatting,                   Extensions::KHR_gaussian_splatting },
 		{ extensions::KHR_implicit_shapes,                      Extensions::KHR_implicit_shapes},
 		{ extensions::KHR_lights_punctual,                      Extensions::KHR_lights_punctual },
 		{ extensions::KHR_materials_anisotropy,                 Extensions::KHR_materials_anisotropy },
