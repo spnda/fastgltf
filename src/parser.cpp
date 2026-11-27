@@ -1733,6 +1733,16 @@ fg::Error fg::Parser::parseMaterialExtensions(internal::JsonObject& objectJson,
 			readTexture(iridescence.iridescenceThicknessTexture));
 	};
 
+	const auto readRetroreflection = [&](ondemand::value value) -> error_code {
+		if (!hasBit(extensions, Extensions::KHR_materials_retroreflection))
+			return SUCCESS;
+
+		auto& retroreflection = material.retroreflection.emplace();
+		return value.get_object().for_each<
+			"retroreflectionFactor", "retroreflectionTexture">(
+			retroreflection.retroreflectionFactor, readTexture(retroreflection.retroreflectionTexture));
+	};
+
 	const auto readDiffuseTransmission = [&](ondemand::value value) -> error_code {
 		if (!hasBit(extensions, Extensions::KHR_materials_diffuse_transmission))
 			return SUCCESS;
@@ -1840,17 +1850,37 @@ fg::Error fg::Parser::parseMaterialExtensions(internal::JsonObject& objectJson,
 	};
 
 	return toError(objectJson.value.for_each<
-		"KHR_materials_anisotropy", "KHR_materials_clearcoat", "KHR_materials_dispersion",
-		"KHR_materials_emissive_strength", "KHR_materials_ior", "KHR_materials_iridescence",
-		"KHR_materials_diffuse_transmission", "KHR_materials_sheen", "KHR_materials_specular",
-		"KHR_materials_transmission", "KHR_materials_unlit", "KHR_materials_volume",
-		"MSFT_packing_normalRoughnessMetallic", "MSFT_packing_occlusionRoughnessMetallic",
+		"KHR_materials_anisotropy",
+		"KHR_materials_clearcoat",
+		"KHR_materials_dispersion",
+		"KHR_materials_emissive_strength",
+		"KHR_materials_ior",
+		"KHR_materials_iridescence",
+		"KHR_materials_retroreflection",
+		"KHR_materials_diffuse_transmission",
+		"KHR_materials_sheen",
+		"KHR_materials_specular",
+		"KHR_materials_transmission",
+		"KHR_materials_unlit",
+		"KHR_materials_volume",
+		"MSFT_packing_normalRoughnessMetallic",
+		"MSFT_packing_occlusionRoughnessMetallic",
 		"KHR_materials_pbrSpecularGlossiness">(
-		readAnisotropy, readClearcoat, readDispersion,
-		readEmissiveStrength, readIor, readIridescence,
-		readDiffuseTransmission, readSheen, readSpecular,
-		readTransmission, readUnlit, readVolume,
-		readPackedNormal, readPackedOcclusion,
+		readAnisotropy,
+		readClearcoat,
+		readDispersion,
+		readEmissiveStrength,
+		readIor,
+		readIridescence,
+		readRetroreflection,
+		readDiffuseTransmission,
+		readSheen,
+		readSpecular,
+		readTransmission,
+		readUnlit,
+		readVolume,
+		readPackedNormal,
+		readPackedOcclusion,
 		readSpecularGlossiness));
 }
 

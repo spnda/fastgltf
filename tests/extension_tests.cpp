@@ -893,3 +893,22 @@ TEST_CASE("Extension KHR_node_hoverability", "[gltf-loader]") {
 	REQUIRE(asset->nodes[1].hoverable);
 	REQUIRE(!asset->nodes[2].hoverable);
 }
+
+TEST_CASE("Extension KHR_materials_retroreflection", "[gltf-loader]") {
+	auto trafficCone = sampleAssets / "Models" / "TrafficCone" / "glTF";
+	fastgltf::GltfFileStream jsonData(trafficCone / "TrafficCone.gltf");
+	REQUIRE(jsonData.isOpen());
+
+	auto asset = fastgltf::Parser(fastgltf::Extensions::KHR_materials_retroreflection)
+		.loadGltfJson(jsonData, trafficCone);
+	REQUIRE(asset.has_value());
+	CHECK(fastgltf::validate(asset.get()) == fastgltf::Error::None);
+
+	REQUIRE(asset->materials.size() >= 2);
+	auto& mat = asset->materials[1];
+	REQUIRE(mat.retroreflection.has_value());
+	CHECK(mat.retroreflection->retroreflectionFactor == 1.0);
+	REQUIRE(mat.retroreflection->retroreflectionTexture.has_value());
+	CHECK(mat.retroreflection->retroreflectionTexture->textureIndex == 6);
+	CHECK(mat.retroreflection->retroreflectionTexture->texCoordIndex == 0);
+}

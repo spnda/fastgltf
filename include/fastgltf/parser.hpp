@@ -162,6 +162,9 @@ namespace fastgltf {
 
 		// See https://github.com/KhronosGroup/glTF/pull/2397
 		KHR_accessor_float16 = 1ULL << 36,
+
+		// See https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_retroreflection/README.md
+		KHR_materials_retroreflection = 1ULL << 37,
 	};
 	// clang-format on
 
@@ -261,6 +264,7 @@ namespace fastgltf {
 		inline constexpr std::string_view KHR_materials_emissive_strength = "KHR_materials_emissive_strength";
 		inline constexpr std::string_view KHR_materials_ior = "KHR_materials_ior";
 		inline constexpr std::string_view KHR_materials_iridescence = "KHR_materials_iridescence";
+		inline constexpr std::string_view KHR_materials_retroreflection = "KHR_materials_retroreflection";
 		inline constexpr std::string_view KHR_materials_pbrSpecularGlossiness = "KHR_materials_pbrSpecularGlossiness";
 		inline constexpr std::string_view KHR_materials_sheen = "KHR_materials_sheen";
 		inline constexpr std::string_view KHR_materials_specular = "KHR_materials_specular";
@@ -303,6 +307,7 @@ namespace fastgltf {
 		{ extensions::KHR_materials_emissive_strength,          Extensions::KHR_materials_emissive_strength },
 		{ extensions::KHR_materials_ior,                        Extensions::KHR_materials_ior },
 		{ extensions::KHR_materials_iridescence,                Extensions::KHR_materials_iridescence },
+		{ extensions::KHR_materials_retroreflection,            Extensions::KHR_materials_retroreflection },
 		{ extensions::KHR_materials_pbrSpecularGlossiness,      Extensions::KHR_materials_pbrSpecularGlossiness },
 		{ extensions::KHR_materials_sheen,                      Extensions::KHR_materials_sheen },
 		{ extensions::KHR_materials_specular,                   Extensions::KHR_materials_specular },

@@ -1470,10 +1470,16 @@ namespace fastgltf {
 		num glossinessFactor = 1.0f;
 		optional<TextureInfo> specularGlossinessTexture;
 	};
+
 	FASTGLTF_EXPORT struct MaterialPackedTextures {
 		optional<TextureInfo> occlusionRoughnessMetallicTexture;
 		optional<TextureInfo> roughnessMetallicOcclusionTexture;
 		optional<TextureInfo> normalTexture;
+	};
+
+	FASTGLTF_EXPORT struct MaterialRetroreflection {
+		num retroreflectionFactor = 0.0f;
+		optional<TextureInfo> retroreflectionTexture;
 	};
 
 	FASTGLTF_EXPORT struct Material {
@@ -1544,6 +1550,11 @@ namespace fastgltf {
 		 * Iridescence information from KHR_materials_iridescence.
 		 */
 		boxed_optional<MaterialIridescence> iridescence;
+
+		/**
+		 * Retroflection information from KHR_materials_retroreflection.
+		 */
+		boxed_optional<MaterialRetroreflection> retroreflection;
 
 		boxed_optional<MaterialSheen> sheen;
 

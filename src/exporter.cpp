@@ -1106,6 +1106,24 @@ void fg::Exporter::impl::writeMaterialExtensions(const Material &material, simdj
 		}
 	}
 
+	if (material.retroreflection) {
+		extensions_comma();
+
+		auto retroflection_obj = scoped_object<"KHR_materials_retroreflection">(builder);
+
+		comma_separator comma { builder };
+		if (material.retroreflection->retroreflectionFactor != 0.0f) {
+			comma();
+			builder.append_key_value<"retroreflectionFactor">(
+				material.retroreflection->retroreflectionFactor);
+		}
+		if (material.retroreflection->retroreflectionTexture.has_value()) {
+			comma();
+			append_texture_info<"retroflectionTexture">(
+				builder, &material.retroreflection->retroreflectionTexture.value());
+		}
+	}
+
 	if (material.sheen) {
 		extensions_comma();
 
